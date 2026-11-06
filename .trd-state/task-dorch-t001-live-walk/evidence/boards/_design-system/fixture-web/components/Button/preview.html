@@ -1,0 +1,13 @@
+<!-- @dsCard group="Actions" height=96 subtitle="primary and secondary" -->
+<!doctype html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:16px;background:#fff">
+<div id="root" style="display:flex;gap:12px;align-items:center"></div>
+<script>
+  var B = window.FixtureWeb.Button, h = window.React.createElement;
+  window.ReactDOM.createRoot(document.getElementById('root')).render([
+    h(B, { key: 'p' }, 'See trips'),
+    h(B, { key: 's', variant: 'secondary' }, 'Sign out')
+  ]);
+</script>
+</body></html>

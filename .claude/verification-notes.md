@@ -1164,3 +1164,50 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 
 - [ran] A "no shipped text names X" search must separate shipped files from `*.test.js`: the new tests contain `/forge|orchestrator/i` as negative assertions, so a repo-wide grep of added lines hits them and reads as a failure. `git diff main -- packages/core .claude ':!*.test.js'` filtered with grep -E '^\+' gave 572 shipped added lines and zero matches. The artifact must print an explicit verdict line (a locator such as `NO MATCHES IN SHIPPED ADDED LINES`), because a bare empty grep leaves nothing to locate.
 - [ran] `git diff main...HEAD` omits uncommitted work; use `git diff main -- <paths>` to include the working tree.
+
+## Exercising design-quality FS-41..FS-45 (2026-11-06, iteration 1)
+
+- [ran] `node test/design-critique-corpus/replay.js --runs N --out <file>` calls `claude -p` per frame per run; to see the report shape without model calls, put a stub `claude` shell script (prints `{"result":"{\"scores\":{...}}"}`) first on PATH. The real corpus is all `poor` (8 frames, no `dimensions`), so Agreement prints "not computable" and the exit code is 0 with no pass/fail word; the stub run is a substitution and the artifact says so.
+- [ran] `scaffold-project.sh --plugin-dir <abs packages/full> <dir>` into a fresh `git init` dir leaves zero `*playwright*` entries and no `node_modules` under `.claude/`; `design-render.js` resolves Playwright through `resolveTool` (project, then global npm root).
+- [ran] `publishArtifacts: true` is in all three shipped settings files and `scaffold-project.sh:1599` backfills it with `setdefault`; no command text defaults it otherwise (commands say "unless it is false").
+
+## Exercising design-quality FS-1..FS-8 (2026-11-06, iteration 1)
+
+- [ran] `design-map.js setup --dir <p>` compares `<p>/.claude/rules/design.md` with `<p>/.claude/skills/design-setup/template.md`; a fixture lacking that template copy reports `"filled"` even for a template-identical design.md. Copy the template there first to get `"unfilled"`.
+- [ran] `design-map.js direction` finds `available_packs` by the `style-pack-` folder prefix under `.claude/skills`, not by the `design` role in `framework-skills.txt`; a project-added pack shows up with no list entry.
+- [read] This repo's own `.claude/rules/design.md` (owner file) still has a "Competitor references" line; the shipped template (`packages/skills/design-setup/template.md`) does not.
+
+## Exercising design-quality FS-17..FS-24 (2026-11-06, iteration 1)
+
+- [ran] These criteria are provable without a live `claude` session: `npx jest packages/core/workflows/create-design.test.js packages/core/workflows/audit-design.test.js packages/core/lib/design-render.test.js packages/core/commands/{create,refine,audit}-design-prose.test.js --verbose` is 205 tests, ~16s, Chromium present. Prompt-text criteria (reuse, latitude, critique) are pinned by those tests reading the assembled agent prompts; none runs a model.
+- [ran] A seeded-fault measure run needs no jest: a scratchpad node script that builds `docs/ui/x/{design-map.json,canvas/project/*.dc.html}` in a temp dir from `packages/core/lib/__fixtures__/design/measure-*.dc.html`, then calls `require('packages/core/lib/design-render.js').render({dir, runtime: packages/core/lib/dc-runtime.js, out, offline: true, repo, floor: {contrast: 4.5, target: 44}})` from the project root. Write `tokens.json` as `{color:{tokens:[{name,value}]}}` under `docs/ui/_design-system/<folder>/` or fidelity reports `not-measured`.
+- [read] A render measure carries board, state, check, verdict, value, count, element; no viewport field. The viewport is the board's own map entry, so a finding names the board and state and reaches the viewport only via the board id and frame png. Judge question for FS-24.
+- [read] `packages/skills/design-setup/SKILL.md` has no reuse default text (line 51 only lists "reuse" as a §4 topic); the reuse wording is in the `design.md` template line 42. Repo's own `.claude/rules/design.md` (owner-governed) still says "an existing view beats a new one".
+
+## Exercising design-quality FS-9..FS-16 (2026-11-06, iteration 1)
+
+- [ran] `design-map.js direction()` resolves a style pack from the first of `.claude/skills`, `packages/skills` that holds ANY `style-pack-*` folder, so a project-added pack in `.claude/skills` hides the shipped ones in `packages/skills`; a fixture must copy the six shipped packs beside the added one (driver: `.trd-state/design-quality/evidence/exerciser-fs9-11-driver.js`).
+- [ran] In a template-based `design.md` fixture, fill a direction row with a per-line `\|\s*\|\s*$` replace; a greedy `[^\n]*\|` regex swallows the last pipe and leaves the field blank (pack reads `missing`/null).
+- [ran] FS-16 needs no service: `node .claude/lib/design-render.js render --dir .trd-state/task-dorch-t001-live-walk/evidence/boards/trips-refresh --out <scratch>` gives `errors` keys for exactly 01-home, 04-trips and the four as-is boards ("the runtime booted but mounted nothing"); 02-home and 03-trips are absent from `errors`. Playwright resolves from this repo's node_modules.
+- [ran] Capturing real prompts: `readScript`/`runWorkflow`/`makeAgentStub` from `packages/core/workflows/test-harness.js` with real `frontend-design` and pack text shows each of `asis:`, `parts`, `tobe:`, `fix` prompts carrying both; `/refine-design` has no workflow, so its redraw is prose-only (refine-design.md line 129).
+- [inferred] No live headless `/create-design` with `publishArtifacts` true/false was run this pass (about 16 min each); FS-12/FS-13 rest on prose plus unit tests.
+
+## Exercising design-quality critique criteria (FS-25..FS-32, 2026-11-06, iteration 1)
+
+- [ran] The workflow scripts (`create-design.js`, `audit-design.js`) run under `packages/core/workflows/test-harness.js` (`readScript`, `runWorkflow`, `makeAgentStub`, `makeParallelStub`) from a plain `node` script run at the repo root; stub the `visual:*` / `verify:visual-*` labels to feed scores and read `agent.calls` for the assembled prompts. Driver: `.trd-state/design-quality/evidence/dq-harness.js`.
+- [ran] `design-render.js` needs `runtime` = `packages/core/lib/dc-runtime.js` (the pinned runtime moved out of `__fixtures__/design/` in this branch; the old fixture path now throws "runtime not found"). Floor/no-floor measure demo: `.trd-state/design-quality/evidence/fs25-run.js`.
+- [ran] `design-map.js direction --dir <project> [--style <pack>]` needs a project with `.claude/rules/design.md` plus `packages/skills/style-pack-*/SKILL.md`; it only reads, design.md hash unchanged.
+- [ran] The create-design visual critic prompt carries the rubric but NOT the DESIGN DIRECTION / STYLE PACK blocks (those sit in the draw-context block only), while audit-design's critic prompt carries all three. Also create-design's score schema has no `reason`/`frames` and no dimension enum (audit-design's does). Recorded for the judge, not resolved.
+
+## Exercising design-quality explore/critique/corpus (FS-33..FS-40, 2026-11-06)
+
+- [ran] The explore and critique criteria are exercisable without a model: load `packages/core/workflows/create-design.js` with `readScript`/`runWorkflow`/`makeAgentStub` from `test-harness.js`, run `stage: "draw"` with `explore: true` and one screen, and print the `direction:`, `rank:` and `visual:` prompts and `result.explore`. The stub only proves what the prompts tell agents to do, not what a real agent draws.
+- [ran] `node test/design-critique-corpus/replay.js --runs 2 --out <file>` runs for real (8 frames x 2 `claude -p` calls, a few minutes, exit 0). With every label `poor` and no `dimensions`, it prints "Agreement: not computable" and per-dimension "not computable"; it does print per-frame spread.
+- [read] The unattended `OD-n` explore record is command prose only (`create-design.md` "Explore choice", pinned by `create-design-prose.test.js`); no fixture run writes a `brief.md`.
+
+## Exercising design-quality, iteration 2 recapture (2026-11-06)
+
+- [ran] A locator must sit on ONE physical line of the artifact: emit evidence as one `FSnn <fact>` line per fact (script output), not copied wrapped prose; a phrase split across a wrap (FS-44's "never shipped in `.claude/`") reads `locator-not-found` although the property holds.
+- [ran] Source edited by Debug after iteration 1 (uncommitted, mtime 09:52-09:54) closed six gaps; old evidence describes pre-fix code, so every criterion was recaptured into `it2-*` files. The workflow harness (`.trd-state/design-quality/evidence/it2-harness.js`, helpers from `packages/core/workflows/test-harness.js`) shows create-design's critic now carries direction, pack and the ten-dimension schema.
+- [ran] `node test/design-critique-corpus/replay.js --runs 2 --out <file>` takes about 5-8 minutes live (16 `claude -p` calls) and now prints `Agreement by band` (works on an all-poor set); run it in the background and wait with an `until grep -q '^exit'` loop.
+- [ran] A live render needs the scratch design under `os.tmpdir()` plus `render.render({dir, runtime: packages/core/lib/dc-runtime.js, out, offline: true, repo, floor})` run from the project root; each measure and frame now carries `viewport` (`WxH`).

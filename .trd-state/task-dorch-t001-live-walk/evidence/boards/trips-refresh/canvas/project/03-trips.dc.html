@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/fixture-web/components/bundle.css">
+<script src="ds/fixture-web/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+/* The page chrome (src/main.jsx:60-66) is a view local to the app, not an importable component, so the shell
+   and nav are drawn with the same markup and values (mx-auto max-w-md space-y-4 p-4; text-ink; nav text-brand).
+   bundle.css carries only the classes the components use, so those few utilities are written out inline below. */
+body { margin: 0; background: #fff; font-family: ui-sans-serif, system-ui, sans-serif; }
+a { color: #2f5bd2; text-decoration: none; }
+</style>
+</helmet>
+<main style="box-sizing: border-box; width: 100%; max-width: 28rem; margin: 0 auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; color: #1b1f2a">
+  <!-- BI-10: shared page chrome, unchanged from src/main.jsx. Known gap, not drawn as changed (brief "Not in this design"):
+     these links are about 24 px tall, under the 44 px touch floor (grounding/standards.md). Owner decision. -->
+  <nav style="display: flex; gap: 1rem">
+    <a href="/">Home</a>
+    <a href="/trips">trips</a>
+    <a href="/settings">settings</a>
+  </nav>
+  <x-import component-from-global-scope="FixtureWeb.Card" title="Trips">
+    <sc-if value="{{isLoading}}" hint-placeholder-val="{{false}}">
+      <p role="status" style="margin: 0">Loading trips...</p>
+    </sc-if>
+    <sc-if value="{{isError}}" hint-placeholder-val="{{false}}">
+      <p role="alert" style="margin: 0">Couldn't load trips.</p>
+    </sc-if>
+    <sc-if value="{{isEmpty}}" hint-placeholder-val="{{false}}">
+      <p style="margin: 0">No trips yet.</p>
+    </sc-if>
+    <sc-if value="{{hasTrips}}" hint-placeholder-val="{{true}}">
+      <!-- OD-1 answered "Compact table (one row per trip)": a native table, no new component. Chip stays the name (S3);
+           the S4 text "<startDate> · <nights> nights" is the second cell, beside the name and wrapping at 390 (BI-8). -->
+      <table style="width: 100%; border-collapse: collapse; text-align: left">
+        <caption style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Your trips</caption>
+        <thead>
+          <tr>
+            <th scope="col" style="padding: 0 12px 8px 0; font-size: 12px; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0">Trip</th>
+            <th scope="col" style="padding: 0 0 8px; font-size: 12px; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0">Starts</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{trips}}" as="trip" hint-placeholder-count="3">
+            <tr>
+              <th scope="row" style="padding: 8px 12px 8px 0; font-weight: normal; vertical-align: top; border-bottom: 1px solid #e2e8f0">
+                <x-import component-from-global-scope="FixtureWeb.Chip">{{trip.name}}</x-import>
+              </th>
+              <td style="padding: 8px 0; vertical-align: top; overflow-wrap: anywhere; border-bottom: 1px solid #e2e8f0">{{trip.when}}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </sc-if>
+    <sc-if value="{{isMany}}" hint-placeholder-val="{{false}}">
+      <p style="margin: 12px 0 0; font-size: 12px; color: #475569">Illustrative: ten invented trips to show the Card simply lengthens. No pagination exists in the code.</p>
+    </sc-if>
+  </x-import>
+</main>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"loading":{"editor":"boolean","type":"boolean","default":false,"section":"State"},"empty":{"editor":"boolean","type":"boolean","default":false,"section":"State"},"error":{"editor":"boolean","type":"boolean","default":false,"section":"State"},"many":{"editor":"boolean","type":"boolean","default":false,"section":"State"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // Fixture data is public/api/trips.json; the dates are raw ISO strings, as the code prints them.
+    const base = [
+      { name: 'Lisbon', startDate: '2026-12-04', nights: 5 },
+      { name: 'Osaka', startDate: '2027-02-11', nights: 8 },
+      { name: 'Quito', startDate: '2027-04-02', nights: 6 }
+    ];
+    // "Many trips" is illustrative only: invented names, never real data.
+    const extra = [
+      { name: 'Reykjavik', startDate: '2027-05-09', nights: 4 },
+      { name: 'Hanoi', startDate: '2027-06-18', nights: 9 },
+      { name: 'Cusco', startDate: '2027-07-22', nights: 7 },
+      { name: 'Tbilisi', startDate: '2027-09-03', nights: 5 },
+      { name: 'Oaxaca', startDate: '2027-10-14', nights: 6 },
+      { name: 'Split', startDate: '2027-11-05', nights: 3 },
+      { name: 'Kyoto', startDate: '2027-12-12', nights: 10 }
+    ];
+    // Precedence when several tweaks are on: loading, then error, then empty, then the list.
+    const loading = !!this.props.loading;
+    const error = !loading && !!this.props.error;
+    const empty = !loading && !error && !!this.props.empty;
+    const hasTrips = !loading && !error && !empty;
+    const many = hasTrips && !!this.props.many;
+    const source = many ? base.concat(extra) : base;
+    return {
+      isLoading: loading,
+      isError: error,
+      isEmpty: empty,
+      hasTrips: hasTrips,
+      isMany: many,
+      trips: source.map((t) => ({ name: t.name, when: t.startDate + ' · ' + t.nights + ' nights' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

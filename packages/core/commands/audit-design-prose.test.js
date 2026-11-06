@@ -61,4 +61,22 @@ describe('audit-design command prose', () => {
     expect(text).toContain('COMMAND COMPLETE: /audit-design');
     expect(text).toContain('notify-complete.sh "audit-design"');
   });
+
+  test('visual critique (DQ-B008): the visual verifier, direction step, new args, scores section, no runtime', () => {
+    expect(text).toMatch(/\| `visual` \|/);
+    expect(text).not.toMatch(/\| `render` \|/);
+    expect(text).not.toMatch(/Save the render runtime|runtime: "<pinned/);
+    expect(text).toMatch(/design-map\.js direction`,\s*adding `--style <name>` when [^ ]*brief\.md` has a `\*\*Style pack:\*\*` line/);
+    expect(text).toMatch(/direction: <the direction result>, stylePack: [^,]*, rubric: [^,]*, floor:/);
+    expect(text).toContain('VISUAL FINDINGS');
+    const readout = text.indexOf('<the readout, verbatim as printed below>');
+    const scores = text.indexOf('## Visual critique scores', readout);
+    expect(scores).toBeGreaterThan(readout);
+    expect(text.indexOf('## Could Not Verify', scores)).toBeGreaterThan(scores);
+  });
+
+  test('the report and the scratch frames stay outside docs/ui/', () => {
+    expect(text).toMatch(/never under `docs\/ui\/<slug>\/`, and the scratch frames stay out of the tree/);
+    expect(text).toMatch(/never `screens\/png\/` or anywhere under `docs\/ui\/<slug>\/`/);
+  });
 });

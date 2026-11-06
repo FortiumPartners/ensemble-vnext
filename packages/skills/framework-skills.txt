@@ -1,4 +1,5 @@
-# name                      role     (check = selectable as a verification check; support = shipped only)
+# name                      role     (check = selectable as a verification check; support = shipped only;
+#                                     design = a craft skill or style pack the design commands read)
 verify-design-comparison    check
 verify-flow-as-built        check
 verify-data-fidelity        check
@@ -7,3 +8,10 @@ verification-setup          support
 design-setup                support
 designing-on-canvas         support
 design-grounding            support
+frontend-design           design
+style-pack-clean-product    design
+style-pack-dense-enterprise design
+style-pack-expressive-editorial design
+style-pack-playful-consumer design
+style-pack-modern-consumer  design
+style-pack-modern-b2b-saas  design

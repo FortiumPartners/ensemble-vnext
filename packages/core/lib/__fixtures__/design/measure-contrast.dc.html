@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Contrast board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="width: 320px; height: 200px; box-sizing: border-box; padding: 8px; background: #ffffff; color: #111111; font-family: monospace">
+<p style="margin:0;color:#aaaaaa">one</p><p style="margin:0;color:#aaaaaa">two</p><p style="margin:0;color:#aaaaaa">three</p>
+<p style="margin:0;color:#aaaaaa">four</p><p style="margin:0;color:#aaaaaa">five</p><p style="margin:0;color:#aaaaaa">six</p>
+<p style="margin:0;color:#aaaaaa">seven</p><p style="margin:0;color:#aaaaaa">eight</p><p style="margin:0;color:#aaaaaa">nine</p>
+<p style="margin:0;color:#aaaaaa">ten</p>
+<p style="margin:0;color:#111111">dark text</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":200}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

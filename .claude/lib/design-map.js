@@ -13,9 +13,9 @@
  * argument array, never a shell string.
  *
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1):
- *   node .claude/lib/design-map.js <read|validate|refresh|transition|stale|approved|buildable|held|unsynced|setup|approve>
+ *   node .claude/lib/design-map.js <read|validate|refresh|transition|stale|approved|buildable|held|unsynced|setup|direction|approve>
  *     --dir docs/ui/<slug> [--ids a,b] [--items S1,S2] [--to <status>] [--commit <sha>] [--trd <path>] [--record]
- *     approve: --ids a,b [--commit <sha>] [--runtime <path>] [--reapprove] [--message <text>]
+ *     approve: --ids a,b [--commit <sha>] [--runtime <path>, default the pinned runtime] [--reapprove] [--message <text>]
  *   node .claude/lib/design-map.js buildable --dir docs/ui/<slug> --items S2,S3 [--ids a,b]
  *     --items: boards that serve those brief items, as { boards, unmatched, held }; an item no returned
  *     board serves is listed in `unmatched` with the boards that record it; an empty value is an error.
@@ -27,6 +27,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const { frameworkSkillRoles, SKILL_DIRS } = require('./fix-audit');
 const { spawnSync } = require('child_process');
 
 const MAP_FILE = 'design-map.json';
@@ -36,6 +38,13 @@ const REQUIRED_BOARD_FIELDS = ['id', 'file', 'kind', 'platform', 'viewport', 'st
 const DEFAULT_MIRROR_DIR = 'canvas/project';
 const DESIGN_RULES = path.join('.claude', 'rules', 'design.md');
 const DESIGN_TEMPLATE = path.join('.claude', 'skills', 'design-setup', 'template.md');
+// sha256 of each previously shipped design.md template, normalised as setup() does. A project that
+// never ran /design-setup holds an older template; without these it would read as `filled` once
+// the template changes (D6). Append the outgoing template's hash whenever the template changes.
+const PRIOR_TEMPLATE_HASHES = [
+  '6a89c44e9481dabcb0646be3e6a4687b72b4b83544d7b2dc39353337178b0496', // before §5 Design direction
+];
+const normText = (s) => s.replace(/\r\n/g, '\n').trim();
 
 const mapPath = (dir) => path.join(dir, MAP_FILE);
 
@@ -361,7 +370,7 @@ function unsyncedAll(root, { trd } = {}) {
 
 /** 'missing' | 'unfilled' | 'filled' for the project's design.md (D9). */
 function setup(projectDir) {
-  const norm = (s) => s.replace(/\r\n/g, '\n').trim();
+  const norm = normText;
   let content;
   try {
     content = fs.readFileSync(path.join(projectDir, DESIGN_RULES), 'utf8');
@@ -369,6 +378,8 @@ function setup(projectDir) {
     if (e.code === 'ENOENT') return 'missing';
     throw e;
   }
+  const hash = crypto.createHash('sha256').update(normText(content)).digest('hex');
+  if (PRIOR_TEMPLATE_HASHES.includes(hash)) return 'unfilled';
   try {
     const tpl = fs.readFileSync(path.join(projectDir, DESIGN_TEMPLATE), 'utf8');
     if (norm(content) === norm(tpl)) return 'unfilled';
@@ -376,6 +387,83 @@ function setup(projectDir) {
     if (e.code !== 'ENOENT') throw e;
   }
   return 'filled';
+}
+
+const LATITUDES = ['keep', 'refine', 'rethink'];
+const DIRECTION_FIELDS = [
+  ['brand', /^brand\b/i],
+  ['style_pack', /^style pack\b/i],
+  ['references', /^references\b/i],
+  ['departure_latitude', /^departure latitude\b/i],
+];
+
+/** Style-pack skill names under the first skill directory that holds any (D4). */
+function findPacks(projectDir) {
+  for (const dir of SKILL_DIRS) {
+    let names;
+    try { names = fs.readdirSync(path.join(projectDir, dir)); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
+    const packs = names.filter((n) => n.startsWith('style-pack-')
+      && fs.existsSync(path.join(projectDir, dir, n, 'SKILL.md'))).sort();
+    if (packs.length) return { dir, packs };
+  }
+  return { dir: null, packs: [] };
+}
+
+/**
+ * Reads design.md's §5 Design direction and §4 accessibility floor (D4). Blank fields, the
+ * latitude, the floor numbers and the style pack are decided here so no prompt has to read prose.
+ * Throws on a `missing` or `unfilled` design.md: the commands have already stopped by then.
+ * Example: direction('.', { style: 'style-pack-clean-product' }).style_pack.path
+ */
+function direction(projectDir, { style } = {}) {
+  const state = setup(projectDir);
+  if (state !== 'filled') throw new Error(`design.md is ${state}; run /design-setup`);
+  const content = normText(fs.readFileSync(path.join(projectDir, DESIGN_RULES), 'utf8'));
+  const lines = content.split('\n');
+  const sectionOf = (re) => {
+    const at = lines.findIndex((l) => re.test(l));
+    if (at < 0) return [];
+    const end = lines.findIndex((l, i) => i > at && /^## /.test(l));
+    return lines.slice(at, end < 0 ? undefined : end);
+  };
+  const s5 = sectionOf(/^## 5\. Design direction\s*$/);
+  const fields = {};
+  for (const [key, re] of DIRECTION_FIELDS) {
+    const row = s5.map((l) => l.split('|').map((c) => c.trim())).find((c) => c.length >= 4 && re.test(c[1]));
+    fields[key] = row ? row[2] : '';
+  }
+  const blank = DIRECTION_FIELDS.map(([k]) => k).filter((k) => !fields[k]);
+  const given = fields.departure_latitude.toLowerCase().replace(/[`*]/g, '').trim();
+  const latitude = LATITUDES.includes(given) ? given : 'refine';
+  if (fields.departure_latitude && !LATITUDES.includes(given)) blank.push('departure_latitude (unrecognised)');
+  const line = sectionOf(/^## 4\. Design rules/).find((l) => /accessibility floor/i.test(l)) || '';
+  const c = /(\d+(?:\.\d+)?)\s*:\s*1/.exec(line);
+  const t = /(\d+)\s*px/.exec(line);
+  const floor = { contrast: c ? Number(c[1]) : null, target: t ? Number(t[1]) : null };
+  const { dir, packs } = findPacks(projectDir);
+  // Markdown formatting is stripped as for the latitude: `style-pack-x` in a table cell names style-pack-x.
+  const name = style || fields.style_pack.replace(/[`*]/g, '').trim() || null;
+  const found = name && packs.includes(name);
+  return {
+    fields, blank, latitude, floor, floor_blank: floor.contrast === null || floor.target === null,
+    style_pack: { name, path: found ? path.join(dir, name, 'SKILL.md') : null, missing: !!name && !found },
+    craft: craftSkills(projectDir),
+    available_packs: packs,
+    text: s5.join('\n').trim(),
+  };
+}
+
+/** SKILL.md paths of the skills framework-skills.txt marks `design`, style packs excluded. */
+function craftSkills(projectDir) {
+  const roles = frameworkSkillRoles(projectDir) || {};
+  const out = [];
+  for (const [name, role] of Object.entries(roles)) {
+    if (role !== 'design' || name.startsWith('style-pack-')) continue;
+    for (const dir of SKILL_DIRS) {
+      if (fs.existsSync(path.join(projectDir, dir, name, 'SKILL.md'))) { out.push(path.join(dir, name, 'SKILL.md')); break; }
+    }
+  }
+  return out;
 }
 
 /**
@@ -425,10 +513,10 @@ async function approve(dir, { ids, commit, runtime, reapprove = false, message, 
   let errors = {};
   if (moved.length) {
     try {
-      if (!runtime) throw new Error('no --runtime given: frames not rendered');
       // Lazy: design-render requires this module at top level.
-      const r = await require('./design-render').render({
-        dir: dirAbs, runtime, out: path.join(dirAbs, 'screens', 'png'), boards: moved, approved: true, repo,
+      const render = require('./design-render');
+      const r = await render.render({
+        dir: dirAbs, runtime: runtime || render.PINNED_RUNTIME, out: path.join(dirAbs, 'screens', 'png'), boards: moved, approved: true, repo,
       });
       rendered = r.frames; errors = r.errors || {};
     } catch (e) {
@@ -474,6 +562,7 @@ function headCommit(repo) {
 async function main(argv) {
   const { verb, opts } = parseArgs(argv);
   if (verb === 'setup') return setup(opts.dir || '.');
+  if (verb === 'direction') return direction(opts.dir || '.', { style: opts.style });
   if (verb === 'unsynced' && opts.all) return unsyncedAll('.', { trd: opts.trd });
   if (!opts.dir) throw new Error('--dir is required');
   switch (verb) {
@@ -509,7 +598,7 @@ async function main(argv) {
   }
 }
 
-module.exports = { read, write, validate, derive, refresh, transition, stale, approved, buildable, buildableByItems, held, unsynced, unsyncedAll, setup, approve, parseArgs, KINDS, STATUSES };
+module.exports = { read, write, validate, derive, refresh, transition, stale, approved, buildable, buildableByItems, held, unsynced, unsyncedAll, setup, direction, approve, parseArgs, KINDS, STATUSES };
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(

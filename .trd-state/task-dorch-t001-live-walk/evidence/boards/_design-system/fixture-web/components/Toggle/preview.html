@@ -1,0 +1,17 @@
+<!-- @dsCard group="Controls" height=200 subtitle="switch row" -->
+<!doctype html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:16px;background:#fff">
+<div id="root" style="display:flex;flex-direction:column;gap:12px;max-width:326px"></div>
+<script>
+  var Toggle = window.FixtureWeb.Toggle, h = window.React.createElement;
+  function Demo(p) {
+    var s = window.React.useState(p.start);
+    return h(Toggle, { label: p.label, checked: s[0], onChange: s[1] });
+  }
+  window.ReactDOM.createRoot(document.getElementById('root')).render([
+    h(Demo, { key: 'a', label: 'Email notifications', start: false }),
+    h(Demo, { key: 'b', label: 'Email notifications', start: true })
+  ]);
+</script>
+</body></html>

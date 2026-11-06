@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="support.js"></script>
+<link rel="stylesheet" href="ds/fixture-web/components/bundle.css">
+<script src="ds/fixture-web/components/bundle.js"></script>
+<style>
+  /* The app shell (src/main.jsx:60) is not an importable component: main.mx-auto.max-w-md.space-y-4.p-4.text-ink holding a nav.
+     bundle.css has no mx-auto, max-w-md, space-y-4, mb-3, flex-col or gap-2 (it carries only the classes the components use),
+     so the shell's utilities are written out here with the same values. */
+  body { margin: 0; background: #fff; }
+  .shell { max-width: 28rem; margin: 0 auto; padding: 1rem; color: #1b1f2a; }
+  .shell > * + * { margin-top: 1rem; }
+  .shell nav { display: flex; gap: 1rem; color: #2f5bd2; }
+  .shell nav a { color: inherit; text-decoration: none; }
+  .shell p { margin: 0 0 0.75rem; }
+</style>
+</head>
+<body>
+<!-- As-is Home (/) at 390x844: the page shell from src/main.jsx:57-69 around the real Card and Button. The Button passes no variant, as in src/main.jsx:44 (the default is primary), same as 02-home--as-is. -->
+<main class="shell">
+  <nav>
+    <a href="/">Home</a>
+    <a href="/trips">trips</a>
+    <a href="/settings">settings</a>
+  </nav>
+  <x-import component-from-global-scope="FixtureWeb.Card" data-props='{"title":"Home"}'>
+    <p>Welcome to the fixture app.</p>
+    <x-import component-from-global-scope="FixtureWeb.Button">See trips</x-import>
+  </x-import>
+</main>
+<script data-dc-script data-props='{}'></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "url": "https://claude.ai/artifact/SW3Sj2wnmtPSFQG1kgWJG2",
+  "version": "1793887213-c5a3",
+  "code_commit": "69455f76567255bce615714ca0e239168ab1955b",
+  "paths": [
+    "components/",
+    "tailwind.config.js"
+  ]
+}

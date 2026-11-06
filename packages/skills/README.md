@@ -1,6 +1,6 @@
 # Ensemble skill library
 
-69 skills, one directory each. A skill is a Markdown prompt that Claude reads at runtime; it
+75 skills, one directory each. A skill is a Markdown prompt that Claude reads at runtime; it
 carries no executable code. The plugin ships this directory as `skills-lib/`
 (`packages/full/skills-lib` is a symlink to it), and `/init-project` copies the skills a
 project needs into that project's `.claude/skills/`.
@@ -9,7 +9,7 @@ project needs into that project's `.claude/skills/`.
 
 | Kind | Which ones | How it is installed |
 |---|---|---|
-| Framework skills | The 8 named in `framework-skills.txt` | Always, whatever the stack. Scaffold installs them, `--refresh` adds any that are missing, and `/rebase-project` treats them as always installed |
+| Framework skills | The 15 named in `framework-skills.txt` | Always, whatever the stack. Scaffold installs them, `--refresh` adds any that are missing, and `/rebase-project` treats them as always installed |
 | Stack skills | Everything else | Chosen by `/init-project` from the project's stack and written to `.claude/selected-skills.txt`; scaffold's `--copy-skills` copies that list |
 
 ## Framework skills
@@ -18,7 +18,8 @@ project needs into that project's `.claude/skills/`.
 comments allowed. `scaffold-project.sh` reads it at runtime, so adding a framework skill means
 adding a line there and nothing else. Role `check` means the skill can be selected as an
 optional check in the functional-verification loop; `support` means it ships but is not
-offered as a check.
+offered as a check; `design` means a craft skill or style pack the design commands read
+(also shipped, never offered as a check).
 
 | Skill | Role | What it does |
 |---|---|---|
@@ -30,6 +31,16 @@ offered as a check.
 | `design-setup` | support | Owner-run interview that writes `.claude/rules/design.md`: the design system, per-platform settings, how to reach a screen, design rules |
 | `designing-on-canvas` | support | This framework's board conventions for drawing screens on a Design canvas; used by `/create-design`, `/refine-design` and `/design-system` |
 | `design-grounding` | support | How a read-only agent inventories an existing product's screens, components, flows and data before anything is drawn; used by `/create-design` and `/design-system` |
+| `frontend-design` | design | Craft skill for distinctive, high-craft UI; in an existing product it uses the product's components and tokens within the design direction's departure latitude |
+| `style-pack-clean-product` | design | Style pack: clean product |
+| `style-pack-dense-enterprise` | design | Style pack: dense enterprise |
+| `style-pack-expressive-editorial` | design | Style pack: expressive editorial |
+| `style-pack-playful-consumer` | design | Style pack: playful consumer |
+| `style-pack-modern-consumer` | design | Style pack: modern consumer |
+| `style-pack-modern-b2b-saas` | design | Style pack: modern B2B SaaS |
+
+A project adds its own pack as `.claude/skills/style-pack-<slug>/`; `/rebase-project` keeps it as a
+custom skill (it is not in the plugin library).
 
 `verification-setup` and `design-setup` set `disable-model-invocation: true`: only the owner
 runs them, because their answers are policy (what may be touched, where credentials live) that
@@ -39,7 +50,7 @@ an agent should not infer.
 
 | Area | Skills |
 |---|---|
-| Languages and frameworks | `developing-with-python`, `developing-with-typescript`, `developing-with-react`, `developing-with-dotnet`, `developing-with-flutter`, `developing-with-laravel`, `developing-with-php`, `nestjs`, `phoenix`, `rails`, `blazor`, `styling-with-tailwind`, `frontend-design` |
+| Languages and frameworks | `developing-with-python`, `developing-with-typescript`, `developing-with-react`, `developing-with-dotnet`, `developing-with-flutter`, `developing-with-laravel`, `developing-with-php`, `nestjs`, `phoenix`, `rails`, `blazor`, `styling-with-tailwind` |
 | Test runners | `jest`, `pytest`, `rspec`, `exunit`, `xunit`, `writing-playwright-tests`, `playwright-automation` |
 | Detection | `test-detector`, `framework-detector`, `tooling-detector`, `cloud-provider-detector` |
 | Infrastructure and deploy | `aws-cloud`, `using-terraform-azure`, `using-azure-functions`, `kubernetes`, `helm`, `flyio`, `managing-railway`, `managing-vercel`, `managing-supabase`, `managing-azure-devops`, `act-local-ci` |
@@ -78,4 +89,4 @@ allowed-tools: Read, Write, Edit, Bash
 2. For a stack skill, write `description` and `when_to_use` so they name the stacks it serves:
    `/init-project` selects stack skills by reading them, not from a lookup table. To preload
    it into an agent, add it to `packages/core/agents/skill-affinity.json`.
-3. For a framework skill, add `<skill-name> <check|support>` to `framework-skills.txt`.
+3. For a framework skill, add `<skill-name> <check|support|design>` to `framework-skills.txt`.

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="support.js"></script>
+<link rel="stylesheet" href="ds/fixture-web/components/bundle.css">
+<script src="ds/fixture-web/components/bundle.js"></script>
+<style>
+  /* To-be Trips (/trips), brief items S3, S4, BI-4 to BI-10 (docs/ui/trips-refresh/brief.md).
+     The app shell and the TripsPage list are views local to src/main.jsx, so a board cannot import
+     them; they are redrawn from the same markup. bundle.css carries only the utilities the
+     components use, so the shell's own utilities are written out here (same values as
+     mx-auto max-w-md space-y-4 p-4 text-ink). Nothing new is introduced: Card and Chip are the
+     real components. */
+  body { margin: 0; background: #fff; min-height: 800px; }
+  dc-board { display: block; }
+  .shell { max-width: 28rem; margin: 0 auto; padding: 1rem; color: #1b1f2a; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .shell > * + * { margin-top: 1rem; }
+  .shell nav { display: flex; gap: 1rem; color: #2f5bd2; }
+  .shell nav a { color: inherit; text-decoration: none; }
+  .shell p { margin: 0; }
+
+  /* OD-1 answered "Compact table (one row per trip)": a native table, Chip in the first cell (S3), the S4 text
+     "<startDate> · <nights> nights" in the second, beside the name. The second cell wraps instead of scrolling,
+     so it holds at 390 wide (BI-8). Header text is #475569, about 7.6:1 on white; body text inherits ink. */
+  .trips { width: 100%; border-collapse: collapse; text-align: left; }
+  .trips th, .trips td { border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  .trips thead th { padding: 0 12px 8px 0; font-size: 12px; font-weight: 600; color: #475569; }
+  .trips thead th:last-child { padding-right: 0; }
+  .trips tbody th { padding: 8px 12px 8px 0; font-weight: normal; }
+  .trips tbody td { padding: 8px 0; overflow-wrap: anywhere; }
+  .trips caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* States are tweaks (see the data-dc-script block): the script sets data-view on the board and
+     CSS shows exactly one view, so the tweak still works if a component re-renders its children. */
+  .view { display: none; }
+  /* Same on-board note as 03-trips, shown only with the many-trips tweak. */
+  .shell p.view-note { display: none; margin: 12px 0 0; font-size: 12px; color: #475569; }
+  dc-board[data-view="many"] .shell p.view-note { display: block; }
+  dc-board:not([data-view]) .view-default,
+  dc-board[data-view="default"] .view-default,
+  dc-board[data-view="many"] .view-many { display: table; }
+  dc-board[data-view="loading"] .view-loading,
+  dc-board[data-view="empty"] .view-empty,
+  dc-board[data-view="error"] .view-error { display: block; }
+</style>
+</head>
+<body>
+<dc-board id="04-trips">
+  <main class="shell">
+    <!-- BI-10: the shared page chrome, unchanged from src/main.jsx (labels are the route keys). Known gap, not drawn as changed
+         (brief "Not in this design"): these links are about 24 px tall, under the 44 px touch floor (grounding/standards.md). Owner decision. -->
+    <nav>
+      <a href="/">Home</a>
+      <a href="/trips">trips</a>
+      <a href="/settings">settings</a>
+    </nav>
+    <x-import component-from-global-scope="FixtureWeb.Card" data-props='{"title":"Trips"}'>
+      <!-- Default (S3, S4): the three fixture trips from public/api/trips.json, one table row each, name in a Chip. -->
+      <table class="trips view view-default">
+        <caption>Your trips</caption>
+        <thead><tr><th scope="col">Trip</th><th scope="col">Starts</th></tr></thead>
+        <tbody>
+          <tr><th scope="row"><x-import component-from-global-scope="FixtureWeb.Chip">Lisbon</x-import></th><td>2026-12-04 · 5 nights</td></tr>
+          <tr><th scope="row"><x-import component-from-global-scope="FixtureWeb.Chip">Osaka</x-import></th><td>2027-02-11 · 8 nights</td></tr>
+          <tr><th scope="row"><x-import component-from-global-scope="FixtureWeb.Chip">Quito</x-import></th><td>2027-04-02 · 6 nights</td></tr>
+        </tbody>
+      </table>
+      <!-- Many trips: ten rows. ILLUSTRATIVE: the first three are the fixture; the other seven are
+           invented for this board only, and identical to the seven on 03-trips. The table simply lengthens the Card (the code has no pagination). -->
+      <table class="trips view view-many">
+        <caption>Your trips</caption>
+        <thead><tr><th scope="col">Trip</th><th scope="col">Starts</th></tr></thead>
+        <tbody>
+          <tr><th scope="row"><x-import component-from-global-scope="FixtureWeb.Chip">Lisbon</x-import></th><td>2026-12-04 · 5 nights</td></tr>
+          <tr><th scope="row"><x-import component-from-global-scope="FixtureWeb.Chip">Osaka</x-import></th><td>2027-02-11 · 8 nights</td></tr>
+          <tr><th scope="row"><x-import component-from-global-scope="FixtureWeb.Chip">Quito</x-import></th><td>2027-04-02 · 6 nights</td></tr>
+          <tr><th scope="row"><x-import component-from-global-scope="FixtureWeb.Chip">Reykjavik</x-import></th><td>2027-05-09 · 4 nights</td></tr>
+          <tr><th scope="row"><x-import component-from-global-scope="FixtureWeb.Chip">Hanoi</x-import></th><td>2027-06-18 · 9 nights</td></tr>
+          <tr><th scope="row"><x-import component-from-global-scope="FixtureWeb.Chip">Cusco</x-import></th><td>2027-07-22 · 7 nights</td></tr>
+          <tr><th scope="row"><x-import component-from-global-scope="FixtureWeb.Chip">Tbilisi</x-import></th><td>2027-09-03 · 5 nights</td></tr>
+          <tr><th scope="row"><x-import component-from-global-scope="FixtureWeb.Chip">Oaxaca</x-import></th><td>2027-10-14 · 6 nights</td></tr>
+          <tr><th scope="row"><x-import component-from-global-scope="FixtureWeb.Chip">Split</x-import></th><td>2027-11-05 · 3 nights</td></tr>
+          <tr><th scope="row"><x-import component-from-global-scope="FixtureWeb.Chip">Kyoto</x-import></th><td>2027-12-12 · 10 nights</td></tr>
+        </tbody>
+      </table>
+      <p class="view-note">Illustrative: ten invented trips to show the Card simply lengthens. No pagination exists in the code.</p>
+      <!-- BI-4 loading, BI-5 empty, BI-6 error. Copy: loading is the code's own wording; the other
+           two are drafted in the design system's short sentence-case style. No retry control (the
+           brief does not ask for one, and it would need its own 44 px and focus treatment). -->
+      <p class="view view-loading" role="status">Loading trips...</p>
+      <p class="view view-empty">No trips yet.</p>
+      <p class="view view-error" role="alert">Couldn't load trips.</p>
+    </x-import>
+  </main>
+</dc-board>
+<script data-dc-script data-props='{
+  "loading": {"type": "boolean", "default": false, "label": "Loading"},
+  "empty": {"type": "boolean", "default": false, "label": "Empty (zero trips)"},
+  "error": {"type": "boolean", "default": false, "label": "Error (fetch failed)"},
+  "many": {"type": "boolean", "default": false, "label": "Many trips (ten, illustrative names)"}
+}'></script>
+<script>
+  /* Maps the tweaks to one visible view. If several are on, the order is loading, error, empty,
+     many, then the default three-trip list. Re-applies when the tweak values change. */
+  (function () {
+    var tweaks = document.querySelector('script[data-dc-script]');
+    var board = document.getElementById('04-trips');
+    if (!tweaks || !board) return;
+    function on(props, key) {
+      var t = props[key];
+      return !!(t && typeof t === 'object' ? t.default : t);
+    }
+    function apply() {
+      var props = {};
+      try { props = JSON.parse(tweaks.getAttribute('data-props') || '{}'); } catch (e) { props = {}; }
+      var view = on(props, 'loading') ? 'loading'
+        : on(props, 'error') ? 'error'
+        : on(props, 'empty') ? 'empty'
+        : on(props, 'many') ? 'many'
+        : 'default';
+      board.setAttribute('data-view', view);
+    }
+    apply();
+    new MutationObserver(apply).observe(tweaks, { attributes: true, attributeFilter: ['data-props'] });
+  })();
+</script>
+</body>
+</html>

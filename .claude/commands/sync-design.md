@@ -60,7 +60,7 @@ owner comment on the page. A TRD decision the architect wrote does not.
    `cite` naming where it is; an architect-written TRD decision is `owner: false`.
 3. **Run the workflow once:**
    ```
-   Workflow({ name: "sync-design", args: { slug: "<slug>", dir: "docs/ui/<slug>", map: "<design-map.json text>", capture: "<text>", rubric: "<text>", rulings: [<rulings>], environment: "local", project: "<dir or empty>", runtime: "<pinned dc-runtime path or empty>" } })
+   Workflow({ name: "sync-design", args: { slug: "<slug>", dir: "docs/ui/<slug>", map: "<design-map.json text>", capture: "<text>", rubric: "<text>", rulings: [<rulings>], environment: "local", project: "<dir or empty>", runtime: ".claude/lib/dc-runtime.js" } })
    ```
    It returns `matched`, `rebuilt`, `reported`, `uncaptured` and `failed`, and edits no map or
    canvas. **If the workflow is unavailable**, capture and compare each building board yourself

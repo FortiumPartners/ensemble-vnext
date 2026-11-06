@@ -1,0 +1,12 @@
+<!-- @dsCard group="Labels" height=72 subtitle="pill label" -->
+<!doctype html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:16px;background:#fff">
+<div id="root" style="display:flex;gap:8px"></div>
+<script>
+  var Chip = window.FixtureWeb.Chip, h = window.React.createElement;
+  window.ReactDOM.createRoot(document.getElementById('root')).render(
+    ['Lisbon', 'Osaka', 'Quito'].map(function (t) { return h(Chip, { key: t }, t); })
+  );
+</script>
+</body></html>

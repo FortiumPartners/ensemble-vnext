@@ -1,0 +1,24 @@
+{
+  "board": "04-trips--as-is",
+  "state": null,
+  "errors": [
+    "the runtime booted but mounted nothing"
+  ],
+  "measures": [
+    {
+      "check": "contrast",
+      "verdict": null,
+      "value": 5.92,
+      "element": "a \"settings\"",
+      "count": 9
+    },
+    {
+      "check": "target-size",
+      "verdict": null,
+      "value": 24,
+      "detail": "43.1x24",
+      "element": "a \"Home\"",
+      "count": 3
+    }
+  ]
+}

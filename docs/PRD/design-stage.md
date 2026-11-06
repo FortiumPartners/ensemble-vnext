@@ -208,7 +208,7 @@ F14 has no phase in the issue; it is P0 because its criteria serve P0 features (
 - [ ] AC-F1.1: `design.md` records the **design system**: its artifact link and namespace; the source of truth (code, Figma or canvas); the build command; and whether the product's build may run to bundle components.
 - [ ] AC-F1.2: `design.md` records, **per platform**: the board component kind (real or parts), the tokens source, the component library paths, and the viewport sizes.
 - [ ] AC-F1.3: `design.md` records **how to reach a screen**: the route list, sign-in and seed data pointing at `verification.md` environments, the capture command, and where current screenshots live. For sign-in credentials it points at `verification.md` §3 and holds no credential itself; the file is committed (ruling B12).
-- [ ] AC-F1.4: `design.md` records **design rules**: reuse ("an existing view beats a new one; a new component needs a reason"), an accessibility floor, competitor references, and process rules such as "every round publishes a before/after".
+- [ ] AC-F1.4: `design.md` records **design rules**: reuse (~~"an existing view beats a new one; a new component needs a reason"~~ *Superseded 2026-11-06 by `docs/PRD/design-quality.md` (the reuse rule only: AC-F4.1, reuse means components and tokens).*), an accessibility floor, ~~competitor references~~ *Superseded 2026-11-06 by `docs/PRD/design-quality.md` (AC-F1.7, one References field).*, and process rules such as "every round publishes a before/after".
 - [ ] AC-F1.5: A `design.md` template is added under `packages/core/templates/claude-directory/rules/`, filled by `/design-setup`.
 - [ ] AC-F1.6: `design-setup` is an owner interview, one question per topic, offering defaults detected from the repository; it is never chained, and follows `verification-setup`'s pattern and exemption (owner-invoked only; `verification-setup` sets `disable-model-invocation: true`, seen in `packages/skills/verification-setup/SKILL.md`). For the accessibility floor it offers contrast 4.5:1 and 44 px touch targets (the issue's values) as the default; `design.md` records the owner's answer, not the default (ruling OQ-6).
 
@@ -388,7 +388,7 @@ design, all inside the existing functional-verification loop (`/implement-trd`,
 
 **Acceptance Criteria**:
 - [ ] AC-F14.1: `lib/artifacts.js` documents new kinds `design` (the canvas) and `audit-design`. (No schema change: `KINDS` is "Documentation only: any valid slug is accepted", `packages/core/lib/artifacts.js`.)
-- [ ] AC-F14.2: `packages/skills/frontend-design/SKILL.md` states that in an existing product, reuse beats a bold new look. (Today it tells the agent to "commit to a BOLD aesthetic direction" and says nothing about reuse.)
+- [ ] AC-F14.2: `packages/skills/frontend-design/SKILL.md` ~~states that in an existing product, reuse beats a bold new look.~~ *Superseded 2026-11-06 by `docs/PRD/design-quality.md` (AC-F4.1, departure latitude governs departure, not a fixed line in the skill).* (Today it tells the agent to "commit to a BOLD aesthetic direction" and says nothing about reuse.)
 - [ ] AC-F14.3: `/audit-docs` skips `docs/ui/` — a one-line change to its document set. `/audit-design --drift` is the design's own drift check (ruling OQ-4).
 
 **Dependencies**: none.

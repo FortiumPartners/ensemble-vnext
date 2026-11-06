@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Clipped board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="width: 320px; height: 200px; box-sizing: border-box; padding: 8px; background: #ffffff; color: #111111; font-family: monospace">
+<div style="width:60px;overflow:hidden;white-space:nowrap">A label that is much too long</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":200}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+{
+  "version": 2,
+  "prd": {
+    "path": "docs/PRD/design-quality.md",
+    "url": "https://claude.ai/artifact/NedT1u6QUkwQ7wc6CBR4dw",
+    "updated_at": "2026-11-06T09:19:05.609Z",
+    "command": "/refine-prd"
+  },
+  "audit-prd": {
+    "path": ".trd-state/design-quality/audit-prd-report.md",
+    "url": "",
+    "updated_at": "2026-11-06T09:30:18.872Z",
+    "command": "/audit-prd"
+  },
+  "trd": {
+    "path": "docs/TRD/design-quality.md",
+    "url": "https://claude.ai/artifact/HHNuy8Npgb3HfLF4DRGsGD",
+    "updated_at": "2026-11-06T16:52:37.269Z",
+    "command": "/refine-trd"
+  },
+  "audit-trd": {
+    "path": ".trd-state/design-quality/audit-trd-report.md",
+    "url": "",
+    "updated_at": "2026-11-06T14:50:24.917Z",
+    "command": "/audit-trd"
+  },
+  "success-definition": {
+    "path": ".trd-state/design-quality/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-06T17:42:18.271Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/design-quality/verification-report.md",
+    "url": "https://claude.ai/artifact/CDYmm41Di9JBRY7YnLoRa2",
+    "updated_at": "2026-11-06T18:03:45.157Z",
+    "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/design-quality/audit-build-report.md",
+    "url": "https://claude.ai/artifact/BF1cRH4B1K5Dq1aJzwMias",
+    "updated_at": "2026-11-06T18:25:26.184Z",
+    "command": "/audit-build"
+  }
+}

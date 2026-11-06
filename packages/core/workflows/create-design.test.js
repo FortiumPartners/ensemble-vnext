@@ -16,8 +16,10 @@ function groundArgs(over = {}) {
 }
 function drawArgs(count = 2, over = {}) {
   return {
-    stage: 'draw', slug: 'checkout', dir: 'docs/ui/checkout', runtime: '/tmp/dc-runtime.js',
+    stage: 'draw', slug: 'checkout', dir: 'docs/ui/checkout',
     canvasRules: 'CANVAS-RULE', conventions: 'CONV-RULE', designRules: 'OWNER-RULE',
+    direction: { latitude: 'refine', text: 'DIRECTION-TEXT' }, craft: 'CRAFT-TEXT', stylePack: { name: 'clean-product', text: 'PACK-TEXT' },
+    rubric: 'RUBRIC-TEXT', floor: { contrast: 4.5, target: 44 },
     boardsInScope: Array.from({ length: count }, (_, i) => screen(i + 1)), ...over,
   };
 }
@@ -37,7 +39,12 @@ function plan(overrides = {}) {
     if (label.startsWith('asis:')) return { id: `${label.slice(5)}--as-is`, file: `${label.slice(5)}--as-is.dc.html`, screenshot_match: true };
     if (label === 'parts') return { parts: [{ id: 'part-badge', file: 'part-badge.dc.html' }] };
     if (label.startsWith('tobe:')) return { id: label.slice(5), file: `${label.slice(5)}.dc.html`, brief_items: ['BI-1'], states: [{ name: 'empty', props: { empty: true } }] };
-    if (label === 'render') return { errors: [] };
+    if (label.startsWith('direction:')) {
+      const m = /^direction:(.+)-([abc])$/.exec(label);
+      return { id: `${m[1]}--dir-${m[2]}`, file: `${m[1]}--dir-${m[2]}.dc.html`, brief_items: ['BI-1'], states: [] };
+    }
+    if (label.startsWith('rank:')) return { ranking: [{ direction: 'b', reason: 'clearest hierarchy' }, { direction: 'a', reason: 'safe' }, { direction: 'c', reason: 'too far' }] };
+    if (label.startsWith('visual:')) return { errors: [], measures: [], scores: [] };
     if (label.startsWith('review:')) return { findings: [] };
     if (label === 'fix') return { fixed: [], left: [] };
     return undefined;
@@ -59,7 +66,7 @@ describe('create-design stage ground', () => {
   it('runs Ground then Brief and nothing that draws', async () => {
     const { phases, agent } = await run(groundArgs());
     expect(phases).toEqual(['Ground', 'Brief']);
-    expect(agent.calls.some((c) => /^(asis|tobe|parts|render|review|fix)/.test(c.opts.label))).toBe(false);
+    expect(agent.calls.some((c) => /^(asis|tobe|parts|visual|review|fix)/.test(c.opts.label))).toBe(false);
   });
 
   it('dispatches the five grounding agents in one parallel wave, before the one brief agent', async () => {
@@ -161,7 +168,7 @@ describe('create-design stage ground', () => {
 describe('create-design stage draw', () => {
   it('runs the draw phases in order', async () => {
     const { phases } = await run(drawArgs());
-    expect(phases).toEqual(['AsIs', 'Parts', 'ToBe', 'Render', 'Challenge']);
+    expect(phases).toEqual(['AsIs', 'Parts', 'ToBe', 'Critique', 'Challenge']);
   });
 
   it('writes one parts agent before the to-be agents, one to-be agent per board in one parallel wave', async () => {
@@ -171,6 +178,7 @@ describe('create-design stage draw', () => {
     expect(tobe).toHaveLength(3);
     expect(tobe.every((c) => c.at > byLabel(agent, 'parts').at)).toBe(true);
     expect(parallel.waves.filter((w) => w.size === 3)).toHaveLength(2); // as-is wave and to-be wave
+    expect(parallel.waves.filter((w) => w.size === 4)).toHaveLength(1); // 3 screens + the parts agent
   });
 
   it('requires brief_items from every to-be draw agent', async () => {
@@ -192,9 +200,146 @@ describe('create-design stage draw', () => {
     expect(flatP(byLabel(agent, 'tobe:01-screen-1').prompt)).toMatch(/no brief item ids/i);
   });
 
-  it('draws the to-be board from its as-is board', async () => {
+  it('reads the as-is board for components and data, and draws within the departure latitude (D12)', async () => {
     const { agent } = await run(drawArgs(1));
-    expect(byLabel(agent, 'tobe:01-screen-1').prompt).toContain('Start from its as-is board');
+    const p = flatP(byLabel(agent, 'tobe:01-screen-1').prompt);
+    expect(p).not.toContain('Start from its as-is board');
+    expect(p).toContain('for the components, content and data it shows');
+    expect(p).toContain('departure latitude, refine: keep the information architecture and navigation');
+  });
+
+  it('puts the direction, craft and style pack in every as-is, parts, to-be and fix prompt', async () => {
+    const { agent } = await run(drawArgs(1), { 'review:flow': { findings: [{ axis: 'flow', board: 'b', why: 'x', rank: 'high' }] } });
+    for (const l of ['asis:01-screen-1', 'parts', 'tobe:01-screen-1', 'fix']) {
+      const p = byLabel(agent, l).prompt;
+      expect(p).toContain('DESIGN DIRECTION');
+      expect(p).toContain('DIRECTION-TEXT');
+      expect(p).toContain('CRAFT-TEXT');
+      expect(p).toContain('STYLE PACK (clean-product)');
+      expect(p).toContain('PACK-TEXT');
+    }
+  });
+
+  it('tells the as-is agent the direction, pack and latitude change nothing the screenshot shows (D8)', async () => {
+    const p = flatP(byLabel((await run(drawArgs(1))).agent, 'asis:01-screen-1').prompt);
+    expect(p).toMatch(/change nothing the screenshot shows/);
+  });
+
+  it('gives the reuse reviewer the latitude and the layout-is-not-reuse sentence, and keeps the cluttered ban', async () => {
+    const { agent } = await run(drawArgs(1));
+    const reuse = flatP(byLabel(agent, 'review:reuse').prompt);
+    expect(reuse).toContain('a layout change the latitude permits is not a reuse finding; reuse is about components and tokens');
+    expect(reuse).toContain('refine');
+    expect(flatP(byLabel(agent, 'review:flow').prompt)).toContain('FORBIDDEN');
+  });
+
+  it('runs one opus visual agent per screen plus one for parts, none writing into the design folder', async () => {
+    const { agent } = await run(drawArgs(2));
+    const v = withPrefix(agent, 'visual:');
+    expect(v.map((c) => c.opts.label).sort()).toEqual(['visual:01-screen-1', 'visual:02-screen-2', 'visual:parts']);
+    v.forEach((c) => {
+      expect(c.opts.model).toBe('opus');
+      expect(c.opts.agentType).toBe('code-reviewer');
+      expect(c.prompt).not.toMatch(/--out docs\/ui\/checkout/);
+      expect(c.prompt).toContain('--floor-contrast 4.5 --floor-target 44');
+      expect(c.prompt).not.toMatch(/--runtime/);
+    });
+    expect(flatP(byLabel(agent, 'visual:01-screen-1').prompt)).toContain('RUBRIC-TEXT');
+    expect(byLabel(agent, 'visual:01-screen-1').prompt).toContain('01-screen-1--as-is');
+    expect(byLabel(agent, 'visual:parts').prompt).toContain('part-badge');
+  });
+
+  it('gives every screen critique the design direction, the style pack and the ten-dimension score shape', async () => {
+    const { agent } = await run(drawArgs(2));
+    for (const l of ['visual:01-screen-1', 'visual:02-screen-2']) {
+      const c = byLabel(agent, l);
+      const p = flatP(c.prompt);
+      expect(p).toContain('DESIGN DIRECTION');
+      expect(p).toContain('DIRECTION-TEXT');
+      expect(p).toContain('STYLE PACK (clean-product)');
+      expect(p).toContain('PACK-TEXT');
+      expect(p).toMatch(/brand and distinctiveness against the design direction and the style pack/i);
+      const item = c.opts.schema.properties.scores.items;
+      expect(item.properties.dimension.enum).toEqual(['usability', 'hierarchy', 'craft', 'brand', 'consistency', 'responsiveness', 'states', 'copy', 'density', 'distinctiveness']);
+      expect(item.required).toEqual(expect.arrayContaining(['board', 'dimension', 'score', 'frames', 'reason', 'vs_predecessor']));
+      expect(item.properties.not_judged).toEqual({ type: 'string' });
+      expect(item.properties).not.toHaveProperty('judged');
+    }
+  });
+
+  it('dispatches 25 screens and the parts agent in waves of 20 and 6', async () => {
+    const { parallel } = await run(drawArgs(25));
+    const sizes = parallel.waves.map((w) => w.size);
+    expect(Math.max(...sizes)).toBeLessThanOrEqual(20);
+    expect(sizes.filter((n) => n === 6)).toHaveLength(1);
+  });
+
+  it('maps measured and critique findings to ranks in code, ignoring any rank the agent gives', async () => {
+    const { result } = await run(drawArgs(1), {
+      'visual:01-screen-1': {
+        errors: [{ board: '01-screen-1', error: 'boom' }],
+        measures: [
+          { board: '01-screen-1', check: 'contrast', verdict: 'below-floor', value: 3.1, element: 'button.pay', rank: 'low' },
+          { board: '01-screen-1', check: 'layout', verdict: 'fault', detail: 'clipped-text', value: 'x', element: 'h1' },
+          { board: '01-screen-1', check: 'contrast', verdict: 'not-measured', value: null },
+        ],
+        scores: [
+          { board: '01-screen-1', dimension: 'hierarchy', score: 1, frames: ['f.png'], reason: 'hero: enlarge', vs_predecessor: 'worse' },
+          { board: '01-screen-1', dimension: 'craft', score: 2, frames: ['f.png'], reason: 'body: raise size', vs_predecessor: 'same' },
+          { board: '01-screen-1', dimension: 'density', score: 3, frames: ['f.png'], reason: 'list: space', vs_predecessor: 'same' },
+          { board: '01-screen-1', dimension: 'consistency', score: 4, frames: ['f.png'], reason: 'fine', vs_predecessor: 'better' },
+          { board: '01-screen-1', dimension: 'states', score: null, not_judged: 'one state only', frames: [], reason: 'one state', vs_predecessor: 'same' },
+        ],
+      },
+    });
+    const by = (axis) => result.findings_open.filter((f) => f.axis === axis);
+    expect(by('render')).toEqual([expect.objectContaining({ rank: 'high', why: 'render error: boom' })]);
+    expect(by('measure').map((f) => f.rank).sort()).toEqual(['high', 'medium']);
+    expect(by('critique').map((f) => f.rank).sort()).toEqual(['high', 'low', 'medium']);
+    expect(result.findings_open.some((f) => /consistency|states/.test(f.why))).toBe(false);
+    expect(by('critique').find((f) => f.rank === 'high').why).toBe('hierarchy scored 1 of 5 (f.png): hero: enlarge');
+    expect(result.critique.find((c) => c.screen === '01-screen-1').scores).toHaveLength(5);
+  });
+
+  it('ranks a failed import as an off-token value, and keeps an as-is board\'s measures out of the fix round', async () => {
+    const { result } = await run(drawArgs(1), {
+      'visual:01-screen-1': {
+        errors: [],
+        measures: [
+          { board: '01-screen-1', check: 'fidelity', verdict: 'import-failed', value: 'Button', count: 1, element: null },
+          { board: '01-screen-1--as-is', check: 'contrast', verdict: 'below-floor', value: 2.1, element: 'p' },
+        ],
+        scores: [],
+      },
+    });
+    const measured = result.findings_open.filter((f) => f.axis === 'measure');
+    expect(measured).toEqual([expect.objectContaining({ board: '01-screen-1', rank: 'medium' })]);
+    expect(result.critique[0].measures).toHaveLength(2);
+  });
+
+  it('takes the floor from the direction when no floor arg is passed', async () => {
+    const { agent } = await run(drawArgs(1, { floor: undefined, direction: { latitude: 'refine', text: 'T', floor: { contrast: 3, target: 24 } } }));
+    expect(byLabel(agent, 'visual:01-screen-1').prompt).toContain('--floor-contrast 3 --floor-target 24');
+  });
+
+  it('lists the boards of a dead visual agent in critique_not_run and flags incomplete coverage', async () => {
+    const { result } = await run(drawArgs(2), { 'visual:02-screen-2': undefined });
+    expect(result.critique_not_run).toEqual(['02-screen-2--as-is', '02-screen-2']);
+    expect(result.incomplete_coverage).toBe(true);
+    expect(result.failed).toContain('visual:02-screen-2');
+  });
+
+  it('lists a screen as not critiqued when its visual agent found no render tool', async () => {
+    const { result } = await run(drawArgs(1), { 'visual:01-screen-1': { errors: [], measures: [], scores: [], missing_tool: 'no Chromium' } });
+    expect(result.critique_not_run).toEqual(['01-screen-1--as-is', '01-screen-1']);
+    expect(result.render_missing_tool).toBe('no Chromium');
+    expect(result.incomplete_coverage).toBe(true);
+    expect(result.critique).toEqual(expect.not.arrayContaining([expect.objectContaining({ screen: '01-screen-1' })]));
+  });
+
+  it('carries no skip-rendering branch and no runtime flag in the render command', async () => {
+    const { agent } = await run(drawArgs(1));
+    for (const c of agent.calls) expect(c.prompt).not.toMatch(/skip rendering|--runtime/);
   });
 
   it('with newMode, skips the as-is board for a screen with no predecessor and keeps the rest', async () => {
@@ -280,18 +425,12 @@ describe('create-design stage draw', () => {
     expect(result.findings_open.map((f) => f.why)).toEqual(['no such field']);
   });
 
-  it('turns render errors into high findings and reports a missing Chromium', async () => {
-    const { result } = await run(drawArgs(1), { render: { errors: [{ board: '01-screen-1', error: 'boom' }], missing_tool: 'no Chromium' } });
-    expect(result.findings_open[0]).toMatchObject({ axis: 'render', board: '01-screen-1', rank: 'high' });
-    expect(result.render_missing_tool).toBe('no Chromium');
-  });
-
   it('handles a dead agent of every kind without throwing, and says so', async () => {
     const { result, logs } = await run(drawArgs(2), {
-      'asis:01-screen-1': undefined, parts: undefined, 'tobe:02-screen-2': undefined, render: undefined,
+      'asis:01-screen-1': undefined, parts: undefined, 'tobe:02-screen-2': undefined, 'visual:01-screen-1': undefined,
       'review:data': undefined, 'review:flow': { findings: [{ axis: 'flow', board: 'b', why: 'x', rank: 'high' }] }, fix: undefined,
     });
-    expect(result.failed).toEqual(expect.arrayContaining(['asis:01-screen-1', 'parts', 'tobe:02-screen-2', 'render', 'fix']));
+    expect(result.failed).toEqual(expect.arrayContaining(['asis:01-screen-1', 'parts', 'tobe:02-screen-2', 'visual:01-screen-1', 'fix']));
     expect(result.incomplete_coverage).toBe(true);
     expect(result.findings_open).toHaveLength(1);
     expect(logs.join('\n')).toMatch(/returned nothing: data/);
@@ -300,12 +439,7 @@ describe('create-design stage draw', () => {
   it('batches a 44-board flow under the 20-slot pool', async () => {
     const { parallel } = await run(drawArgs(44));
     expect(Math.max(...parallel.waves.map((w) => w.size))).toBeLessThanOrEqual(20);
-    expect(parallel.waves.filter((w) => w.size === 20)).toHaveLength(4); // 2 waves of 20 as-is, 2 of to-be
-  });
-
-  it('skips rendering when no runtime was supplied', async () => {
-    const { agent } = await run(drawArgs(1, { runtime: '' }));
-    expect(byLabel(agent, 'render').prompt).toMatch(/No render runtime was supplied/);
+    expect(parallel.waves.filter((w) => w.size === 20)).toHaveLength(6); // 2 waves of 20 as-is, 2 of to-be, 2 of visual (44 screens + parts = 20, 20, 5)
   });
 });
 
@@ -331,11 +465,111 @@ describe('create-design shared', () => {
   });
 
   it('declares every phase it runs in meta', async () => {
-    const declared = ['Ground', 'Brief', 'AsIs', 'Parts', 'ToBe', 'Render', 'Challenge'];
-    for (const args of [groundArgs(), drawArgs(1)]) {
+    const declared = ['Ground', 'Brief', 'AsIs', 'Parts', 'ToBe', 'Critique', 'Rank', 'Challenge'];
+    for (const args of [groundArgs(), drawArgs(1), drawArgs(1, { explore: true })]) {
       const { phases } = await run(args);
       expect(phases.every((p) => declared.includes(p))).toBe(true);
     }
     expect(SOURCE).toMatch(/name: 'create-design'/);
+  });
+});
+
+describe('create-design stage draw with explore (D15)', () => {
+  const ex = (count = 2, over = {}) => drawArgs(count, { explore: true, ...over });
+
+  it('dispatches 6 direction, 6 screen visual (plus parts) and 2 rank agents for 2 screens, and no single to-be agent', async () => {
+    const { agent, phases } = await run(ex(2));
+    expect(withPrefix(agent, 'direction:')).toHaveLength(6);
+    expect(withPrefix(agent, 'tobe:')).toHaveLength(0);
+    expect(withPrefix(agent, 'visual:').filter((c) => c.opts.label !== 'visual:parts')).toHaveLength(6);
+    expect(byLabel(agent, 'visual:parts')).toBeDefined();
+    expect(withPrefix(agent, 'rank:')).toHaveLength(2);
+    expect(phases).toEqual(['AsIs', 'Parts', 'ToBe', 'Critique', 'Rank', 'Challenge']);
+  });
+
+  it('names the letter, the emphasis and the file in each direction prompt, with the same direction and pack text', async () => {
+    const { agent } = await run(ex(1));
+    const ps = ['a', 'b', 'c'].map((l) => flatP(byLabel(agent, `direction:01-screen-1-${l}`).prompt));
+    expect(ps[0]).toContain('01-screen-1--dir-a.dc.html');
+    expect(ps[0]).toContain('direction A of 3');
+    expect(ps[0]).toMatch(/as close to today's layout/);
+    expect(ps[1]).toMatch(/hierarchy and composition/);
+    expect(ps[2]).toMatch(/as far from today's layout/);
+    ps.forEach((p) => { expect(p).toContain('DIRECTION-TEXT'); expect(p).toContain('PACK-TEXT'); expect(p).toContain('01-screen-1.dc.html'); });
+  });
+
+  it('ranks only after every visual agent has returned', async () => {
+    const { agent } = await run(ex(2));
+    const last = Math.max(...withPrefix(agent, 'visual:').map((c) => c.at));
+    withPrefix(agent, 'rank:').forEach((c) => expect(c.at).toBeGreaterThan(last));
+  });
+
+  it('honours directions: 2 and clamps it to 2..3, coercing a string', async () => {
+    expect(withPrefix((await run(ex(1, { directions: 2 }))).agent, 'direction:')).toHaveLength(2);
+    expect(withPrefix((await run(ex(1, { directions: '2' }))).agent, 'direction:')).toHaveLength(2);
+    expect(withPrefix((await run(ex(1, { directions: 9 }))).agent, 'direction:')).toHaveLength(3);
+    expect(withPrefix((await run(ex(1, { directions: 1 }))).agent, 'direction:')).toHaveLength(2);
+  });
+
+  it('gives the rank agent the frames folder each visual agent returned, and returns the ranking, chosen and every direction record', async () => {
+    const over = {};
+    for (const l of ['a', 'b', 'c']) over[`visual:01-screen-1-${l}`] = { errors: [], measures: [], scores: [], out: `/tmp/frames-${l}` };
+    const { agent, result } = await run(ex(1), over);
+    const p = byLabel(agent, 'rank:01-screen-1').prompt;
+    ['a', 'b', 'c'].forEach((l) => expect(p).toContain(`/tmp/frames-${l}`));
+    expect(result.explore).toHaveLength(1);
+    expect(result.explore[0]).toMatchObject({ screen: '01-screen-1', chosen: 'b' });
+    expect(result.explore[0].ranking.map((r) => r.direction)).toEqual(['b', 'a', 'c']);
+    expect(result.explore[0].directions.map((d) => d.id)).toEqual(['01-screen-1--dir-a', '01-screen-1--dir-b', '01-screen-1--dir-c']);
+    expect(result.explore[0].directions[0]).toMatchObject({ file: expect.any(String), brief_items: ['BI-1'] });
+    expect(result.boards.filter((b) => b.kind === 'to-be').map((b) => b.id)).toEqual(['01-screen-1--dir-b']);
+  });
+
+  it('sends findings for chosen directions only to the fix round, and scopes the reviewers', async () => {
+    const f = (board) => ({ axis: 'flow', board, why: `w-${board}`, rank: 'high' });
+    const { agent, result } = await run(ex(1), {
+      'review:flow': { findings: [f('01-screen-1--dir-a'), f('01-screen-1--dir-b'), f('part-badge')] },
+      'visual:01-screen-1-c': { errors: [{ board: '01-screen-1--dir-c', error: 'boom' }], measures: [], scores: [] },
+    });
+    const p = byLabel(agent, 'fix').prompt;
+    expect(p).toContain('w-01-screen-1--dir-b');
+    expect(p).toContain('w-part-badge');
+    expect(p).not.toContain('--dir-a"');
+    expect(p).not.toContain('boom');
+    expect(result.findings_open.map((x) => x.board).sort()).toEqual(['01-screen-1--dir-b', 'part-badge']);
+    const rv = flatP(byLabel(agent, 'review:consistency').prompt);
+    expect(rv).toContain('Review ONLY these boards');
+    expect(rv).toContain('01-screen-1--dir-b.dc.html');
+    expect(rv).not.toMatch(/Review ONLY[^.]*dir-a\.dc/);
+  });
+
+  it('takes direction a and says so when the rank agent dies', async () => {
+    const { result, logs } = await run(ex(1), { 'rank:01-screen-1': undefined });
+    expect(result.explore[0].chosen).toBe('a');
+    expect(result.explore[0].note).toMatch(/rank agent returned nothing: took direction a/);
+    expect(result.failed).toContain('rank:01-screen-1');
+    expect(result.boards.some((b) => b.id === '01-screen-1--dir-a')).toBe(true);
+  });
+
+  it('ignores a ranking that names no drawn direction', async () => {
+    const { result } = await run(ex(1), { 'rank:01-screen-1': { ranking: [{ direction: 'c', reason: 'x' }] }, 'direction:01-screen-1-c': undefined });
+    expect(result.explore[0].chosen).toBe('a');
+    expect(result.failed).toContain('direction:01-screen-1-c');
+  });
+
+  it('skips the rank agent when only one direction came back', async () => {
+    const { agent, result } = await run(ex(1), { 'direction:01-screen-1-a': undefined, 'direction:01-screen-1-c': undefined });
+    expect(withPrefix(agent, 'rank:')).toHaveLength(0);
+    expect(result.explore[0].chosen).toBe('b');
+    expect(result.explore[0].note).toMatch(/only direction b/);
+  });
+
+  it('without explore the dispatch is the single to-be path and returns no explore', async () => {
+    const { agent, result } = await run(drawArgs(2));
+    expect(withPrefix(agent, 'direction:')).toHaveLength(0);
+    expect(withPrefix(agent, 'rank:')).toHaveLength(0);
+    expect(withPrefix(agent, 'tobe:')).toHaveLength(2);
+    expect(result.explore).toBeUndefined();
+    expect(flatP(byLabel(agent, 'review:flow').prompt)).not.toContain('Review ONLY');
   });
 });

@@ -18,6 +18,7 @@ const HEADINGS = [
   '5. No artifact access, or publishing off',
   '6. Never publish a credential',
   '7. Readout',
+  '8. Visual critique',
 ];
 
 describe('design-commands contract', () => {
@@ -37,7 +38,7 @@ describe('design-commands contract', () => {
     expect(fs.readFileSync(MIRROR_PATH, 'utf8')).toBe(text);
   });
 
-  test('carries the seven section headings verbatim, in order', () => {
+  test('carries the eight section headings verbatim, in order', () => {
     let fenced = false;
     const found = [];
     for (const l of text.split('\n')) {
@@ -59,6 +60,7 @@ describe('design-commands contract', () => {
     [4, ['AC-F5.6', 'design-mirror.js refused', 'third refusal']],
     [5, ['NFR-2', 'publishArtifacts', 'STUCK', 'publish step']],
     [6, ['NFR-6', 'O-SEC3', 'data']],
+    [8, ['AC-F5.7', 'Not judged', 'Comparative', 'edits nothing']],
     [7, ['NFR-5', 'STATE', 'DECISIONS', 'ISSUES', 'NEXT', '/design-system --sync']],
   ])('section %i names what it implements', (n, needles) => {
     const body = section(n);
@@ -124,5 +126,55 @@ describe('design-commands contract', () => {
 
   test('canvas link sits above the banner', () => {
     expect(section(7)).toMatch(/above the (COMMAND COMPLETE|banner)/i);
+  });
+
+  test('step 3 renders with the pinned runtime and reads the Design type when no canvas exists (D1, D2, D18)', () => {
+    const s1 = section(1).replace(/\s+/g, ' ');
+    expect(s1).not.toContain('renders are skipped');
+    expect(s1).not.toMatch(/pass none/);
+    expect(s1).toContain('.claude/lib/dc-runtime.js');
+    expect(s1).toContain('design-render.js runtime-check --live');
+    expect(s1).toContain('scope: "types"');
+    expect(s1).toContain('type_url');
+    expect(s1).toContain('canvas rules not loaded: no Artifact tool');
+  });
+
+  test('step 7 is the direction step, naming three commands; steps 1-6 keep their numbers (D8)', () => {
+    const s1 = section(1);
+    expect(s1).toMatch(/\n7\. \*\*Design direction\*\*/);
+    expect(s1).not.toMatch(/\n8\. /);
+    for (const n of [1, 2, 3, 4, 5, 6]) expect(s1).toMatch(new RegExp(`\\n${n}\\. `));
+    const s1n = s1.replace(/\s+/g, ' ');
+    expect(s1n).toContain('design-map.js direction');
+    expect(s1n).toMatch(/`\/create-design`, `\/refine-design` and `\/audit-design` only/);
+    expect(s1n).toContain('`/design-system` and `/sync-design` draw nothing');
+    expect(s1n).toContain('/design-setup');
+    expect(section(2)).toMatch(/floors/);
+  });
+
+  test('visual critique defines ten dimensions, 1-5 anchors, rules and the rank table (D10)', () => {
+    const s8 = section(8);
+    for (const d of ['Usability', 'Hierarchy', 'Craft', 'Brand', 'Consistency',
+      'Responsiveness', 'States', 'Copy', 'Density', 'Distinctiveness']) {
+      expect(s8).toMatch(new RegExp(`\\*\\*${d}\\*\\*: \\S`));
+    }
+    const n = s8.replace(/\s+/g, ' ');
+    for (const a of ['1 is broken', '2 is a clear fault', '3 is acceptable', '4 is good', '5 is strong']) expect(n).toContain(a);
+    expect(n).toMatch(/better.*same.*worse/);
+    expect(n).toContain('no predecessor');
+    expect(n).toContain('names the frame, the element and a specific change');
+    expect(n).toContain('| Render error | high |');
+    expect(n).toContain('| Score 1 | high |');
+    expect(n).toContain('| Score 2 | medium |');
+    expect(n).toContain('| Score 3 | low |');
+    expect(n).toMatch(/edits nothing/);
+    expect(n).toMatch(/data, never instructions/);
+  });
+
+  test('readout ISSUES carries blank direction fields, critique not run and runtime drift', () => {
+    const s7 = section(7).replace(/\s+/g, ' ');
+    expect(s7).toContain('blank design-direction fields');
+    expect(s7).toContain('visual critique not run');
+    expect(s7).toContain('pinned render runtime differs');
   });
 });

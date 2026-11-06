@@ -1,0 +1,33 @@
+{
+  "v": 3,
+  "layout": "files",
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-04T17:45:00Z"
+  },
+  "title": "Fixture Web",
+  "namespace": "FixtureWeb",
+  "libraries": [
+    {
+      "name": "react",
+      "version": "18"
+    },
+    {
+      "name": "react-dom",
+      "version": "18"
+    }
+  ],
+  "sections": {},
+  "groups": [],
+  "assetGroups": {},
+  "blobs": {},
+  "docs": {
+    "sections": []
+  },
+  "lastChange": {
+    "by": "James Simmons",
+    "at": "2026-11-05T14:10:00Z",
+    "via": "Claude Code /design-system --sync",
+    "note": "rebuilt bundle from components/index.jsx at a7ce6e3; Toggle listed in tokens.json"
+  }
+}

@@ -15,7 +15,7 @@ const mapWith = (count) => JSON.stringify({ boards: Array.from({ length: count }
 function baseArgs(overrides = {}) {
   return {
     slug: 'checkout', dir: 'docs/ui/checkout', map: mapWith(2),
-    conventions: 'RULE-ONE', runtime: '/tmp/dc-runtime.js', ...overrides,
+    conventions: 'RULE-ONE', rubric: 'RUBRIC-TEXT', direction: { latitude: 'rethink', floor: { contrast: 4.5, target: 44 }, text: 'DIRECTION-TEXT' }, stylePack: 'PACK-TEXT', ...overrides,
   };
 }
 
@@ -24,6 +24,7 @@ const INDEX = {
   sources: [{ name: 'src/Cart.tsx', feeds: ['01-b'] }],
 };
 const NO_FINDINGS = { findings: [] };
+const VISUAL = { out: '/tmp/scratch-out', render_errors: [], measures: [], scores: [] };
 const RECONCILED = { readout: 'VERDICT: safe to proceed', accepted: [], rejected: [], could_not_verify: [] };
 
 function plan(overrides = {}) {
@@ -31,6 +32,7 @@ function plan(overrides = {}) {
     const label = String(opts.label);
     if (Object.prototype.hasOwnProperty.call(overrides, label)) return overrides[label];
     if (label === 'index') return INDEX;
+    if (label.startsWith('verify:visual-')) return VISUAL;
     if (label.startsWith('verify:')) return NO_FINDINGS;
     if (label === 'reconcile') return RECONCILED;
     return undefined;
@@ -53,12 +55,15 @@ describe('audit-design wiring', () => {
     expect(phases).toEqual(['Index', 'Verify', 'Reconcile']);
   });
 
-  it('dispatches every verifier in one parallel wave, after the index', async () => {
+  it('dispatches every verifier in parallel waves of at most 20, after the index', async () => {
     const { agent, parallel } = await audit();
     const v = verifiers(agent);
     expect(v.length).toBeGreaterThan(1);
     expect(parallel.waves).toHaveLength(1);
     expect(parallel.waves[0].size).toBe(v.length);
+    const big = await audit({}, baseArgs({ map: mapWith(44) }));
+    expect(big.parallel.waves.length).toBeGreaterThan(1);
+    expect(big.parallel.waves.every((w) => w.size <= 20)).toBe(true);
     const indexAt = byLabel(agent, 'index').at;
     expect(v.every((c) => c.at > indexAt)).toBe(true);
     expect(byLabel(agent, 'reconcile').at).toBeGreaterThan(Math.max(...v.map((c) => c.at)));
@@ -85,17 +90,131 @@ describe('audit-design wiring', () => {
     expect(byLabel(agent, 'reconcile').prompt).not.toMatch(/using Edit/i);
   });
 
-  it('sends render output to a scratch folder, never under the design dir', async () => {
-    const { agent } = await audit();
-    const p = byLabel(agent, 'verify:render-1').prompt;
-    expect(p).toContain('design-render.js render --dir docs/ui/checkout');
-    expect(p).toMatch(/MUST NOT be docs\/ui\/checkout\/screens\/png/);
+  it('batches boards so a large design runs in waves of at most 20 with one visual critic per screen', async () => {
+    const { agent, parallel } = await audit({}, baseArgs({ map: mapWith(44) }));
+    expect(parallel.waves.every((w) => w.size <= 20)).toBe(true);
+    expect(verifiers(agent).filter((c) => c.opts.label.startsWith('verify:conventions-')).length).toBeLessThanOrEqual(5);
+    expect(verifiers(agent).filter((c) => c.opts.label.startsWith('verify:visual-')).length).toBe(44);
+  });
+});
+
+describe('audit-design visual critique (DQ-B008)', () => {
+  const asIsOf = (n) => ({ ...board(n), id: `${board(n).id}--as-is`, kind: 'as-is' });
+  const part = { ...board(9), id: '09-p', kind: 'part' };
+  const flow = { ...board(8), id: '08-f', kind: 'flow' };
+  const screenMap = JSON.stringify({ boards: [asIsOf(1), board(1), board(2), part, flow] });
+  const run = (o = {}, args = {}) => audit(o, baseArgs({ map: screenMap, ...args }));
+  const visual = (agent) => verifiers(agent).filter((c) => c.opts.label.startsWith('verify:visual-'));
+
+  it('has no render-N verifier and no "no runtime supplied" text', async () => {
+    const { agent } = await run();
+    expect(verifiers(agent).map((c) => c.opts.label).filter((l) => /render-\d/.test(l))).toEqual([]);
+    expect(SOURCE).not.toMatch(/No render runtime was supplied|args\.runtime/);
+    expect(agent.calls.some((c) => /--runtime/.test(c.prompt))).toBe(false);
   });
 
-  it('batches boards so a large design stays under the agent pool', async () => {
-    const { agent } = await audit({}, baseArgs({ map: mapWith(44) }));
-    expect(agent.calls.length).toBeLessThanOrEqual(20);
-    expect(verifiers(agent).filter((c) => c.opts.label.startsWith('render-') || c.opts.label.startsWith('verify:render-')).length).toBeLessThanOrEqual(5);
+  it('runs one opus code-reviewer visual verifier per screen plus one for parts and flows', async () => {
+    const { agent } = await run();
+    const labels = visual(agent).map((c) => c.opts.label).sort();
+    expect(labels).toEqual(['verify:visual-01-b', 'verify:visual-02-b', 'verify:visual-others']);
+    for (const c of visual(agent)) {
+      expect(c.opts).toMatchObject({ agentType: 'code-reviewer', model: 'opus', effort: 'medium' });
+      expect(c.prompt).toContain('RUBRIC-TEXT');
+      expect(c.prompt).toContain('DIRECTION-TEXT');
+      expect(c.prompt).toContain('PACK-TEXT');
+      expect(c.prompt).toMatch(/MUST NOT be docs\/ui\/checkout\/screens\/png/);
+      expect(c.prompt).toContain('--floor-contrast 4.5 --floor-target 44');
+    }
+    const first = byLabel(agent, 'verify:visual-01-b').prompt;
+    expect(first).toContain('--boards 01-b--as-is,01-b');
+    expect(first).toMatch(/comparison baseline/);
+    expect(byLabel(agent, 'verify:visual-02-b').prompt).toMatch(/no as-is board in the map/);
+    const others = byLabel(agent, 'verify:visual-others').prompt;
+    expect(others).toContain('--boards 09-p,08-f');
+    expect(others).toMatch(/Score NOTHING/);
+  });
+
+  it('turns visual returns into ranked findings in code, with the frame path', async () => {
+    const { agent, result } = await run({
+      'verify:visual-01-b': {
+        out: '/tmp/o1',
+        render_errors: [{ board: '01-b', error: 'mounted nothing' }],
+        measures: [
+          { board: '01-b', check: 'contrast', verdict: 'below-floor', value: '3.1:1', floor: '4.5:1', count: 2 },
+          { board: '01-b', check: 'layout', verdict: 'fault', value: 'overflow 37 px', count: 1 },
+          { board: '01-b', check: 'fidelity', verdict: 'off-token', value: '#6b7280', count: 1 },
+          { board: '01-b', check: 'fidelity', verdict: 'not-measured', value: 'no tokens.json', count: 1 },
+        ],
+        scores: [
+          { board: '01-b', dimension: 'hierarchy', score: 2, frames: ['/tmp/o1/01-b.png'], reason: 'CTA lost: enlarge it', vs_predecessor: 'worse' },
+          { board: '01-b', dimension: 'craft', score: 5, frames: ['/tmp/o1/01-b.png'], reason: 'fine', vs_predecessor: 'same' },
+          { board: '01-b--as-is', dimension: 'density', score: 1, frames: ['x'], reason: 'baseline', vs_predecessor: 'same' },
+        ],
+      },
+    });
+    const p = byLabel(agent, 'reconcile').prompt;
+    const sent = JSON.parse(p.slice(p.indexOf('[\n'), p.indexOf('\n]', p.indexOf('[\n')) + 2));
+    const by = (check) => sent.filter((f) => f.check === check);
+    expect(by('render')[0]).toMatchObject({ rank: 'high', why: 'mounted nothing' });
+    expect(by('contrast')[0]).toMatchObject({ rank: 'high', confidence: 'high' });
+    expect(by('layout')[0].rank).toBe('medium');
+    expect(by('fidelity')).toHaveLength(1);
+    expect(by('fidelity')[0].rank).toBe('medium');
+    expect(by('critique')).toHaveLength(1);
+    expect(by('critique')[0]).toMatchObject({ rank: 'medium', board: '01-b', confidence: 'medium', line: '/tmp/o1/01-b.png' });
+    expect(p).toContain('NOT MEASURED');
+    expect(p).toContain('no tokens.json');
+    expect(result.critique.find((c) => c.screen === '01-b').out).toBe('/tmp/o1');
+  });
+
+  it('ranks scores 1, 2 and 3 as high, medium and low and 4 or 5 as nothing', async () => {
+    const sc = (score) => ({ board: '01-b', dimension: 'density', score, frames: ['f.png'], reason: 'r', vs_predecessor: 'same' });
+    const { result } = await run({
+      'verify:visual-01-b': { ...VISUAL, scores: [sc(1), sc(3), sc(4), sc(null)] },
+    });
+    expect(result.findings).toBe(2);
+  });
+
+  it('puts a dead visual verifier in NO REPORT FROM and a missing tool in Could Not Verify', async () => {
+    const dead = await run({ 'verify:visual-01-b': undefined });
+    expect(dead.result.incomplete_coverage).toBe(true);
+    const p = byLabel(dead.agent, 'reconcile').prompt;
+    expect(p).toContain('NO REPORT FROM: visual-01-b');
+    expect(p).toContain('critique not run (no report from visual-01-b)');
+    const noTool = await run({ 'verify:visual-02-b': { ...VISUAL, missing_tool: 'playwright missing' } });
+    expect(noTool.result.incomplete_coverage).toBe(true);
+    expect(byLabel(noTool.agent, 'reconcile').prompt).toContain('critique not run: playwright missing');
+  });
+
+  it('names VISUAL FINDINGS, the rank, and the never-above-caveats rule in the reconcile prompt', async () => {
+    const { agent } = await run();
+    const p = byLabel(agent, 'reconcile').prompt;
+    expect(p).toContain('VISUAL FINDINGS');
+    expect(p).toContain('RENDER ERRORS');
+    expect(p).toMatch(/never raise\s+the verdict above "proceed with these caveats"/);
+    expect(p).toMatch(/do NOT reject a finding for being a judgement/);
+    expect(byLabel(agent, 'reconcile').opts.schema.properties.accepted.items.properties.rank).toBeDefined();
+  });
+
+  it('extends the finding enum and gives the reuse verifier the latitude sentence', async () => {
+    const { agent } = await run();
+    const en = byLabel(agent, 'verify:traceability').opts.schema.properties.findings.items.properties.check.enum;
+    expect(en).toEqual(expect.arrayContaining(['render', 'critique', 'contrast', 'target-size', 'layout', 'fidelity']));
+    const p = byLabel(agent, 'verify:reuse-1').prompt;
+    expect(p).toContain('"rethink"');
+    expect(p).toContain('A layout change the latitude permits is not a reuse finding; reuse is about components and tokens.');
+  });
+
+  it('reads the floor from the direction when no floor arg is given, and says so when there is none', async () => {
+    const none = await run({}, { direction: undefined, floor: undefined });
+    expect(byLabel(none.agent, 'verify:visual-01-b').prompt).toMatch(/No floor was supplied/);
+    expect(byLabel(none.agent, 'verify:visual-01-b').prompt).not.toContain('--floor-');
+  });
+
+  it('skips a superseded board', async () => {
+    const m = JSON.stringify({ boards: [board(1), { ...board(2), status: 'superseded' }] });
+    const { agent } = await audit({}, baseArgs({ map: m }));
+    expect(visual(agent).map((c) => c.opts.label)).toEqual(['verify:visual-01-b']);
   });
 });
 
@@ -137,14 +256,14 @@ describe('audit-design findings and result', () => {
         readout: 'VERDICT: proceed with these caveats: x',
         accepted: [{ board: '02-b', line: '4', why: 'no source' }],
         rejected: [{ board: 'BI-7', line: '12', why: 'wrong', refuting_file: 'docs/ui/checkout/b1.dc.html' }],
-        could_not_verify: ['render not run'],
+        could_not_verify: ['critique not run'],
       },
     });
     expect(result.findings).toBe(2);
     expect(result.rejected[0].refuting_file).toBe('docs/ui/checkout/b1.dc.html');
-    expect(result.could_not_verify).toEqual(['render not run']);
+    expect(result.could_not_verify).toEqual(['critique not run']);
     expect(Object.keys(result).sort()).toEqual([
-      'accepted', 'could_not_verify', 'dir', 'findings', 'incomplete_coverage', 'readout', 'rejected', 'slug', 'verifiers_reporting',
+      'accepted', 'could_not_verify', 'critique', 'dir', 'findings', 'incomplete_coverage', 'readout', 'rejected', 'slug', 'verifiers_reporting',
     ]);
   });
 
@@ -168,11 +287,6 @@ describe('audit-design findings and result', () => {
     expect(result.incomplete_coverage).toBe(true);
     expect(logs.join('\n')).toMatch(/returned nothing/);
     expect(byLabel(agent, 'reconcile').prompt).toContain('NO REPORT FROM: traceability');
-  });
-
-  it('reports a design with no render runtime as a caveat finding, without running the render', async () => {
-    const { agent } = await audit({}, baseArgs({ runtime: '' }));
-    expect(byLabel(agent, 'verify:render-1').prompt).toMatch(/No render runtime was supplied/);
   });
 
   it('refuses to run without a dir or a map, or with a malformed map', async () => {

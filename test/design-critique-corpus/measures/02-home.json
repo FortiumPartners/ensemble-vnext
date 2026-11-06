@@ -1,0 +1,22 @@
+{
+  "board": "02-home",
+  "state": null,
+  "errors": [],
+  "measures": [
+    {
+      "check": "contrast",
+      "verdict": null,
+      "value": 5.92,
+      "element": "button.min-h-[44px] \"See trips\"",
+      "count": 6
+    },
+    {
+      "check": "target-size",
+      "verdict": null,
+      "value": 24,
+      "detail": "43.1x24",
+      "element": "a \"Home\"",
+      "count": 4
+    }
+  ]
+}

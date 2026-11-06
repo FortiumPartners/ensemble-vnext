@@ -20,8 +20,20 @@
  * (exit 2) naming the install step.
  *
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1, or 2 for a missing tool):
- *   node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <dc-runtime.js> --out <dir>
- *     [--boards a,b] [--at <sha> | --approved] [--map <file>]
+ *   node .claude/lib/design-render.js render --dir docs/ui/<slug> --out <dir>
+ *     [--runtime <dc-runtime.js>] [--boards a,b] [--at <sha> | --approved] [--map <file>]
+     [--floor-contrast <ratio>] [--floor-target <px>]
+ *   node .claude/lib/design-render.js runtime-check --live <file>
+ *
+ * `--runtime` is optional: it defaults to PINNED_RUNTIME, the `dc-runtime.js` that ships beside this
+ * module, so every command renders with the same runtime (D1). `runtime-check --live <file>` prints
+ * `{ match, pinned, live }` (sha256 of the pinned copy and of the file given) so a command that has
+ * read the canvas's own runtime can say when the pinned copy has drifted (D2).
+ *
+ * REFRESHING THE PINNED RUNTIME is a framework release step, never done during a run: run the
+ * release-change test with `DC_RUNTIME=<live file> npx jest packages/core/lib/design-render.test.js`,
+ * then copy the live file over `packages/core/lib/dc-runtime.js` (and `.claude/lib/dc-runtime.js`),
+ * and update PINNED_RUNTIME_SHA256 and its provenance comment below.
  *
  * `--map` reads the boards from that JSON file instead of `<dir>/design-map.json`: a drawing
  * agent renders before the command has written the map (only the command writes it), so it
@@ -32,7 +44,15 @@
  * `docs/ui/_design-system/` always come from the same commit as the board and are served as
  * `ds/<folder>/`.
  *
- * Module option `offline` (used by the pinned-runtime tests, D14): the runtime's two React CDN
+ * MEASURES (D3). While a board's page is open, one read-only script measures it: text contrast,
+ * target size, layout faults, and fidelity (computed colours and font families against the
+ * `ds/<folder>/tokens.json` files in the render root, plus the runtime's `x-import: FAILED to
+ * load` console messages). `render()` returns them as `measures`, one per distinct (check,
+ * verdict, value) per frame with a `count`; each names its frame by `board`, `state` and `viewport` (`WxH`). `--floor-contrast` / `--floor-target` (module option
+ * `floor: { contrast, target }`) give a verdict; with no floor each frame reports its lowest
+ * contrast and smallest target and no verdict. A measure is data for the critic, never a gate.
+ *
+ * Module option `offline` (used by the pinned-runtime tests): the runtime's two React CDN
  * requests are answered from the `react` / `react-dom` devDependencies and every other request
  * that does not go to the local server is aborted, so a test can never pass or fail on a CDN.
  */
@@ -42,7 +62,22 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const { spawnSync } = require('child_process');
+const crypto = require('crypto');
 const designMap = require('./design-map');
+
+/** The canvas runtime every render uses unless `--runtime` / `o.runtime` says otherwise (D1). */
+const PINNED_RUNTIME = path.join(__dirname, 'dc-runtime.js');
+// Read from the Design type's canvas version 1793773596-7b8f on 2026-11-04.
+const PINNED_RUNTIME_SHA256 = 'b795ee21261f2e7da1b10cb25b4a4cfa275d1b96165f89396f1fed426e191844';
+
+const sha256File = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
+
+/** Compare the pinned runtime with a live copy: { match, pinned, live } (D2). */
+function runtimeCheck(liveFile) {
+  const pinned = sha256File(PINNED_RUNTIME);
+  const live = sha256File(path.resolve(liveFile));
+  return { match: pinned === live, pinned, live };
+}
 
 const LAUNCH_TIMEOUT_MS = 30000;
 const BOOT_TIMEOUT_MS = 15000;
@@ -209,13 +244,289 @@ async function routeOffline(page, port) {
 
 const messageText = (e) => (typeof e === 'string' ? e : (e && (e.message || e.error)) || JSON.stringify(e));
 
-/** Screenshot one file of the render root; returns the runtime's render errors. */
-async function capture(browser, { port, file, viewport, png, offline }) {
+/**
+ * The in-page measurement (D3): a STRING, evaluated in the board's iframe with its arguments
+ * embedded as JSON. It only reads (no style or DOM writes), so the PNG stays byte-identical.
+ * Returns { measures, fidelity }: contrast, target-size and layout measures are final; `fidelity`
+ * is the distinct computed colours and font families, compared with the tokens in Node.
+ */
+const MEASURE_SCRIPT = String.raw`function (args) {
+  var floor = args.floor || {};
+  var SKIP = { SCRIPT: 1, STYLE: 1, TITLE: 1, NOSCRIPT: 1, META: 1, LINK: 1, HEAD: 1 };
+  var measures = [];
+  function parse(c) {
+    var m = /^rgba?\(([^)]+)\)$/.exec(c);
+    if (!m) return null;
+    var p = m[1].split(/[\s,\/]+/).filter(Boolean).map(Number);
+    if (p.length < 3 || p.some(isNaN)) return null;
+    return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+  }
+  function lin(v) { v = v / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+  function lum(c) { return 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b); }
+  function ratio(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  function round(n, d) { var k = Math.pow(10, d); return Math.round(n * k) / k; }
+  function describe(el) {
+    var d = el.tagName.toLowerCase();
+    if (el.id) d += '#' + el.id;
+    if (typeof el.className === 'string' && el.className.trim()) d += '.' + el.className.trim().split(/\s+/)[0];
+    var t = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+    if (t) d += ' "' + t + '"';
+    return d.slice(0, 80);
+  }
+  function visible(el) {
+    var cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    var r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+  function hasText(el) {
+    for (var i = 0; i < el.childNodes.length; i++) {
+      if (el.childNodes[i].nodeType === 3 && el.childNodes[i].nodeValue.trim()) return true;
+    }
+    return false;
+  }
+  function group(map, key, make) {
+    if (map[key]) { map[key].count++; return; }
+    map[key] = make(); map[key].count = 1; map.order.push(key);
+  }
+  function groups() { return { order: [] }; }
+  function drain(map, into) { map.order.forEach(function (k) { into.push(map[k]); }); }
+  function backdrop(el) {
+    for (var n = el; n && n.nodeType === 1; n = n.parentElement) {
+      var s = getComputedStyle(n);
+      if (s.backgroundImage !== 'none') return null;
+      var c = parse(s.backgroundColor);
+      if (c && c.a >= 1) return c;
+      if (c && c.a > 0) return null;
+    }
+    return { r: 255, g: 255, b: 255, a: 1 };
+  }
+
+  var all = [document.body].concat(Array.prototype.slice.call(document.body.querySelectorAll('*')))
+    .filter(function (el) { return !SKIP[el.tagName] && visible(el); });
+  var textEls = all.filter(hasText);
+
+  // Contrast.
+  var cg = groups(), unmeasured = null, lowest = null, measuredCount = 0;
+  textEls.forEach(function (el) {
+    var fg = parse(getComputedStyle(el).color), bg = backdrop(el);
+    if (!fg || !bg) {
+      if (!unmeasured) unmeasured = { check: 'contrast', verdict: 'not-measured', value: null, count: 0, element: describe(el) };
+      unmeasured.count++;
+      return;
+    }
+    if (fg.a < 1) fg = { r: fg.r * fg.a + bg.r * (1 - fg.a), g: fg.g * fg.a + bg.g * (1 - fg.a), b: fg.b * fg.a + bg.b * (1 - fg.a), a: 1 };
+    var rt = ratio(fg, bg);
+    measuredCount++;
+    if (typeof floor.contrast === 'number') {
+      if (rt < floor.contrast) {
+        var pair = Math.round(fg.r) + ',' + Math.round(fg.g) + ',' + Math.round(fg.b) + ' on ' + bg.r + ',' + bg.g + ',' + bg.b;
+        group(cg, pair, function () { return { check: 'contrast', verdict: 'below-floor', value: round(rt, 2), detail: pair, element: describe(el) }; });
+      }
+    } else if (!lowest || rt < lowest.value) {
+      lowest = { check: 'contrast', verdict: null, value: round(rt, 2), element: describe(el) };
+    }
+  });
+  drain(cg, measures);
+  if (lowest) { lowest.count = measuredCount; measures.push(lowest); }
+  if (unmeasured) measures.push(unmeasured);
+
+  // Target size.
+  var TARGET = 'a[href],button,input,select,textarea,[role=button],[role=link],[role=checkbox],[role=tab],[role=menuitem],[tabindex]';
+  var targets = all.filter(function (el) { return el.matches(TARGET) && (!el.hasAttribute('tabindex') || el.tabIndex >= 0 || el.matches('a[href],button,input,select,textarea')); });
+  var tg = groups(), smallest = null;
+  targets.forEach(function (el) {
+    var r = el.getBoundingClientRect(), w = round(r.width, 1), h = round(r.height, 1), m = Math.min(w, h);
+    if (typeof floor.target === 'number') {
+      if (m < floor.target) group(tg, w + 'x' + h, function () { return { check: 'target-size', verdict: 'below-floor', value: m, detail: w + 'x' + h, element: describe(el) }; });
+    } else if (!smallest || m < smallest.value) {
+      smallest = { check: 'target-size', verdict: null, value: m, detail: w + 'x' + h, element: describe(el) };
+    }
+  });
+  drain(tg, measures);
+  if (smallest) { smallest.count = targets.length; measures.push(smallest); }
+
+  // Layout faults.
+  var de = document.documentElement;
+  if (de.scrollWidth > de.clientWidth) measures.push({ check: 'layout', verdict: 'fault', detail: 'horizontal-overflow', value: de.scrollWidth + '>' + de.clientWidth, count: 1, element: 'page' });
+  var lg = groups();
+  textEls.forEach(function (el) {
+    var cs = getComputedStyle(el);
+    if (el.scrollWidth > el.clientWidth && (cs.overflowX === 'hidden' || cs.textOverflow === 'ellipsis')) {
+      var v = el.scrollWidth + '>' + el.clientWidth;
+      group(lg, v, function () { return { check: 'layout', verdict: 'fault', detail: 'clipped-text', value: v, element: describe(el) }; });
+    }
+  });
+  drain(lg, measures);
+  var pairs = 0, firstPair = null, many = targets.slice(0, 500);
+  for (var i = 0; i < many.length; i++) {
+    for (var j = i + 1; j < many.length; j++) {
+      if (many[i].contains(many[j]) || many[j].contains(many[i])) continue;
+      var a = many[i].getBoundingClientRect(), b = many[j].getBoundingClientRect();
+      var ox = Math.min(a.right, b.right) - Math.max(a.left, b.left), oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      if (ox > 1 && oy > 1) { pairs++; if (!firstPair) firstPair = describe(many[i]) + ' / ' + describe(many[j]); }
+    }
+  }
+  if (pairs) measures.push({ check: 'layout', verdict: 'fault', detail: 'overlapping-targets', value: pairs, count: pairs, element: firstPair });
+  var edge = 0, edgeEl = null, edgeN = 0;
+  all.forEach(function (el) {
+    var r = el.getBoundingClientRect();
+    if (r.right <= window.innerWidth + 1) return;
+    for (var n = el.parentElement; n && n !== document.body && n !== de; n = n.parentElement) {
+      var ox = getComputedStyle(n).overflowX;
+      if (ox === 'auto' || ox === 'scroll' || ox === 'hidden' || ox === 'clip') return;
+    }
+    edgeN++;
+    if (r.right > edge) { edge = r.right; edgeEl = describe(el); }
+  });
+  if (edgeN) measures.push({ check: 'layout', verdict: 'fault', detail: 'past-right-edge', value: Math.round(edge) + '>' + window.innerWidth, count: edgeN, element: edgeEl });
+
+  // Fidelity inputs: distinct computed values, compared with the tokens in Node.
+  var fg2 = groups();
+  function seen(detail, value, el) {
+    group(fg2, detail + '|' + value, function () { return { detail: detail, value: value, element: describe(el) }; });
+  }
+  all.forEach(function (el) {
+    var cs = getComputedStyle(el);
+    var bg = parse(cs.backgroundColor);
+    if (bg ? bg.a > 0 : cs.backgroundColor !== 'transparent') seen('background', cs.backgroundColor, el);
+    ['Top', 'Right', 'Bottom', 'Left'].forEach(function (side) {
+      var st = cs['border' + side + 'Style'];
+      if (parseFloat(cs['border' + side + 'Width']) > 0 && st !== 'none' && st !== 'hidden') seen('border', cs['border' + side + 'Color'], el);
+    });
+    if (hasText(el)) {
+      seen('text', cs.color, el);
+      seen('font-family', cs.fontFamily.split(',')[0].trim().replace(/^["']|["']$/g, '').toLowerCase(), el);
+    }
+  });
+  var fidelity = [];
+  drain(fg2, fidelity);
+  return { measures: measures, fidelity: fidelity };
+}`;
+
+const FLOOR_KEYS = ['contrast', 'target'];
+
+/** Parse a colour token or computed colour to 'rgba(r, g, b, a)', or null when it is another syntax. */
+function normalizeColor(value) {
+  if (typeof value !== 'string') return null;
+  const v = value.trim();
+  const hex = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(v);
+  let r; let g; let b; let a = 1;
+  if (hex) {
+    let h = hex[1];
+    if (h.length <= 4) h = h.split('').map((c) => c + c).join('');
+    r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 4), 16); b = parseInt(h.slice(4, 6), 16);
+    if (h.length === 8) a = parseInt(h.slice(6, 8), 16) / 255;
+  } else {
+    const m = /^rgba?\(([^)]+)\)$/i.exec(v);
+    if (!m) return null;
+    const parts = m[1].split(/[\s,/]+/).filter(Boolean);
+    if (parts.length < 3 || parts.length > 4) return null;
+    const nums = parts.map((p) => (p.endsWith('%') ? parseFloat(p) / 100 : Number(p)));
+    if (nums.some(Number.isNaN)) return null;
+    [r, g, b] = parts.slice(0, 3).map((p, i) => (p.endsWith('%') ? Math.round(nums[i] * 255) : nums[i]));
+    if (parts.length === 4) a = nums[3];
+  }
+  return `rgba(${r}, ${g}, ${b}, ${+Number(a).toFixed(2)})`;
+}
+
+const firstFamily = (v) => String(v).split(',')[0].trim().replace(/^["']|["']$/g, '').toLowerCase();
+
+/**
+ * Read every `<root>/ds/<folder>/tokens.json`. Both shapes are accepted: the list `{tokens:[{name,value}]}`
+ * `design-system.md` documents, and the grouped `{color:{tokens:[...]}, type:{families:{...}}}` that
+ * `/design-system` has written. A colour in another syntax (hsl, oklch, an alias, var()) is listed in
+ * `unmeasurable` by token name, never guessed at.
+ */
+function readTokens(root) {
+  const out = { found: false, colors: new Set(), families: new Set(), unmeasurable: [] };
+  const dsRoot = path.join(root, 'ds');
+  if (!fs.existsSync(dsRoot)) return out;
+  const colorToken = (t, strict) => {
+    if (!t || typeof t !== 'object') return;
+    const n = normalizeColor(t.value);
+    if (n) out.colors.add(n);
+    else if (strict || (typeof t.value === 'string' && /^(#|hsla?\(|hwb\(|lab\(|lch\(|oklab\(|oklch\(|color\(|var\()/i.test(t.value.trim()))) {
+      out.unmeasurable.push(String(t.name || t.value));
+    }
+  };
+  for (const e of fs.readdirSync(dsRoot, { withFileTypes: true })) {
+    const file = path.join(dsRoot, e.name, 'tokens.json');
+    if (!e.isDirectory() || !fs.existsSync(file)) continue;
+    let json;
+    try { json = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { continue; }
+    if (!json || typeof json !== 'object') continue;
+    out.found = true;
+    if (Array.isArray(json.tokens)) {
+      for (const t of json.tokens) {
+        // A family token, not every font token: `font-size` / `font-weight` values ("16px", "600") are not
+        // families, and adding them would flag every rendered family off-token.
+        if (t && /famil|^fonts?$|typeface/i.test(String(t.type || t.category || ''))) out.families.add(firstFamily(t.value));
+        else if (t && /^font/i.test(String(t.type || t.category || ''))) continue;
+        else colorToken(t, false);
+      }
+    }
+    if (json.color && Array.isArray(json.color.tokens)) for (const t of json.color.tokens) colorToken(t, true);
+    const fam = json.type && json.type.families;
+    if (fam && typeof fam === 'object') for (const v of Object.values(fam)) out.families.add(firstFamily(v));
+  }
+  return out;
+}
+
+/** Turn the page's distinct computed values into fidelity measures, against `tokens`. */
+function fidelityMeasures(seen, tokens) {
+  if (!tokens.found) return [{ check: 'fidelity', verdict: 'not-measured', value: 'no tokens.json in the render root', count: 1, element: null }];
+  const out = [];
+  const colourBlocked = tokens.unmeasurable.length > 0;
+  if (colourBlocked) out.push({ check: 'fidelity', verdict: 'not-measured', detail: 'color', value: tokens.unmeasurable.join(', '), count: tokens.unmeasurable.length, element: null });
+  const merged = new Map();
+  for (const s of seen) {
+    let value = s.value;
+    if (s.detail === 'font-family') {
+      if (!tokens.families.size || tokens.families.has(value)) continue;
+    } else {
+      if (colourBlocked || !tokens.colors.size) continue;
+      value = normalizeColor(s.value) || s.value;
+      if (tokens.colors.has(value)) continue;
+    }
+    const key = `${s.detail}|${value}`;
+    if (merged.has(key)) merged.get(key).count += s.count;
+    else merged.set(key, { check: 'fidelity', verdict: 'off-token', detail: s.detail, value, count: s.count, element: s.element });
+  }
+  return [...merged.values(), ...out];
+}
+
+/** Run the measurement in the board's iframe; a failure becomes one not-measured measure, never a throw (D3). */
+async function measure(page, { floor, tokens, importFailures }) {
+  try {
+    const frame = page.frames().find((f) => f !== page.mainFrame());
+    if (!frame) throw new Error('the board iframe was not found');
+    const args = { floor: {} };
+    for (const k of FLOOR_KEYS) if (floor && typeof floor[k] === 'number') args.floor[k] = floor[k];
+    const r = await frame.evaluate(`(${MEASURE_SCRIPT})(${JSON.stringify(args)})`);
+    const failed = new Map();
+    for (const text of importFailures) {
+      const value = text.slice(text.indexOf('FAILED to load') + 'FAILED to load'.length).trim().split(/\s+/)[0] || 'unknown';
+      failed.set(value, (failed.get(value) || 0) + 1);
+    }
+    const imports = [...failed].map(([value, count]) => ({ check: 'fidelity', verdict: 'import-failed', value, count, element: null }));
+    return [...r.measures, ...fidelityMeasures(r.fidelity, tokens), ...imports];
+  } catch (e) {
+    return [{ check: 'measurement', verdict: 'not-measured', value: `measurement failed: ${e.message}`, count: 1, element: null }];
+  }
+}
+
+/** Screenshot one file of the render root; returns the runtime's render errors and the page's measures. */
+async function capture(browser, { port, file, viewport, png, offline, floor, tokens }) {
   const page = await browser.newPage({ viewport: { width: viewport[0], height: viewport[1] } });
   const errors = [];
+  const importFailures = [];
+  let measures = [];
   try {
     if (offline) await routeOffline(page, port);
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+    // An import that fails to load is logged, not thrown, so it is not a render error (D3).
+    page.on('console', (m) => { if (m.text().includes('x-import: FAILED to load')) importFailures.push(m.text()); });
     await page.goto(`http://127.0.0.1:${port}/host.html?b=${encodeURIComponent(file)}`);
     // Wait on the runtime's own messages, not a sleep: a fixed delay makes the stable-PNG test a timing bet.
     try {
@@ -232,11 +543,12 @@ async function capture(browser, { port, file, viewport, png, offline }) {
       if (m.type === '__dc_render_errors') for (const e of m.errors || []) errors.push(messageText(e));
       if (m.type === '__dc_booted' && m.mounted === false) errors.push('the runtime booted but mounted nothing');
     }
+    measures = await measure(page, { floor, tokens, importFailures });
     await page.screenshot({ path: png });
   } finally {
     await page.close();
   }
-  return errors;
+  return { errors, measures };
 }
 
 async function launch(projectRoot) {
@@ -255,15 +567,16 @@ async function launch(projectRoot) {
  * Render a design's boards.
  * @param {object} o
  * @param {string} o.dir      docs/ui/<slug>, holding design-map.json
- * @param {string} o.runtime  path to dc-runtime.js (written into the render root as support.js)
+ * @param {string} [o.runtime]  path to dc-runtime.js (default PINNED_RUNTIME; written into the render root as support.js)
  * @param {string} o.out      directory the PNGs are written to
  * @param {string[]} [o.boards] board ids to render (default: every board not superseded)
  * @param {string} [o.at]     commit to render from instead of the working tree
  * @param {boolean} [o.approved] render each approved/building/shipped board at its approved_commit
  * @param {boolean} [o.offline] see the header (D14)
+ * @param {{contrast?: number, target?: number}} [o.floor] contrast ratio and target px that give a measure a verdict
  * @param {string} [o.repo]   repository the git calls run in (default: the working directory)
  * @param {string} [o.projectRoot] where Playwright is resolved from first (default: the working directory)
- * @returns {Promise<{frames: {board, state, png}[], errors: Object<string, string[]>}>}
+ * @returns {Promise<{frames: {board, state, viewport, png}[], errors: Object<string, string[]>, measures: {board, state, viewport, check, verdict, value, count, element}[]}>}
  */
 async function render(o) {
   const map = o.map ? readMapFile(o.map) : designMap.read(o.dir);
@@ -290,12 +603,12 @@ async function render(o) {
   }
 
   const dirAbs = path.resolve(o.dir);
-  const runtime = path.resolve(o.runtime);
+  const runtime = path.resolve(o.runtime || PINNED_RUNTIME);
   if (!fs.existsSync(runtime)) throw new Error(`runtime not found: ${runtime}`);
   fs.mkdirSync(o.out, { recursive: true });
 
   const browser = await launch(o.projectRoot || '.');
-  const result = { frames: [], errors: {} };
+  const result = { frames: [], errors: {}, measures: [] };
   const cleanup = [];
   try {
     for (const { commit, canvasDir, group } of groups.values()) {
@@ -314,6 +627,7 @@ async function render(o) {
       }
       const root = buildRoot({ mirror, dsDir, runtime });
       cleanup.push(root);
+      const tokens = readTokens(root);
       const server = await serve(root);
       try {
         for (const b of group) {
@@ -326,8 +640,12 @@ async function render(o) {
           }
           for (const t of targets) {
             const png = path.join(o.out, t.png);
-            const errs = await capture(browser, { port: server.port, file: t.file, viewport: b.viewport, png, offline: o.offline });
-            result.frames.push({ board: b.id, state: t.state, png });
+            const { errors: errs, measures } = await capture(browser, { port: server.port, file: t.file, viewport: b.viewport, png, offline: o.offline, floor: o.floor, tokens });
+            // A frame is a board in one state at one viewport, so each measure names all three (AC-F5.4).
+            const viewport = Array.isArray(b.viewport) ? `${b.viewport[0]}x${b.viewport[1]}` : null;
+            result.frames.push({ board: b.id, state: t.state, viewport, png });
+            // The state comes from the target, never the temp copy's filename.
+            for (const m of measures) result.measures.push({ board: b.id, state: t.state, viewport, ...m });
             if (errs.length) (result.errors[b.id] = result.errors[b.id] || []).push(...errs.map((e) => (t.state ? `[${t.state}] ${e}` : e)));
           }
         }
@@ -369,13 +687,25 @@ function parseArgs(argv) {
 
 async function main(argv) {
   const { verb, opts } = parseArgs(argv);
-  if (verb !== 'render') throw new Error('usage: design-render.js render --dir D --runtime R --out O [--boards a,b] [--at SHA | --approved] [--map F]');
-  for (const f of ['dir', 'runtime', 'out']) if (!opts[f]) throw new Error(`--${f} is required`);
+  if (verb === 'runtime-check') {
+    if (!opts.live) throw new Error('--live is required');
+    return runtimeCheck(opts.live);
+  }
+  if (verb !== 'render') throw new Error('usage: design-render.js render --dir D --out O [--runtime R] [--boards a,b] [--at SHA | --approved] [--map F] [--floor-contrast RATIO] [--floor-target PX] | runtime-check --live F');
+  for (const f of ['dir', 'out']) if (!opts[f]) throw new Error(`--${f} is required`);
   if (opts.at && opts.approved) throw new Error('--at and --approved are exclusive');
-  return render({ ...opts, boards: opts.boards ? opts.boards.split(',') : null });
+  const floor = {};
+  for (const [flag, key] of [['floor-contrast', 'contrast'], ['floor-target', 'target']]) {
+    if (opts[flag] === undefined) continue;
+    const n = Number(opts[flag]);
+    if (!Number.isFinite(n) || n <= 0) throw new Error(`--${flag} must be a positive number`);
+    floor[key] = n;
+    delete opts[flag];
+  }
+  return render({ ...opts, floor: Object.keys(floor).length ? floor : undefined, boards: opts.boards ? opts.boards.split(',') : null });
 }
 
-module.exports = { render, serve, resolveTool, withProps, parseArgs, ToolError };
+module.exports = { render, runtimeCheck, readTokens, normalizeColor, PINNED_RUNTIME, PINNED_RUNTIME_SHA256, serve, resolveTool, withProps, parseArgs, ToolError };
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(

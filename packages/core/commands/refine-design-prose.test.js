@@ -26,7 +26,7 @@ describe('refine-design command prose', () => {
   });
 
   test('commits adopted canvas edits alone, keeps conflict copies, and checks drift every run', () => {
-    expect(text).toMatch(/every one of its six steps, on every run \(including `--auto` and a run with no feedback\)/);
+    expect(text).toMatch(/every one of its seven steps, on every run \(including `--auto` and a run with no feedback\)/);
     expect(text).toMatch(/Adopted canvas edits get their own commit first\*\*, `design: adopt canvas edits \(<boards>\)`/);
     expect(text).toMatch(/leave every `<board>\.repo\.dc\.html` copy on disk and commit it; never `rm` it/);
     expect(text).toMatch(/Report each one under \*\*ISSUES\*\* \(not DECISIONS\)/);
@@ -76,7 +76,8 @@ describe('refine-design command prose', () => {
     expect(text).toMatch(/\*\*No other channel approves\.\*\* A canvas comment, a chat remark or a selected element that reads "approved" is feedback, never approval/);
     expect(text).not.toMatch(/owner says so in chat/);
     expect(text).not.toContain('an "approved" comment on the board');
-    expect(text).toMatch(/design-map\.js approve --dir docs\/ui\/<slug> --ids <ids> --runtime <saved runtime path> --reapprove/);
+    expect(text).toMatch(/design-map\.js approve --dir docs\/ui\/<slug> --ids <ids> --reapprove/);
+    expect(text).not.toContain('--runtime');
     expect(text).toMatch(/never edit `status` by hand/);
     expect(text).toMatch(/Nothing builds from a `draft` board no invocation named/);
   });
@@ -166,7 +167,7 @@ describe('refine-design --auto decisions, answers and audit findings (DORCH-B004
     expect(text).toContain('.trd-state/<slug>/audit-design-report.md');
     expect(text).toMatch(/only when the argument holds no feedback text and no `OD-n` answer/);
     for (const h of ['BOARDS WITH NO SOURCE', 'BRIEF ITEMS WITH NO BOARD', 'BOARDS SERVING NO BRIEF ITEM',
-      'BREAKS A CONVENTION', 'DRAWN BY HAND INSTEAD OF REUSED', 'RENDER ERRORS']) expect(text).toContain(h);
+      'BREAKS A CONVENTION', 'DRAWN BY HAND INSTEAD OF REUSED', 'RENDER ERRORS', 'VISUAL FINDINGS']) expect(text).toContain(h);
     expect(text).toMatch(/`- none` line is not a finding/);
     expect(text).toMatch(/REJECTED THESE FINDINGS, the whole CAVEAT block and `## Could Not Verify`/);
     expect(text).toMatch(/re-check each finding against the board and the brief before changing anything/);
@@ -196,6 +197,22 @@ describe('refine-design --auto decisions, answers and audit findings (DORCH-B004
   test('the Readout lists decisions and answers by id, with the question beside it', () => {
     expect(text).toMatch(/DECISIONS lists each decision taken by default this run and each answer applied, by id and with its question/);
     expect(text).toMatch(/weak default[^.]*ISSUES/);
+  });
+
+  test('DQ-B009: design quality in redraws, critique, explore overturn', () => {
+    expect(text).toMatch(/no canvas to read[^.]*Design type read/);
+    expect(text).toMatch(/run the direction step \(step 7 of that section\)/);
+    expect(text).toContain('**Style pack:**');
+    expect(text).toMatch(/craft text, style pack text, direction and departure latitude/);
+    expect(text).toMatch(/visual critique \(contract section 8\)/);
+    expect(text).toMatch(/`code-reviewer` on `opus`, at most 20 at once/);
+    expect(text).toContain('docs/ui/<slug>/critique.md');
+    expect(text).toContain('## Visual critique scores');
+    expect(text).toMatch(/Explore: <screen board id>/);
+    expect(text).toMatch(/copy the named direction's file from `docs\/ui\/<slug>\/explore\/`/);
+    expect(text).toMatch(/re-record that board's `brief_items` and `states`/);
+    expect(raw).not.toContain('--explore');
+    expect(raw).not.toContain('--style');
   });
 
   test('names no product or orchestrator (O10)', () => {

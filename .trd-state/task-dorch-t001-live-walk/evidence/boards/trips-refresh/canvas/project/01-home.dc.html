@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="support.js"></script>
+<link rel="stylesheet" href="ds/fixture-web/components/bundle.css">
+<script src="ds/fixture-web/components/bundle.js"></script>
+<style>
+  /* Summary-line variants. Each is a <p> in the Card body; the tweak chooses which one shows.
+     Default is visible unless a state is set, so the board still reads if the script below does not run. */
+  .home-summary { display: none; }
+  .home-summary.is-default { display: block; }
+  html[data-home-state] .home-summary.is-default { display: none; }
+  html[data-home-state="default"] .home-summary.is-default,
+  html[data-home-state="loading"] .home-summary.is-loading,
+  html[data-home-state="empty"] .home-summary.is-empty,
+  html[data-home-state="error"] .home-summary.is-error,
+  html[data-home-state="singular"] .home-summary.is-singular { display: block; }
+
+  /* The app shell (src/main.jsx:60) is not an importable component: main.mx-auto.max-w-md.space-y-4.p-4.text-ink holding a nav.
+     bundle.css has no mx-auto, max-w-md, space-y-4 or mb-3 (it carries only the classes the components use),
+     so the shell's utilities are written out here with the same values. */
+  body { margin: 0; background: #fff; }
+  .shell { max-width: 28rem; margin: 0 auto; padding: 1rem; color: #1b1f2a; }
+  .shell > * + * { margin-top: 1rem; }
+  .shell nav { display: flex; gap: 1rem; color: #2f5bd2; }
+  .shell nav a { color: inherit; text-decoration: none; }
+  .shell p { margin: 0 0 0.75rem; }
+</style>
+</head>
+<body>
+<!-- To-be Home (/) at 390x844 and 1280x800 (brief 01-home: S1, S2, BI-1, BI-2, BI-3, BI-9, BI-10).
+     Same page shell as src/main.jsx:57-69 around the real Card and Button. Only the Card title
+     ("Your trips") and the body line change. The "See trips" Button is the real primary Button
+     (44 px tall) and stays visible in every state because /trips is still reachable. -->
+<main class="shell">
+  <!-- BI-10: shared page chrome, unchanged from src/main.jsx. Known gap, not drawn as changed (brief "Not in this design"):
+       these links are about 24 px tall, under the 44 px touch floor (grounding/standards.md). Owner decision. -->
+  <nav>
+    <a href="/">Home</a>
+    <a href="/trips">trips</a>
+    <a href="/settings">settings</a>
+  </nav>
+  <x-import component-from-global-scope="FixtureWeb.Card" data-props='{"title":"Your trips"}'>
+    <!-- Data dependency: the count is the length of the /api/trips.json array (fields id, name, startDate, nights). Home makes no
+         fetch today (src/main.jsx:41-45), so the count and the loading, error, empty and singular lines all need new Home wiring,
+         including a catch and a non-200 check the code does not have. -->
+    <p class="home-summary is-default">You have 3 trips.</p>
+    <p class="home-summary is-loading" role="status">Loading trips...</p>
+    <p class="home-summary is-empty">You have no trips yet.</p>
+    <p class="home-summary is-error" role="alert">Couldn't load your trips.</p>
+    <p class="home-summary is-singular">You have 1 trip.</p>
+    <x-import component-from-global-scope="FixtureWeb.Button" data-props='{"variant":"primary"}'>See trips</x-import>
+  </x-import>
+</main>
+<!-- Tweaks: one object per state. Precedence when several are true: loading, error, empty, singular (same as the Trips boards). -->
+<script data-dc-script data-props='{"loading":{"type":"boolean","default":false,"label":"Loading"},"empty":{"type":"boolean","default":false,"label":"Empty (zero trips)"},"error":{"type":"boolean","default":false,"label":"Error (fetch failed)"},"singular":{"type":"boolean","default":false,"label":"Singular (1 trip)"}}'></script>
+<script>
+  // Mirrors the tweak defaults onto <html> so the CSS above can pick the summary line.
+  // Reads the same data-props attribute the canvas runtime reads, and follows later changes to it.
+  (function () {
+    var tag = document.querySelector('script[data-dc-script]');
+    function apply() {
+      var props = {};
+      try { props = JSON.parse(tag.getAttribute('data-props') || '{}'); } catch (e) {}
+      var order = ['loading', 'error', 'empty', 'singular'];
+      var state = 'default';
+      for (var i = 0; i < order.length; i++) {
+        var t = props[order[i]];
+        if (t && (t === true || t.default === true || t.value === true)) { state = order[i]; break; }
+      }
+      document.documentElement.setAttribute('data-home-state', state);
+    }
+    apply();
+    if (window.MutationObserver) {
+      new MutationObserver(apply).observe(tag, { attributes: true, attributeFilter: ['data-props'] });
+    }
+  })();
+</script>
+</body>
+</html>

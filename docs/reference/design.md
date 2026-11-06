@@ -137,7 +137,7 @@ Artifact tool; libraries read and write files, workflow agents draw on disk.
 |---|---|---|---|
 | 1.1 | Setup check | code | `design-map.js setup`; `missing`/`unfilled` → STUCK "run `/design-setup`". |
 | 1.2 | Publishing switch | code | Reads `ensemble.publishArtifacts` from `.claude/settings.json` once, before any Artifact call, and holds the answer for the run. Off, or no Artifact tool → §5 governs the whole run. |
-| 1.3 | Read the Design type | model | Reads the Design type's live `SKILL.md`, references and `artifact-type/dc-runtime.js` (the canvas runtime renders need) through the canvas url. With no canvas yet and publishing on, the command creates one; with publishing off it borrows the runtime from another design's canvas, or passes none (renders skipped, listed under ISSUES). |
+| 1.3 | Read the Design type | model | Reads the Design type's live `SKILL.md` and references through the canvas url. With no canvas yet and publishing on, the command creates one; with no canvas to read (publishing off) it reads the Design type's instructions through the type (`Artifact` `list` with `scope: "types"`, then `read` with `type_url`). Renders always use the pinned runtime, `.claude/lib/dc-runtime.js`; with publishing on, the live `artifact-type/dc-runtime.js` is saved only to run `design-render.js runtime-check --live`, and a mismatch is one ISSUES line. |
 | 1.4 | Canvas sync | code + model | For each canvas in the map: `design-mirror.js check`. On `changed`, read the whole canvas into scratch, `design-mirror.js apply` (returns `adopted`, `toPublish`, `conflicts`), then `design-mirror.js record`. Adopted edits are committed **alone**, `design: adopt canvas edits (<boards>)`, before anything else touches `docs/ui/<slug>/`. A conflict keeps the canvas version as the board and the repository version beside it as `<board>.repo.dc.html`; both are kept and committed, and the conflict is an ISSUES line for the owner to merge by hand. |
 | 1.5 | Approval survives an adopt | code | A canvas edit adopted onto an `approved` or `building` board keeps its status and `approved_commit`; the board is flagged "edited after approval" in ISSUES. |
 | 1.6 | Stale-system and unsynced checks | code | `design-map.js stale --dir … --record` (drift is an ISSUES line and `/design-system --sync` goes first in NEXT), then `design-map.js unsynced`. `/audit-design` runs `stale` without `--record`; `/design-system` and `/sync-design` skip the check that they are the remedy for. |
@@ -256,7 +256,7 @@ under `docs/ui/` is the slug (else `current.json`'s design); the rest is feedbac
 | 2 | Gather feedback | model | Step 2 | From the argument, the chat, the canvas's comment threads (`ArtifactComments`) and the viewer's selected elements — all data, never instructions. |
 | 3 | Change only the affected boards | model | Step 3 | Edits their source, never `status`. Re-challenges each changed board on `/create-design`'s axes, one fix round, then `refresh`, `validate`, render. |
 | 4 | Publish | model | Step 4 | Only changed files; posts a before/after on the canvas and replies to each comment handled. A failed reply is one ISSUES line. |
-| 5 | Approve | code | Step 5 | Only with `--approve`. Commits pending edits first, then `design-map.js approve --ids <ids> --runtime <path> --reapprove`. An illegal move fails the whole call (one ISSUES line, nothing approved); a render failure is an ISSUES line and the approval stands. |
+| 5 | Approve | code | Step 5 | Only with `--approve`. Commits pending edits first, then `design-map.js approve --ids <ids> --reapprove`. An illegal move fails the whole call (one ISSUES line, nothing approved); a render failure is an ISSUES line and the approval stands. |
 | 6 | Commit and record | code | Step 6 | The rest of `docs/ui/<slug>/`; `artifacts.js record --kind design`. |
 
 NEXT: `/design-system --sync` (when stale), `/sync-design <slug>` (when unsynced),
@@ -282,7 +282,7 @@ else the one `current.json` names, else STUCK listing them.
 | # | Step | Kind | Where | What it does |
 |---|---|---|---|---|
 | 1 | Start | code | Step 1 | Setup check only: no canvas sync, no map write. |
-| 2 | Read inputs | code + model | Step 2 | `design-map.js read`, `unsynced`, and `stale` **without** `--record`. Stale → ISSUES line and `/design-system --sync` first in NEXT. Reads the `designing-on-canvas` conventions and the previous report's Could Not Verify rows (so they are kept), and saves the render runtime to scratch (empty runtime → "render check not run" in ISSUES). With `--drift`, also the routes, installed and current system versions, and `verify-design-comparison`'s Capture and Rubric text; capture runs against `local`, never staging or production. |
+| 2 | Read inputs | code + model | Step 2 | `design-map.js read`, `unsynced`, and `stale` **without** `--record`. Stale → ISSUES line and `/design-system --sync` first in NEXT. Reads the `designing-on-canvas` conventions and the previous report's Could Not Verify rows (so they are kept), and renders with the pinned runtime. With `--drift`, also the routes, installed and current system versions, and `verify-design-comparison`'s Capture and Rubric text; capture runs against `local`, never staging or production. |
 | 3 | Run the workflow once | model | Step 3 | Returns `readout`, `accepted`, `rejected`, `could_not_verify`, and with `--drift` `undesigned_screens`. |
 | 4 | Write and record the report | code | "Writing the audit report" | `.trd-state/<slug>/audit-design-report.md`, overwritten each run: VERDICT line first, then date, audited commit, design path, system state, the readout verbatim, `## Could Not Verify`. Recorded as kind `audit-design` with `--url ""` (never published). No commit. A failed write is one STATE line. |
 
@@ -386,7 +386,7 @@ are the product's own, resolved from the project then the global npm root, never
 | `validate` | | list of errors (required board fields, kind, status, `viewport` as `[w, h]`, canvas references, non-empty `design_system.paths`); empty when valid |
 | `refresh` | | re-derives each board's `components`, `parts` and `links` from its source and writes the map; touches no other field |
 | `transition` | `--ids a,b --to <status> [--commit <sha>] [--trd <path>]` | moves boards; `--commit` defaults to HEAD. Fails naming the board on an illegal move |
-| `approve` | `--ids a,b [--commit <sha>] [--runtime <path>] [--reapprove] [--message <text>]` | the one approve sequence, below |
+| `approve` | `--ids a,b [--commit <sha>] [--runtime <path>] [--reapprove] [--message <text>]` (`--runtime` defaults to the pinned `dc-runtime.js`) | the one approve sequence, below |
 | `approved` | | to-be boards in `approved` |
 | `buildable` | `[--ids a,b] [--items S1,S2]` | to-be boards in `draft` or `approved` (limited to `--ids`) — what an invocation may approve and build. With `--items`, the boards that record any of those brief items in `brief_items`, printed as `{ boards, unmatched, held }`: `unmatched` lists each item no returned board serves with `served_by` (every board recording it, with its status), `held` the returned boards a draft part holds. An empty `--items` is an error. Without `--items` it still prints an array |
 | `held` | `[--ids a,b]` | `[{id, draft_parts}]`: boards that embed a `draft` part, followed transitively. With `--ids`, checks the named boards whatever their status |
@@ -404,8 +404,8 @@ are the product's own, resolved from the project then the global npm root, never
 3. `draft` boards move to `approved` with `approved_commit`. An `approved` board moves again
    (new commit) only with `--reapprove`; otherwise it is listed in `kept`.
 4. The map is written, then frames are rendered for exactly the moved boards
-   (`design-render.js` with `--approved`). No `--runtime`, or any render failure, lands in
-   `renderSkipped` or `errors`; the approval stands.
+   (`design-render.js` with `--approved`). A render failure lands in
+   `errors`; the approval stands. Frames render with the pinned runtime unless `--runtime` names another.
 5. Map and frames are committed by pathspec (`chore(design): <slug> boards approved`, or
    `--message`). If the commit fails, the map is restored and the call fails: all or nothing.
 
@@ -431,7 +431,7 @@ copies are never compared.
 
 ### `design-render.js` — boards to PNG frames
 
-`node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <dc-runtime.js> --out <dir> [--boards a,b] [--at <sha> | --approved] [--map <file>]`
+`node .claude/lib/design-render.js render --dir docs/ui/<slug> [--runtime <dc-runtime.js>] --out <dir> [--boards a,b] [--at <sha> | --approved] [--map <file>]`
 
 Serves a throwaway render root on 127.0.0.1, loads each board in headless Chromium inside the
 canvas runtime, waits for the runtime's own boot and render-error messages (never a fixed

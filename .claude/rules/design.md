@@ -6,7 +6,9 @@ edits this file.** The file is committed: it holds no credential, only where one
 
 The design commands (`/create-design`, `/refine-design`, `/audit-design`, `/design-system`,
 `/sync-design`) read this file to know how this product is designed and how to reach a
-screen. A field left blank is unfilled; the commands stop and name it rather than guess.
+screen. A file identical to this template is unfilled and the commands stop. A field of §5
+(design direction) left blank does not stop them: they draw with the product's own design
+system and no style pack, and name each blank field and point at `/design-setup`.
 
 ## 1. Design system
 
@@ -37,7 +39,22 @@ One row per platform the product ships (for example `web`, `ios`).
 
 ## 4. Design rules
 
-- **Reuse:** an existing view beats a new one; a new component needs a reason.
+- **Reuse:** the design system's components and tokens; a new component needs a reason. How far a layout departs from today's screen is §5's departure latitude.
 - **Accessibility floor:** (the owner's answer, recorded by `/design-setup`)
-- **Competitor references:**
 - **Process rules:** (for example "every round publishes a before/after")
+
+## 5. Design direction
+
+| Field | Value |
+|-------|-------|
+| Brand (voice, personality, colours the design must keep) | |
+| Style pack (a `style-pack-*` skill name) | |
+| References (every product or site to draw toward) | |
+| Departure latitude (`keep`, `refine` or `rethink`) | |
+
+Departure latitude says how far a to-be board may move from today's screen. Components and
+tokens are reused at every level.
+
+- **`keep`**: keep the current screen's layout and structure; change only what the brief items require.
+- **`refine`**: keep the information architecture and navigation; layout, spacing, hierarchy and visual treatment may change.
+- **`rethink`**: layout, navigation placement and composition may change entirely.
