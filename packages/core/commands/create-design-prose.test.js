@@ -22,6 +22,7 @@ describe('create-design command prose', () => {
     const fm = raw.split('---')[1];
     expect(fm).toContain('disable-model-invocation: true');
     expect(fm).toContain('[--new] [--auto]');
+    expect(fm).toContain('[--explore] [--style <pack>]');
   });
 
   test('ends STUCK on a missing or unfilled design.md', () => {
@@ -150,6 +151,50 @@ describe('create-design command prose', () => {
     });
     test('names no product or orchestrator', () => {
       expect(text).not.toMatch(/forge|orchestrator/i);
+    });
+  });
+
+  // DQ-B007 (D8, D11, D14, D15, D18)
+  describe('design quality (DQ-B007)', () => {
+    test('flags --explore and --style, and refine-design has neither', () => {
+      expect(text).toMatch(/\*\*`--explore`\*\* draws three to-be boards/);
+      expect(text).toMatch(/\*\*`--style <pack>`\*\* names the style pack/);
+      const refine = read('packages/core/commands/refine-design.md').split('---')[1];
+      expect(refine).not.toMatch(/--explore|--style/);
+    });
+    test('step 1 runs all seven contract steps including the direction step, and passes the four args', () => {
+      expect(text).toContain('every one of its seven steps');
+      expect(text).toContain('contract section 1 step 7');
+      for (const a of ['direction: <direction JSON>', 'craft: "<craft text>"', 'stylePack:', 'rubric: "<contract section 8 text>"']) expect(text).toContain(a);
+    });
+    test('no saved-runtime read for rendering; canvas rules come from the Design type when no canvas exists', () => {
+      expect(text).not.toMatch(/skip rendering|saved runtime path|--runtime/);
+      expect(text).toMatch(/names the Design type as where the canvas rules come from when no canvas exists/);
+      expect(text).toMatch(/Renders use the pinned runtime/);
+    });
+    test('--style is recorded as a Style pack line at the top of brief.md', () => {
+      expect(text).toContain('**Style pack:** <pack> (from --style)');
+    });
+    test('explore: attended question marks Recommended; unattended records an OD-n with three options; unchosen move to explore/', () => {
+      const ex = text.slice(at('**Explore choice**'), at('**Write `docs/ui/<slug>/critique.md`**'));
+      expect(ex).toMatch(/at most four screens per round, the ranked first marked "\(Recommended\)"/);
+      expect(ex).toMatch(/autonomy\.md` case 1/);
+      expect(ex).toMatch(/the three directions as Options, the ranked first as Taken, the rank reason as Why/);
+      expect(ex).toMatch(/highest `OD-n` in `brief\.md` at this moment/);
+      expect(ex).toContain('docs/ui/<slug>/explore/');
+      expect(ex).toMatch(/rename the chosen file to `NN-key\.dc\.html`/);
+      expect(ex).toMatch(/`findings_open` entry/);
+      expect(ex).toContain('it skipped the fix round: run `/audit-design <slug>`');
+      expect(at('**Explore choice**')).toBeLessThan(at('Write the map once'));
+    });
+    test('writes critique.md and commits it with explore/', () => {
+      expect(text).toContain('docs/ui/<slug>/critique.md');
+      expect(text).toMatch(/then that board's measured values/);
+      expect(text).toMatch(/\(brief, grounding, canvas, map, screens, `critique\.md` and `explore\/`\)/);
+    });
+    test('readout ISSUES names the new lines', () => {
+      const readout = text.slice(at('## Readout'), at('## Completion signal'));
+      expect(readout).toMatch(/blank design-direction fields,\s*visual critique not run, pinned-runtime drift and the explore swap line/);
     });
   });
 });

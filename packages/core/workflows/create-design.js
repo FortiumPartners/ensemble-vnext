@@ -7,9 +7,10 @@ export const meta = {
     { title: 'Brief', detail: 'one agent writes brief.md and returns the open decisions' },
     { title: 'AsIs', detail: 'one board per screen in scope, rendered and compared with its screenshot' },
     { title: 'Parts', detail: 'one agent writes the shared parts the design system lacks' },
-    { title: 'ToBe', detail: 'one agent per board, in parallel, starting from the as-is board' },
-    { title: 'Render', detail: 'render every board locally' },
-    { title: 'Challenge', detail: 'read-only reviewers on five axes, then one fix round' },
+    { title: 'ToBe', detail: 'one agent per board, in parallel, within the departure latitude (with explore: one per direction)' },
+    { title: 'Critique', detail: 'one visual agent per screen (and one for parts) renders, measures and scores the frames (with explore: one per direction)' },
+    { title: 'Rank', detail: 'explore only: one agent per screen ranks its directions; only the top-ranked one goes on' },
+    { title: 'Challenge', detail: 'read-only reviewers on five axes plus the critique findings, then one fix round' },
   ],
 }
 
@@ -19,18 +20,28 @@ export const meta = {
 // writes the map once from what `draw` returns.
 //
 // args: { stage, slug, dir, sources, designRules, canvasRules, conventions, groundingSkill,
-//         newMode, auto, runtime, project, boardsInScope }
+//         newMode, auto, project, boardsInScope, direction, craft, stylePack, rubric, floor, explore, directions }
 //   stage         "ground" | "draw"
 //   dir           docs/ui/<slug>
 //   sources       the PRD / issue / brief the design serves, as a path or pasted text
 //   designRules   design.md text (the owner's answers)        canvasRules   the Design type's SKILL.md + references
 //   conventions   designing-on-canvas text                    groundingSkill  the grounding skill's text, or ''
-//   runtime       saved dc-runtime.js path (D12)              boardsInScope  [{ name, route, platform, viewport, predecessor, screenshot }]
+//   boardsInScope  [{ name, route, platform, viewport, predecessor, screenshot }]
+//   explore       true: draw `directions` to-be boards per screen (NN-key--dir-a.dc.html ...), rank them, and
+//                 send only the top-ranked one on to the challenge and fix round (D15). Returns `explore`.
+//   directions    how many directions per screen under explore: 2 or 3, default 3 (only a, b, c have an emphasis)
+//   direction     the `design-map.js direction` JSON ({ latitude, text, ... }): brand, references and the
+//                 departure latitude level (keep | refine | rethink)
+//   craft         the craft skills' text, concatenated        stylePack  { name, text }, or absent
+//   rubric        design-commands.md section 8 (the visual critique rubric)
+//   floor         { contrast, target }: the contrast ratio and touch-target px the measures are judged by
 //   newMode       --new: no as-is board for a screen with no predecessor
 //   auto          accepted, not read: the ground stage returns every open decision in both modes and the
 //                 command records the unanswered ones (D7, D8)
 //   items         draw stage: the ground stage's `items` ({ id, source }); the ids are the only ones a to-be
 //                 agent may return as brief_items, so a wrong id is not first caught by validate
+//   The draw stage's return describes the boards as they were BEFORE the fix round: the critique, the
+//   measures and the scores are taken once, and the fixed boards are not rendered again here.
 //   odNext        the first free OD-n number: one more than the highest OD-n already in brief.md,
 //                 counted by the command before this stage runs (1 on a new brief, and when absent).
 //                 The ground stage gives the k-th returned decision the id OD-<odNext + k - 1>, in code,
@@ -62,11 +73,40 @@ const DESIGN_RULES = a.designRules || ''
 const CANVAS_RULES = a.canvasRules || ''
 const CONVENTIONS = a.conventions || ''
 const GROUNDING_SKILL = a.groundingSkill || ''
-const RUNTIME = a.runtime || ''
+const DIRECTION_RAW = a.direction
+const DIRECTION = !DIRECTION_RAW ? '' : typeof DIRECTION_RAW === 'string' ? DIRECTION_RAW : (DIRECTION_RAW.text || JSON.stringify(DIRECTION_RAW))
+const LATITUDE = (DIRECTION_RAW && typeof DIRECTION_RAW === 'object' && DIRECTION_RAW.latitude) || ''
+const CRAFT = a.craft || ''
+const STYLE_PACK = a.stylePack && typeof a.stylePack === 'object' ? a.stylePack : null
+const RUBRIC = a.rubric || ''
+const FLOOR = a.floor && typeof a.floor === 'object' ? a.floor : {}
+const FLOOR_FLAGS = [
+  typeof FLOOR.contrast === 'number' ? `--floor-contrast ${FLOOR.contrast}` : '',
+  typeof FLOOR.target === 'number' ? `--floor-target ${FLOOR.target}` : '',
+].filter(Boolean).join(' ')
+// What each departure latitude permits (design.md section 5); a to-be board is drawn within it.
+const LATITUDE_MEANING = {
+  keep: "keep the current screen's layout and structure; change only what the brief items require",
+  refine: 'keep the information architecture and navigation; layout, spacing, hierarchy and visual treatment may change',
+  rethink: 'layout, navigation placement and composition may change entirely',
+}
+const LATITUDE_TEXT = LATITUDE
+  ? `${LATITUDE}: ${LATITUDE_MEANING[LATITUDE] || '(level not recognised: read the design direction above)'}. Components and tokens are reused at every level.`
+  : '(none supplied: keep the information architecture and navigation of the current screen)'
 const NEW_MODE = a.newMode === true
 // A numeric string ("4") is accepted: a silent fall back to 1 would repeat ids already in brief.md.
 const OD_NEXT_RAW = typeof a.odNext === 'string' && a.odNext.trim() !== '' ? Number(a.odNext) : a.odNext
 const OD_NEXT = Number.isInteger(OD_NEXT_RAW) && OD_NEXT_RAW >= 1 ? OD_NEXT_RAW : 1
+const EXPLORE = a.explore === true || a.explore === 'true'
+const DIRECTIONS_RAW = typeof a.directions === 'string' && a.directions.trim() !== '' ? Number(a.directions) : a.directions
+const DIRECTIONS = Number.isInteger(DIRECTIONS_RAW) ? Math.min(3, Math.max(2, DIRECTIONS_RAW)) : 3
+const LETTERS = ['a', 'b', 'c'].slice(0, DIRECTIONS)
+// The emphasis each direction is told, assigned here and never chosen by an agent (D15).
+const EMPHASIS = {
+  a: "stay as close to today's layout as the departure latitude allows",
+  b: 'lead with hierarchy and composition: decide what the screen is for and let size, grouping and order say it',
+  c: 'go as far from today\'s layout as the departure latitude allows',
+}
 const ITEM_IDS = (Array.isArray(a.items) ? a.items : []).map((i) => (i && i.id) || '').filter(Boolean)
 const SCREENS = Array.isArray(a.boardsInScope) ? a.boardsInScope : []
 if (STAGE !== 'ground' && STAGE !== 'draw') throw new Error('create-design: args.stage must be "ground" or "draw"')
@@ -103,7 +143,16 @@ CONVENTIONS (designing-on-canvas):
 ${CONVENTIONS || '(none supplied)'}
 
 THE OWNER'S DESIGN RULES (design.md):
-${DESIGN_RULES || '(none supplied)'}`
+${DESIGN_RULES || '(none supplied)'}
+
+DESIGN DIRECTION (departure latitude: ${LATITUDE || 'none supplied'}):
+${DIRECTION || '(none supplied)'}
+
+CRAFT (drawing craft skills):
+${CRAFT || '(none supplied)'}
+
+STYLE PACK${STYLE_PACK && STYLE_PACK.name ? ` (${STYLE_PACK.name})` : ''}:
+${(STYLE_PACK && STYLE_PACK.text) || '(none supplied)'}`
 
 const pad = (n) => String(n).padStart(2, '0')
 // The map's shape (design-map.js, design-render.js): viewport is [width, height] in pixels and
@@ -259,6 +308,7 @@ ${BATCH}`,
 const draws = SCREENS.map((s, i) => ({ ...s, n: pad(i + 1), key: slugOf(s.name) }))
 const failed = []
 const boards = []
+const screenBoards = new Map() // screen number -> { asIs, toBe }: the board records the critique looks at
 
 const BOARD_SCHEMA = {
   type: 'object', additionalProperties: false, required: ['id', 'file'],
@@ -301,9 +351,11 @@ showed>". Never return screenshot_match true while saying the screenshot is wron
 design-map.json does not exist yet, so write this scratch map to a file in a fresh scratch folder under
 the system temp directory and pass it with --map:
   ${scratchMap([{ id: `${s.n}-${s.key}--as-is`, file: `${s.n}-${s.key}--as-is.dc.html`, kind: 'as-is', platform: s.platform, viewport: viewportOf(s.viewport), states: {} }])}
-  node .claude/lib/design-render.js render --dir ${DIR} --map <that scratch map> --runtime ${RUNTIME || '<none supplied: skip rendering and set screenshot_match false with a note>'} --out <a fresh scratch folder under the system temp directory> --boards ${s.n}-${s.key}--as-is
+  node .claude/lib/design-render.js render --dir ${DIR} --map <that scratch map> --out <a fresh scratch folder under the system temp directory> --boards ${s.n}-${s.key}--as-is
 Return screenshot_match true only if the frame matches; otherwise false with a mismatch_note saying what
 differs. Do NOT edit design-map.json: return the values.
+This board reproduces the current screen as the screenshot shows it. The design direction, craft, style pack and
+departure latitude below change nothing the screenshot shows; they apply to the parts, to-be and fix boards.
 ${BOARD_RULES}
 ${SCOPE}
 ${DATA_RULE}
@@ -315,11 +367,13 @@ ${BATCH}`,
 ).then((r) => (r ? { ...r, kind: 'as-is', screen: s } : null)))
 asIs.forEach((r, i) => {
   if (!r) { failed.push(`asis:${asIsScreens[i].n}-${asIsScreens[i].key}`); return }
-  boards.push({
+  const rec = {
     id: r.id, file: r.file, kind: 'as-is', platform: r.screen.platform, viewport: viewportOf(r.screen.viewport),
     route: r.screen.route, brief_items: r.brief_items || [], states: statesOf(r.states),
     screenshot_match: r.screenshot_match === true, mismatch_note: r.mismatch_note || '',
-  })
+  }
+  boards.push(rec)
+  screenBoards.set(r.screen.n, { ...(screenBoards.get(r.screen.n) || {}), asIs: rec })
 })
 
 phase('Parts')
@@ -348,10 +402,16 @@ for (const p of partList) {
 
 phase('ToBe')
 
-const toBe = await inBatches(draws, (s) => agent(
-  `Draw the to-be board for "${s.name}" (${s.route}, ${s.platform} ${s.viewport}).
-Write ${DIR}/canvas/project/${s.n}-${s.key}.dc.html following designing-on-canvas, answering the brief items for this screen in ${DIR}/brief.md.
-${asIs.find((r) => r && r.screen === s) ? `Start from its as-is board, ${DIR}/canvas/project/${s.n}-${s.key}--as-is.dc.html.` : 'It has no as-is board: draw it new.'}
+// One draw per screen; with explore, one per screen and direction. Same prompt either way: a direction
+// differs only by its file name, its letter and its emphasis.
+const drawItems = draws.flatMap((s) => (EXPLORE ? LETTERS.map((letter) => ({ s, letter })) : [{ s, letter: '' }]))
+const baseOf = ({ s, letter }) => `${s.n}-${s.key}${letter ? `--dir-${letter}` : ''}`
+const toBe = await inBatches(drawItems, (it) => agent(
+  `Draw the to-be board for "${it.s.name}" (${it.s.route}, ${it.s.platform} ${it.s.viewport}).
+Write ${DIR}/canvas/project/${baseOf(it)}.dc.html following designing-on-canvas, answering the brief items for this screen in ${DIR}/brief.md.
+${it.letter ? `This is direction ${it.letter.toUpperCase()} of ${LETTERS.length} for this screen, drawn in parallel with the others. Your emphasis: ${EMPHASIS[it.letter]}. Stay within the departure latitude.
+Other boards link to this screen by its final file name ${it.s.n}-${it.s.key}.dc.html (the chosen direction is renamed to it after the workflow), so link to the other screens that way, never to a --dir- file.
+` : ''}${asIs.find((r) => r && r.screen === it.s) ? `Read its as-is board, ${DIR}/canvas/project/${it.s.n}-${it.s.key}--as-is.dc.html, for the components, content and data it shows. How far the layout departs from it is the departure latitude, ${LATITUDE_TEXT}` : 'It has no as-is board: draw it new.'}
 Shared parts you may import: ${partList.length ? partList.map((p) => p.file).join(', ') : 'none'}.
 Declare every state worth reviewing (empty, loading, error) as a tweak, and return each state's name and props.
 Return the brief item ids this board answers (brief_items). ${ITEM_IDS.length ? `The recorded ids are ${ITEM_IDS.join(', ')}: these are the only ids you may return; never invent or rename one.` : 'No brief item ids were passed: return an empty brief_items rather than inventing ids.'} Do NOT edit design-map.json.
@@ -360,44 +420,173 @@ ${SCOPE}
 ${DATA_RULE}
 ${BATCH}`,
   {
-    label: `tobe:${s.n}-${s.key}`, agentType: 'frontend-implementer', phase: 'ToBe', effort: 'high', model: 'sonnet',
+    label: it.letter ? `direction:${it.s.n}-${it.s.key}-${it.letter}` : `tobe:${it.s.n}-${it.s.key}`,
+    agentType: 'frontend-implementer', phase: 'ToBe', effort: 'high', model: 'sonnet',
     schema: TOBE_SCHEMA,
   },
-).then((r) => (r ? { ...r, screen: s } : null)))
+).then((r) => (r ? { ...r, screen: it.s, letter: it.letter } : null)))
+const drawn = [] // explore: every direction that came back, { s, letter, rec }
 toBe.forEach((r, i) => {
-  if (!r) { failed.push(`tobe:${draws[i].n}-${draws[i].key}`); return }
-  boards.push({
+  if (!r) { failed.push(EXPLORE ? `direction:${drawItems[i].s.n}-${drawItems[i].s.key}-${drawItems[i].letter}` : `tobe:${drawItems[i].s.n}-${drawItems[i].s.key}`); return }
+  const rec = {
     id: r.id, file: r.file, kind: 'to-be', platform: r.screen.platform, viewport: viewportOf(r.screen.viewport),
     route: r.screen.route, brief_items: r.brief_items || [], states: statesOf(r.states),
-  })
+  }
+  if (EXPLORE) { drawn.push({ s: r.screen, letter: r.letter, rec }); return }
+  boards.push(rec)
+  screenBoards.set(r.screen.n, { ...(screenBoards.get(r.screen.n) || {}), toBe: rec })
 })
 
-phase('Render')
+phase('Critique')
 
-const render = await agent(
-  RUNTIME
-    ? `Render every board of the design at ${DIR} and report the render errors. design-map.json does not
-exist yet, so write this scratch map to a file in a fresh scratch folder under the system temp directory:
-  ${scratchMap(boards.map(({ id, file, kind, platform, viewport, states }) => ({ id, file, kind, platform, viewport, states })))}
-Then run, from the project root:
-  node .claude/lib/design-render.js render --dir ${DIR} --map <that scratch map> --runtime ${RUNTIME} --out <a fresh scratch folder under the system temp directory>
-Report each board whose render reported an error (board, the error text). A clean board is not a finding.
-If the command exits 2, return missing_tool with its message (the product lacks Playwright or its Chromium).
-${SCOPE}
-${BATCH}`
-    : `No render runtime was supplied. Return missing_tool "no runtime supplied" and an empty errors list. Do nothing else.`,
-  {
-    label: 'render', agentType: 'backend-implementer', phase: 'Render', effort: 'low', model: 'haiku',
-    schema: {
-      type: 'object', additionalProperties: false, required: ['errors'],
-      properties: {
-        errors: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['board', 'error'], properties: { board: { type: 'string' }, error: { type: 'string' } } } },
-        missing_tool: { type: 'string' },
+// One visual agent per screen (its as-is and to-be boards) plus one for the shared parts, all in the same
+// batched list, so 25 screens and the parts agent run as waves of 20 and 6. A workflow script opens no file
+// and runs no shell, so the agent that renders is the agent that looks (D9); the numbers the render command
+// measured reach this script only as the agent's schema-forced return, and rank is assigned below, in code.
+const mapEntry = ({ id, file, kind, platform, viewport, states }) => ({ id, file, kind, platform, viewport, states })
+const VISUAL_SCHEMA = {
+  type: 'object', additionalProperties: false, required: ['errors', 'measures', 'scores'],
+  properties: {
+    errors: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['board', 'error'], properties: { board: { type: 'string' }, error: { type: 'string' } } } },
+    measures: {
+      type: 'array',
+      items: {
+        type: 'object', required: ['board', 'check', 'verdict'],
+        properties: {
+          board: { type: 'string' }, state: { type: 'string' }, check: { type: 'string' }, verdict: { type: 'string' },
+          value: {}, detail: { type: 'string' }, count: { type: 'number' }, element: { type: ['string', 'null'] },
+        },
       },
     },
+    scores: {
+      type: 'array',
+      items: {
+        type: 'object', additionalProperties: false, required: ['board', 'dimension', 'judged'],
+        properties: {
+          board: { type: 'string' }, dimension: { type: 'string' }, judged: { type: 'boolean' },
+          score: { type: 'integer', minimum: 1, maximum: 5 },
+          comparative: { type: 'string', enum: ['better', 'same', 'worse', 'no predecessor'] },
+          frame: { type: 'string' }, element: { type: 'string' }, change: { type: 'string' },
+        },
+      },
+    },
+    missing_tool: { type: 'string' },
+    out: { type: 'string' },
   },
-)
-if (!render) failed.push('render')
+}
+const VISUAL_COMMON = `Write this scratch map to a file in a fresh scratch folder under the system temp directory, and render
+into ANOTHER fresh scratch folder under the system temp directory (never into ${DIR}, which holds the design):
+  node .claude/lib/design-render.js render --dir ${DIR} --map <that scratch map> --out <a fresh scratch folder> ${FLOOR_FLAGS} --boards <the board ids below>
+Copy every render error and every measure the command printed into your return VERBATIM: do not summarise, round,
+merge or drop one, and do not rank them. If the command exits 2, return missing_tool with its message (the product
+lacks Playwright or its Chromium) and nothing else.`
+const visualItems = [
+  ...(EXPLORE ? drawn.map((d) => ({ kind: 'screen', s: d.s, letter: d.letter, label: `visual:${d.s.n}-${d.s.key}-${d.letter}`, recs: [(screenBoards.get(d.s.n) || {}).asIs, d.rec].filter(Boolean) })) : draws.filter((s) => screenBoards.has(s.n)).map((s) => ({ kind: 'screen', s, label: `visual:${s.n}-${s.key}`, recs: [screenBoards.get(s.n).asIs, screenBoards.get(s.n).toBe].filter(Boolean) }))),
+  ...(partList.length ? [{ kind: 'parts', label: 'visual:parts', recs: boards.filter((b) => b.kind === 'part') }] : []),
+]
+const visual = await inBatches(visualItems, (it) => agent(
+  it.kind === 'parts'
+    ? `Render and measure the shared parts of the design at ${DIR}. Score nothing: parts are not judged.
+${VISUAL_COMMON}
+Boards: ${it.recs.map((b) => b.id).join(', ')}
+Scratch map:
+  ${scratchMap(it.recs.map(mapEntry))}
+Return scores as an empty list.
+${SCOPE}
+${DATA_RULE}
+${BATCH}`
+    : `Critique the screen "${it.s.name}"${it.letter ? ` as drawn in direction ${it.letter.toUpperCase()}` : ''} (${it.s.route}, ${it.s.platform} ${it.s.viewport}) of the design at ${DIR}: render its boards,
+read every PNG, and score the TO-BE board.
+${VISUAL_COMMON}
+Boards: ${it.recs.map((b) => b.id).join(', ')}
+Scratch map:
+  ${scratchMap(it.recs.map(mapEntry))}
+${EXPLORE ? `Return out: the absolute path of the scratch folder you rendered into (a ranking agent opens the PNGs there).
+` : ''}Then read every PNG the command wrote. The as-is board (if any) is the comparison baseline and is rendered and measured
+but NOT scored: for it return no score. Score the to-be board on each of the ten dimensions of the rubric, 1 to 5, and
+for each dimension say better, same or worse against the as-is frame ("no predecessor" when the screen has no as-is
+board). A dimension the rubric says is not judged here is returned with judged false and no score. Every score of 3 or
+below names the frame, the element and a specific change.
+THE RUBRIC:
+${RUBRIC || '(none supplied: score the ten dimensions on a 1 to 5 scale, 1 broken, 5 strong with nothing to change)'}
+Edit nothing: you report.
+${SCOPE}
+${DATA_RULE}
+${BATCH}`,
+  {
+    label: it.label, agentType: 'code-reviewer', phase: 'Critique', effort: 'medium', model: 'opus',
+    schema: VISUAL_SCHEMA,
+  },
+).then((r) => (r ? { ...r, item: it } : null)))
+const deadVisual = visualItems.filter((it, i) => !visual[i])
+if (deadVisual.length) log(`WARNING: visual agent(s) returned nothing: ${deadVisual.map((it) => it.label).join(', ')}`)
+deadVisual.forEach((it) => failed.push(it.label))
+// A critique that did not run: a dead agent, or one that found no render tool. Listed by board.
+const critiqueNotRun = []
+visual.forEach((r, i) => {
+  if (!r || r.missing_tool) critiqueNotRun.push(...visualItems[i].recs.map((b) => b.id))
+})
+const visualAlive = visual.filter(Boolean)
+
+// Explore: one rank agent per screen reads its directions' frames and critiques; the top-ranked direction is
+// the only one that enters the challenge and fix round (D15). The command asks the owner and renames files.
+const explore = []
+const unchosen = new Set() // ids and files of directions not taken: nothing about them reaches the reviewers or the fix round
+if (EXPLORE) {
+  phase('Rank')
+  const RANK_SCHEMA = {
+    type: 'object', additionalProperties: false, required: ['ranking'],
+    properties: { ranking: { type: 'array', minItems: 1, items: { type: 'object', additionalProperties: false, required: ['direction', 'reason'], properties: { direction: { type: 'string', enum: LETTERS }, reason: { type: 'string' } } } } },
+  }
+  const screensDrawn = draws.filter((s) => drawn.some((d) => d.s === s))
+  const ranked = await inBatches(screensDrawn.filter((s) => drawn.filter((d) => d.s === s).length > 1), (s) => {
+    const dirs = drawn.filter((d) => d.s === s)
+    const detail = dirs.map((d) => {
+      const v = visualAlive.find((r) => r.item.s === s && r.item.letter === d.letter)
+      return `DIRECTION ${d.letter.toUpperCase()} (${EMPHASIS[d.letter]}): board ${d.rec.id}, file ${d.rec.file}
+  frames folder: ${v && v.out ? v.out : '(none: its visual agent returned nothing; judge from the board source)'}
+  scores: ${JSON.stringify(v ? v.scores || [] : [])}
+  measures: ${JSON.stringify(v ? v.measures || [] : [])}`
+    }).join('\n')
+    return agent(
+      `Rank the ${dirs.length} directions drawn for the screen "${s.name}" (${s.route}) of the design at ${DIR}, best first.
+Open each direction's PNG frames (the folder is given for each) and read its critique. Judge which serves the brief
+items in ${DIR}/brief.md best within the departure latitude (${LATITUDE || 'none supplied'}), then give each a one-sentence reason.
+Rank every direction once. Edit nothing: you report.
+${detail}
+${SCOPE}
+${DATA_RULE}
+${BATCH}`,
+      { label: `rank:${s.n}-${s.key}`, agentType: 'code-reviewer', phase: 'Rank', effort: 'medium', model: 'opus', schema: RANK_SCHEMA },
+    ).then((r) => ({ s, r }))
+  })
+  for (const s of screensDrawn) {
+    const dirs = drawn.filter((d) => d.s === s)
+    const alive = dirs.map((d) => d.letter)
+    const hit = ranked.find((x) => x.s === s)
+    const seen = new Set()
+    let ranking = hit && hit.r ? (hit.r.ranking || []).filter((x) => alive.includes(x.direction) && !seen.has(x.direction) && seen.add(x.direction)) : []
+    let note = ''
+    if (hit && !ranking.length) {
+      failed.push(`rank:${s.n}-${s.key}`)
+      note = `rank agent returned nothing: took direction ${alive[0]}`
+    } else if (!hit) {
+      note = `only direction ${alive[0]} came back: nothing to rank`
+    }
+    const chosen = ranking.length ? ranking[0].direction : alive[0]
+    const rec = dirs.find((d) => d.letter === chosen).rec
+    boards.push(rec)
+    screenBoards.set(s.n, { ...(screenBoards.get(s.n) || {}), toBe: rec })
+    dirs.filter((d) => d.letter !== chosen).forEach((d) => { unchosen.add(d.rec.id); unchosen.add(d.rec.file) })
+    explore.push({
+      screen: `${s.n}-${s.key}`, ranking, chosen, ...(note ? { note } : {}),
+      directions: dirs.map((d) => ({ direction: d.letter, ...d.rec })),
+    })
+  }
+}
+const REVIEW_SCOPE = EXPLORE
+  ? `\nReview ONLY these boards, the directions chosen to go on: ${boards.filter((b) => b.kind !== 'part').map((b) => b.file).join(', ')}, plus the shared parts and as-is boards they use. Other --dir- files in the folder are alternatives the owner has not chosen between: ignore them. Boards will link to each other by the final name NN-key.dc.html, which is correct: do not flag such a link.`
+  : ''
 
 phase('Challenge')
 
@@ -420,13 +609,13 @@ const FINDING_SCHEMA = {
 const AXES = [
   ['flow', 'flow and logic: a screen with no way in or out, a link to a board that does not exist, a state that cannot be reached'],
   ['consistency', 'consistency: the same thing drawn two ways across boards'],
-  ['reuse', 'reuse: an inline copy of an existing component or view the design system or codebase already has'],
+  ['reuse', `reuse: an inline copy of an existing component or view the design system or codebase already has. The departure latitude is ${LATITUDE || 'not supplied'}: a layout change the latitude permits is not a reuse finding; reuse is about components and tokens`],
   ['data', 'data reality: a field shown that the backend does not return (check grounding/data.md and the code)'],
   ['standards', 'standards and accessibility: against grounding/standards.md and the owner\'s design rules'],
 ]
 
 const reviewed = await parallel(AXES.map(([key, what]) => () => agent(
-  `Review the boards in ${DIR}/canvas/project/ on ONE axis, ${what}.
+  `Review the boards in ${DIR}/canvas/project/ on ONE axis, ${what}.${REVIEW_SCOPE}
 READ ONLY: edit nothing. Every finding names a board, a line and a specific mechanism, checkable in seconds;
 "it looks cluttered" is manufactured and FORBIDDEN. Rank high, medium or low. Zero findings is a legitimate result.
 ${DATA_RULE}
@@ -440,11 +629,23 @@ ${BATCH}`,
 const deadAxes = AXES.filter((x, i) => !reviewed[i]).map((x) => x[0])
 if (deadAxes.length) log(`WARNING: reviewer(s) returned nothing: ${deadAxes.join(', ')}`)
 
-const renderFindings = ((render && render.errors) || []).map((e) => ({ axis: 'render', board: e.board, why: e.error, rank: 'high' }))
-const findings = [...reviewed.filter(Boolean).flatMap((r) => r.findings.map((f) => ({ ...f, axis: r.axis }))), ...renderFindings]
+// Rank is assigned here, from what the visual agents measured and scored (D10); an agent's own rank is never
+// read. Each `why` is built from the same fields every time, so a fixed finding is recognised by the fix round's
+// board|why match and not reported open.
+const SCORE_RANK = { 1: 'high', 2: 'medium', 3: 'low' }
+const MEASURE_RANK = { 'below-floor': 'high', fault: 'medium', 'off-token': 'medium' }
+const renderFindings = visualAlive.flatMap((r) => (r.errors || []).map((e) => ({ axis: 'render', board: e.board, why: `render error: ${e.error}`, rank: 'high' })))
+const measureFindings = visualAlive.flatMap((r) => (r.measures || [])
+  .filter((m) => MEASURE_RANK[m.verdict])
+  .map((m) => ({ axis: 'measure', board: m.board, why: `${m.check} ${m.verdict}${m.detail ? ` (${m.detail})` : ''}${m.state ? ` in state ${m.state}` : ''}: ${m.value === undefined || m.value === null ? '' : m.value}${m.element ? ` at ${m.element}` : ''}`, rank: MEASURE_RANK[m.verdict] })))
+const scoreFindings = visualAlive.flatMap((r) => (r.scores || [])
+  .filter((x) => x.judged !== false && SCORE_RANK[x.score])
+  .map((x) => ({ axis: 'critique', board: x.board, why: `${x.dimension} scored ${x.score} of 5: ${[x.frame, x.element].filter(Boolean).join(', ')}${x.change ? `; change: ${x.change}` : ''}`, rank: SCORE_RANK[x.score] })))
+const findings = [...reviewed.filter(Boolean).flatMap((r) => r.findings.map((f) => ({ ...f, axis: r.axis }))), ...renderFindings, ...measureFindings, ...scoreFindings]
+  .filter((f) => !unchosen.has(f.board)) // a direction not taken is never fixed
 const RANK = { high: 0, medium: 1, low: 2 }
 findings.sort((x, y) => RANK[x.rank] - RANK[y.rank])
-log(`${findings.length} findings from ${reviewed.filter(Boolean).length}/${AXES.length} reviewers, ${renderFindings.length} render errors`)
+log(`${findings.length} findings from ${reviewed.filter(Boolean).length}/${AXES.length} reviewers, ${renderFindings.length} render errors, ${measureFindings.length} measured, ${scoreFindings.length} scored`)
 
 let open = findings
 let fixed = 0
@@ -485,8 +686,17 @@ return {
   dir: DIR,
   boards,
   failed,
+  ...(EXPLORE ? { explore } : {}),
   findings_open: open,
   findings_fixed: fixed,
-  render_missing_tool: (render && render.missing_tool) || '',
-  incomplete_coverage: deadAxes.length > 0 || !render,
+  // Rendered, measured and scored BEFORE the fix round; the fixed boards are not rendered again here, so
+  // `critique` describes the pre-fix boards.
+  critique: visualAlive.filter((r) => !r.missing_tool).map((r) => ({
+    screen: r.item.kind === 'parts' ? 'parts' : `${r.item.s.n}-${r.item.s.key}`,
+    ...(r.item.letter ? { direction: r.item.letter } : {}),
+    boards: r.item.recs.map((b) => b.id), errors: r.errors || [], measures: r.measures || [], scores: r.scores || [],
+  })),
+  critique_not_run: critiqueNotRun,
+  render_missing_tool: (visualAlive.find((r) => r.missing_tool) || {}).missing_tool || '',
+  incomplete_coverage: deadAxes.length > 0 || critiqueNotRun.length > 0,
 }

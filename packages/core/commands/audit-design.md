@@ -32,7 +32,7 @@ and never publishes. Findings are for the owner to act on with `/refine-design`.
 | `traceability` | A board with no source (the verifier). A brief item with no board, and a to-be board serving no brief item, are decided in code from the map's `brief_items` (the workflow only; when no board records the field the verifier decides no-board and the second check is skipped, with a Could Not Verify row). |
 | `conventions` | Boards against the canvas conventions (`designing-on-canvas`). |
 | `reuse` | A component drawn by hand when the design system or codebase already has one. |
-| `render` | Render errors, using `design-render.js` into a scratch folder, never `screens/png/`. |
+| `visual` | One per screen (a to-be board with its as-is board, paired by the id `<id>--as-is`), and one for parts, flow boards and an as-is board with no to-be. It renders with `design-render.js` into a scratch folder, never `screens/png/` or anywhere under `docs/ui/<slug>/`, relays the render errors and measured values, and scores the to-be board on the ten dimensions of contract section 8 against its as-is board. Parts, flow and as-is boards are measured, never scored. Findings are ranked in code (render error and below-floor contrast or target high; layout fault and off-token value medium; score 1 high, 2 medium, 3 low) and listed under `VISUAL FINDINGS`; they never raise the verdict above "proceed with these caveats". |
 
 **`--drift`** (AC-F13.7, runnable at any time, usually after `/sync-design`) adds verifiers:
 
@@ -73,23 +73,25 @@ zero findings is a legitimate result.
    reports that), and the previous report's `## Could Not Verify` rows if
    `.trd-state/<slug>/audit-design-report.md` exists, so the section is **maintained** (AC-F10.1)
    and not lost when the report is overwritten.
-   **Save the render runtime to a working path** (the render check runs only when the workflow
-   is given one). Read `artifact-type/dc-runtime.js` through the map's canvas url (contract
-   section 1 step 3, a read, not a sync) and write it to a scratch file; pass that path as
-   `runtime`. With publishing off, take it from another canvas under `docs/ui/`; pass an empty
-   `runtime` only when neither exists, and list "render check not run" under ISSUES.
+   **Run the direction step** (contract section 1 step 7): `node .claude/lib/design-map.js direction`,
+   adding `--style <name>` when `docs/ui/<slug>/brief.md` has a `**Style pack:**` line (that line
+   wins over `design.md`'s field). Read the style-pack file it names and the contract's section 8
+   (Visual critique) text. The render uses the pinned runtime, so no runtime is read or saved. Add the
+   ISSUES lines section 1 step 7 asks for, and one when the visual critique did not run (a critic
+   with no report, or a missing Playwright or Chromium).
 3. **Run the workflow once:**
    ```
-   Workflow({ name: "audit-design", args: { slug: "<slug>", dir: "docs/ui/<slug>", brief: "docs/ui/<slug>/brief.md", sources: "<sources path or empty>", project: "<dir or empty>", map: "<design-map.json text>", conventions: "<text or empty>", stale: <stale result>, priorCnv: [<prior rows>], runtime: "<pinned dc-runtime path or empty>" } })
+   Workflow({ name: "audit-design", args: { slug: "<slug>", dir: "docs/ui/<slug>", brief: "docs/ui/<slug>/brief.md", sources: "<sources path or empty>", project: "<dir or empty>", map: "<design-map.json text>", conventions: "<text or empty>", stale: <stale result>, priorCnv: [<prior rows>], direction: <the direction result>, stylePack: "<style-pack text or empty>", rubric: "<contract section 8 text>", floor: <the direction result's floor> } })
    ```
    **With `--drift`**, add `"drift": true` and four more inputs only this session can supply:
    `routes` (the product's routes from `.claude/rules/design.md`, or empty), `systemVersions`
    (`{ installed, current }`, read from the hosted Design System artifact and the canvas, D12),
-   `capture` and `rubric` (the `## Capture` and `## Rubric` text of `verify-design-comparison`'s
-   `SKILL.md`), and `"environment": "local"` (an environment `verification.md` section 1 lists;
+   and `capture` (the `## Capture` text of `verify-design-comparison`'s
+   `SKILL.md`; the `rubric` arg stays contract section 8), and `"environment": "local"` (an environment `verification.md` section 1 lists;
    never `staging` or `production`). The result then also carries `undesigned_screens`; print
    them under ISSUES with `/create-design` to draw each as an as-is board.
-   It returns `readout`, `accepted`, `rejected` and `could_not_verify`, and no board edits.
+   It returns `readout`, `accepted`, `rejected`, `could_not_verify` and `critique` (per screen: the scratch
+   folder, scores, measures and render errors), and no board edits.
    **If the workflow is unavailable**, run the verifiers above as parallel read-only subagents
    and reconcile their findings yourself.
 4. **Write the report** (below), then **record** it, then print the readout.
@@ -111,10 +113,17 @@ zero findings is a legitimate result.
 
 <the readout, verbatim as printed below>
 
+## Visual critique scores
+
+<from the workflow's `critique`, per to-be board: a table of dimension, score or "not judged", vs as-is, frames read, reason; then the board's measured values. "not run: <reason>" for a screen whose critic did not report>
+
 ## Could Not Verify
 
 <one bullet per workflow `could_not_verify` row, or "none">
 ```
+
+The report is written under `.trd-state/<slug>/`, never under `docs/ui/<slug>/`, and the scratch
+frames stay out of the tree.
 
 **One text, written once, printed as written.** Print the readout character for character as
 the file holds it; the only addition is STATE lines about the report itself.

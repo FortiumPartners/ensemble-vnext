@@ -154,8 +154,8 @@ describe('design-commands contract', () => {
 
   test('visual critique defines ten dimensions, 1-5 anchors, rules and the rank table (D10)', () => {
     const s8 = section(8);
-    for (const d of ['Hierarchy', 'Layout and spacing', 'Typography', 'Color and contrast', 'Density',
-      'Consistency', 'Components and tokens', 'Interaction affordance', 'Responsiveness', 'States']) {
+    for (const d of ['Usability', 'Hierarchy', 'Craft', 'Brand', 'Consistency',
+      'Responsiveness', 'States', 'Copy', 'Density', 'Distinctiveness']) {
       expect(s8).toMatch(new RegExp(`\\*\\*${d}\\*\\*: \\S`));
     }
     const n = s8.replace(/\s+/g, ' ');

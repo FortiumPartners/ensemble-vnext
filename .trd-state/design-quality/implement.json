@@ -4,7 +4,7 @@
   "trd_hash": "e98a88a8ba868f6f10767213d3b38c0aa2ca8968900d471020cc7f5c9cfae074",
   "branch": "feature/design-quality/prd",
   "strategy": "tdd",
-  "phase_cursor": 2,
+  "phase_cursor": 5,
   "tasks": {
     "DQ-P001": {
       "description": "Commit the walk's boards (D17). Copy from /private/tmp/claude-502/-Users-james-dev-fortium-ensemble-vnext/7348a86a-641c-4089-9f06-0c4cf6808534/scratchpad/walk/react-web/docs/ui/ the folder trips-refre",
@@ -162,98 +162,141 @@
     "DQ-B005": {
       "description": "create-design.js critique and direction (D8, D9, D10, D12). New args direction, craft, stylePack, rubric; BOARD_RULES gains DESIGN DIRECTION, CRAFT, STYLE PACK; to-be prompt per D12; reuse axis gets t",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/create-design.js",
+        ".claude/workflows/create-design.js",
+        "packages/core/workflows/create-design.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T17:24:50.135Z",
+      "completed_at": "2026-11-06T17:34:08.633Z",
+      "last_advanced": "2026-11-06T17:26:31.049Z"
     },
     "DQ-B006": {
       "description": "create-design.js explore (D15): args explore, directions (default 3); direction agents with letter and emphasis; a visual agent per direction; a rank agent per screen; only the chosen direction enters",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/create-design.js",
+        "packages/core/workflows/create-design.test.js",
+        ".claude/workflows/create-design.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T17:24:50.135Z",
+      "completed_at": "2026-11-06T17:34:08.634Z",
+      "last_advanced": "2026-11-06T17:26:31.049Z"
     },
     "DQ-B007": {
       "description": "create-design.md (D8, D11, D14, D15, D18). Step 1's publish-off sentence names the D18 type read as where the canvas rules come from when no canvas exists. Flags --explore, --style <pack>; step 1's \"e",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/create-design.md",
+        "packages/core/commands/create-design-prose.test.js",
+        ".claude/commands/create-design.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T17:24:50.135Z",
+      "completed_at": "2026-11-06T17:34:08.634Z",
+      "last_advanced": "2026-11-06T17:26:31.049Z"
     },
     "DQ-B008": {
       "description": "audit-design.js and audit-design.md (D9, D10, D11, D12). Workflow: args direction, stylePack, rubric, floor; render-N verifiers replaced by visual verifiers per screen (as-is with its to-be by id conv",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/audit-design.js",
+        "packages/core/workflows/audit-design.test.js",
+        "packages/core/commands/audit-design.md",
+        "packages/core/commands/audit-design-prose.test.js",
+        ".claude/workflows/audit-design.js",
+        ".claude/commands/audit-design.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T17:24:50.135Z",
+      "completed_at": "2026-11-06T17:34:08.633Z",
+      "last_advanced": "2026-11-06T17:26:31.049Z"
     },
     "DQ-B009": {
       "description": "refine-design.md (D8, D10, D11, D12, D14, D15, D18): redraws with no canvas to read get the canvas rules through the D18 type read; step 1's \"every one of its six steps\" of contract section 1 becomes ",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/refine-design.md",
+        "packages/core/commands/refine-design-prose.test.js",
+        ".claude/commands/refine-design.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T17:24:50.135Z",
+      "completed_at": "2026-11-06T17:34:08.634Z",
+      "last_advanced": "2026-11-06T17:26:31.049Z"
     },
     "DQ-T001": {
       "description": "Walk render integration test (AC-F3.5): a Jest suite that renders the committed walk boards (DQ-P001) with the pinned runtime and default arguments",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/lib/design-render-walk.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T17:24:50.135Z",
+      "completed_at": "2026-11-06T17:34:08.634Z",
+      "last_advanced": "2026-11-06T17:26:31.049Z"
     },
     "DQ-B010": {
       "description": "Labelled set and replay (D16): test/design-critique-corpus/{README.md,labels.jsonl,replay.js,replay.test.js}, frames and measures of the eight walk boards rendered with the pinned runtime, each labell",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "test/design-critique-corpus/README.md",
+        "test/design-critique-corpus/labels.jsonl",
+        "test/design-critique-corpus/replay.js",
+        "test/design-critique-corpus/replay.test.js",
+        "test/design-critique-corpus/frames/",
+        "test/design-critique-corpus/measures/"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T17:24:50.135Z",
+      "completed_at": "2026-11-06T17:34:08.634Z",
+      "last_advanced": "2026-11-06T17:26:31.049Z"
     },
     "DQ-D001": {
       "description": "Supersession marks (SUP-1): in docs/TRD/design-stage.md mark D12's runtime clause, and the statements that the pinned runtime is only a test fixture (D14's \"A pinned copy of dc-runtime.js in packages/",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "docs/TRD/design-stage.md",
+        "docs/PRD/design-stage.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T17:24:50.135Z",
+      "completed_at": "2026-11-06T17:34:08.632Z",
+      "last_advanced": "2026-11-06T17:26:31.049Z"
     },
     "DQ-T002": {
       "description": "[LIVE] End-to-end in a fresh copy of test/fixtures/design/react-web/ with the runtime vendored by scaffold-project.sh --refresh, publishArtifacts: false, and a design.md whose §5 is filled as test dat",
@@ -288,13 +331,21 @@
         "findings": 0
       },
       "timestamp": "2026-11-06T17:11:57.747Z"
+    },
+    {
+      "phase": 2,
+      "commit": "b8065dc",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-06T17:24:50.135Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "4dc8996",
+    "last_healthy_checkpoint": "b8065dc",
     "interrupted": false,
     "interrupt_reason": null,
-    "last_checkpoint_timestamp": "2026-11-06T17:11:57.747Z"
+    "last_checkpoint_timestamp": "2026-11-06T17:24:50.135Z"
   },
   "functional_verification": {
     "prd_resolved": true,

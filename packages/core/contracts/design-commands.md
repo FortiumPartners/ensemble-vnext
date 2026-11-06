@@ -193,16 +193,20 @@ instructions.
 
 **Dimensions.** Score each of the ten, per screen:
 
-1. **Hierarchy**: the eye finds the primary thing first, then the next.
-2. **Layout and spacing**: alignment, grid and rhythm; nothing clipped, overlapping or crowded.
-3. **Typography**: a clear scale, readable sizes and line lengths, weights that mean something.
-4. **Color and contrast**: tokens used, palette restrained, text and controls at or above the contrast floor.
-5. **Density**: information per screen suits the task; neither sparse nor cramped.
-6. **Consistency**: the same thing looks the same, and matches the design system.
-7. **Components and tokens**: real components, no off-token values.
-8. **Interaction affordance**: controls look operable, targets at or above the touch-target floor.
-9. **Responsiveness**: the layout holds across the viewports drawn.
-10. **States**: empty, loading, error and populated states are drawn where the screen has them.
+1. **Usability**: a user can tell what the screen is for and complete the task on it without guessing.
+2. **Hierarchy**: the eye finds the primary thing first, then the next.
+3. **Craft**: alignment, spacing rhythm, type scale and finish; nothing looks accidental or unfinished.
+4. **Brand**: the screen looks like this product, judged against the design direction and the style pack.
+5. **Consistency**: the same thing looks the same, and matches the design system.
+6. **Responsiveness**: the layout holds across the viewports drawn.
+7. **States**: empty, loading, error and populated states are drawn where the screen has them.
+8. **Copy**: labels, headings and messages are clear, specific and in the product's voice.
+9. **Density**: information per screen suits the task; neither sparse nor cramped.
+10. **Distinctiveness**: the screen has a point of view rather than a generic template look, judged against the design direction and the style pack.
+
+Layout faults, contrast below the floor, touch targets below the floor and off-token values are
+not dimensions: they are code-measured checks, ranked below. Brand and distinctiveness are
+scored against the design direction and style pack; with neither supplied they are `not judged`.
 
 **Scale.** 1 is broken (a render error, an unusable or unreadable element); 2 is a clear fault
 a user would notice; 3 is acceptable but visibly unpolished; 4 is good with a minor flaw; 5 is
