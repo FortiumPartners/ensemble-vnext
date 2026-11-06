@@ -170,6 +170,123 @@ describe('buildable (AC-F9.4: invocation is approval)', () => {
   });
 });
 
+describe('validate: brief_items (D3, D16)', () => {
+  it.each([['a string', 'S1'], ['an array of numbers', [1]], ['null', null], ['an object', {}]])('rejects a board brief_items that is %s, naming the board', (_n, v) => {
+    expect(dm.validate(mapOf([board({ id: 'zed', brief_items: v })])).join()).toMatch(/board zed: brief_items must be an array of strings/);
+  });
+  it('accepts absent and empty', () => {
+    const b = board(); delete b.brief_items;
+    expect(dm.validate(mapOf([b, board({ id: '02', brief_items: [] }), board({ id: '03', brief_items: ['S1'] })]))).toEqual([]);
+  });
+  it('with a top-level item list: rejects a duplicate id and a board id not in the list', () => {
+    const list = [{ id: 'S1', source: 'a' }, { id: 'S1', source: 'b' }];
+    expect(dm.validate(mapOf([board()], { brief_items: list })).join()).toMatch(/duplicate brief item id S1/);
+    const e = dm.validate(mapOf([board({ id: 'x', brief_items: ['S1', 'S9'] })], { brief_items: [{ id: 'S1', source: 'a' }] })).join();
+    expect(e).toMatch(/board x: brief_items names S9/);
+    expect(e).not.toMatch(/S1 which|names S1/);
+  });
+  it('rejects a top-level list that is not an array of { id }', () => {
+    expect(dm.validate(mapOf([board()], { brief_items: 'S1' })).join()).toMatch(/brief_items must be an array of \{ id, source \}/);
+    expect(dm.validate(mapOf([board()], { brief_items: [{ source: 'x' }] })).join()).toMatch(/brief_items must be an array of \{ id, source \}/);
+  });
+  it('a valid list with matching boards passes', () => {
+    expect(dm.validate(mapOf([board({ brief_items: ['S1'] })], { brief_items: [{ id: 'S1', source: 'a' }] }))).toEqual([]);
+  });
+});
+
+describe('buildableByItems (D4, D5)', () => {
+  const m = (extra) => {
+    const nb = board({ id: 'nofield', file: 'nofield.dc.html' }); delete nb.brief_items;
+    return mapOf([
+      board({ id: 'a', file: 'a.dc.html', status: 'draft', brief_items: ['S1', 'S2'] }),
+      board({ id: 'b', file: 'b.dc.html', status: 'approved', brief_items: ['S2', 'S3'] }),
+      board({ id: 'c', file: 'c.dc.html', status: 'building', brief_items: ['S4'] }),
+      board({ id: 'asis', file: 'asis.dc.html', kind: 'as-is', brief_items: ['S5'] }),
+      nb,
+    ], extra);
+  };
+  const ids = (r) => r.boards.map((b) => b.id);
+  it('returns only buildable to-be boards recording a named item', () => {
+    expect(ids(dm.buildableByItems(m(), ['S2']))).toEqual(['a', 'b']);
+    expect(ids(dm.buildableByItems(m(), ['S1']))).toEqual(['a']);
+  });
+  it('--ids intersects', () => {
+    expect(ids(dm.buildableByItems(m(), ['S2'], ['b', 'c']))).toEqual(['b']);
+  });
+  it('an item served only by a building board is unmatched with its server and status', () => {
+    expect(dm.buildableByItems(m(), ['S4']).unmatched).toEqual([{ item: 'S4', served_by: [{ id: 'c', status: 'building' }] }]);
+  });
+  it('an item no board records has empty served_by', () => {
+    expect(dm.buildableByItems(m(), ['S9']).unmatched).toEqual([{ item: 'S9', served_by: [] }]);
+  });
+  it('served_by lists boards of any kind', () => {
+    expect(dm.buildableByItems(m(), ['S5']).unmatched[0].served_by).toEqual([{ id: 'asis', status: 'draft' }]);
+  });
+  it('a board with no brief_items field is never returned', () => {
+    const r = dm.buildableByItems(m(), ['S1', 'S2', 'S3']);
+    expect(ids(r)).not.toContain('nofield');
+    expect(r.unmatched).toEqual([]);
+  });
+  it('buildable stays an array and is not narrowed by this function', () => {
+    expect(Array.isArray(dm.buildable(m()))).toBe(true);
+  });
+  it('with a top-level list, flags an unknown item known: false and leaves known items known', () => {
+    const r = dm.buildableByItems(m({ brief_items: [{ id: 'S4', source: 'x' }, { id: 'S6', source: 'y' }] }), ['S4', 'S6', 'S9']);
+    expect(r.unmatched).toEqual([
+      { item: 'S4', served_by: [{ id: 'c', status: 'building' }], known: true },
+      { item: 'S6', served_by: [], known: true },
+      { item: 'S9', served_by: [], known: false },
+    ]);
+  });
+  it('without a top-level list, entries carry no known field', () => {
+    expect(dm.buildableByItems(m(), ['S9']).unmatched[0]).not.toHaveProperty('known');
+  });
+});
+
+describe('CLI buildable --items', () => {
+  const cli = (cwd, ...args) => spawnSync('node', [path.join(__dirname, 'design-map.js'), ...args], { cwd, env: ENV, encoding: 'utf8' });
+  const repo = () => {
+    const r = tmp(); fs.mkdirSync(path.join(r, 'd', 'canvas', 'project'), { recursive: true });
+    fs.writeFileSync(path.join(r, 'd', 'canvas', 'project', 'a.dc.html'), '<dc-import src="parts/p.dc.html"></dc-import>');
+    fs.writeFileSync(path.join(r, 'd', 'canvas', 'project', 'b.dc.html'), '<div></div>');
+    fs.writeFileSync(path.join(r, 'd', 'canvas', 'project', 'p.dc.html'), '<div></div>');
+    dm.write(path.join(r, 'd'), mapOf([
+      board({ id: 'a', file: 'a.dc.html', brief_items: ['S1'] }),
+      board({ id: 'b', file: 'b.dc.html', brief_items: ['S2'] }),
+      board({ id: 'p', file: 'p.dc.html', kind: 'part', brief_items: [] }),
+    ]));
+    return r;
+  };
+  it('prints { boards, unmatched, held } and names a returned board that embeds a draft part', () => {
+    const r = repo();
+    const o = cli(r, 'buildable', '--dir', 'd', '--items', 'S1,S2,S9');
+    expect(o.status).toBe(0);
+    const out = JSON.parse(o.stdout);
+    expect(out.boards.map((b) => b.id)).toEqual(['a', 'b']);
+    expect(out.unmatched).toEqual([{ item: 'S9', served_by: [] }]);
+    expect(out.held).toEqual([{ id: 'a', draft_parts: ['p'] }]);
+  });
+  it('--items with --ids intersects', () => {
+    const out = JSON.parse(cli(repo(), 'buildable', '--dir', 'd', '--items', 'S1,S2', '--ids', 'b').stdout);
+    expect(out.boards.map((b) => b.id)).toEqual(['b']);
+    expect(out.held).toEqual([]);
+  });
+  it.each([[''], [','], [' , ']])('--items %j exits 1 and never falls through to plain buildable', (v) => {
+    const o = cli(repo(), 'buildable', '--dir', 'd', '--items', v);
+    expect(o.status).toBe(1);
+    expect(o.stderr).toMatch(/^design-map\.js: .*--items/);
+    expect(o.stdout).toBe('');
+  });
+  it('--items with no value exits 1', () => {
+    expect(cli(repo(), 'buildable', '--dir', 'd', '--items').status).toBe(1);
+  });
+  it('buildable without --items still prints an array', () => {
+    const out = JSON.parse(cli(repo(), 'buildable', '--dir', 'd').stdout);
+    expect(Array.isArray(out)).toBe(true);
+    expect(out.map((b) => b.id)).toEqual(['a', 'b']);
+  });
+});
+
 describe('read / refresh / write', () => {
   it('reads back a two-canvas map and refresh only touches derived fields', () => {
     const dir = tmp();

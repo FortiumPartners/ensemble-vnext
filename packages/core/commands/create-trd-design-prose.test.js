@@ -80,3 +80,21 @@ describe('trd-authoring.md "Design as a source"', () => {
     expect(section).toContain(needle);
   });
 });
+
+describe('create-trd.md --boards (DORCH-B006)', () => {
+  test('argument-hint and the strip sentence name --boards', () => {
+    expect(cmd).toContain('argument-hint: "[path-to-prd] [--design docs/ui/<slug> [--boards <ids>]]"');
+    expect(cmd).toContain('`--boards <ids>`) are not part of the PRD path: remove each flag **and its value**');
+  });
+  test('named boards are checked with buildable and held --ids', () => {
+    expect(cmd).toContain('design-map.js buildable --dir docs/ui/<slug> --ids <ids>');
+    expect(cmd).toContain('design-map.js held --dir docs/ui/<slug> --ids <ids>');
+    expect(cmd).toMatch(/is STUCK, naming it and its status/);
+    expect(cmd).toMatch(/STUCK too, naming the part and `\/refine-design <slug> --approve <part>`/);
+  });
+  test('only the named ids are approved and moved; without --boards keeps today', () => {
+    expect(cmd).toMatch(/Only the named ids are approved and moved to `building`/);
+    expect(cmd).toMatch(/Without `--boards`, the steps above apply unchanged/);
+    expect(cmd).toContain('(with `--boards`, only the named boards: see below)');
+  });
+});

@@ -51,6 +51,11 @@ describe('audit-design command prose', () => {
     expect(text).toMatch(/previous report's `## Could Not Verify` rows/);
   });
 
+  test('traceability row: map-decided brief-item checks, workflow only, with the fallback (DORCH-B005)', () => {
+    expect(text).toMatch(/\| `traceability` \|[^|]*brief item with no board, and a to-be board serving no brief item, are decided in code from the map's `brief_items` \(the workflow only;/);
+    expect(text).toContain('Could Not Verify row');
+  });
+
   test('cites the contract and ends with its own banner and notify call', () => {
     expect(text).toContain('design-commands.md');
     expect(text).toContain('COMMAND COMPLETE: /audit-design');

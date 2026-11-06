@@ -100,7 +100,7 @@ const FINDING_SCHEMA = {
         type: 'object', additionalProperties: false,
         required: ['check', 'board', 'why', 'confidence'],
         properties: {
-          check: { type: 'string', enum: ['no-source', 'no-board', 'convention', 'reuse', 'render', 'board-drift', 'system-drift', 'out-of-design', 'undesigned'] },
+          check: { type: 'string', enum: ['no-source', 'no-board', 'no-brief-item', 'convention', 'reuse', 'render', 'board-drift', 'system-drift', 'out-of-design', 'undesigned'] },
           board: { type: 'string' },
           line: { type: 'string' },
           why: { type: 'string' },
@@ -129,7 +129,8 @@ const index = required(await agent(
 not a review. Do not evaluate anything.
 
   BRIEF ITEMS: read ${BRIEF}. List every screen, state or flow it asks for as one item: an id
-  (its heading or a short slug), its statement, and the line it sits on.
+  (copy the id the brief itself gives the item, exactly as written; only when the brief gives
+  none, use its heading or a short slug), its statement, and the line it sits on.
   SOURCES: ${SOURCES ? `read ${SOURCES}` : `look in ${DIR} (sources.md, grounding/) for what each screen was drawn from`}.
   List the sources it names, each with the boards it says it feeds, if stated.
 
@@ -164,6 +165,44 @@ BATCH YOUR READS. Grep for headings; do not read linearly.`,
 ), 'Index')
 log(`indexed ${BOARDS.length} boards, ${index.brief_items.length} brief items, ${index.sources.length} sources`)
 
+// Traceability from the recorded field (D12). Both set differences are decided in code from the
+// map, not by a model's reading: a board's brief_items is recorded when the board is drawn.
+// A map where NO board has the field (hand-made, or drawn before it existed) keeps the verifier
+// deciding no-source and no-board, and no-brief-item is skipped.
+const RECORDS_FIELD = BOARDS.some((b) => Array.isArray(b.brief_items))
+const MAP_ITEMS = Array.isArray(MAP.brief_items) ? MAP.brief_items.map((i) => (i && typeof i === 'object' ? i.id : i)) : null
+// The map's own item list (D16) is the brief's items when recorded; else the index's reading.
+const ITEM_IDS = MAP_ITEMS || index.brief_items.map((i) => i.id)
+const EMPTY_ITEMS = RECORDS_FIELD && ITEM_IDS.length === 0
+const BY_CODE = RECORDS_FIELD && !EMPTY_ITEMS
+const codeFindings = []
+if (BY_CODE) {
+  // Any board of any kind or status counts as serving: a shipped board's items must not reappear as unserved.
+  const served = new Set(BOARDS.flatMap((b) => (Array.isArray(b.brief_items) ? b.brief_items : [])))
+  const known = new Set(ITEM_IDS)
+  for (const id of ITEM_IDS) {
+    if (served.has(id)) continue
+    const item = index.brief_items.find((i) => i.id === id)
+    codeFindings.push({ check: 'no-board', board: id, line: (item && item.line) || '', why: `no board's brief_items names ${id}`, confidence: 'high', source_ref: 'design-map.json', verifier: 'traceability-map' })
+  }
+  // Only to-be boards: parts, as-is and flow boards are recorded [] or serve items outside this check.
+  for (const b of BOARDS) {
+    if (b.kind !== 'to-be' || b.status === 'superseded') continue
+    const names = Array.isArray(b.brief_items) ? b.brief_items : []
+    const unknown = names.filter((n) => !known.has(n))
+    if (names.length === 0) {
+      codeFindings.push({ check: 'no-brief-item', board: b.id, line: '', why: `to-be board ${b.id} records no brief item it serves`, confidence: 'high', source_ref: 'design-map.json', verifier: 'traceability-map' })
+    } else if (unknown.length) {
+      codeFindings.push({ check: 'no-brief-item', board: b.id, line: '', why: `to-be board ${b.id} names ${unknown.join(', ')}, which the brief does not have`, confidence: 'high', source_ref: 'design-map.json', verifier: 'traceability-map' })
+    }
+  }
+}
+const TRACE_NOTE = !RECORDS_FIELD
+  ? 'No board in the map records brief_items, so the board-side check (a to-be board that serves no brief item) was SKIPPED and no-board was left to the verifier: add a Could Not Verify row saying so.'
+  : EMPTY_ITEMS
+    ? 'The brief item list came back empty, so the code-side checks for no-board and no-brief-item were SKIPPED (a misread, not a finding): add a Could Not Verify row saying so.'
+    : ''
+
 // --------------------------------------------------------------------------- 2. VERIFY
 
 phase('Verify')
@@ -188,9 +227,10 @@ ${SOURCE_LIST}
 
   no-source: a board that no listed source feeds and that cites none. The board field names it;
              the line field is the line of its map entry or heading.
-  no-board:  a brief item that no board answers. The board field is the brief item's id; the
+${BY_CODE ? `  (no-board is decided from the map's recorded brief_items, not by you: do not report it.)
+` : `  no-board:  a brief item that no board answers. The board field is the brief item's id; the
              line field is its line in ${BRIEF}.
-A board marked kind "part" or "flow" is checked the same way as any other.`,
+`}A board marked kind "part" or "flow" is checked the same way as any other.`,
   },
   ...chunks.map((c, i) => ({
     key: `conventions-${i + 1}`, effort: 'medium',
@@ -310,7 +350,7 @@ for (let i = 0; i < VERIFIERS.length; i += MAX_PARALLEL) {
   waves.push(...await parallel(VERIFIERS.slice(i, i + MAX_PARALLEL).map((v) => () => dispatch(v))))
 }
 const alive = waves.filter(Boolean)
-const findings = alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier })))
+const findings = [...alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier }))), ...codeFindings]
 const deadKeys = VERIFIERS.filter((v) => !alive.some((w) => w.verifier === v.key)).map((v) => v.key)
 if (deadKeys.length) log(`WARNING: ${deadKeys.length} verifier(s) returned nothing: ${deadKeys.join(', ')}`)
 log(`${findings.length} findings from ${alive.length}/${VERIFIERS.length} verifiers`)
@@ -332,6 +372,7 @@ const COVERAGE = `
 COVERAGE OF THIS AUDIT, stated and not inferred:
   verifiers reporting: ${alive.length}/${VERIFIERS.length}${deadKeys.length ? `   NO REPORT FROM: ${deadKeys.join(', ')}` : ''}
   ${staleText}
+${TRACE_NOTE}
 ${deadKeys.length ? 'Whatever the silent verifier(s) cover is UNVERIFIED: add a Could Not Verify row for each.' : ''}`
 
 const reconciled = required(await agent(
@@ -365,7 +406,7 @@ FIRST LINE OF THE READOUT: one of exactly
 build from; "proceed with these caveats" for anything else surviving or any Could Not Verify row.
 
 Then list, omitting empty headings, one line per finding naming the board and line:
-  BOARDS WITH NO SOURCE / BRIEF ITEMS WITH NO BOARD / BREAKS A CONVENTION / DRAWN BY HAND
+  BOARDS WITH NO SOURCE / BRIEF ITEMS WITH NO BOARD / BOARDS SERVING NO BRIEF ITEM / BREAKS A CONVENTION / DRAWN BY HAND
   INSTEAD OF REUSED / RENDER ERRORS / SYSTEM OUT OF DATE / REJECTED THESE FINDINGS (and the file that refutes each)${DRIFT ? `
   BOARDS THAT NO LONGER MATCH THE BUILD / SYSTEM DRIFT / CODE CHANGED OUTSIDE ANY DESIGN /
   SCREENS NEVER DESIGNED (one line per route; each is listed for /create-design to draw as an as-is board)` : ''}
