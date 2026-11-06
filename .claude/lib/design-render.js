@@ -459,7 +459,10 @@ function readTokens(root) {
     out.found = true;
     if (Array.isArray(json.tokens)) {
       for (const t of json.tokens) {
-        if (t && /font|family/i.test(String(t.type || t.category || ''))) out.families.add(firstFamily(t.value));
+        // A family token, not every font token: `font-size` / `font-weight` values ("16px", "600") are not
+        // families, and adding them would flag every rendered family off-token.
+        if (t && /famil|^fonts?$|typeface/i.test(String(t.type || t.category || ''))) out.families.add(firstFamily(t.value));
+        else if (t && /^font/i.test(String(t.type || t.category || ''))) continue;
         else colorToken(t, false);
       }
     }

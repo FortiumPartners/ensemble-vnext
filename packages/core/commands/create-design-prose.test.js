@@ -179,7 +179,9 @@ describe('create-design command prose', () => {
       const ex = text.slice(at('**Explore choice**'), at('**Write `docs/ui/<slug>/critique.md`**'));
       expect(ex).toMatch(/at most four screens per round, the ranked first marked "\(Recommended\)"/);
       expect(ex).toMatch(/autonomy\.md` case 1/);
-      expect(ex).toMatch(/the three directions as Options, the ranked first as Taken, the rank reason as Why/);
+      expect(ex).toMatch(/the directions by letter\s+as Options \(`a \| b \| c`\), the ranked first as Taken, the rank reason as Why/);
+      // /refine-design tells an explore answer from an ordinary one by this marker.
+      expect(ex).toMatch(/`Explore: NN-key` line/);
       expect(ex).toMatch(/highest `OD-n` in `brief\.md` at this moment/);
       expect(ex).toContain('docs/ui/<slug>/explore/');
       expect(ex).toMatch(/rename the chosen file to `NN-key\.dc\.html`/);

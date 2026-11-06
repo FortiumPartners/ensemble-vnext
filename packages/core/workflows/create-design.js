@@ -34,7 +34,8 @@ export const meta = {
 //                 departure latitude level (keep | refine | rethink)
 //   craft         the craft skills' text, concatenated        stylePack  { name, text }, or absent
 //   rubric        design-commands.md section 8 (the visual critique rubric)
-//   floor         { contrast, target }: the contrast ratio and touch-target px the measures are judged by
+//   floor         { contrast, target }: the contrast ratio and touch-target px the measures are judged by;
+//                 absent, the direction's `floor` is used
 //   newMode       --new: no as-is board for a screen with no predecessor
 //   auto          accepted, not read: the ground stage returns every open decision in both modes and the
 //                 command records the unanswered ones (D7, D8)
@@ -79,7 +80,9 @@ const LATITUDE = (DIRECTION_RAW && typeof DIRECTION_RAW === 'object' && DIRECTIO
 const CRAFT = a.craft || ''
 const STYLE_PACK = a.stylePack && typeof a.stylePack === 'object' ? a.stylePack : null
 const RUBRIC = a.rubric || ''
-const FLOOR = a.floor && typeof a.floor === 'object' ? a.floor : {}
+// The command passes the same args to both stages and need not pass `floor`: fall back to the direction's.
+const FLOOR = a.floor && typeof a.floor === 'object' ? a.floor
+  : DIRECTION_RAW && typeof DIRECTION_RAW === 'object' && DIRECTION_RAW.floor && typeof DIRECTION_RAW.floor === 'object' ? DIRECTION_RAW.floor : {}
 const FLOOR_FLAGS = [
   typeof FLOOR.contrast === 'number' ? `--floor-contrast ${FLOOR.contrast}` : '',
   typeof FLOOR.target === 'number' ? `--floor-target ${FLOOR.target}` : '',
@@ -633,16 +636,24 @@ if (deadAxes.length) log(`WARNING: reviewer(s) returned nothing: ${deadAxes.join
 // read. Each `why` is built from the same fields every time, so a fixed finding is recognised by the fix round's
 // board|why match and not reported open.
 const SCORE_RANK = { 1: 'high', 2: 'medium', 3: 'low' }
-const MEASURE_RANK = { 'below-floor': 'high', fault: 'medium', 'off-token': 'medium' }
+// A failed x-import is an off-token value naming the import (TRD §3.2), so it ranks with off-token.
+const MEASURE_RANK = { 'below-floor': 'high', fault: 'medium', 'off-token': 'medium', 'import-failed': 'medium' }
+// An as-is board reproduces today's screen: a measured fault on it is the current product's, and "fixing" it
+// would make the board stop matching its screenshot. Its measures stay in `critique`, never in the fix round.
+const asIsIds = new Set(boards.filter((b) => b.kind === 'as-is').flatMap((b) => [b.id, b.file]))
 const renderFindings = visualAlive.flatMap((r) => (r.errors || []).map((e) => ({ axis: 'render', board: e.board, why: `render error: ${e.error}`, rank: 'high' })))
 const measureFindings = visualAlive.flatMap((r) => (r.measures || [])
-  .filter((m) => MEASURE_RANK[m.verdict])
+  .filter((m) => MEASURE_RANK[m.verdict] && !asIsIds.has(m.board))
   .map((m) => ({ axis: 'measure', board: m.board, why: `${m.check} ${m.verdict}${m.detail ? ` (${m.detail})` : ''}${m.state ? ` in state ${m.state}` : ''}: ${m.value === undefined || m.value === null ? '' : m.value}${m.element ? ` at ${m.element}` : ''}`, rank: MEASURE_RANK[m.verdict] })))
 const scoreFindings = visualAlive.flatMap((r) => (r.scores || [])
   .filter((x) => x.judged !== false && SCORE_RANK[x.score])
   .map((x) => ({ axis: 'critique', board: x.board, why: `${x.dimension} scored ${x.score} of 5: ${[x.frame, x.element].filter(Boolean).join(', ')}${x.change ? `; change: ${x.change}` : ''}`, rank: SCORE_RANK[x.score] })))
+// Under explore the as-is board is rendered once per direction, so the same render error can arrive several
+// times: keep one finding per axis, board and why.
+const findingKeys = new Set()
 const findings = [...reviewed.filter(Boolean).flatMap((r) => r.findings.map((f) => ({ ...f, axis: r.axis }))), ...renderFindings, ...measureFindings, ...scoreFindings]
   .filter((f) => !unchosen.has(f.board)) // a direction not taken is never fixed
+  .filter((f) => { const k = `${f.axis}|${f.board}|${f.why}`; if (findingKeys.has(k)) return false; findingKeys.add(k); return true })
 const RANK = { high: 0, medium: 1, low: 2 }
 findings.sort((x, y) => RANK[x.rank] - RANK[y.rank])
 log(`${findings.length} findings from ${reviewed.filter(Boolean).length}/${AXES.length} reviewers, ${renderFindings.length} render errors, ${measureFindings.length} measured, ${scoreFindings.length} scored`)

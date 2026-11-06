@@ -339,13 +339,29 @@
         "findings": 0
       },
       "timestamp": "2026-11-06T17:24:50.135Z"
+    },
+    {
+      "phase": 3,
+      "commit": "ae684be",
+      "review": {
+        "findings": 1
+      },
+      "timestamp": "2026-11-06T17:36:53.516Z"
+    },
+    {
+      "phase": 4,
+      "commit": "ae684be",
+      "review": {
+        "findings": 1
+      },
+      "timestamp": "2026-11-06T17:36:53.517Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "b8065dc",
+    "last_healthy_checkpoint": "ae684be",
     "interrupted": false,
     "interrupt_reason": null,
-    "last_checkpoint_timestamp": "2026-11-06T17:24:50.135Z"
+    "last_checkpoint_timestamp": "2026-11-06T17:36:53.517Z"
   },
   "functional_verification": {
     "prd_resolved": true,

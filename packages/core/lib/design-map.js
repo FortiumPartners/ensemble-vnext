@@ -441,7 +441,8 @@ function direction(projectDir, { style } = {}) {
   const t = /(\d+)\s*px/.exec(line);
   const floor = { contrast: c ? Number(c[1]) : null, target: t ? Number(t[1]) : null };
   const { dir, packs } = findPacks(projectDir);
-  const name = style || fields.style_pack || null;
+  // Markdown formatting is stripped as for the latitude: `style-pack-x` in a table cell names style-pack-x.
+  const name = style || fields.style_pack.replace(/[`*]/g, '').trim() || null;
   const found = name && packs.includes(name);
   return {
     fields, blank, latitude, floor, floor_blank: floor.contrast === null || floor.target === null,

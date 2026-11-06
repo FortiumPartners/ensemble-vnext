@@ -282,6 +282,27 @@ describe('create-design stage draw', () => {
     expect(result.critique.find((c) => c.screen === '01-screen-1').scores).toHaveLength(5);
   });
 
+  it('ranks a failed import as an off-token value, and keeps an as-is board\'s measures out of the fix round', async () => {
+    const { result } = await run(drawArgs(1), {
+      'visual:01-screen-1': {
+        errors: [],
+        measures: [
+          { board: '01-screen-1', check: 'fidelity', verdict: 'import-failed', value: 'Button', count: 1, element: null },
+          { board: '01-screen-1--as-is', check: 'contrast', verdict: 'below-floor', value: 2.1, element: 'p' },
+        ],
+        scores: [],
+      },
+    });
+    const measured = result.findings_open.filter((f) => f.axis === 'measure');
+    expect(measured).toEqual([expect.objectContaining({ board: '01-screen-1', rank: 'medium' })]);
+    expect(result.critique[0].measures).toHaveLength(2);
+  });
+
+  it('takes the floor from the direction when no floor arg is passed', async () => {
+    const { agent } = await run(drawArgs(1, { floor: undefined, direction: { latitude: 'refine', text: 'T', floor: { contrast: 3, target: 24 } } }));
+    expect(byLabel(agent, 'visual:01-screen-1').prompt).toContain('--floor-contrast 3 --floor-target 24');
+  });
+
   it('lists the boards of a dead visual agent in critique_not_run and flags incomplete coverage', async () => {
     const { result } = await run(drawArgs(2), { 'visual:02-screen-2': undefined });
     expect(result.critique_not_run).toEqual(['02-screen-2--as-is', '02-screen-2']);

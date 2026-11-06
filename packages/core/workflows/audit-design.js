@@ -423,11 +423,12 @@ function visualFindings(v, r) {
   const frameOf = (board) => (r.scores.find((s) => s.board === board && s.frames && s.frames.length) || { frames: [] }).frames[0] || r.out
   for (const e of r.render_errors || []) out.push({ check: 'render', board: e.board, why: e.error, confidence: 'high', rank: 'high', source_ref: r.out })
   for (const m of r.measures || []) {
-    const base = { board: m.board, why: `${m.check} ${m.value}${m.floor ? ` (floor ${m.floor})` : ''}${m.element ? ` at ${m.element}` : ''}`, confidence: 'high', source_ref: r.out }
+    const base = { board: m.board, why: `${m.check} ${m.verdict}${m.detail ? ` (${m.detail})` : ''}${m.state ? ` in state ${m.state}` : ''}: ${m.value}${m.element ? ` at ${m.element}` : ''}`, confidence: 'high', source_ref: r.out }
     if (m.verdict === 'not-measured') notMeasured.push(`${m.board}: ${m.check} not measured (${m.value})`)
     else if (m.verdict === 'below-floor' && (m.check === 'contrast' || m.check === 'target-size')) out.push({ ...base, check: m.check, rank: 'high' })
     else if (m.check === 'layout' && m.verdict === 'fault') out.push({ ...base, check: 'layout', rank: 'medium' })
-    else if (m.check === 'fidelity' && m.verdict === 'off-token') out.push({ ...base, check: 'fidelity', rank: 'medium' })
+    // A failed x-import is an off-token value naming the import (TRD §3.2).
+    else if (m.check === 'fidelity' && (m.verdict === 'off-token' || m.verdict === 'import-failed')) out.push({ ...base, check: 'fidelity', rank: 'medium' })
   }
   // Only the to-be board is scored: a score on any other board is dropped, not trusted.
   for (const s of r.scores || []) {
@@ -438,7 +439,8 @@ function visualFindings(v, r) {
 }
 
 const dispatch = (v) => agent(
-  `${v.prompt}\n${READ_ONLY}\n${SCOPE}\n${BATCH}\n${FINDABLE_ONLY}`,
+  // FINDABLE_ONLY forbids exactly the judgement a visual critic is asked to score, so it is left off theirs.
+  `${v.prompt}\n${READ_ONLY}\n${SCOPE}\n${BATCH}${v.schema ? '' : `\n${FINDABLE_ONLY}`}`,
   {
     label: `verify:${v.key}`, agentType: v.agentType || 'backend-implementer', phase: 'Verify',
     effort: v.effort, model: v.model || VERIFIER_MODEL, schema: v.schema || FINDING_SCHEMA,

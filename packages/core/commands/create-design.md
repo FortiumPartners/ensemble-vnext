@@ -124,8 +124,10 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    "(Recommended)". This is a decision the material cannot make for the owner (`autonomy.md`
    case 1; the ranked pick is only the default), never a checkpoint. Every other screen, and
    every screen under `--auto` or with no person present, is recorded under
-   `## Decisions taken by default` in `brief.md` in the step 3 format: the three directions as
-   Options, the ranked first as Taken, the rank reason as Why. Its `OD-n` is one more than the
+   `## Decisions taken by default` in `brief.md` in the step 3 format: the directions by letter
+   as Options (`a | b | c`), the ranked first as Taken, the rank reason as Why, plus an
+   `Explore: NN-key` line naming the screen's to-be board id, the marker `/refine-design` reads
+   to tell an explore answer from an ordinary one. Its `OD-n` is one more than the
    highest `OD-n` in `brief.md` at this moment (step 3 has already recorded the ground-stage
    decisions), not the `odNext` counted in step 2. Then, per screen: rename the chosen file to
    `NN-key.dc.html`, and in the board's record change `id` and `file` to `NN-key` and the `board`
