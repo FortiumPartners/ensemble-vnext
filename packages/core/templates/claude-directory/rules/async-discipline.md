@@ -105,29 +105,23 @@ burning tokens and returning nothing) is now caught more cheaply by schema-force
 orchestrator result-checking in `implement-phase.js`, and the phase gate plus end-of-run
 `/code-review`. **The lead's `Stop` guard is unaffected.**
 
-## Orchestration pattern: the scheduled nudge
+## Orchestration pattern: dispatch, end the turn, nudge only if late
 
-`ScheduleWakeup` is unavailable to subagents but **available to the lead session**, and
-`SendMessage` reaches a named background agent with its context intact. Combined, an
-orchestrator can actively babysit dispatched background work instead of just hoping a
-completion notification arrives — with no timeout mechanism (deliberate).
+Dispatch background work (`Agent({subagent_type, run_in_background: true, name: "be-001", ...})`)
+and **end the turn**: completion re-invokes the lead, so no fallback `ScheduleWakeup` is needed.
+Measured across 179 transcripts, 37 fallback wake-ups fired and all 37 found the work finished;
+none caught a hang. `ScheduleWakeup` (unavailable to subagents) is for external waits only: a CI
+run, a deploy, a remote queue.
 
-The shape: **dispatch** subagents in the background
-(`Agent({subagent_type, run_in_background: true, name: "be-001", ...})`); **schedule a wake**
-before ending the turn (`ScheduleWakeup({delaySeconds: <ETA>, prompt: "..."})`); **on wake,
-read the dispatch ledger** rather than relying on remembered context —
-`node .claude/hooks/dispatch-ledger.js --open` prints every subagent whose last recorded
-event is not `stop`, oldest first (`--json`, `--session <id>`); **nudge anything stalled**
-via `SendMessage`; **re-schedule** if work is still in flight, or proceed once everything has
-reported in.
+When the owner or a later turn checks on work that has run unusually long, **read the dispatch
+ledger**, not memory: `node .claude/hooks/dispatch-ledger.js --open` prints every subagent whose
+last recorded event is not `stop`, oldest first (`--json`, `--session <id>`). **Nudge anything
+stalled** via `SendMessage`, which reaches a named agent with its context intact.
 
-`dispatch-ledger.js` runs on **both** `SubagentStart` and `SubagentStop`, appending to
-`.trd-state/<feature>/dispatch.jsonl` (or `_dispatch.jsonl` with no active feature) — a hook
-cannot schedule the wake itself, so the lead calls `ScheduleWakeup` and the ledger makes that
-wake useful. State is the last event per `agent_id`: `start` → running, `stop` → finished;
-correlate on `agent_id`, not `prompt_id` (unstable across an agent's lifetime). An agent that
-keeps running without progressing never stops, so this pattern — not a stop-time check — is
-the only thing that catches it.
+`dispatch-ledger.js` runs on `SubagentStart` and `SubagentStop`, appending to
+`.trd-state/<feature>/dispatch.jsonl` (or `_dispatch.jsonl` with no active feature); state is the
+last event per `agent_id` (`start` running, `stop` finished; not `prompt_id`, unstable). An agent
+that keeps running without progressing never stops, so the ledger is what shows it.
 
 ---
 

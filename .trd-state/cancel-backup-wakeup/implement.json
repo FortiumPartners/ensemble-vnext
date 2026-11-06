@@ -1,0 +1,128 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/cancel-backup-wakeup.md",
+  "trd_hash": "df7ecce9e883e21361dc4467941f9d287e1d88897353700a0b73c29e65ceddd4",
+  "branch": "feature/cancel-backup-wakeup/build",
+  "strategy": "bug-fix",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "State the cancel rule in command-status.md §3 and point to it from async-discipline.md (both copies)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/rules/command-status.md",
+        "packages/core/templates/claude-directory/rules/command-status.md",
+        ".claude/rules/async-discipline.md",
+        "packages/core/templates/claude-directory/rules/async-discipline.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-05T23:03:17.488Z",
+      "completed_at": "2026-11-05T23:10:10.399Z"
+    },
+    "FIX-002": {
+      "description": "audit-build, implement-trd, verify-build and plan name the cancel at every final-banner exit; plan.md chained paragraph corrected",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        "packages/core/commands/plan.md",
+        ".claude/commands/audit-build.md",
+        ".claude/commands/implement-trd.md",
+        ".claude/commands/verify-build.md",
+        ".claude/commands/plan.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-05T23:03:17.488Z",
+      "completed_at": "2026-11-05T23:10:10.401Z"
+    },
+    "AMEND-001": {
+      "status": "success",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        ".claude/commands/audit-build.md",
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md",
+        ".claude/rules/command-status.md",
+        "packages/core/templates/claude-directory/rules/command-status.md",
+        ".claude/rules/async-discipline.md",
+        "packages/core/templates/claude-directory/rules/async-discipline.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        "test/integration/tests/runtime-integrity.test.sh",
+        "docs/TRD/cancel-backup-wakeup.md"
+      ],
+      "files_deleted": [
+        ".trd-state/cancel-backup-wakeup/success-definition.md"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-06T00:19:45.396Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "1445b76",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-05T23:10:27.667Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "1445b76",
+    "last_checkpoint_timestamp": "2026-11-05T23:10:27.667Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/cancel-backup-wakeup.md ## Reproduction",
+    "target": {
+      "environment": null,
+      "source": "none"
+    },
+    "environments": {
+      "preview": {
+        "status": "unusable",
+        "reason": "no URL declared"
+      },
+      "local": {
+        "status": "usable",
+        "reason": "declared; whether up is the setup check question"
+      },
+      "dev": {
+        "status": "unusable",
+        "reason": "no URL declared"
+      },
+      "staging": {
+        "status": "unusable",
+        "reason": "no URL declared; read-only"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      }
+    }
+  },
+  "created_at": "2026-11-05T23:03:17.488Z"
+}

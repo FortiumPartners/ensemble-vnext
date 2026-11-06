@@ -1,0 +1,12 @@
+{
+  "feature": "cancel-backup-wakeup",
+  "trd": "docs/TRD/cancel-backup-wakeup.md",
+  "closedAt": "2026-11-06T00:48:59Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this is a defect TRD with no PRD, so nothing checked the change against product requirements); the amendment's acceptance criterion (AMEND-001) expects a \"next wake\" line in the DISPATCHED banner of four commands, but only /implement-trd has a DISPATCHED banner at all, so the owner should confirm that is what was meant; two open questions in Could Not Verify: whether a live session really stops scheduling the fallback, and whether a dead session's wake-ups ever fire",
+    "report": ".trd-state/cancel-backup-wakeup/audit-build-report.md",
+    "auditedCommit": "b60213d"
+  }
+}

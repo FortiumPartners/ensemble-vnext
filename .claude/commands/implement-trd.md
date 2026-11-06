@@ -2302,7 +2302,7 @@ This command spans multiple turns. Emit these standard status lines so the user 
    ```
    [STATUS: /implement-trd] DISPATCHED → <count> <kind> in flight: <names>
       waiting on: <observable signal>
-      next wake: <ScheduleWakeup ETA | "teammate SendMessage auto-deliver">
+      next wake: <"auto-deliver on completion" | ScheduleWakeup ETA, external waits only>
    ```
 
 2. **RESUMED** — at the START of each new turn after a wake or teammate message:
@@ -2325,7 +2325,7 @@ This command spans multiple turns. Emit these standard status lines so the user 
    Act on what it reports:
    - **Nothing open** — every dispatched subagent finished. Fold their results into
      `implement.json` and continue the loop.
-   - **Something open and progressing** — leave it alone and schedule the next wake.
+   - **Something open and progressing** — leave it alone and end the turn; its completion re-invokes the session.
    - **Something open and suspiciously old** (running far longer than its stage's peers,
      or flagged `[resumed after discipline block]`) — nudge it rather than killing it:
      ```

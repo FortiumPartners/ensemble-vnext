@@ -864,8 +864,8 @@ describe('audit-build owns the fix run and the round decision', () => {
     expect(auditBuild).toMatch(/-- <trd-path> \.trd-state/);
   });
 
-  test('every fallback wake-up carries the run id and re-entry checks stale-wake by run id', () => {
-    expect(auditBuild).toMatch(/Every fallback `ScheduleWakeup` this command schedules carries the workflow run id in its prompt/);
+  test('any wake-up this command schedules carries the run id and re-entry checks stale-wake by run id', () => {
+    expect(auditBuild).toMatch(/any `ScheduleWakeup` it\s+does schedule \(an external wait only\) carries the workflow run id in its prompt/);
     expect(auditBuild).toMatch(/stale-wake '\{"stateDir":"\.trd-state\/<feature>","runId":"<run id>"\}'/);
   });
 
@@ -2175,5 +2175,76 @@ describe('task.md contract (task-command TASK-001 criteria 2-7)', () => {
     expect(doc).toContain('notify-complete.sh "task"');
     expect(doc).toContain('PushNotification');
     expect(doc).toContain('═══ COMMAND COMPLETE: /task ═══');
+  });
+});
+
+describe('no fallback wake-up for harness-tracked work (cancel-backup-wakeup FIX-001, FIX-002; AMEND-001)', () => {
+  const RULES = 'packages/core/templates/claude-directory/rules';
+  const COPIES = { 'packages/core template': RULES, '.claude/rules': '.claude/rules' };
+  const cmd = (n) => flat(read(path.join(REPO, 'packages/core/commands', `${n}.md`)));
+
+  describe.each(Object.entries(COPIES))('rules in %s', (_label, dir) => {
+    const status = () => flat(read(path.join(REPO, dir, 'command-status.md')));
+    const asyncd = () => flat(read(path.join(REPO, dir, 'async-discipline.md')));
+
+    test('command-status.md DISPATCHED: no fallback wake-up for harness-tracked work; external state is the remaining use', () => {
+      const t = status();
+      const dispatched = t.slice(t.indexOf('### 1. DISPATCHED'), t.indexOf('### 2. RESUMED'));
+      expect(dispatched).toMatch(/next wake: <"auto-deliver on completion"/);
+      expect(dispatched).toMatch(/Schedule no fallback wake-up for work Claude Code already tracks/);
+      expect(dispatched).toMatch(/`ScheduleWakeup` is for state the harness cannot see[^.]{0,80}CI run/);
+    });
+
+    test('async-discipline.md scheduled-nudge section no longer tells the lead to schedule a wake after a dispatch', () => {
+      const t = asyncd();
+      const start = t.indexOf('## Orchestration pattern');
+      expect(start).toBeGreaterThan(-1);
+      const section = t.slice(start);
+      expect(section).toMatch(/end the turn/i);
+      expect(section).toMatch(/external waits only/);
+      expect(section).not.toMatch(/\*\*schedule a wake\*\*/i);
+      expect(section).not.toMatch(/re-schedule/i);
+      expect(section).toContain('dispatch-ledger.js --open');
+    });
+
+    test('no `stop: true` cancel anywhere in the two rule files', () => {
+      expect(status()).not.toMatch(/stop: true/);
+      expect(asyncd()).not.toMatch(/stop: true/);
+    });
+  });
+
+  test.each(['command-status.md', 'async-discipline.md'])('%s: .claude/rules copy is byte-identical to its template', (f) => {
+    expect(read(path.join(REPO, '.claude/rules', f))).toBe(read(path.join(REPO, RULES, f)));
+  });
+
+  describe.each(['audit-build', 'implement-trd', 'verify-build', 'plan'])('%s.md', (name) => {
+    test('carries no `stop: true` cancel step', () => {
+      expect(cmd(name)).not.toMatch(/stop: true/);
+      expect(cmd(name)).not.toMatch(/Cancel the fallback wake-up/i);
+    });
+
+    test('.claude/commands copy is byte-identical to its source', () => {
+      expect(read(path.join(REPO, '.claude/commands', `${name}.md`))).toBe(read(path.join(REPO, 'packages/core/commands', `${name}.md`)));
+    });
+  });
+
+  test('implement-trd: DISPATCHED says auto-deliver on completion; RESUMED item 2 ends the turn instead of scheduling the next wake', () => {
+    const t = cmd('implement-trd');
+    expect(t).toMatch(/next wake: <"auto-deliver on completion" \| ScheduleWakeup ETA, external waits only>/);
+    expect(t).not.toMatch(/schedule the next wake/);
+    expect(t).toMatch(/leave it alone and end the turn; its completion re-invokes the session/);
+  });
+
+  test('audit-build: step 0 still runs stale-wake, restated as the backstop for a wake-up scheduled anyway', () => {
+    const t = cmd('audit-build');
+    expect(t).toContain('audit-rounds.js stale-wake');
+    expect(t).toMatch(/schedules no fallback for them; any `ScheduleWakeup` it does schedule \(an external wait only\) carries the workflow run id/);
+    expect(t).toMatch(/backstop for such a wake-up scheduled anyway whose round was already recorded/);
+  });
+
+  test('plan: the notify-complete.sh paragraph keeps its handoff substance', () => {
+    const t = cmd('plan');
+    expect(t).toContain('**Never on a handoff to a chained command.**');
+    expect(t).toMatch(/Call it on every turn that prints \*this\* run's banner/);
   });
 });

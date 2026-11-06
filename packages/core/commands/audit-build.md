@@ -280,8 +280,10 @@ or closes. The decision is its `decide`, never your reading of the findings. Ski
 this section except the report and the readout when the run is `--report-only`: nothing is
 recorded, handed off or closed.
 
-**0. A stale wake-up does nothing.** Every fallback `ScheduleWakeup` this command schedules
-carries the workflow run id in its prompt. On ANY re-entry (a wake, a resume), first run
+**0. A stale wake-up does nothing.** The workflow and its background agents re-invoke the
+session on completion, so this command schedules no fallback for them; any `ScheduleWakeup` it
+does schedule (an external wait only) carries the workflow run id in its prompt. This check is the
+backstop for such a wake-up scheduled anyway whose round was already recorded. On ANY re-entry (a wake, a resume), first run
 `node .claude/lib/audit-rounds.js stale-wake '{"stateDir":".trd-state/<feature>","runId":"<run id>"}'`.
 It matches on the run id alone, never the commit: a new audit at an unchanged commit is not stale.
 When it prints `{"stale":true}`, print one line (this audit run already recorded its round) and stop:

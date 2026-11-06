@@ -20,8 +20,13 @@ turn awaiting their completion, emit **right before ending the turn**:
 ```
 [STATUS: /<command-name>] DISPATCHED → <count> <kind> in flight: <names>
    waiting on: <observable signal>
-   next wake: <ScheduleWakeup ETA | "auto-deliver on teammate SendMessage" | "/goal condition">
+   next wake: <"auto-deliver on completion" | ScheduleWakeup ETA, external waits only | "/goal condition">
 ```
+
+Schedule no fallback wake-up for work Claude Code already tracks (a `Workflow`, a background
+`Agent`, a background `Bash`): each re-invokes the session on completion, and a leftover timer keeps
+the session reading busy after the banner (issue #63: 37 of 37 fallbacks fired on finished work).
+`ScheduleWakeup` is for state the harness cannot see: a CI run, a deploy, a remote queue.
 
 ### 2. RESUMED (turn starts after a wake)
 
