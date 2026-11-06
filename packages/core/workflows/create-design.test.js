@@ -176,6 +176,19 @@ describe('create-design stage draw', () => {
     expect(byLabel(agent, 'tobe:01-screen-1').opts.schema.required).toContain('brief_items');
   });
 
+  it('gives each to-be agent the recorded brief item ids as the only ids it may return', async () => {
+    const { agent } = await run(drawArgs(1, { items: [{ id: 'S1', source: 'AC-F3.1' }, { id: 'BI-1', source: 'AC-F3.2' }] }));
+    const p = flatP(byLabel(agent, 'tobe:01-screen-1').prompt);
+    expect(p).toContain('S1');
+    expect(p).toContain('BI-1');
+    expect(p).toMatch(/only ids/i);
+  });
+
+  it('tells the to-be agent to return an empty list when no ids were recorded', async () => {
+    const { agent } = await run(drawArgs(1));
+    expect(flatP(byLabel(agent, 'tobe:01-screen-1').prompt)).toMatch(/no brief item ids/i);
+  });
+
   it('draws the to-be board from its as-is board', async () => {
     const { agent } = await run(drawArgs(1));
     expect(byLabel(agent, 'tobe:01-screen-1').prompt).toContain('Start from its as-is board');

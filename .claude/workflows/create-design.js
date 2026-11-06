@@ -29,6 +29,8 @@ export const meta = {
 //   newMode       --new: no as-is board for a screen with no predecessor
 //   auto          accepted, not read: the ground stage returns every open decision in both modes and the
 //                 command records the unanswered ones (D7, D8)
+//   items         draw stage: the ground stage's `items` ({ id, source }); the ids are the only ones a to-be
+//                 agent may return as brief_items, so a wrong id is not first caught by validate
 //   odNext        the first free OD-n number: one more than the highest OD-n already in brief.md,
 //                 counted by the command before this stage runs (1 on a new brief, and when absent).
 //                 The ground stage gives the k-th returned decision the id OD-<odNext + k - 1>, in code,
@@ -63,6 +65,7 @@ const GROUNDING_SKILL = a.groundingSkill || ''
 const RUNTIME = a.runtime || ''
 const NEW_MODE = a.newMode === true
 const OD_NEXT = Number.isInteger(a.odNext) && a.odNext >= 1 ? a.odNext : 1
+const ITEM_IDS = (Array.isArray(a.items) ? a.items : []).map((i) => (i && i.id) || '').filter(Boolean)
 const SCREENS = Array.isArray(a.boardsInScope) ? a.boardsInScope : []
 if (STAGE !== 'ground' && STAGE !== 'draw') throw new Error('create-design: args.stage must be "ground" or "draw"')
 if (!DIR) throw new Error('create-design: args.dir (docs/ui/<slug>) is required')
@@ -342,7 +345,7 @@ Write ${DIR}/canvas/project/${s.n}-${s.key}.dc.html following designing-on-canva
 ${asIs.find((r) => r && r.screen === s) ? `Start from its as-is board, ${DIR}/canvas/project/${s.n}-${s.key}--as-is.dc.html.` : 'It has no as-is board: draw it new.'}
 Shared parts you may import: ${partList.length ? partList.map((p) => p.file).join(', ') : 'none'}.
 Declare every state worth reviewing (empty, loading, error) as a tweak, and return each state's name and props.
-Return the brief item ids this board answers (brief_items). Do NOT edit design-map.json.
+Return the brief item ids this board answers (brief_items). ${ITEM_IDS.length ? `The recorded ids are ${ITEM_IDS.join(', ')}: these are the only ids you may return; never invent or rename one.` : 'No brief item ids were passed: return an empty brief_items rather than inventing ids.'} Do NOT edit design-map.json.
 ${BOARD_RULES}
 ${SCOPE}
 ${DATA_RULE}

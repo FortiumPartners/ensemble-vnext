@@ -92,7 +92,8 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
 
    `Affects` lists the decision's `brief_items`, or reads `none named` when it has none.
 4. **Draw.** Call the workflow again with the same args plus `stage: "draw"` and
-   `boardsInScope: <the returned screens>`. It writes the boards under `docs/ui/<slug>/canvas/project/`:
+   `boardsInScope: <the returned screens>` and `items: <the ground stage's items>` (the recorded ids; each
+   to-be agent may return only those as `brief_items`). It writes the boards under `docs/ui/<slug>/canvas/project/`:
    as-is boards (rendered and compared with the screenshot, AC-F8.5; the screenshot is captured
    fresh at the board's viewport by the `design-grounding` skill's Capture section, never a stored
    screenshot, and a `window.innerWidth` differing from the board's width is a capture error, not
@@ -107,7 +108,8 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    one). Add `canvases` and one entry per returned board with `status: "draft"` and its `brief_items` from the returned board (parts `[]`), plus each
    as-is board's `screenshot_match` and `mismatch_note` (D5), write the map's top-level `brief_items` list from the ground stage's `items`, then run
    `node .claude/lib/design-map.js refresh --dir docs/ui/<slug>` to derive components, parts
-   and links, and `validate`. A board that still differs from its screenshot stays marked and
+   and links, and `validate`. If `validate` fails on an unknown brief item id, correct the id on that board to
+   the recorded one it answers, or drop it, then re-run `validate`; list each such board under ISSUES. A board that still differs from its screenshot stays marked and
    is listed under ISSUES.
 6. **Commit adopted canvas edits first.** If section 1 found the canvas changed, the edits
    adopted to the repository were committed alone at step 1, as

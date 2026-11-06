@@ -38,6 +38,11 @@ describe('sync-design command prose', () => {
     expect(sync).toContain('It may run on a feature branch before its PR merges; its commits land on that branch.');
     expect(sync).toContain('argument-hint: "<slug> [--trd <path>] [--project <dir>]"');
     expect(sync).toMatch(/--trd <path>.{0,200}only `building` boards whose `trd` has that feature name/);
+    expect(sync).toContain(
+      '**`--trd <path>`** (stripped with its value, like `--project`) limits the run to one feature: only `building` boards whose `trd` has that feature name are put in the map text passed to the workflow, and every other board is left untouched.');
+    expect(sync).toContain('(with `--trd`, `building` ones of that feature)');
+    expect(sync).toContain('**Strip `--project <dir>` and `--trd <path>` first**, remembering both.');
+    expect(sync).not.toMatch(/--trd[^.]{0,80}(syncs|includes|captures) (every|all) (board|building)/i);
     expect(sync).toContain('notify-complete.sh "sync-design"');
     expect(sync).toContain('design-commands.md');
   });

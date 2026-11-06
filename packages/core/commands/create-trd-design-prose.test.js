@@ -97,4 +97,35 @@ describe('create-trd.md --boards (DORCH-B006)', () => {
     expect(cmd).toMatch(/Without `--boards`, the steps above apply unchanged/);
     expect(cmd).toContain('(with `--boards`, only the named boards: see below)');
   });
+  // AMEND-003: the rules above are pinned one phrase at a time; these pin the whole sentence and the order,
+  // so removing or contradicting a rule (not just a keyword) fails.
+  test('the --boards paragraph keeps its rules in order, inside step 2, before step 3', () => {
+    const at = (needle) => {
+      const i = cmd.indexOf(needle);
+      expect(i).toBeGreaterThan(-1);
+      return i;
+    };
+    const order = [
+      '2. **Zero boards left is STUCK**',
+      '**With `--boards <ids>`** (comma-separated; only valid with `--design`)',
+      'naming a board is the owner\'s approval of it',
+      'buildable --dir docs/ui/<slug> --ids <ids>',
+      'is STUCK, naming it and its status',
+      'held --dir docs/ui/<slug> --ids <ids>',
+      'STUCK too, naming the part and `/refine-design <slug> --approve <part>`',
+      'Only the named ids are approved and moved to `building` below.',
+      'Without `--boards`, the steps above apply unchanged.',
+      '3. **Record the source commit, before the workflow.**',
+    ].map(at);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+  test('both STUCK causes name the three ways a named board can fail to be buildable', () => {
+    expect(cmd).toContain(
+      'a named board it does not list (already `building` or `shipped`, not a to-be board, or not in the map) is STUCK, naming it and its status.');
+    expect(cmd).toContain('a named board it lists is STUCK too, naming the part and `/refine-design <slug> --approve <part>`.');
+  });
+  test('no --boards rule contradicts the named-board rule', () => {
+    expect(cmd).not.toMatch(/(skip|drop|ignore)[^.]{0,40}named board/i);
+    expect(cmd).not.toMatch(/named boards?[^.]{0,60}(are|is) (dropped|skipped|ignored)/i);
+  });
 });

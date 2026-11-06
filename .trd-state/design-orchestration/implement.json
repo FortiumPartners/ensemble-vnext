@@ -163,6 +163,57 @@
       "commit": null,
       "started_at": null,
       "completed_at": null
+    },
+    "AMEND-001": {
+      "description": "AMEND-001",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/create-design.js",
+        "packages/core/workflows/create-design.test.js",
+        "packages/core/commands/create-design.md",
+        ".claude/workflows/create-design.js",
+        ".claude/commands/create-design.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:35:14.336Z",
+      "completed_at": "2026-11-06T04:36:51.519Z",
+      "last_advanced": "2026-11-06T04:35:50.495Z"
+    },
+    "AMEND-002": {
+      "description": "AMEND-002",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "docs/TRD/design-orchestration.md",
+        "docs/TRD/design-stage.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:35:14.337Z",
+      "completed_at": "2026-11-06T04:36:51.519Z",
+      "last_advanced": "2026-11-06T04:35:50.495Z"
+    },
+    "AMEND-003": {
+      "description": "AMEND-003",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/create-trd-design-prose.test.js",
+        "packages/core/commands/sync-design-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:35:14.337Z",
+      "completed_at": "2026-11-06T04:36:51.519Z",
+      "last_advanced": "2026-11-06T04:35:50.495Z"
     }
   },
   "checkpoints": [
