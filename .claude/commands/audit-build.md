@@ -26,8 +26,7 @@ use `current.prd` from the same file.
 
 **No TRD (D14).** No path argument was given, AND `current.json` is either absent or its
 `trd` is null or empty (this is exactly what closing a feature leaves behind) → do not call
-the workflow. Call `ScheduleWakeup({ stop: true })` (the final-turn cancel in
-`command-status.md` §3), then end immediately:
+the workflow. End immediately:
 
 ```
 ═══ COMMAND STUCK: /audit-build ═══
@@ -232,8 +231,7 @@ It compares the TRD's headings (fenced examples ignored) with the snapshot. When
 `ok:false`, the audit's edit deleted a heading, which destroys content the audit must never hand
 on: the TRD has been restored to its pre-audit text (so this run's citation fixes are discarded
 too). Still write the report, with a first finding line naming the missing headings. Record no
-round, chain nothing, close nothing and do not commit the TRD. Call `ScheduleWakeup({ stop: true })`
-first, before the readout and banner, then end with
+round, chain nothing, close nothing and do not commit the TRD. End with
 `═══ COMMAND STUCK: /audit-build ═══`, `Reason: the audit's TRD edit deleted <headings>; the TRD was restored`,
 `Next:   /audit-build <trd-path>` (and `notify-complete.sh` with "stuck"). On `ok:true` carry on.
 
@@ -282,14 +280,14 @@ or closes. The decision is its `decide`, never your reading of the findings. Ski
 this section except the report and the readout when the run is `--report-only`: nothing is
 recorded, handed off or closed.
 
-**0. A stale wake-up does nothing.** Every fallback `ScheduleWakeup` this command schedules
-carries the workflow run id in its prompt. On ANY re-entry (a wake, a resume), first run
+**0. A stale wake-up does nothing.** The workflow and its background agents re-invoke the
+session on completion, so this command schedules no fallback for them; any `ScheduleWakeup` it
+does schedule (an external wait only) carries the workflow run id in its prompt. This check is the
+backstop for such a wake-up scheduled anyway whose round was already recorded. On ANY re-entry (a wake, a resume), first run
 `node .claude/lib/audit-rounds.js stale-wake '{"stateDir":".trd-state/<feature>","runId":"<run id>"}'`.
 It matches on the run id alone, never the commit: a new audit at an unchanged commit is not stale.
 When it prints `{"stale":true}`, print one line (this audit run already recorded its round) and stop:
-no workflow, no report, no banner. This check is the backstop for a run that forgot to cancel its
-fallback on its final turn (`command-status.md` §3) and for a mid-run wake whose round was already
-recorded; it does not claim a dead session fires one.
+no workflow, no report, no banner.
 
 **1. Count.** Tally the whole `handoff` in one call:
 `node .claude/lib/audit-rounds.js tally '{"handoff":<the workflow's handoff array>,"deferred":[<the deferred ids>],"index":<the workflow's returned index>}'` returns
@@ -322,7 +320,7 @@ They are reported for design, and the feature stays open.
   (`.claude/commands/close-feature.md`) with `"closedBy": "audit"`, `"note": null` and
   `"audit": { "verdict": "<the VERDICT line>", "report": ".trd-state/<feature>/audit-build-report.md", "auditedCommit": "<the header's value>" }`,
   except that its commit is folded into the one below. Then commit, publish and open the PR as
-  below. Call `ScheduleWakeup({ stop: true })` before the readout, then print the run's single banner. Add every caveat `decide` returned, and anything
+  below, and print the run's single banner. Add every caveat `decide` returned, and anything
   the fix run did not finish, to the readout. A feature that is already closed (a re-audit)
   gets its `closed.json` rewritten with this run's audit fields.
 - `reaudit` true: the feature stays open and NEXT is `/audit-build` (the next round passes
@@ -496,13 +494,6 @@ readout names.
 ```
 
 On unrecoverable failure, use `═══ COMMAND STUCK: /audit-build ═══` followed by `Reason:` and `Next:` lines.
-
-**Cancel the fallback wake-up.** On every exit that prints this command's final `COMMAND COMPLETE` or
-`COMMAND STUCK` banner (the close, the re-audit, cap and still-open ends, the early STUCK exits,
-the report-only end), the same final turn
-calls `ScheduleWakeup({ stop: true })` **before the readout and banner**, beside `notify-complete.sh`
-(rule and risk: `command-status.md` §3). The chained `implement-trd --chained` fix run ends on a
-`RETURN` line and does not cancel; this command's final turn does.
 
 **Programmatic completion notify** — on the same final turn, invoke the user's `NOTIFY_ON_COMPLETE` shell command (if set) for webhook/queue/shell-pipeline integration:
 

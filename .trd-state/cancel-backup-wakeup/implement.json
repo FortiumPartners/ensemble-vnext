@@ -44,6 +44,33 @@
       "commit": null,
       "started_at": "2026-11-05T23:03:17.488Z",
       "completed_at": "2026-11-05T23:10:10.401Z"
+    },
+    "AMEND-001": {
+      "status": "success",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        ".claude/commands/audit-build.md",
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md",
+        ".claude/rules/command-status.md",
+        "packages/core/templates/claude-directory/rules/command-status.md",
+        ".claude/rules/async-discipline.md",
+        "packages/core/templates/claude-directory/rules/async-discipline.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        "test/integration/tests/runtime-integrity.test.sh",
+        "docs/TRD/cancel-backup-wakeup.md"
+      ],
+      "files_deleted": [
+        ".trd-state/cancel-backup-wakeup/success-definition.md"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-06T00:19:45.396Z"
     }
   },
   "checkpoints": [

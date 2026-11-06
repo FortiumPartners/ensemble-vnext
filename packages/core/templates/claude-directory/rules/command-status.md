@@ -20,8 +20,13 @@ turn awaiting their completion, emit **right before ending the turn**:
 ```
 [STATUS: /<command-name>] DISPATCHED → <count> <kind> in flight: <names>
    waiting on: <observable signal>
-   next wake: <ScheduleWakeup ETA | "auto-deliver on teammate SendMessage" | "/goal condition">
+   next wake: <"auto-deliver on completion" | ScheduleWakeup ETA, external waits only | "/goal condition">
 ```
+
+Schedule no fallback wake-up for work Claude Code already tracks (a `Workflow`, a background
+`Agent`, a background `Bash`): each re-invokes the session on completion, and a leftover timer keeps
+the session reading busy after the banner (issue #63: 37 of 37 fallbacks fired on finished work).
+`ScheduleWakeup` is for state the harness cannot see: a CI run, a deploy, a remote queue.
 
 ### 2. RESUMED (turn starts after a wake)
 
@@ -57,12 +62,6 @@ coverage unit 87% / int 62%, 2 commits on feature/AUTH-1234`.
 it, not even a final reminder; use it only when the command itself is done, not at phase
 boundaries or teammate handoffs (those get a PHASE banner, below); for commands spanning many
 ScheduleWakeup cycles, it fires only on the turn that completes the entire command.
-
-**Cancel the fallback wake-up on that final turn**, always: call `ScheduleWakeup({ stop: true })`
-as its last tool call, after `notify-complete.sh`, before printing its readout and banner (its
-result asks for more text). A `--chained` step (a `RETURN` line) does not cancel; its caller's final turn does. It ends
-a `/loop` and may clear every pending wake-up in the session. If the tool is absent or errors,
-carry on. Why: issue #63, 22 minutes busy.
 
 ## The readout: four sections, always, in this order
 

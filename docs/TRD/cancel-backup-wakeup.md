@@ -32,8 +32,10 @@ answered "Nothing to do" [ran]. `ScheduleWakeup({ stop: true })` on a later turn
 and end the turn" [ran].
 
 ### Expected
-The final turn cancels the fallback before it prints its readout and banner, so nothing is pending
-after the banner.
+(Superseded by AMEND-001; the original expectation was a final-turn cancel before the banner.)
+No fallback wake-up is scheduled for work Claude Code already tracks (a `Workflow`, a background
+`Agent`, a background `Bash`), so nothing is pending after the banner. The DISPATCHED turn ends with
+`next wake: auto-deliver on completion`; `ScheduleWakeup` is kept for external state only.
 
 Root cause [read]: the two shared rules tell the model to schedule a fallback (DISPATCHED banner,
 `command-status.md:17-23`; scheduled nudge, `async-discipline.md:117-122`: "schedule a wake …
@@ -43,6 +45,13 @@ re-schedule … or proceed") and nothing anywhere tells it to cancel one. `comma
 handles a stale wake only after it fires, by which time the idle time is spent.
 
 ## Decision
+
+**Superseded by AMEND-001 (2026-11-05): prevention instead of the final-turn cancel.** The owner
+rejected the cancel because `ScheduleWakeup({ stop: true })` ends an owner's `/loop` and may clear
+wake-ups the owner scheduled. Measured across 179 local transcripts, 37 fallback wake-ups fired and
+all 37 found the work already finished; none ever caught a hang. So commands schedule no fallback
+for harness-tracked work, and the cancel step is removed. The text below is the original decision,
+kept as history.
 
 State the cancel once in `command-status.md` §3 as part of the final turn, **unconditionally**:
 the turn that prints a run's final `COMMAND COMPLETE` or `COMMAND STUCK` calls
@@ -96,14 +105,15 @@ None apply — the change is command and rule prose; no screens, journeys or dat
 
 | ID | Question | What I assumed | Owner-only |
 |----|----------|----------------|------------|
-| OQ-1 | `ScheduleWakeup({ stop: true })` also ends a `/loop` dynamic loop and appears to clear every pending wake-up in the session. A command cannot tell reliably that it is running inside an owner's `/loop`. Accept that a command's final turn ends such a loop and cancels the owner's own pending reminders? | Yes: cancel unconditionally on the final turn and state the risk in the rule; a `/loop` user re-arms the loop | owner-only |
+| OQ-1 | `ScheduleWakeup({ stop: true })` also ends a `/loop` dynamic loop and appears to clear every pending wake-up in the session. A command cannot tell reliably that it is running inside an owner's `/loop`. Accept that a command's final turn ends such a loop and cancels the owner's own pending reminders? | Yes: cancel unconditionally on the final turn and state the risk in the rule; a `/loop` user re-arms the loop | owner-only. **Resolved by the owner 2026-11-05: no cancel; don't schedule the fallback (AMEND-001).** |
 
 ## Master Task List
 
 | Task ID | Description | Serves | Dependencies | Acceptance Criteria |
 |---------|-------------|--------|--------------|---------------------|
-| FIX-001 | State the cancel rule in `command-status.md` §3 (final turn: `ScheduleWakeup({ stop: true })` before the readout and banner, unconditional, never under `--chained`, the session-wide and `/loop` risk) and point to it from `async-discipline.md`'s scheduled-nudge pattern, in both the `.claude/rules/` copies and the `packages/core/templates/claude-directory/rules/` templates | O1, O2, O3 | None | `verify-command-surface.test.js` asserts, for both copies of each file: `command-status.md` §3 says the final COMPLETE/STUCK turn calls `ScheduleWakeup({ stop: true })`, that it does so before printing the readout and banner, that a `--chained` step ending on a `RETURN` line does not, and names the `/loop` and other-pending-wake-ups risk; `async-discipline.md`'s scheduled-nudge section says to cancel the wake on the final turn and names `command-status.md`; each `.claude/rules/` file is byte-identical to its template. These assertions fail on today's text, which has no `stop: true` |
-| FIX-002 | `/audit-build`, `/implement-trd`, `/verify-build` and `/plan` name the cancel at every final-banner exit; `plan.md`'s "Never on a chained run" paragraph is corrected to match step 7a.6; `/audit-build` step 0 states stale-wake's purpose as the catch for a forgotten cancel and a mid-run stale wake | O1, O2, O3 | FIX-001 | `verify-command-surface.test.js` asserts each of the four command files contains `ScheduleWakeup({ stop: true })` in its output-discipline section and says it comes before the banner and is skipped under `--chained`; `verify-build.md` also has it in the fix loop's step 6 and its round-STUCK exit; `plan.md` also has it at step 7a.6 (`stop`) and the 7a STUCK exits, and its "Never on a chained run" paragraph no longer says the helper runs only on paths that stop without chaining; `audit-build.md` has it at the close and its early STUCK exits, and step 0 still runs `stale-wake`; every `.claude/commands/` copy is byte-identical to its source; the command-structure lint passes |
+| FIX-001 | State the cancel rule in `command-status.md` §3 (final turn: `ScheduleWakeup({ stop: true })` before the readout and banner, unconditional, never under `--chained`, the session-wide and `/loop` risk) and point to it from `async-discipline.md`'s scheduled-nudge pattern, in both the `.claude/rules/` copies and the `packages/core/templates/claude-directory/rules/` templates | O1, O2, O3 | None | `verify-command-surface.test.js` asserts, for both copies of each file: `command-status.md` §3 says the final COMPLETE/STUCK turn calls `ScheduleWakeup({ stop: true })`, that it does so before printing the readout and banner, that a `--chained` step ending on a `RETURN` line does not, and names the `/loop` and other-pending-wake-ups risk; `async-discipline.md`'s scheduled-nudge section says to cancel the wake on the final turn and names `command-status.md`; each `.claude/rules/` file is byte-identical to its template. These assertions fail on today's text, which has no `stop: true` (cancel superseded by AMEND-001) |
+| FIX-002 | `/audit-build`, `/implement-trd`, `/verify-build` and `/plan` name the cancel at every final-banner exit; `plan.md`'s "Never on a chained run" paragraph is corrected to match step 7a.6; `/audit-build` step 0 states stale-wake's purpose as the catch for a forgotten cancel and a mid-run stale wake | O1, O2, O3 | FIX-001 | `verify-command-surface.test.js` asserts each of the four command files contains `ScheduleWakeup({ stop: true })` in its output-discipline section and says it comes before the banner and is skipped under `--chained`; `verify-build.md` also has it in the fix loop's step 6 and its round-STUCK exit; `plan.md` also has it at step 7a.6 (`stop`) and the 7a STUCK exits, and its "Never on a chained run" paragraph no longer says the helper runs only on paths that stop without chaining; `audit-build.md` has it at the close and its early STUCK exits, and step 0 still runs `stale-wake`; every `.claude/commands/` copy is byte-identical to its source; the command-structure lint passes (cancel superseded by AMEND-001) |
+| AMEND-001 | Replace the final-turn cancel with prevention: commands never schedule a fallback `ScheduleWakeup` for work Claude Code already tracks (a `Workflow`, a background `Agent`, a background `Bash`), since each notifies on completion; `ScheduleWakeup` stays only for external state the harness cannot see (CI, a deploy, a remote queue); every `ScheduleWakeup({ stop: true })` cancel step and the `/loop` risk are removed; `/audit-build`'s stale-wake check stays as the backstop. Supersedes the cancel in FIX-001 and FIX-002 — amendment, 2026-11-05 | O1, O2, O3 | None | `grep "stop: true"` finds nothing in `packages/core/commands/*.md`, `.claude/commands/*.md` or either copy of the rule files; `command-status.md` and `async-discipline.md` (both copies) say not to schedule a fallback wake-up for harness-tracked work and keep `ScheduleWakeup` for external state; the four commands' DISPATCHED `next wake` lines name auto-delivery on completion; `audit-build.md` step 0 still runs `stale-wake`; `verify-command-surface.test.js` pins this; mirrors byte-identical; Jest, BATS runtime-integrity and the structure lint pass |
 
 ## Task Grounding
 
