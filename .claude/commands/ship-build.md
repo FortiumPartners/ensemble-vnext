@@ -136,6 +136,9 @@ to leave.
 only writers), never edit code yourself (a step that fixes code does it through the build its
 contract names), and never call `AskUserQuestion`: a step prompt is not one of the four cases
 `.claude/rules/autonomy.md` allows. A step that is not authorized is reported, not asked about.
+Never probe a service by acting on it: no test issue, PR, comment or release to see whether a
+tracker or remote answers. Check read-only (`gh auth status`, `gh repo view`) or let the step's
+own call fail and record why.
 
 ## Step 5: Commit the record
 
@@ -168,6 +171,11 @@ who was not in the session:
 - **STATE** — shipped or not; which steps ran and with what result; the custody anchor and any
   moves (`custody.json`, read-only); the PR number and URL if there is one. Name what proves a
   claim of "shipped".
+  - **Filed follow-ups are listed one by one, with their issue (AC-F5.8).** Each entry of the
+    `file-followups` step's `data.filed` (as recorded; on a resumed run, the `data` of that
+    step's last result in `<state-dir>/shipped.json`) gets its own line: the row's summary,
+    e.g. `[below-critical] <finding>`, and its issue URL. A count ("7 of 9 filed") may precede
+    them, never replace them.
 - **DECISIONS** — a default applied (the push-only fallback when there is no policy, a branch
   created for a sweep), one line each with the reason; otherwise none.
 - **ISSUES** — every line any step put in `data.issues` (unfiled findings and review gaps come
@@ -175,6 +183,20 @@ who was not in the session:
   (name the primitive and say the owner's authorization for it is missing), and every
   uncommitted change outside the state directory from `git status --porcelain` (a late
   review's edits stay uncommitted and are named here). Otherwise none.
+  - **Unfiled follow-ups are listed one by one, never as a count.** Each `file-followups`
+    `data.issues` line keeps its own line: the row's summary, its ledger path and why it was
+    not filed. A summary line ("five could not be filed") may precede them, never replace them.
+  - **Recorded, not yet filed (D27, AC-F5.8).** When no `file-followups` step has the result
+    `filed` in `status`'s `steps` (the run parked or stopped before it, or `ship.md` lists
+    none), list every finding a `collect-findings` step recorded and nothing has filed yet, one
+    line each as "recorded, not yet filed", with the ledger path:
+
+    ```bash
+    node -e 'const d=require("./.claude/lib/discovered");for(const r of d.readAll(process.argv[1],{open:true}))if(!r.blocksFeature&&/^\[(below-critical|not-this-feature|below-bar)\]/.test(r.summary))console.log(r.summary)' "<state-dir>"
+    ```
+
+    Say the next run that reaches `file-followups` files them (a `[below-bar]` one only with
+    `below-bar=yes`).
 - **NEXT** — numbered, in order, one fenced block per slash command and no shell command.
   - Policy `none`: say the run only pushed the branch, point at `/ship-setup` to set up what
     shipping means here, and name an open PR if `gh pr list --head <branch> --state open`

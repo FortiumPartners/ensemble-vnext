@@ -14,19 +14,27 @@ never pushes (the next `push` does) and never edits code itself.
 
 ## Input
 
-`format` (default none: a command that formats and lints the project), `work`, `context`.
+`format` (default none: a command that formats and lints the project; with none, a `[lint]`
+row stops the step rather than becoming a model edit), `work`, `context`.
 
 ## Do
 
 1. Read the open blocking rows: `discovered.readAll(<work.stateDir>, { open: true })` filtered to
    `blocksFeature: true`. None: return `nothing`.
-2. **`[lint]` rows with `format=` set.** Run the command, commit only the files it changed
-   (pathspec), then `node .claude/lib/custody.js reconcile --state-dir <work.stateDir> --trd
-   <work.trd|none> --reason format` (a formatter commit needs no re-verification). Then
-   `discovered.resolve(<work.stateDir>, row, "formatted <sha>")` for each `[lint]` row handled,
-   **before** the chained build below: its first act promotes open rows into TRD tasks, and only
-   a resolved row is skipped. With no `format=`, a lint failure is a code fix and its row stays
-   open.
+2. **`[lint]` rows: the project's formatter, never a model edit (AC-F5.2).**
+   - **No `format=` set:** a `[lint]` row is never handed to the build below, because that
+     would make a lint fix a model edit. Return `stop` before running anything, naming each
+     `[lint]` row and saying the step needs `format=<the project's format/lint command>` (the
+     owner sets it with `/ship-setup`), then `/ship-build --resume`. The rows stay open, and the
+     other blocking rows wait for the resumed pass.
+   - **`format=` set:** run the command and look at what it changed (`git status --porcelain`).
+     It changed files: commit only those files (pathspec), then `node .claude/lib/custody.js
+     reconcile --state-dir <work.stateDir> --trd <work.trd|none> --reason format` (a formatter
+     commit needs no re-verification), then `discovered.resolve(<work.stateDir>, row, "formatted
+     <sha>")` for each `[lint]` row handled, **before** the chained build below: its first act
+     promotes open rows into TRD tasks, and only a resolved row is skipped. It changed nothing:
+     the lint failure needs a hand edit, so its row stays open and goes to the build below as
+     the recorded path, like any other blocking row.
 3. **The rest is TRD work.** Run `Skill({ skill: "implement-trd", args: "<work.trd>
    --reconcile --chained --shipping" })` (synchronous). Read its RETURN line. A STUCK return
    returns `stop` with its reason. Otherwise `discovered.resolve` each row you handed over

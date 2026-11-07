@@ -18,13 +18,19 @@ commit (D11, D23). A release is never fixed here.
 
 ## Do
 
-1. **Resolve the command; never guess (D23).** With `env=`, read that environment's full-deploy
-   cell; with none, use `command=`, else the only environment that declares one:
+1. **Resolve the command; never guess (D23, AC-F4.6).** `verification.md` section 2 first, then
+   `ship.md`'s `command=`, then nothing:
+   - **With `env=`:** run the snippet below with that name. A command there is the one to run.
+     None there (a blank cell, or no such environment in section 2): use `command=` when the
+     step sets one. A `command=` beside `env=` is this fallback, never ignored.
+   - **With no `env=`:** use `command=` when the step sets one; otherwise run the snippet with
+     an empty name, which returns the command only when exactly one environment declares one.
    ```bash
    node -e 'const f=require("./.claude/lib/functional-verification");const e=process.argv[1]||null;console.log(JSON.stringify(f.readFullDeploy(require("fs").readFileSync(".claude/rules/verification.md","utf8"),e)))' "<env or empty>"
    ```
-   With `env=` and a `command=` both set, `env=` wins. `{command: null, reason}` returns `stop`
-   with the reason: no command is guessed.
+   Neither source gives a command: return `stop` with the snippet's `reason` and say no
+   `command=` is set either: no command is guessed. Record which source supplied it
+   (`verification.md` or `ship.md`) in `data.source`.
 2. Run the command as written. A non-zero exit returns `stop` with its output; do not fix it,
    retry it or run a different command (AC-F5.2).
 3. Run the `identity=` command and capture its output. No `identity=` returns `stop`: the deploy
@@ -38,8 +44,8 @@ commit (D11, D23). A release is never fixed here.
 
 ## Result
 
-`released`, with `data`: `{ commit, env, command }` where `commit` is the commit the identity
-output resolved to.
+`released`, with `data`: `{ commit, env, command, source }` where `commit` is the commit the
+identity output resolved to.
 
 ## Waiting
 

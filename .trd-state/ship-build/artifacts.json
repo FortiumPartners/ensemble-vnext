@@ -27,7 +27,13 @@
   "success-definition": {
     "path": ".trd-state/ship-build/success-definition.md",
     "url": "",
-    "updated_at": "2026-11-07T11:25:27.589Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-07T12:51:17.478Z",
+    "command": "/verify-build"
+  },
+  "verification-report": {
+    "path": ".trd-state/ship-build/verification-report.md",
+    "url": "https://claude.ai/artifact/LDA8NVYSZAaTj3cwAXV5Jg",
+    "updated_at": "2026-11-07T12:51:23.039Z",
+    "command": "/verify-build"
   }
 }
