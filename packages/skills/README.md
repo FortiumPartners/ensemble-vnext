@@ -9,7 +9,7 @@ project needs into that project's `.claude/skills/`.
 
 | Kind | Which ones | How it is installed |
 |---|---|---|
-| Framework skills | The 15 named in `framework-skills.txt` | Always, whatever the stack. Scaffold installs them, `--refresh` adds any that are missing, and `/rebase-project` treats them as always installed |
+| Framework skills | The 16 named in `framework-skills.txt` | Always, whatever the stack. Scaffold installs them, `--refresh` adds any that are missing, and `/rebase-project` treats them as always installed |
 | Stack skills | Everything else | Chosen by `/init-project` from the project's stack and written to `.claude/selected-skills.txt`; scaffold's `--copy-skills` copies that list |
 
 ## Framework skills
@@ -29,6 +29,7 @@ offered as a check; `design` means a craft skill or style pack the design comman
 | `verify-design-structure` | check | Checks that the components a design board names appear at that board's route in the running build (React and react-native-web only; elsewhere it reports "not verifiable here") |
 | `verification-setup` | support | Owner-run interview that writes `.claude/rules/verification.md`: environments, capacity, refresh and deploy commands, where credentials live, known gaps, coverage floor |
 | `design-setup` | support | Owner-run interview that writes `.claude/rules/design.md`: the design system, per-platform settings, how to reach a screen, design rules |
+| `ship-setup` | support | Owner-run interview that writes `.claude/rules/ship.md`: the ordered shipping steps `/ship-build` runs, each step's parameters, and, on the owner's yes, the workflow that resumes a parked run on a review approval |
 | `designing-on-canvas` | support | This framework's board conventions for drawing screens on a Design canvas; used by `/create-design`, `/refine-design` and `/design-system` |
 | `design-grounding` | support | How a read-only agent inventories an existing product's screens, components, flows and data before anything is drawn; used by `/create-design` and `/design-system` |
 | `frontend-design` | design | Craft skill for distinctive, high-craft UI; in an existing product it uses the product's components and tokens within the design direction's departure latitude |

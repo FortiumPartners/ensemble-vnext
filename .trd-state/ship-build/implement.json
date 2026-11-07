@@ -4,7 +4,7 @@
   "trd_hash": "dd1113f103d6462fda2bbc680a51b0c2af0160f0f27c6876162c67f595e78ba9",
   "branch": "feature/0-ship-build",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 3,
   "tasks": {
     "SHIP-B001": {
       "description": "The policy file and the release-command reader. The ship.md template (owner-governed header, empty ## Ship and ## After ",
@@ -145,41 +145,53 @@
     "SHIP-B016": {
       "description": "The thirteen primitive contracts, packages/core/contracts/ship-primitive-<name>.md (+ .claude/contracts/ copies), per §3",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "agent-implementer",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/contracts/ship-primitives.test.js",
+        "packages/core/contracts/ship-primitive-push.md"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-11-07T11:16:18.603Z",
+      "last_advanced": "2026-11-07T11:07:30.781Z"
     },
     "SHIP-B013": {
       "description": "packages/core/commands/ship-build.md (+ .claude/commands/ copy) per §3.7; ship-build-surface.test.js; ship-build.seam.te",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "agent-implementer",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/ship-build.md",
+        ".claude/commands/ship-build.md"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-11-07T11:16:18.605Z",
+      "last_advanced": "2026-11-07T11:07:30.782Z"
     },
     "SHIP-B014": {
       "description": "packages/skills/ship-setup/SKILL.md (+ __tests__/, vendored copy in .claude/skills/ship-setup/), framework-skills.txt ro",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "agent-implementer",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/skills/ship-setup/SKILL.md",
+        "packages/skills/framework-skills.txt"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-11-07T11:16:18.605Z",
+      "last_advanced": "2026-11-07T11:07:30.782Z"
     },
     "SHIP-D003": {
       "description": "Add /ship-build and /ship-setup to process.md (+ template), CLAUDE.md (pipeline, command count 27 → 28), CLAUDE.md.templ",
@@ -229,11 +241,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-07T11:00:58.448Z"
+    },
+    {
+      "phase": 2,
+      "commit": "pending",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-07T11:16:18.605Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "27f8da7",
-    "last_checkpoint_timestamp": "2026-11-07T11:00:58.448Z",
+    "last_healthy_checkpoint": "pending",
+    "last_checkpoint_timestamp": "2026-11-07T11:16:18.605Z",
     "interrupted": false,
     "interrupt_reason": null
   },

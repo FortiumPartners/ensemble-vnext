@@ -108,6 +108,22 @@ describe('loadPrimitives', () => {
     expect(errors.join('\n')).toMatch(/reserved/);
   });
 
+  test('keeps `none` as a result word, while `none` still means empty for the other lists', () => {
+    expect(contracts.get('hotel').results).toEqual(['filed', 'none']);
+    writeContract(contractsDir, { primitive: 'juliet', params: '', results: 'done, none', outward: 'no', needs: 'none', provides: '-', section: 'ship' });
+    const juliet = seq.loadPrimitives(contractsDir).contracts.get('juliet');
+    expect(juliet.results).toEqual(['done', 'none']);
+    expect(juliet.needs).toEqual([]);
+    expect(juliet.provides).toEqual([]);
+  });
+
+  test('record accepts the result `none` when the contract declares it', () => {
+    writeContract(contractsDir, { primitive: 'juliet', params: '', results: 'done, none', outward: 'no', section: 'ship' });
+    seq.start(startOpts(policy('1. juliet')));
+    seq.next(stateDir(), noAuth());
+    expect(seq.record(stateDir(), { step: '1', result: 'none' }, noAuth())).toMatchObject({ ok: true });
+  });
+
   test('a missing directory is an error, not a throw', () => {
     expect(seq.loadPrimitives(path.join(tmp, 'nope')).errors[0]).toMatch(/unreadable/);
   });
@@ -368,6 +384,19 @@ describe('open for extension, closed for primitives', () => {
     expect(last).toMatchObject({ action: 'done' });
   });
 
+  // A primitive is "named" as a bare word or quoted string. Property access (`out.push(x)`,
+  // `.merge(`) is ordinary JS, not a naming, so a preceding `.` is excluded.
+  const namesPrimitive = (name) => new RegExp(`(?<![\\w.-])${name}(?![\\w-])`);
+
+  test('the primitive-name guard flags words and quoted names but not method calls', () => {
+    expect("case 'release':").toMatch(namesPrimitive('release'));
+    expect('const a = "merge";').toMatch(namesPrimitive('merge'));
+    expect("x === 'push'").toMatch(namesPrimitive('push'));
+    expect('arr.push(x)').not.toMatch(namesPrimitive('push'));
+    expect('db.merge(x); this.release()').not.toMatch(namesPrimitive('merge'));
+    expect('db.merge(x); this.release()').not.toMatch(namesPrimitive('release'));
+  });
+
   test('the module source names no primitive (names read from the contracts directory)', () => {
     const real = seq.loadPrimitives(path.join(__dirname, '..', 'contracts'));
     const names = [...real.contracts.keys()];
@@ -378,9 +407,11 @@ describe('open for extension, closed for primitives', () => {
       .replace(/(^|[^:])\/\/.*$/gm, '$1');
     // `run` is also the ordinary action word `next` returns; it is checked as a quoted whole
     // only when no contract named it (a contract directory today may or may not hold it).
-    const generic = new Set(['run', 'stop', 'wait', 'done']);
+    // `none` is likewise generic: the sequencer's own empty-value and no-policy sentinel, which a
+    // contract (close-issue) may also declare as a result word.
+    const generic = new Set(['run', 'stop', 'wait', 'done', 'none']);
     for (const name of names.filter((n) => !generic.has(n))) {
-      expect(source).not.toMatch(new RegExp(`(?<![\\w-])${name}(?![\\w-])`));
+      expect(source).not.toMatch(namesPrimitive(name));
     }
     for (const word of [...results].filter((w) => !generic.has(w))) {
       expect(source).not.toMatch(new RegExp(`['"\`]${word}['"\`]`));

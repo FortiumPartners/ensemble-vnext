@@ -110,9 +110,11 @@ function parseFrontMatter(text) {
   return null; // never closed
 }
 
-function listOf(value) {
+function listOf(value, { keepNone = false } = {}) {
   if (!value) return [];
-  return splitTokens(value).tokens.map(unquote).filter((t) => t !== 'none' && t !== '-');
+  // `none` / `-` mean "empty list" for params, needs and the rest, but in `results` `none` is a
+  // real result word (close-issue: the work named no issue, so nothing was closed).
+  return splitTokens(value).tokens.map(unquote).filter((t) => !(keepNone ? /^-$/ : /^(none|-)$/).test(t));
 }
 
 function parseOutward(value) {
@@ -178,7 +180,7 @@ function loadPrimitives(dir = DEFAULT_CONTRACTS_DIR) {
     contracts.set(expected, {
       primitive: expected,
       params,
-      results: listOf(fm.results),
+      results: listOf(fm.results, { keepNone: true }),
       outward,
       needs: listOf(fm.needs),
       provides: listOf(fm.provides),

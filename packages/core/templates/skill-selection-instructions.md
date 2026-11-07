@@ -105,7 +105,7 @@ For each matched skill:
 
 Every skill listed in `packages/skills/framework-skills.txt` ships to every project:
 `check` rows (verify-design-comparison, verify-flow-as-built, verify-data-fidelity),
-`support` rows (verification-setup) and `design` rows (frontend-design and the
+`support` rows (verification-setup, design-setup, ship-setup) and `design` rows (frontend-design and the
 `style-pack-*` skills). `scaffold-project.sh` copies them itself on scaffold and
 refresh, so leave them out of the stack-based selection above.
 

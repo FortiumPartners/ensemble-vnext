@@ -1,0 +1,1 @@
+../../core/templates/claude-directory/rules/ship.md
