@@ -215,6 +215,14 @@ describe('refine-design --auto decisions, answers and audit findings (DORCH-B004
     expect(raw).not.toContain('--style');
   });
 
+  test('critique.md is merged per board, never overwritten whole', () => {
+    expect(text).not.toMatch(/overwritten each run/);
+    expect(text).toMatch(/Read the existing `docs\/ui\/<slug>\/critique\.md` first/);
+    expect(text).toMatch(/[Aa] board this run did not change keeps its section unchanged/);
+    expect(text).toMatch(/scores predate this run's change \(<date>\); not re-judged: <reason>/);
+    expect(text).toMatch(/[Hh]eader line names the command and date of the run that last touched the file/);
+  });
+
   test('names no product or orchestrator (O10)', () => {
     expect(raw).not.toMatch(/forge/i);
     expect(raw).not.toMatch(/orchestrat/i);
