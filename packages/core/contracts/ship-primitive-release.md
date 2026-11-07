@@ -1,6 +1,6 @@
 ---
 primitive: release
-params: env=, command=, identity=
+params: env=, command=, identity
 results: released
 outward: yes
 needs: head
@@ -14,7 +14,8 @@ commit (D11, D23). A release is never fixed here.
 
 ## Input
 
-`env`, `command`, `identity` (all default none), `work`, `context`.
+`env`, `command` (both default none), `identity` (required: `ship.md` fails to parse without it, so
+no release runs that could not be proven), `work`, `context`.
 
 ## Do
 
@@ -31,11 +32,12 @@ commit (D11, D23). A release is never fixed here.
    Neither source gives a command: return `stop` with the snippet's `reason` and say no
    `command=` is set either: no command is guessed. Record which source supplied it
    (`verification.md` or `ship.md`) in `data.source`.
-2. Run the command as written. A non-zero exit returns `stop` with its output; do not fix it,
+2. Before anything runs, confirm `identity` is non-empty; an empty one returns `stop` now, because
+   the deploy link cannot pass without one and the release below cannot be taken back.
+3. Run the command as written. A non-zero exit returns `stop` with its output; do not fix it,
    retry it or run a different command (AC-F5.2).
-3. Run the `identity=` command and capture its output. No `identity=` returns `stop`: the deploy
-   link cannot pass without one.
-4. Prove the deploy link:
+4. Run the `identity=` command and capture its output.
+5. Prove the deploy link:
    ```bash
    node .claude/lib/custody.js check --state-dir <work.stateDir> --link deploy \
      --identity-output "<captured output>" --trd <work.trd|none>

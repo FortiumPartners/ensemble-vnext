@@ -29,8 +29,8 @@ has already shipped, so this primitive never returns `stop`.
    switch would abort. If `git status --porcelain` is non-empty:
    `git stash push -u -m "ship-build sync-design <feature> <ts>"`, then take its SHA from
    `git stash list --format='%H %gs'` by that tag. Never a bare `git stash`.
-4. For each design listed: `git fetch`; switch to a new `design-sync/<feature>` branch at
-   `origin/<base>`; run `verification.md` section 2's fast refresh for `local` when one is
+4. For each design listed: `git fetch`; switch to a new `design-sync/<feature>-<slug>` branch at
+   `origin/<base>` (the slug keeps a second design's branch from colliding with the first's); run `verification.md` section 2's fast refresh for `local` when one is
    declared; `Skill({ skill: "sync-design", args: "<slug> --trd <work.trd> --chained" })`; push
    the branch; `node .claude/lib/pull-request.js ensure --listed --base <base> --title ... --body-file ...`.
 5. **Every path out, a failed design included,** switches back to the feature branch and runs

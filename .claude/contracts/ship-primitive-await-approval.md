@@ -21,8 +21,10 @@ otherwise the `commit` of the latest `pushed` result in `context`. It is never l
 
 ## Do
 
-1. Read `gh pr view <pr> --json reviewDecision,headRefOid`. `reviewDecision` of `APPROVED` on
-   the current head returns `approved`.
+1. Read `gh pr view <pr> --json reviewDecision,headRefOid,latestReviews`. `reviewDecision` of
+   `APPROVED` on the current head returns `approved`. `reviewDecision` is empty when the repository
+   requires no review, so an empty one counts too when a `latestReviews` entry is `APPROVED` and
+   no entry is `CHANGES_REQUESTED`.
 2. Otherwise return `wait`; do not poll in-session.
 3. With `trigger=github-actions`, check whether `.github/workflows/ensemble-ship-resume.yml`
    exists on the remote default branch (`git ls-tree origin/<default> -- .github/workflows/ensemble-ship-resume.yml`).
