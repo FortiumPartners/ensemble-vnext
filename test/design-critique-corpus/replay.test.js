@@ -289,6 +289,28 @@ describe('run (whole replay, spawn mocked)', () => {
     expect(() => main(['--dir', dir, '--runs', '1', '--out', path.join(dir, 'x.json')], { spawn, log: () => {} })).toThrow(/ENOENT/);
   });
 
+  it('a timed-out or oversized critic run is recorded, not fatal', () => {
+    let calls = 0;
+    const ok = { status: 0, stdout: JSON.stringify({ result: JSON.stringify({ scores: { hierarchy: 3 } }) }) };
+    const spawn = jest.fn(() => {
+      calls++;
+      if (calls === 1) return { error: Object.assign(new Error('spawnSync claude ETIMEDOUT'), { code: 'ETIMEDOUT' }) };
+      if (calls === 2) return { error: Object.assign(new Error('spawnSync claude ENOBUFS'), { code: 'ENOBUFS' }) };
+      return ok;
+    });
+    const r = run({ dir, runs: 2, spawn });
+    expect(r.runs).toHaveLength(4);
+    expect(r.runs.filter((x) => x.error).map((x) => x.error)).toEqual([expect.stringMatching(/ETIMEDOUT/), expect.stringMatching(/ENOBUFS/)]);
+  });
+
+  it('main exits 1 when every critic run failed, and 0 when only some did', () => {
+    const allFail = jest.fn(() => ({ status: 1, stderr: 'not logged in' }));
+    expect(main(['--dir', dir, '--runs', '1', '--out', path.join(dir, 'all.json')], { spawn: allFail, log: () => {} })).toBe(1);
+    let calls = 0;
+    const someFail = jest.fn(() => (++calls === 1 ? { status: 1, stderr: 'boom' } : { status: 0, stdout: JSON.stringify({ result: JSON.stringify({ scores: { hierarchy: 3 } }) }) }));
+    expect(main(['--dir', dir, '--runs', '1', '--out', path.join(dir, 'some.json')], { spawn: someFail, log: () => {} })).toBe(0);
+  });
+
   it('rejects a bad --runs', () => {
     expect(() => main(['--dir', dir, '--runs', '0'], { spawn: jest.fn() })).toThrow(/--runs/);
   });

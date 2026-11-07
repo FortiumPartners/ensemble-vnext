@@ -313,6 +313,8 @@ describe('create-design stage draw', () => {
     });
     const critique = result.findings_open.filter((f) => f.axis === 'critique');
     expect(critique.map((f) => f.board)).toEqual(['01-screen-1']);
+    // critique.md is written from `critique`: the dropped as-is score must not reach it either.
+    expect(result.critique.find((c) => c.screen === '01-screen-1').scores.map((x) => x.board)).toEqual(['01-screen-1']);
   });
 
   it('names the to-be board id the screen critic must score, and only that one', async () => {

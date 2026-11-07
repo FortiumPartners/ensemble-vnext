@@ -366,7 +366,8 @@ changes no tracked file. Report a board whose screen no longer matches (check bo
 difference quoted in why). An as-is board with screenshot_match false is already marked: name it
 once, do not report it as new drift. A screen you cannot reach is not a finding.
 Comparison verdicts become findings so:
-match and minor are not findings; deviates is a board-drift finding; uncaptured is not a finding.
+match and minor are not findings; deviates is a board-drift finding; uncaptured is not a finding;
+superseded is not a finding only when the rubric's cited ruling is named in why, and is otherwise a board-drift finding.
 Write no verdicts.json: this audit changes no tracked file.
 ${a.driftRubric ? '' : '\nThe drift rubric was not supplied: report one board-drift finding on the first board saying "drift rubric not supplied", and stop.\n'}
 CAPTURE:

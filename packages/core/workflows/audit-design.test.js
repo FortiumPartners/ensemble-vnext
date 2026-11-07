@@ -427,6 +427,7 @@ describe('audit-design --drift (DSGN-B015)', () => {
     const { agent } = await audit({}, driftArgs());
     const p = byLabel(agent, 'verify:drift-boards-1').prompt;
     expect(p).toMatch(/match and minor are not findings; deviates is a board-drift finding; uncaptured is not a finding/);
+    expect(p).toMatch(/superseded is not a finding only when the rubric's cited ruling is named in why/);
     expect(p).toMatch(/Write no verdicts\.json/);
   });
 

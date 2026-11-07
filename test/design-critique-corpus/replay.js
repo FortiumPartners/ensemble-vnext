@@ -29,6 +29,7 @@ class LabelError extends Error {}
 function parseLabels(text, baseDir) {
   const rows = [];
   const seen = new Set();
+  const base = path.resolve(baseDir);
   text.split('\n').forEach((line, i) => {
     if (!line.trim()) return;
     const where = `labels.jsonl line ${i + 1}`;
@@ -52,7 +53,6 @@ function parseLabels(text, baseDir) {
         if (!Number.isInteger(v) || v < 1 || v > 5) throw new LabelError(`${where}: dimension "${k}" must be an integer 1-5`);
       }
     }
-    const base = path.resolve(baseDir);
     for (const f of ['frame', 'measures']) {
       const p = path.resolve(base, r[f]);
       if (!p.startsWith(base + path.sep)) throw new LabelError(`${where}: ${f} file ${r[f]} is outside the corpus folder`);
@@ -192,7 +192,11 @@ function invokeCritic(prompt, { model, spawn = spawnSync } = {}) {
   args.push('--output-format', 'json', '--allowedTools', 'Read');
   const res = spawn('claude', args, { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024, timeout: 300000 });
   // Tagged so run() can tell a CLI that never started (fatal) from a critic that ran and failed (recorded).
-  if (res.error) { res.error.spawnFailed = true; throw res.error; }
+  // A timeout (ETIMEDOUT) or an oversized output (ENOBUFS) is a critic that ran and failed, not a missing CLI.
+  if (res.error) {
+    if (res.error.code !== 'ETIMEDOUT' && res.error.code !== 'ENOBUFS') res.error.spawnFailed = true;
+    throw res.error;
+  }
   if (res.status !== 0) throw new Error(`claude exited with code ${res.status}: ${res.stderr}`);
   const cli = JSON.parse(String(res.stdout).trim());
   if (!cli.result) throw new Error('claude returned an empty result');
@@ -273,7 +277,7 @@ function formatReport(result) {
   return L.join('\n');
 }
 
-/** CLI body. Returns the exit code, which is 0 whatever the agreement: this is a report, not a gate. */
+/** CLI body. Returns the exit code, which is 0 whatever the agreement (this is a report, not a gate), and 1 only when every critic run failed. */
 function main(argv, { spawn, log = console.log } = {}) {
   const o = parseArgs(argv);
   const result = run({ ...o, spawn });
@@ -281,6 +285,11 @@ function main(argv, { spawn, log = console.log } = {}) {
   fs.writeFileSync(out, JSON.stringify(result, null, 2) + '\n');
   log(formatReport(result));
   log(`Per-run scores written to ${out}`);
+  // Every critic run failing (an expired login, a bad --model) is not a result to report as one.
+  if (result.runs.length && result.runs.every((r) => r.error)) {
+    log(`Every critic run failed: ${result.runs[0].error}`);
+    return 1;
+  }
   return 0;
 }
 

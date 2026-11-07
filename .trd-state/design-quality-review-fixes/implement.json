@@ -3,7 +3,7 @@
   "trd_file": "docs/TRD/design-quality-review-fixes.md",
   "branch": "feature/design-quality-review-fixes/fix",
   "strategy": "bug-fix",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "phase": 1,
@@ -83,7 +83,16 @@
       "completed_at": "2026-11-07T05:13:05.050Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "6cdeeac",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-07T05:13:47.620Z"
+    }
+  ],
   "functional_verification": {
     "prd_resolved": true,
     "source_kind": "reproduction",
@@ -118,5 +127,11 @@
         "reason": "always authorized"
       }
     }
+  },
+  "recovery": {
+    "last_healthy_checkpoint": "6cdeeac",
+    "last_checkpoint_timestamp": "2026-11-07T05:13:47.620Z",
+    "interrupted": false,
+    "interrupt_reason": null
   }
 }
