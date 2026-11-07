@@ -175,6 +175,7 @@ data view or flow is in scope.
 | FIX-006 | `ship-sequencer.js`: CLI/API verb `authorization --policy <file> [--autonomy] [--settings]` returning `{ sentence: present\|absent, refused: [primitives] }` via `isAuthorized`; `ship-setup` SKILL runs it after the re-parse and lists each refused step in ISSUES, naming the sentence and that the owner adds it; never edits `autonomy.md` | O7 | FIX-005 | Jest: without the sentence, a policy with an outward step and an `unless` step whose setting holds reports only the outward one; with the sentence, `refused` is empty; skill text test names `authorization` and ISSUES and keeps autonomy.md out of the files it writes |
 | FIX-007 | `wait-ci` contract: after a `merge` (`context.merged`), the current head is the PR's merge commit, read with `gh run list --commit` in both Do and Waiting, polling up to 120s before `no-checks`; default string in the ship.md template (both copies) and the ship-setup skill's topic-1 description gain `wait-ci` between `merge` and `release`; `ship-template.test.js` updated | O8 | None | Template test asserts the default `## Ship` order push, open-pr, repeat, merge, wait-ci, release and that it parses; contract test asserts `mergeCommit`, the 120s poll, and that the Waiting section names the merge-commit run list |
 | FIX-008 | Mirror every edited `packages/core` and `packages/skills` file into `.claude/`; add an Unreleased CHANGELOG entry; keep `CLAUDE.md` at or under 16,000 bytes | O1, O2, O3, O4, O5, O6, O7, O8 | FIX-001, FIX-002, FIX-003, FIX-004, FIX-005, FIX-006, FIX-007 | `ship-build-surface.test.js` mirror test and a `cmp` of each edited pair pass; `wc -c CLAUDE.md` ≤ 16000; full Jest battery green |
+| FIX-009 | Amendment (found by verification: the tool=claude review match lived only in prose). `packages/core/lib/ship-review.js` exports `matchToolReview({reviews, login, head, requestedAt})` and a `match` CLI; the request-review contract calls it instead of judging the match | O1 | FIX-001 | Jest (`ship-review.test.js`): one matching review is recognised; a review failing each condition (another login, an older commit, submitted before the request) is rejected and named; the contract names `ship-review.js match` |
 
 ## Task Grounding
 
@@ -233,6 +234,13 @@ data view or flow is in scope.
 - **Replaces:** nothing [read]
 - **Follow:** `.claude/rules/*` is owner-governed and is not touched [read]
 - **Careful:** `CLAUDE.md` is 15,995 bytes on `origin/main` [ran] — any line added must be paid for by one trimmed
+
+### FIX-009
+- **Touches:** `packages/core/lib/ship-review.js`, `packages/core/lib/ship-review.test.js`, `packages/core/contracts/ship-primitive-request-review.md`, `packages/core/contracts/ship-primitives.test.js`, `.claude/lib/ship-review.js`, `packages/full/lib/ship-review.js`
+- **Reuse:** the `gh pr view --json reviews` shape; CLI conventions of `ship-sequencer.js` (one JSON line, exit 2 on usage) [read]
+- **Replaces:** the judged match in the request-review contract [read]
+- **Follow:** `spawnSync`-free pure function; no network [read]
+- **Careful:** `packages/full/lib/*` entries are symlinks into `packages/core/lib` [ran]
 
 ## Could Not Verify
 

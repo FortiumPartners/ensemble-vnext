@@ -248,6 +248,7 @@ describe('the waiting primitives', () => {
     expect(t).not.toMatch(/Bash\(gh:\*\)/);
     expect(t).toMatch(/gh api user --jq \.login/);
     expect(t).toMatch(/requestedAt/);
+    expect(t).toMatch(/ship-review\.js match --login/);
     expect(t).toMatch(/review-<head>\.log/);
     expect(t).toMatch(/exit with nothing posted[^.]*return(s)? `wait`/);
   });
