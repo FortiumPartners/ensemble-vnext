@@ -1,0 +1,252 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "`/audit-design --drift` compares a board with a fresh capture using `verify-design-comparison`'s own `## Rubric`, never contract section 8 (the ten-dimension visual critique rubric). Must pass: yes.",
+      "source": "TRD Objectives table, row O1",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "In `/create-design`'s draw stage, a critique score reaches the fix round only for the to-be board the screen critic was given; a score on an as-is or parts board is dropped.",
+      "source": "TRD Objectives table, row O2",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "`direction()` does not report `style_pack` blank when a pack is in use through `style` (`--style` or the brief's Style pack line), and reads a fractional touch-target floor (`24.5 px`) whole.",
+      "source": "TRD Objectives table, row O3",
+      "served_by": [
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "O4",
+      "statement": "The critique-corpus replay records a failed critic run and carries on, rather than throwing away every run so far; and it rejects a label whose `frame` or `measures` path resolves outside the corpus folder.",
+      "source": "TRD Objectives table, row O4",
+      "served_by": [
+        "FIX-004"
+      ]
+    },
+    {
+      "id": "O5",
+      "statement": "The overlapping-targets measure reads each target's rectangle once, not twice per pair, with its findings unchanged; and the render CLI's doc comment is well-formed.",
+      "source": "TRD Objectives table, row O5",
+      "served_by": [
+        "FIX-005"
+      ]
+    },
+    {
+      "id": "FIX-001-AC1",
+      "statement": "The drift prompt carries `driftRubric` and never `rubric`; the drift test asserts `DRIFT-RUBRIC-TEXT` present and `RUBRIC-TEXT` absent, and fails on the unfixed code.",
+      "source": "TRD Master Task List, FIX-001 acceptance criterion (1)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC2",
+      "statement": "The drift prompt says `match` and `minor` are not findings, `deviates` is a board-drift finding, `uncaptured` is not a finding, and no `verdicts.json` is written; a test asserts that sentence.",
+      "source": "TRD Master Task List, FIX-001 acceptance criterion (2)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC3",
+      "statement": "With no `driftRubric`, the drift verifier reports one \"drift rubric not supplied\" finding and stops, as a missing `capture` already does; a test covers the missing case.",
+      "source": "TRD Master Task List, FIX-001 acceptance criterion (3)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC4",
+      "statement": "`audit-design.md` says to pass `driftRubric` from the `## Rubric` text of `verify-design-comparison`, and `audit-design-prose.test.js` asserts it.",
+      "source": "TRD Master Task List, FIX-001 acceptance criterion (4)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC5",
+      "statement": "The `.claude/` copies of `audit-design.js` and `audit-design.md` are byte-identical to the package files.",
+      "source": "TRD Master Task List, FIX-001 acceptance criterion (5)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-002-AC1",
+      "statement": "A score on `01-screen-1--as-is` is dropped and the to-be score is kept; the patch's test asserts exactly `['01-screen-1']` and fails on the unfixed code.",
+      "source": "TRD Master Task List, FIX-002 acceptance criterion (1)",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-002-AC2",
+      "statement": "The screen critic's prompt names the to-be board id it must score (including each explore direction's own id); a test asserts the id is in the prompt.",
+      "source": "TRD Master Task List, FIX-002 acceptance criterion (2)",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-002-AC3",
+      "statement": "Every existing create-design draw test still passes.",
+      "source": "TRD Master Task List, FIX-002 acceptance criterion (3)",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-002-AC4",
+      "statement": "`.claude/workflows/create-design.js` is byte-identical to the package file.",
+      "source": "TRD Master Task List, FIX-002 acceptance criterion (4)",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-003-AC1",
+      "statement": "The direction test passes: `style` given means `style_pack` is not in `blank`, and `targets 24.5 px` gives `floor.target === 24.5`; it fails on the unfixed code.",
+      "source": "TRD Master Task List, FIX-003 acceptance criterion (1)",
+      "served_by": [
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "FIX-003-AC2",
+      "statement": "The `.claude/` copy of `design-map.js` is byte-identical.",
+      "source": "TRD Master Task List, FIX-003 acceptance criterion (2)",
+      "served_by": [
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "FIX-004-AC1",
+      "statement": "`run()` with a stub spawn whose critic exits non-zero once completes, records that run with `mean: null` and an `error`, and keeps every other run; fails on the unfixed `replay.js`.",
+      "source": "TRD Master Task List, FIX-004 acceptance criterion (1)",
+      "served_by": [
+        "FIX-004"
+      ]
+    },
+    {
+      "id": "FIX-004-AC2",
+      "statement": "`formatReport()` on a result with failed runs prints \"N of M critic runs failed: <first error>\" and does not count those frames as \"unscored (every dimension not judged)\".",
+      "source": "TRD Master Task List, FIX-004 acceptance criterion (2)",
+      "served_by": [
+        "FIX-004"
+      ]
+    },
+    {
+      "id": "FIX-004-AC3",
+      "statement": "When the spawn itself fails (`res.error`, e.g. ENOENT for a missing `claude`), `run()` still throws, so `main` exits 1.",
+      "source": "TRD Master Task List, FIX-004 acceptance criterion (3)",
+      "served_by": [
+        "FIX-004"
+      ]
+    },
+    {
+      "id": "FIX-004-AC4",
+      "statement": "`parseLabels()` rejects a valid row whose `frame` (and, separately, `measures`) is `../../package.json`, naming \"outside the corpus folder\"; fails on the unfixed code.",
+      "source": "TRD Master Task List, FIX-004 acceptance criterion (4)",
+      "served_by": [
+        "FIX-004"
+      ]
+    },
+    {
+      "id": "FIX-004-AC5",
+      "statement": "All replay tests pass.",
+      "source": "TRD Master Task List, FIX-004 acceptance criterion (5)",
+      "served_by": [
+        "FIX-004"
+      ]
+    },
+    {
+      "id": "FIX-005-AC1",
+      "statement": "In `MEASURE_SCRIPT`, `getBoundingClientRect` does not appear inside the overlap pair loop, and the doc-comment block has no line lacking its ` * `; both fail on the unfixed file.",
+      "source": "TRD Master Task List, FIX-005 acceptance criterion (1)",
+      "served_by": [
+        "FIX-005"
+      ]
+    },
+    {
+      "id": "FIX-005-AC2",
+      "statement": "Every `design-render.test.js` test passes, including its overlap cases, so findings are unchanged.",
+      "source": "TRD Master Task List, FIX-005 acceptance criterion (2)",
+      "served_by": [
+        "FIX-005"
+      ]
+    },
+    {
+      "id": "FIX-005-AC3",
+      "statement": "The `.claude/` copy of `design-render.js` is byte-identical.",
+      "source": "TRD Master Task List, FIX-005 acceptance criterion (3)",
+      "served_by": [
+        "FIX-005"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "Give `/audit-design --drift` its own rubric: the `driftRubric` input in `audit-design.js`, a stated mapping from comparison verdicts to findings, a reported finding when `driftRubric` is missing, and the `/audit-design` command text that passes it.",
+      "touches": [
+        "packages/core/workflows/audit-design.js",
+        ".claude/workflows/audit-design.js",
+        "packages/core/workflows/audit-design.test.js",
+        "packages/core/commands/audit-design.md",
+        ".claude/commands/audit-design.md",
+        "packages/core/commands/audit-design-prose.test.js"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "Name the to-be board's id in `create-design.js`'s screen-critic prompt, and filter `scoreFindings` to the to-be board(s) the critic was given.",
+      "touches": [
+        "packages/core/workflows/create-design.js",
+        ".claude/workflows/create-design.js",
+        "packages/core/workflows/create-design.test.js"
+      ]
+    },
+    {
+      "id": "FIX-003",
+      "description": "In `design-map.js` `direction()`, don't report `style_pack` blank when `style` is given, and read a decimal touch-target floor.",
+      "touches": [
+        "packages/core/lib/design-map.js",
+        ".claude/lib/design-map.js",
+        "packages/core/lib/design-map.test.js"
+      ]
+    },
+    {
+      "id": "FIX-004",
+      "description": "Make the corpus replay survive a failed critic run without hiding it, keep a missing or unstartable critic CLI fatal, and confine label paths to the corpus folder; add tests for all three to `replay.test.js`.",
+      "touches": [
+        "test/design-critique-corpus/replay.js",
+        "test/design-critique-corpus/replay.test.js"
+      ]
+    },
+    {
+      "id": "FIX-005",
+      "description": "Read the targets' rectangles once in the overlap measure, and restore the missing ` * ` on the render CLI's doc-comment line.",
+      "touches": [
+        "packages/core/lib/design-render.js",
+        ".claude/lib/design-render.js",
+        "packages/core/lib/design-render.test.js"
+      ]
+    }
+  ],
+  "could_not_verify": [
+    "That the drift comparison judges better with its own rubric. That needs a live `/audit-design --drift` run; the unit test proves only which text reaches the prompt.",
+    "The overlap measure's speed-up is not measured; the claim rests on reading 500 rectangles once rather than about 250,000 times."
+  ],
+  "open_questions": [
+    "none"
+  ]
+}

@@ -123,5 +123,8 @@ none
 
 ## Could Not Verify
 
-- That the drift comparison judges better with its own rubric. That needs a live `/audit-design --drift` run; the unit test proves only which text reaches the prompt.
-- The overlap measure's speed-up is not measured; the claim rests on reading 500 rectangles once rather than about 250,000 times.
+*Rewritten by `/audit-build`, 2026-11-06. Checked and confirmed built and tested, so removed from this list: FIX-001 to FIX-005 (all five tasks; 295 of 295 tests pass across the six affected suites, and every `.claude/` mirror is byte-identical to its package file).*
+
+- That the drift comparison judges better with its own rubric. Out of scope for a code audit: it needs a live `/audit-design --drift` run (this TRD's Non-Goals rule out starting a `claude` session); the unit test proves only which text reaches the prompt.
+- The overlap measure's speed-up is not measured. Out of scope for a code audit: the claim rests on reading 500 rectangles once rather than about 250,000 times, and no benchmark was run.
+- Fidelity to a product requirement. This TRD has no source PRD (its source is a code review of PR #70 and owner instructions), so the audit's check against product requirements had nothing to check against. Only the TRD-to-code trace was checked.
