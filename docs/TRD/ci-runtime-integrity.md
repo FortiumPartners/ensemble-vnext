@@ -33,7 +33,7 @@ two tests did not carry the same exclusion.
 
 ## Decision
 
-Exclude the owner-authored rules (`verification.md`, `design.md`) from both byte-parity tests,
+Exclude the owner-authored rules (`verification.md`, `design.md`, `ship.md`) from both byte-parity tests,
 using the same list as `scaffold-project.sh`'s `AUTHORED_RULES`. Rejected: copying the template
 over the live file (destroys the owner's verification setup, which no autonomous run may edit)
 and copying the live file over the template (ships this repo's environments to every scaffolded
@@ -68,7 +68,7 @@ none
 
 ### FIX-001
 - **Touches:** `test/integration/tests/runtime-integrity.test.sh`
-- **Reuse:** the `AUTHORED_RULES` list in `packages/core/scripts/scaffold-project.sh` (~line 1678): `constitution.md stack.md process.md verification.md design.md`; only the last two exist in the template dir [read]
+- **Reuse:** the `AUTHORED_RULES` list in `packages/core/scripts/scaffold-project.sh` (~line 1678): `constitution.md stack.md process.md verification.md design.md ship.md`; the last three exist in the template dir — read the list from the script rather than copying it (end-of-run review: `ship.md`, made owner-governed by PR #75, was missed by a hand-typed copy) [ran]
 - **Replaces:** nothing — adds a skip inside each test's existing loop [read]
 - **Follow:** BATS style already in the file; test 8 keeps its `[ "$count" -ge 4 ]` floor, which must still hold with 3 framework rules counted — lower it to 3 so an emptied template dir still fails [inferred]
 - **Careful:** test 17 (`command-status.md` in both copies) and test 18 (byte ceilings) must stay green; do not edit either rule copy
