@@ -23,5 +23,11 @@
     "url": "",
     "updated_at": "2026-11-04T06:25:32.107Z",
     "command": "/audit-trd"
+  },
+  "success-definition": {
+    "path": ".trd-state/ship-build/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-07T11:25:27.589Z",
+    "command": "/implement-trd"
   }
 }
