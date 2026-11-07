@@ -117,7 +117,7 @@ function ensure({ title, bodyFile, expectBranch, base: requestedBase, listed = f
   const push = run('git', ['push', '-u', 'origin', branch]);
   if (!push.ok) return { action: 'failed', url: null, reason: firstLine(push.err) };
 
-  const list = run('gh', ['pr', 'list', '--head', branch, '--state', 'open', '--json', 'url,baseRefName', '--jq', '.[0] | if . then "\(.url)\t\(.baseRefName)" else empty end']);
+  const list = run('gh', ['pr', 'list', '--head', branch, '--state', 'open', '--json', 'url,baseRefName', '--jq', '.[0] | if . then [.url, .baseRefName] | @tsv else empty end']);
   // A failed lookup is not "no open PR": creating blind could duplicate one or mislead.
   if (!list.ok) return { action: 'failed', url: null, reason: firstLine(list.err || list.out) };
   const [openPrUrl, openPrBase] = list.out.split('\n')[0].split('\t');

@@ -123,6 +123,12 @@ node .claude/lib/ship-sequencer.js next --state-dir <state-dir>
   A result the contract does not declare is refused; read the reason and record the right
   one. Pass any line a step wants shown to the owner in `data.issues`.
 
+  **End the loop on what `record` returns, not only on what `next` returns.** `next` never
+  answers `wait`: it hands a parked or stopped step out again (that is how `--resume` works), so
+  a loop that called it right after recording `wait` or `stop` would re-run the step and clear
+  the parked state. When `record` returns `status: "waiting"` or `status: "stuck"`, stop looping
+  and go to Step 5.
+
   A result the contract lists under `stops-on` (for example `wait-ci`'s `failed`) outside a
   `repeat` returns `status: "stuck"` and leaves the cursor on that step; the next step is never
   handed out. Go to Step 5.
