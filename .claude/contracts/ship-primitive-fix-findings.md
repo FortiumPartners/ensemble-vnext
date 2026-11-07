@@ -4,6 +4,7 @@ params: format=
 results: fixed, nothing
 outward: no
 needs: findings
+requires: trd
 section: ship
 ---
 
@@ -35,9 +36,16 @@ row stops the step rather than becoming a model edit), `work`, `context`.
      promotes open rows into TRD tasks, and only a resolved row is skipped. It changed nothing:
      the lint failure needs a hand edit, so its row stays open and goes to the build below as
      the recorded path, like any other blocking row.
-3. **The rest is TRD work.** Run `Skill({ skill: "implement-trd", args: "<work.trd>
+3. **The rest is TRD work.** First snapshot the tree outside `.trd-state/`:
+   `git status --porcelain --untracked-files=all` plus `git hash-object <path>` for each path it
+   lists (the pattern of `/plan`'s Step 7a). Then run `Skill({ skill: "implement-trd", args: "<work.trd>
    --reconcile --chained --shipping" })` (synchronous). Read its RETURN line. A STUCK return
-   returns `stop` with its reason. Otherwise `discovered.resolve` each row you handed over
+   returns `stop` with its reason. Then snapshot again and compare: a path whose
+   status line is new or different, or whose `git hash-object` differs, is the build's own edit
+   (a path dirty before the build with an unchanged hash is not). Commit those paths by pathspec
+   (`git add -- <paths>`, `git commit -m "fix: <rows> build edits" -- <paths>`, never `git add -A`)
+   before recording any result; name them in `data.issues` only if that commit fails. This is
+   prose the model follows, not a deterministic guarantee. Otherwise `discovered.resolve` each row you handed over
    (`fixed by reconcile at <sha>`), except one whose promoted task the line lists under `not
    built`, which stays open so the next pass holds only new findings and unbuilt ones.
 4. **Sweep work has no TRD** (`work.kind` is `sweep`): return `stop` naming `/plan <the

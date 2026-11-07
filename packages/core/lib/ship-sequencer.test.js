@@ -229,6 +229,39 @@ describe('start', () => {
     expect(r.errors[0]).toMatch(/needs head/);
   });
 
+  describe('requires: trd', () => {
+    const GOOD = '# T\n\n## 4. Master Task List\n\n| Task ID | Description | Dependencies |\n|---|---|---|\n| F-001 | x | None |\n';
+    const CHECKLIST = '# T\n\n## Master Task List\n\n- [ ] F-001 do it\n';
+    const withTrd = (text) => {
+      const trd = path.join(tmp, 'trd.md');
+      if (text != null) fs.writeFileSync(trd, text);
+      return { work: { kind: 'feature', id: 'f', trd, branch: 'b' } };
+    };
+    beforeEach(() => writeContract(contractsDir, { primitive: 'kilo', params: '', results: 'done', outward: 'no', section: 'ship', requires: 'trd' }));
+
+    test('a checklist TRD is refused naming the path, step and Master Task List; no state', () => {
+      const o = withTrd(CHECKLIST);
+      const r = seq.start(startOpts(policy('1. kilo'), o));
+      expect(r.ok).toBe(false);
+      expect(r.errors[0]).toContain(o.work.trd);
+      expect(r.errors[0]).toMatch(/step 1 \(kilo\) needs a TRD \/implement-trd can read: .*Master Task List/);
+      expect(fs.existsSync(path.join(stateDir(), 'shipped.json'))).toBe(false);
+    });
+
+    test('a parseable TRD starts', () => {
+      expect(seq.start(startOpts(policy('1. kilo'), withTrd(GOOD))).ok).toBe(true);
+    });
+
+    test('a policy with no such step never reads the TRD', () => {
+      expect(seq.start(startOpts(policy('1. alpha'), withTrd(null))).ok).toBe(true);
+    });
+
+    test('sweep work (no TRD) starts', () => {
+      const o = { work: { kind: 'sweep', id: 's', trd: null, branch: 'b' } };
+      expect(seq.start(startOpts(policy('1. kilo'), o)).ok).toBe(true);
+    });
+  });
+
   test('start on an existing state never re-reads ship.md', () => {
     seq.start(startOpts(policy('1. alpha')));
     const r = seq.start(startOpts('this file is now garbage with 1. nope'));
@@ -461,6 +494,35 @@ describe('atomic writes', () => {
     seq.record(stateDir(), { step: '1', result: 'done' }, noAuth());
     expect(fs.readdirSync(stateDir())).toEqual(['shipped.json']);
     expect(() => JSON.parse(fs.readFileSync(path.join(stateDir(), 'shipped.json'), 'utf8'))).not.toThrow();
+  });
+});
+
+describe('authorization', () => {
+  const auth = (text, autonomy, settings) => {
+    const a = path.join(tmp, 'a.md');
+    const st = path.join(tmp, 'st.json');
+    if (autonomy != null) fs.writeFileSync(a, autonomy);
+    if (settings != null) fs.writeFileSync(st, JSON.stringify(settings));
+    return seq.authorization(text, contracts, { autonomyPath: a, settingsPath: st });
+  };
+  const text = policy('1. alpha\n2. bravo\n3. repeat until=clean\n   - delta\n4. charlie tool=x');
+
+  test('without the sentence only the outward step is refused; an unless that holds is not', () => {
+    expect(auth(text, null, { ensemble: { openPullRequest: 'auto' } })).toEqual({ sentence: 'absent', refused: ['charlie'] });
+    expect(auth(text, null, {}).refused).toEqual(['bravo', 'charlie']);
+  });
+
+  test('with the sentence nothing is refused', () => {
+    expect(auth(text, seq.AUTHORIZATION_SENTENCE, {})).toEqual({ sentence: 'present', refused: [] });
+  });
+
+  test('CLI prints one JSON line', () => {
+    const p = path.join(tmp, 'ship.md');
+    fs.writeFileSync(p, text);
+    const r = spawnSync('node', [SCRIPT, 'authorization', '--policy', p, '--contracts', contractsDir,
+      '--autonomy', path.join(tmp, 'none.md'), '--settings', path.join(tmp, 'none.json')], { encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual({ sentence: 'absent', refused: ['bravo', 'charlie'] });
   });
 });
 

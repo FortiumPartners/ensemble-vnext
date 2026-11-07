@@ -337,6 +337,54 @@ describe('check: push link', () => {
   });
 });
 
+describe('check: pr-head link (stub gh)', () => {
+  const origPath = process.env.PATH;
+  beforeAll(() => {
+    const bin = path.join(tmp(), 'bin-prhead');
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, 'gh'), '#!/bin/sh\necho "$STUB_PR_JSON"\n', { mode: 0o755 });
+    process.env.PATH = `${bin}${path.delimiter}${origPath}`;
+  });
+  afterAll(() => {
+    process.env.PATH = origPath;
+    delete process.env.STUB_PR_JSON;
+  });
+  const pr = (state, headRefOid) => {
+    process.env.STUB_PR_JSON = JSON.stringify({ state, headRefOid });
+  };
+  const anchored = () => {
+    const s = setup();
+    s.commit('work', { 'src/a.js': 'a2' });
+    reconcile(s.args());
+    return s;
+  };
+
+  test('passes for an open PR whose head differs only under .trd-state/', () => {
+    const s = anchored();
+    const head = s.commit('record', { '.trd-state/x/note.md': 'parked' });
+    pr('OPEN', head);
+    expect(check(s.args({ link: 'pr-head', pr: 7 }))).toMatchObject({ ok: true, observed: head });
+  });
+
+  test('fails for a shipped-file difference, naming the file', () => {
+    const s = anchored();
+    pr('OPEN', s.commit('late', { 'src/b.js': 'b2' }));
+    const r = check(s.args({ link: 'pr-head', pr: 7 }));
+    expect(r.ok).toBe(false);
+    expect(r.differing).toEqual(['src/b.js']);
+  });
+
+  test.each(['MERGED', 'CLOSED'])('fails for a %s PR', (state) => {
+    const s = anchored();
+    pr(state, s.commit('x', { '.trd-state/y': '1' }));
+    expect(check(s.args({ link: 'pr-head', pr: 7 })).reason).toMatch(/not open/);
+  });
+
+  test('needs a PR number', () => {
+    expect(check(anchored().args({ link: 'pr-head' })).reason).toMatch(/PR number/);
+  });
+});
+
 describe('check: merge link (stub gh)', () => {
   const origPath = process.env.PATH;
   let bin;

@@ -24,7 +24,7 @@ const CUSTODY = path.join(__dirname, 'custody.js');
 const AUTH_SENTENCE = 'A step listed in `.claude/rules/ship.md` is the owner\'s standing authorization for that act.';
 
 const TRD = 'docs/TRD/f.md';
-const TRD_TEXT = ['# F', '', '## Objectives', '', '| ID | Objective | Must pass |', '|----|-----------|-----------|', '| O1 | first | yes |', ''].join('\n');
+const TRD_TEXT = ['# F', '', '## Objectives', '', '| ID | Objective | Must pass |', '|----|-----------|-----------|', '| O1 | first | yes |', '', '## 4. Master Task List', '', '| Task ID | Description | Dependencies |', '|---------|-------------|--------------|', '| F-001 | build it | None |', ''].join('\n');
 const DEFINITION = [
   '# D', '',
   '| ID | Functional statement | Cites | Evidence | Derivation | Tier 1 | Parts | Must pass |',

@@ -10,6 +10,20 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [Unreleased]
+
+### Fixed
+
+Defects found by running `/ship-build` live for the first time:
+
+- The `claude` reviewer can now post a review and is recognised as a reviewer.
+- A merge after an approval park re-reads the PR head instead of trusting the stale one.
+- `await-approval` flags a self-authored PR and an unconfirmed `ANTHROPIC_API_KEY` secret.
+- Review edits are committed in chained and shipping builds.
+- A TRD that cannot be parsed is refused at the start of the run.
+- `ship-setup` reports a missing standing-authorization sentence.
+- `wait-ci` after a merge waits on the merge commit; the default string is updated.
+
 ## [4.17.0] - 2026-11-07
 
 `/ship-build` and `/ship-setup`: shipping a finished feature, written down once and run the

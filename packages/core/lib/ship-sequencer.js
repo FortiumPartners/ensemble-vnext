@@ -20,6 +20,9 @@
  * `- <primitive> ...` lines (no nesting). Fenced blocks and anything under a heading
  * "Examples (not run)" are never parsed.
  *
+ * Contract front-matter keys: primitive, params, results, outward, needs, provides, section,
+ * rest, stops-on, repeat-until, requires (`trd`: the work's TRD must parse at start).
+ *
  * STATE: `<stateDir>/shipped.json` (TRD 3.4). This module is its only writer. It holds the
  * step snapshot taken at `start`, so a resume never re-reads `ship.md`.
  *
@@ -39,7 +42,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { maskFencedLines } = require('./trd-parser');
+const { maskFencedLines, parseTrd } = require('./trd-parser');
 const implementState = require('./implement-state');
 
 const STATE_FILE = 'shipped.json';
@@ -184,6 +187,7 @@ function loadPrimitives(dir = DEFAULT_CONTRACTS_DIR) {
       results,
       outward,
       needs: listOf(fm.needs),
+      requires: listOf(fm.requires),
       provides: listOf(fm.provides),
       section,
       rest,
@@ -445,6 +449,31 @@ function flatten(steps) {
 }
 
 /**
+ * A contract's `requires: trd` means the work's TRD must be one /implement-trd can read. Returns
+ * an error string naming the TRD path, the first such step and the parser's message, or null.
+ * Sweep work has no TRD and is not checked; the primitive's name comes from the contract.
+ */
+function trdRefusal(steps, contracts, trdPath) {
+  if (!trdPath) return null;
+  const step = flatten(steps).map((f) => f.step).find((st) => (contracts.get(st.primitive).requires || []).includes('trd'));
+  if (!step) return null;
+  const lead = `${trdPath}: step ${step.id} (${step.primitive}) needs a TRD /implement-trd can read: `;
+  let text;
+  try {
+    text = fs.readFileSync(path.resolve(trdPath), 'utf8');
+  } catch (err) {
+    return lead + `unreadable (${err.code || err.message})`;
+  }
+  try {
+    const parsed = parseTrd(text, { path: trdPath });
+    if (parsed.tasks.length === 0) return lead + (parsed.warnings[0] || 'no Master Task List tasks parsed');
+  } catch (err) {
+    return lead + err.message;
+  }
+  return null;
+}
+
+/**
  * Begin a run, or load the one in progress. With no state file the steps are parsed from the
  * policy (or, with no policy, from the caller's fallback string) and snapshotted; with one,
  * `ship.md` is never read again.
@@ -473,6 +502,9 @@ function start({ stateDir, policyPath, fallback, work, contractsDir }) {
     if (fb.errors.length) return { ok: false, status: null, errors: fb.errors.map((e) => `fallback: ${e}`) };
     parsed = { steps: fb.steps, policy: 'none', errors: [] };
   }
+
+  const refusal = trdRefusal(parsed.steps, contracts, work.trd);
+  if (refusal) return { ok: false, status: null, errors: [refusal] };
 
   const flat = flatten(parsed.steps);
   const first = flat[0];
@@ -680,6 +712,28 @@ function status(stateDir) {
   return out;
 }
 
+/**
+ * Which listed steps of a policy the outward gate would refuse, and whether autonomy.md carries
+ * the authorizing sentence. Read-only: it reports, it never edits `autonomy.md`.
+ * A step whose `unless` setting holds counts as authorized, so it is not listed.
+ * @param {string|null} text ship.md text
+ * @returns {{sentence: 'present'|'absent', refused: string[]}} refused: distinct primitives,
+ *   steps inside a repeat included, in first-listed order
+ */
+function authorization(text, contracts, { autonomyPath, settingsPath }) {
+  const autonomy = readText(autonomyPath);
+  const sentence = autonomy != null && collapse(autonomy).includes(collapse(AUTHORIZATION_SENTENCE)) ? 'present' : 'absent';
+  const listed = [];
+  for (const step of parse(text, contracts).steps) {
+    for (const s of step.primitive === 'repeat' ? step.body : [step]) listed.push(s.primitive);
+  }
+  const refused = [...new Set(listed)].filter((name) => {
+    const c = contracts.get(name);
+    return c && !isAuthorized(c, { autonomyPath, settingsPath });
+  });
+  return { sentence, refused };
+}
+
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
@@ -690,7 +744,7 @@ function argValue(argv, flag) {
 }
 
 const USAGE =
-  'usage: ship-sequencer.js parse --policy <file> | start --state-dir <d> --policy <f> --fallback <s> --kind <k> --id <id> [--trd <p>] [--branch <b>] | next --state-dir <d> | record --state-dir <d> --step <id> --result <r> [--data <json>] [--reason <t>] | status --state-dir <d>   (all: [--contracts <dir>] [--autonomy <f>] [--settings <f>])\n';
+  'usage: ship-sequencer.js parse --policy <file> | authorization --policy <file> | start --state-dir <d> --policy <f> --fallback <s> --kind <k> --id <id> [--trd <p>] [--branch <b>] | next --state-dir <d> | record --state-dir <d> --step <id> --result <r> [--data <json>] [--reason <t>] | status --state-dir <d>   (all: [--contracts <dir>] [--autonomy <f>] [--settings <f>])\n';
 
 function main(argv) {
   const [cmd] = argv;
@@ -706,6 +760,15 @@ function main(argv) {
     const text = readText(arg('--policy'));
     const r = parse(text, contracts);
     emit({ policy: r.policy, steps: r.steps, errors: r.errors });
+    return 0;
+  }
+  if (cmd === 'authorization' && arg('--policy')) {
+    const { contracts, errors: loadErrors } = loadPrimitives(contractsDir);
+    if (loadErrors.length) return emit({ sentence: null, refused: [], errors: loadErrors }), 0;
+    emit(authorization(readText(arg('--policy')), contracts, {
+      autonomyPath: opts.autonomyPath || path.join('.claude', 'rules', 'autonomy.md'),
+      settingsPath: opts.settingsPath || path.join('.claude', 'settings.json'),
+    }));
     return 0;
   }
   if (cmd === 'start' && stateDir && arg('--kind') && arg('--id')) {
@@ -749,6 +812,7 @@ module.exports = {
   AUTHORIZATION_SENTENCE,
   loadPrimitives,
   parse,
+  authorization,
   start,
   next,
   record,

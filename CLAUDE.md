@@ -325,8 +325,8 @@ marked `check` or `support`, and `/rebase-project` reads that list rather than a
 one (4.10.0/4.9.0).
 
 **Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
-- 4.17.0: `/ship-build` has not been run live against real GitHub, a reviewer bot, CI and a
-  release target (live proof SHIP-T002 and governance edits SHIP-D002 not done).
+- 4.17.0: `/ship-build` was live-tested 2026-11-07; the approval-merge path and remote resume
+  are still unproven (governance edits SHIP-D002 not done).
   `custody.test.js` "passes on a later test-only commit" is flaky when a random commit hash
   is all digits.
 - 4.16.1: the design-quality end-to-end live runs and the first critique-calibration replay

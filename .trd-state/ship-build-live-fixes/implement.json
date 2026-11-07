@@ -1,0 +1,177 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/ship-build-live-fixes.md",
+  "trd_hash": "c520a6d7f51d26babfff7d10eaf8a90756206cc8a0bc2021f3646aef52395f6e",
+  "branch": "feature/ship-build-live-fixes/impl",
+  "strategy": "bug-fix",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "request-review contract: start the claude reviewer with --allowedTools naming the five gh subcommand patterns in the Decision; define the tool's review for claude as authored by gh api user's login, on the current head, submitted at or after a recorded requestedAt; a clean exit with nothing posted returns wait with the output saved to <stateDir>/review-<head>.log",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitive-request-review.md",
+        "packages/core/contracts/ship-primitives.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T20:45:58.138Z",
+      "completed_at": "2026-11-07T20:52:36.006Z",
+      "last_advanced": "2026-11-07T20:46:29.792Z"
+    },
+    "FIX-002": {
+      "description": "custody.js gains a pr-head link that reads an OPEN PR's headRefOid and judges it against the anchor; merge contract runs it on the not-yet-merged branch before merging and uses its observed id for --match-head-commit, never context.head",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/custody.js",
+        "packages/core/lib/custody.test.js",
+        "packages/core/contracts/ship-primitive-merge.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T20:45:58.138Z",
+      "completed_at": "2026-11-07T20:52:36.008Z",
+      "last_advanced": "2026-11-07T20:46:29.792Z"
+    },
+    "FIX-003": {
+      "description": "await-approval contract: compare gh pr view --json author with gh api user --jq .login and, when equal, say in the wait reason and data.issues that someone other than the author must approve; with trigger=github-actions, set remoteResume: true only when gh secret list --json name includes ANTHROPIC_API_KEY, else false and an ISSUES line naming the missing secret",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitive-await-approval.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T20:45:58.138Z",
+      "completed_at": "2026-11-07T20:52:36.008Z",
+      "last_advanced": "2026-11-07T20:46:29.792Z"
+    },
+    "FIX-004": {
+      "description": "implement-trd.md §7.2 (every mode): commit the files the review changed, by pathspec, when its result arrives; §3.7: under --shipping, the RETURN line waits for that result; fix-findings contract: snapshot git status --porcelain --untracked-files=all and git hash-object per path before the chained build and commit, by pathspec, any path the build changed and left uncommitted, before returning",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/contracts/ship-primitive-fix-findings.md",
+        "packages/core/commands/implement-trd-shipping.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T20:45:58.138Z",
+      "completed_at": "2026-11-07T20:52:36.008Z",
+      "last_advanced": "2026-11-07T20:46:29.792Z"
+    },
+    "FIX-005": {
+      "description": "ship-sequencer.js: contract front matter key requires (list); start parses work.trd with trd-parser.js when any snapshotted step's contract declares requires: trd, returning ok: false with the TRD path and the parser's message on a throw or zero tasks, and writing no state; fix-findings declares requires: trd (meaning: when the work has a TRD, it must parse); ship-build.md Step 3 names this refusal; ship-build.seam.test.js's TRD fixture gains a Master Task List",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-sequencer.js",
+        "packages/core/lib/ship-sequencer.test.js",
+        "packages/core/commands/ship-build.md",
+        "packages/core/lib/ship-build.seam.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T20:45:58.138Z",
+      "completed_at": "2026-11-07T20:52:36.008Z",
+      "last_advanced": "2026-11-07T20:46:29.792Z"
+    },
+    "FIX-006": {
+      "description": "ship-sequencer.js: CLI/API verb authorization --policy <file> [--autonomy] [--settings] returning { sentence: present|absent, refused: [primitives] } via isAuthorized; ship-setup SKILL runs it after the re-parse and lists each refused step in ISSUES, naming the sentence and that the owner adds it; never edits autonomy.md",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/skills/ship-setup/SKILL.md",
+        "packages/skills/ship-setup/__tests__/skill-md.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T20:45:58.138Z",
+      "completed_at": "2026-11-07T20:52:36.008Z",
+      "last_advanced": "2026-11-07T20:46:29.792Z"
+    },
+    "FIX-007": {
+      "description": "wait-ci contract: after a merge (context.merged), the current head is the PR's merge commit, read with gh run list --commit in both Do and Waiting, polling up to 120s before no-checks; default string in the ship.md template (both copies) and the ship-setup skill's topic-1 description gain wait-ci between merge and release; ship-template.test.js updated",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitive-wait-ci.md",
+        "packages/core/templates/claude-directory/rules/ship.md",
+        "packages/core/contracts/ship-template.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T20:45:58.138Z",
+      "completed_at": "2026-11-07T20:52:36.008Z",
+      "last_advanced": "2026-11-07T20:46:29.792Z"
+    },
+    "FIX-008": {
+      "description": "Mirror every edited packages/core and packages/skills file into .claude/; add an Unreleased CHANGELOG entry; keep CLAUDE.md at or under 16,000 bytes",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "CHANGELOG.md",
+        ".claude/lib/custody.js",
+        ".claude/lib/ship-sequencer.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T20:45:58.138Z",
+      "completed_at": "2026-11-07T20:52:36.008Z",
+      "last_advanced": "2026-11-07T20:46:29.792Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/ship-build-live-fixes.md § Reproduction",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest/bats/pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude installed; not needed by this TRD"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}
