@@ -16,6 +16,8 @@ For someone who already knows the basics. Version 4.17.0. The full map is in
 | Build the TRD (review and functional verification run inside it) | `/implement-trd docs/TRD/<feature>.md` |
 | Check the delivered code against TRD and PRD; a passing audit closes the feature | `/audit-build` |
 | Close a feature yourself, without an audit | `/close-feature` |
+| Ship finished work: push, PR, review rounds, merge, release (the steps `ship.md` lists; outward ones need your authorization, see [ship-build.md](ship-build.md)) | `/ship-build [trd-path]` |
+| Resume a parked ship run | `/ship-build --resume` |
 | **Shorter paths** | |
 | A defect, small change or refactor not tied to the feature in flight | `/plan <what>` (add `--implement` to build it) |
 | One change to the feature already in flight | `/amend <what>` |
@@ -44,6 +46,7 @@ For someone who already knows the basics. Version 4.17.0. The full map is in
 | **Owner-run setup skills** (interviews; no command runs them for you) | |
 | Say which environments verification may reach, and how | `verification-setup` → writes `.claude/rules/verification.md` |
 | Say how the product is designed and how to reach a screen | `design-setup` → writes `.claude/rules/design.md` |
+| Say how this project ships | `ship-setup` → writes `.claude/rules/ship.md` |
 
 **`/plan` or `/amend`?** Whose plan the work belongs to, not its size. Work on the feature in
 flight is an amendment to that feature's TRD; `/plan` would start a second TRD.
@@ -66,6 +69,7 @@ flight is an amendment to that feature's TRD; `/plan` would start a second TRD.
 | `/design-system` | `--sync` (code changed: rebuild, republish, reinstall) |
 | `/sweep`, `/sync-design` | `--project <dir>` |
 | `/task` | `--resume` |
+| `/ship-build` | `--resume` (continue a parked or stopped run), `[trd-path]` |
 | `/audit-docs` | `--comprehensive` (every doc, not just those touched since the last run) |
 | `/rebase-project` | `--dry-run`, `--preserve-all` (keep agents, skills, settings), `--force` (discard uncommitted `.claude/` changes) |
 | `/cleanup-project` | `--dry-run`, `--auto`, `--backup-only`, `--aggressive` |
@@ -90,6 +94,9 @@ command calling another; you do not pass them.
 | `.trd-state/<feature>/verification-plan.md` | Recovery plan written by `/refine-verification` |
 | `.trd-state/<feature>/closed.json` | The feature is closed (`/task` writes one too, under `.trd-state/task-<slug>/`) |
 | `.trd-state/<feature>/artifacts.json` | Links to the published artifact pages |
+| `.claude/rules/ship.md` | The ordered shipping steps `/ship-build` runs; written by `ship-setup` |
+| `.trd-state/<feature>/shipped.json` | A ship run's record; `--resume` reads it |
+| `.trd-state/<feature>/custody.json` | The verified commit the push, merge and deploy are checked against |
 | `.claude/rules/constitution.md` | Project absolutes; changes only with your approval |
 | `.claude/rules/stack.md` | Technology stack; drives which skills are installed |
 | `.claude/rules/verification.md` | Environments, credentials locations, coverage floor; written by `verification-setup` |

@@ -21,7 +21,7 @@ FULL PIPELINE (new feature)
                            closes the feature
 /close-feature         --> Close a feature on your say-so: records it and clears its
                            in-flight state
-/ship-build           --> Ship what a closed feature left on the branch: runs the steps
+/ship-build            --> Ship what a closed feature left on the branch: runs the steps
                            your ship.md lists (push, open-pr, merge, release...), in order
 
 SHORTER PATHS
@@ -232,16 +232,21 @@ re-check, a data capture) with the standard end state: `implement.json`, recorde
 **Purpose**: Ship the work a closed feature (or a sweep) left on the branch by running the
 steps you wrote in `.claude/rules/ship.md` (filled in by the `ship-setup` skill), in order,
 each one a shipping primitive: push, open a PR, wait for CI, fix review findings, merge,
-release, close the issue. With no steps listed it only pushes. A `merge` step is your standing
-go for `gh pr merge`; nothing else merges.
+release, close the issue. With no steps listed it only pushes. A step that acts outside the
+repo (open-pr unless `ensemble.openPullRequest` is `auto`, request-review, merge, release, run,
+close-issue, file-followups, sync-design) runs only if `.claude/rules/autonomy.md` carries the
+sentence making a listed `ship.md` step your standing authorization; without it the run records
+`not authorized: <primitive>` and ends STUCK. Push, wait-ci, await-approval, collect-findings
+and fix-findings need no such sentence.
 
 **Usage**:
 ```
 /ship-build [trd-path] [--resume]
 ```
 
-**Output**: a run record under `.trd-state/<feature>/` (`shipped.json`, `custody.json`); a
-parked run (waiting on a reviewer) resumes with `--resume`.
+**Output**: a run record under `.trd-state/<feature>/` (`shipped.json`, `custody.json`), or
+`.trd-state/ship-sweep-<id>/` for sweep work. `--resume` continues a run that parked (waiting for
+a review, approval or person) or stopped. Full guide: `docs/guides/ship-build.md`.
 
 ### /cleanup-project
 
