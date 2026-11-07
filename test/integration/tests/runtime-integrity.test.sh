@@ -46,6 +46,16 @@ setup() {
     TASK_DELEGATION_MD="${CORE_CONTRACTS}/task-delegation.md"
 }
 
+# Owner-authored rules (verification.md, design.md, ship.md, ...): the template
+# ships a blank shape the owner fills in, so byte parity with the live copy is
+# meaningless. Read from scaffold-project.sh's AUTHORED_RULES — the list that
+# already keeps --refresh and rebase off these files — so a newly owner-governed
+# rule is exempted here the moment it is exempted there.
+authored_rules() {
+    grep -E 'local AUTHORED_RULES=\(' "${REPO_ROOT}/packages/core/scripts/scaffold-project.sh" \
+        | grep -oE '"[^"]+\.md"' | tr -d '"'
+}
+
 # =============================================================================
 # 1. The delegation contract carries inferred-grounding markers
 # =============================================================================
@@ -108,10 +118,13 @@ setup() {
 
 @test "every .claude/rules/ file matches its shipped template" {
     local drift=()
-    local rule
+    local rule authored
+    authored="$(authored_rules)"
+    [ -n "$authored" ]
     for rule in "${REPO_ROOT}/packages/core/templates/claude-directory/rules/"*.md; do
         local base
         base="$(basename "$rule")"
+        grep -qxF "$base" <<<"$authored" && continue
         local vendored="${REPO_ROOT}/.claude/rules/${base}"
         if [ ! -f "$vendored" ]; then
             drift+=("MISSING (.claude/rules): ${base}")
@@ -287,15 +300,18 @@ PY
     TPL="${REPO_ROOT}/packages/core/templates/claude-directory/rules"
     [ -d "$TPL" ]
     count=0
+    authored="$(authored_rules)"
+    [ -n "$authored" ]
     for t in "$TPL"/*.md; do
         base="$(basename "$t")"
+        grep -qxF "$base" <<<"$authored" && continue
         live="${REPO_ROOT}/.claude/rules/${base}"
         [ -f "$live" ]
         diff -q "$t" "$live"
         count=$((count + 1))
     done
     # Discovered, not hardcoded — but a template dir that went empty must fail.
-    [ "$count" -ge 4 ]
+    [ "$count" -ge 3 ]
 }
 
 @test "a user-authored skill is never removed by rebase" {

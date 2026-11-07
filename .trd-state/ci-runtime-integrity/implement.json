@@ -1,0 +1,46 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/ci-runtime-integrity.md",
+  "trd_hash": "0749fb1a5d6213732c2f8581a30a0523ccd815161650f860a0ce3ed089d12439",
+  "branch": "feature/ci-runtime-integrity/impl",
+  "strategy": "bug-fix",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "Skip owner-authored rules (verification.md, design.md) in runtime-integrity tests 2 and 8",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/integration/tests/runtime-integrity.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T13:30:23.550Z",
+      "completed_at": "2026-11-07T13:34:19.397Z",
+      "last_advanced": "2026-11-07T13:33:43.526Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "c15882e",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-07T13:34:24.354Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "c15882e",
+    "last_checkpoint_timestamp": "2026-11-07T13:34:24.354Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/ci-runtime-integrity.md § Reproduction"
+  }
+}
