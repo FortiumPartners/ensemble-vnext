@@ -150,5 +150,9 @@ none
 
 - Applied from the adversarial review (2026-11-06): the workspace search is limited to Playwright (it picked lightning-lane's mobile Tailwind 3 for the bundler); the loop order is folders outer so a global install cannot beat the product's copy; the tests neutralise the global npm root and assert exact stubs.
 
-- That a real `/create-design` run on lightning-lane now renders, critiques and ranks unaided. The unit fixture proves the lookup; the live proof is re-running the design stage on the worktree after this lands.
+- That a real `/create-design` run on lightning-lane now critiques and ranks unaided. Owner ruling 2026-11-06 (R1): FS-4 (critique, ranking and `/audit-design`'s visual checks run on rendered boards) is accepted as proven by the render evidence: each of those steps reaches Playwright only through `node .claude/lib/design-render.js render` (`create-design.js:357,489`, `audit-design.js:283`), and that command ran in a fresh session in the worktree on 2026-11-06 with no `NODE_PATH` and returned frames with no errors (`.trd-state/design-render-pnpm-critique-keep/evidence/live-refine-r4/refine-pane-r4.txt`). No live `/create-design` or `/audit-design` run is required for this fix; whether the critique agents score and rank well is outside it.
 - That a model following the new refine prose actually merges rather than overwrites; the prose test proves only that the instruction is there.
+
+## Changelog
+
+- 2026-11-06: owner ruling R1 (via `/refine-verification`): FS-4 accepted as proven by the live render evidence; no hour-long design or audit run for this fix.
