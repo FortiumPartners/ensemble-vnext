@@ -232,8 +232,8 @@ re-check, a data capture) with the standard end state: `implement.json`, recorde
 **Purpose**: Ship the work a closed feature (or a sweep) left on the branch by running the
 steps you wrote in `.claude/rules/ship.md` (filled in by the `ship-setup` skill), in order,
 each one a shipping primitive: push, open a PR, wait for CI, fix review findings, merge,
-release, close the issue. With no steps listed it only pushes. A step that acts outside the
-repo (open-pr unless `ensemble.openPullRequest` is `auto`, request-review, merge, release, run,
+release, close the issue. With no steps listed it only pushes. A step that acts beyond the
+branch (open-pr unless `ensemble.openPullRequest` is `auto`, request-review, merge, release, run,
 close-issue, file-followups, sync-design) runs only if `.claude/rules/autonomy.md` carries the
 sentence making a listed `ship.md` step your standing authorization; without it the run records
 `not authorized: <primitive>` and ends STUCK. Push, wait-ci, await-approval, collect-findings

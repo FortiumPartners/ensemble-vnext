@@ -304,7 +304,8 @@ feature, delete its `closed.json`.
 branch. It runs the steps your project lists in `.claude/rules/ship.md` (written by the
 `ship-setup` skill), in order, each step one of 13 shipping primitives: push, open a PR, wait
 for CI, collect and fix findings, merge, release and so on. A full feature must be closed
-first. With no `ship.md` it runs only `push`. Before a push, merge or deploy it checks the
+first. With no step under `## Ship` in `ship.md` (as `/init-project` ships it, unfilled) it
+runs only `push`. Before a push, merge or deploy it checks the
 commit against the one that was verified, and it stops rather than ship something else.
 
 Steps that act beyond your branch (merge, release, closing an issue) run only when

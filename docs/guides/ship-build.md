@@ -2,8 +2,8 @@
 
 `/ship-build` ships the work a closed feature (or a sweep) left on your branch: it runs the
 steps your project lists in `.claude/rules/ship.md`, in order. `/ship-setup` is the interview
-that writes that file. This guide describes both as built; where a prose file (the `ship.md` template, the
-`/ship-setup` skill) disagrees with the code, it follows the code.
+that writes that file. This guide describes both as built; where a prose file (the `ship.md`
+template, the `/ship-setup` skill) disagrees with the code, it follows the code.
 
 ## The policy file, `ship.md`
 
@@ -113,8 +113,10 @@ sequencer change. There are two routes.
    `laterNeeds` or `context`: the sequencer adds those to every step's input. The body has four
    sections: `## Input`, `## Do`, `## Result`, `## Waiting`.
 2. Copy the file byte-identical to `.claude/contracts/`. A test enforces the match.
-3. Add the name to `EXPECTED` in `packages/core/contracts/ship-primitives.test.js`. Its
-   "the set is the thirteen" test fails until you do.
+3. Add an entry for it to `EXPECTED` in `packages/core/contracts/ship-primitives.test.js`:
+   its `results`, `outward`, `needs`, `provides` and `section`, matching the front matter. The
+   "the set is the thirteen" test fails until the name is there, and "front matter matches the
+   table" fails until the entry matches.
 4. Nothing else. `/ship-setup` offers the new primitive from the directory listing, asking the
    params its front matter declares plus anything in an optional `## Setup` section.
 
@@ -178,8 +180,11 @@ authorization is missing. With the default string that means:
   is `never`); or
 - with `openPullRequest` set to `auto`, it stops at the first `request-review`.
 
-Adding the sentence to `autonomy.md` is the owner's call: it is owner-governed and no command
-edits it. Until then, a string ships only as far as its last non-outward step.
+Adding the sentence is the owner's call, but `autonomy.md` is a framework-owned rule file, not
+an owner-governed one: `scaffold-project.sh --refresh` (run by the `runtime-refresh.sh`
+SessionStart hook) and `/rebase-project` overwrite it with the plugin's copy, so a sentence
+added by hand is lost at the next refresh. Until the framework ships a durable place for it, a
+string ships only as far as its last non-outward step.
 
 ## Running `/ship-build`
 
@@ -231,13 +236,7 @@ never edits code itself, never probes a service by acting on it, and never calls
   `COMMAND STUCK` with the reason and what would unblock it.
 - Either way the state directory is committed by pathspec so the record travels with the branch
   (skipped when the PR is already merged; NEXT then says to commit it on the default branch).
-
-### Readout and banners
-
-The readout follows `.claude/rules/command-status.md`: STATE, DECISIONS, ISSUES (every
-`data.issues` line, every `not authorized` step, uncommitted changes outside the state
-directory) and NEXT. The last line is `COMMAND COMPLETE: /ship-build` (shipped, or parked at a
-step) or `COMMAND STUCK: /ship-build` with `Reason:` and `Next:` lines.
+- ISSUES lists every `data.issues` line, `not authorized` step and stray uncommitted change.
 
 ## Resuming a parked run
 
@@ -284,7 +283,9 @@ commits are equal when no shipped path differs.
 
 | Shipped source since the anchor | Outcome |
 |---|---|
+| no anchor yet | the anchor is recorded (audited commit, or `HEAD`); `set` when `HEAD` equals it, otherwise the rows below apply |
 | unchanged | `none`: the anchor stays |
+| changed by the formatter commit (`--reason format`) | `moved`, with no re-verification |
 | changed, and no success definition or no must-pass criterion is affected | `moved` |
 | changed, and a must-pass criterion is affected | `reverify`: `push` runs `/verify-build --criteria <ids> --no-fix --chained`, then `moved` if all are met; if not, the run stops |
 

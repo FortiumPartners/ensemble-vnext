@@ -42,9 +42,9 @@ committed and keeping a project current are in [docs/guides/INSTALL.md](docs/gui
 | Maintenance | `/init-project`, `/rebase-project`, `/update-project`, `/cleanup-project`, `/audit-docs`, `/fold-prompt` |
 
 Three owner-run setup skills fill the rules files the commands read: `verification-setup`
-writes `.claude/rules/verification.md` (which environments verification may reach) and
+writes `.claude/rules/verification.md` (which environments verification may reach),
 `design-setup` writes `.claude/rules/design.md` (how the product is designed and how to reach
-a screen) and `ship-setup` writes `.claude/rules/ship.md` (the ordered shipping steps
+a screen), and `ship-setup` writes `.claude/rules/ship.md` (the ordered shipping steps
 `/ship-build` runs; listing a step there does not by itself authorize an outward one, see
 [docs/guides/ship-build.md](docs/guides/ship-build.md)).
 

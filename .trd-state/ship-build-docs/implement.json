@@ -4,7 +4,7 @@
   "trd_hash": "2784c5a7e72f248b8575be6b21ada58688e34a51f73b16873e873c0dd84f7aef",
   "branch": "feature/ship-build-docs/impl",
   "strategy": "test-after",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "Write docs/guides/ship-build.md",
@@ -72,10 +72,19 @@
       "last_advanced": "2026-11-07T20:01:25.766Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "b12b306596295113166b2edad356f15af96b01de",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-07T20:03:31.379Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "f836af8",
-    "last_checkpoint_timestamp": "2026-11-07T19:58:04.473Z",
+    "last_healthy_checkpoint": "b12b306596295113166b2edad356f15af96b01de",
+    "last_checkpoint_timestamp": "2026-11-07T20:03:31.379Z",
     "interrupted": false,
     "interrupt_reason": null
   },

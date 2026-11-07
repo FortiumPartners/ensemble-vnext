@@ -42,9 +42,10 @@ finished work to push, merge, release       /ship-build   (steps listed in .clau
 `/implement-trd` builds in phases, reviews the whole branch once, and then verifies the running
 software against criteria written from the PRD. That verification runs by default.
 `/audit-build` then checks the delivered code against the TRD and PRD; a passing audit closes
-the feature and, if you allow it, opens the pull request. You merge, unless you have set up `/ship-build`, which can run the steps your `ship.md` lists; an
-outward step (merge, release) also needs your authorization in `autonomy.md` ([ship-build.md](ship-build.md)). The full map, with a
-diagram for every command, is in [PROCESS.md](PROCESS.md).
+the feature and, if you allow it, opens the pull request. You merge, unless you have set up
+`/ship-build`, which can run the steps your `ship.md` lists; an outward step (merge, release)
+also needs your authorization in `autonomy.md` ([ship-build.md](ship-build.md)). The full map,
+with a diagram for every command, is in [PROCESS.md](PROCESS.md).
 
 ## Quick start
 
@@ -69,8 +70,9 @@ copies the runtime (commands, agents, hooks, skills) into `.claude/`. Commit it.
 **3. Tell verification how to reach your app.** Run the `/verification-setup` skill. It
 interviews you and writes `.claude/rules/verification.md`: which environments exist, what the
 checks may touch, where test credentials live (never their values). If you will draw designs
-before building, also run `/design-setup`, which writes `.claude/rules/design.md`. To have `/ship-build` push and merge for you, run the
-`/ship-setup` skill, which writes `.claude/rules/ship.md`.
+before building, also run `/design-setup`, which writes `.claude/rules/design.md`. To have
+`/ship-build` push and merge for you, run the `/ship-setup` skill, which writes
+`.claude/rules/ship.md`.
 
 **4. Build something.**
 

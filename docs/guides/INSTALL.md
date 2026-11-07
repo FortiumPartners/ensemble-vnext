@@ -158,7 +158,8 @@ the approval. Until it is filled, every design command stops with "run `/design-
 unfilled. Run the `/ship-setup` skill to fill it: it interviews you and writes the steps (push,
 open a PR, review rounds, merge, release). Running it is the approval. Steps that act beyond
 your branch also need the owner's authorization sentence in `.claude/rules/autonomy.md`; a step
-listed in `ship.md` is not authorized by that alone. See [ship-build.md](ship-build.md).
+listed in `ship.md` is not authorized by that alone, and `autonomy.md` is framework-owned, so a
+sentence added by hand is overwritten at the next refresh. See [ship-build.md](ship-build.md).
 
 ## 6. Who owns what
 
