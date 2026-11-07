@@ -89,11 +89,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-07T02:13:20.924Z"
+    },
+    {
+      "phase": 2,
+      "commit": "472edda",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-07T04:48:40.139Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "2188846",
-    "last_checkpoint_timestamp": "2026-11-07T02:13:20.924Z",
+    "last_healthy_checkpoint": "472edda",
+    "last_checkpoint_timestamp": "2026-11-07T04:48:40.139Z",
     "interrupted": false,
     "interrupt_reason": null
   },
