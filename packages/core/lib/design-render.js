@@ -130,23 +130,22 @@ function pnpmWorkspacePatterns(file) {
   };
   let inPackages = false;
   let flowBuf = null; // a flow list opened on the `packages:` line and not yet closed
+  const closeFlow = () => {
+    const end = flowBuf.indexOf(']');
+    if (end !== -1) { pushFlow(flowBuf.slice(1, end)); flowBuf = null; }
+  };
   for (const line of text.replace(/^\uFEFF/, '').split(/\r?\n/)) {
     if (/^\s*(#.*)?$/.test(line)) continue;
     if (flowBuf !== null) {
       flowBuf += ' ' + line.replace(/\s+#.*$/, '').trim();
-      const end = flowBuf.indexOf(']');
-      if (end !== -1) { pushFlow(flowBuf.slice(1, end)); flowBuf = null; }
+      closeFlow();
       continue;
     }
     const top = /^(['"]?)([A-Za-z0-9_$-]+)\1\s*:\s*(.*)$/.exec(line);
     if (top) {
       inPackages = top[2] === 'packages';
       const rest = top[3].replace(/\s+#.*$/, '').trim();
-      if (inPackages && rest.startsWith('[')) {
-        const end = rest.indexOf(']');
-        if (end !== -1) pushFlow(rest.slice(1, end));
-        else flowBuf = rest;
-      }
+      if (inPackages && rest.startsWith('[')) { flowBuf = rest; closeFlow(); }
       continue;
     }
     const item = inPackages && /^\s*-\s+(.*)$/.exec(line);
@@ -155,6 +154,8 @@ function pnpmWorkspacePatterns(file) {
   return out;
 }
 
+const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch (_) { return false; } };
+
 /**
  * Workspace package folders of a project: pnpm-workspace.yaml `packages:`, else package.json
  * `workspaces` (an array or `{ packages }`). `dir/*` expands to that folder's immediate subfolders
@@ -162,8 +163,6 @@ function pnpmWorkspacePatterns(file) {
  * and anything with `**` are skipped; only
  * folders that exist and hold a package.json are kept. A path outside the repo is allowed.
  */
-const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch (_) { return false; } };
-
 function workspaceFolders(projectRoot) {
   let patterns = pnpmWorkspacePatterns(path.join(projectRoot, 'pnpm-workspace.yaml'));
   if (!patterns.length) {
@@ -203,7 +202,8 @@ function workspaceFolders(projectRoot) {
  * Resolve a Node package from the product first, then the global npm root (D13).
  * `installHint` is the sentence a missing tool is reported with.
  *
- * `opts` is optional. With `{ workspace: true, alias: [...] }` (passed only by `launch()`), the
+ * `opts` is optional. With `{ workspace: true, alias: [...] }` (passed only by `launch()`, through
+ * `locateTool`), the
  * project root and then each workspace package folder is searched, each under `name` and then the
  * alias names (first hit wins), before the global root: a pnpm monorepo installs Playwright in an
  * app folder, never at the root. Without it the lookup is the root and the global root only, which

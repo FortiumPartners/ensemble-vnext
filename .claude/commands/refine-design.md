@@ -136,7 +136,7 @@ A caller with nobody to ask drives `--auto` through its argument. The record for
    Merge into `docs/ui/<slug>/critique.md` per board, committed with the design; never
    overwrite it whole. Each board section is a table of dimension, score or "not judged",
    versus the predecessor, frames read and reason, then the measured values.
-   - Read the existing `docs/ui/<slug>/critique.md` first.
+   - Read the existing `docs/ui/<slug>/critique.md` first; if there is none, start a new file.
    - A board this run changed and re-judged has its section replaced by the new scores.
    - A board this run changed whose visual critique did not run keeps its earlier scores under
      the line "scores predate this run's change (<date>); not re-judged: <reason>"; so does one
@@ -145,6 +145,7 @@ A caller with nobody to ask drives `--auto` through its argument. The record for
    - Header, every run: rewrite the file's first line to
      `# Visual critique: <slug> (/refine-design, <YYYY-MM-DD>)`, even when it kept every board
      section, so the header line names the command and date of the run that last touched the file.
+     If the first line is not a `#` heading, insert the header above it rather than replace it.
    - Nothing blocks a commit on a score.
    Set `brief_items` in `design-map.js`'s map only on boards this run redrew, to the brief item
    ids the redrawn board now serves, never to clear a finding by a map edit alone (the board's
