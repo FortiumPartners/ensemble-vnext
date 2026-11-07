@@ -323,6 +323,18 @@
       "current_problem": null,
       "completed_at": "2026-11-07T13:02:47.319Z",
       "cycle_position": "complete"
+    },
+    "AMEND-008": {
+      "description": "AMEND-008",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitives.test.js"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-07T13:14:45.040Z"
     }
   },
   "checkpoints": [
@@ -349,11 +361,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-07T11:19:21.857Z"
+    },
+    {
+      "phase": 3,
+      "commit": "pending",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-07T13:15:39.037Z"
     }
   ],
   "recovery": {
     "last_healthy_checkpoint": "pending",
-    "last_checkpoint_timestamp": "2026-11-07T11:19:21.857Z",
+    "last_checkpoint_timestamp": "2026-11-07T13:15:39.037Z",
     "interrupted": false,
     "interrupt_reason": null
   },

@@ -407,7 +407,7 @@ one ahead. Any result may carry `data.issues`, lines `/ship-build` puts under IS
 | `collect-findings` | `bar=significant` | `clean` \| `found` {count}; declares `repeat-until: clean` | nothing (the judge is one foreground agent) | no | head | ship | AC-F5.2, AC-F5.3, AC-F5.7, AC-F5.8, O1 |
 | `fix-findings` | `format=` (none) | `fixed` \| `nothing` | the chained build (a synchronous Skill) | no | findings | ship | AC-F5.1, AC-F5.2 lint, O1 |
 | `merge` | `method=merge` (`merge`\|`squash`\|`rebase`) | `merged` {mergedHead} | nothing | yes | pr | ship | AC-F4.4, AC-F14.3 merge |
-| `release` | `env=`, `command=`, `identity=` (all none) | `released` {commit} | the release command (synchronous) | yes | head | ship | AC-F4.6, AC-F14.3 deploy, AC-F5.2 deploy failure |
+| `release` | `env=`, `command=` (both none); `identity=` required (a `release` line without it fails to parse) | `released` {commit} | the release command (synchronous) | yes | head | ship | AC-F4.6, AC-F14.3 deploy, AC-F5.2 deploy failure |
 | `run` | the rest of the line | `ran` | the command (synchronous) | yes | — | any | AC-F1.1, AC-F4.4, AC-F14.7 |
 | `close-issue` | — | `closed` \| `none` | nothing | yes | — | after | AC-F7.1, AC-F7.2, AC-F10.2, AC-F10.3 |
 | `file-followups` | `below-bar=no` | `filed` {filed, unfiled} | nothing | yes | — | after | AC-F9.1, AC-F9.2, AC-F9.3, AC-F9.5, AC-F10.2, AC-F10.3 |
@@ -669,6 +669,7 @@ them aside unless `--include-deferred` is passed.
 | AMEND-005 | [test-gap] No test asserts close-issue and file-followups read the declared tracker from stack.md — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: ship-primitive-close-issue.md and ship-primitive-file-followups.md read ## Issue Tracker; grep -i tracker over ship-primitives.test.js, ship-build.seam.test.js, ship-build-surface.test.js and ship-setup tests: no match; covered by SHIP-B016) | amendment — no objective recorded |  | None | [test-gap] No test asserts close-issue and file-followups read the declared tracker from stack.md no longer holds |
 | AMEND-006 | [test-gap] No test pins the no-tracker path: close-issue returns none, file-followups files nothing and names each unfiled row in data.issues — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: ship-primitive-close-issue.md lines 20-21, ship-primitive-file-followups.md lines 62-65; ship-primitives.test.js asserts neither; covered by SHIP-B016) | amendment — no objective recorded |  | None | [test-gap] No test pins the no-tracker path: close-issue returns none, file-followups files nothing and names each unfiled row in data.issues no longer holds |
 | AMEND-007 | [test-gap] ship-build-surface.test.js lint test passes on a loose /error\|fail/i output match and returns early if the lint script is absent — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/commands/ship-build-surface.test.js:40-44; packages/core/scripts/lint-command-structure.js exists, so the early return does not fire today) | amendment — no objective recorded |  | None | [test-gap] ship-build-surface.test.js lint test passes on a loose /error\|fail/i output match and returns early if the lint script is absent no longer holds |
+| AMEND-008 | [test-gap] No test pins that a release line without identity fails to parse (release needs identity); reverting identity to optional would pass every test (AC-F14.3, SHIP-B016) — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/contracts/ship-primitive-release.md front matter params; packages/core/contracts/ship-primitives.test.js:104 checks key names only; release describe block lines 166-177 lacks required-identity case) | amendment — no objective recorded |  | None | [test-gap] No test pins that a release line without identity fails to parse (release needs identity); reverting identity to optional would pass every test (AC-F14.3, SHIP-B016) no longer holds |
 
 ## Deferred by design
 
@@ -1070,6 +1071,10 @@ re-run, said where it matters.
 
 - **Touches:** `packages/core/commands/ship-build-surface.test.js`
 
+### AMEND-008
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
 ## Open Questions — resolved 2026-11-07 (refine-trd non-interactive)
 
 Every question live after the 2.0.0 restructure is closed; none is open. Each row gives the
@@ -1113,19 +1118,22 @@ Closed earlier: OQ-7 was answered in 1.1.0; OQ-8 (does `ci-green` fix by default
 
 ## Could Not Verify
 
-State after `/audit-build` of 2026-11-07, which checked the delivered code and tests on
-`feature/0-ship-build` (head `dc727fd`) against this TRD and PRD 2.2.2, with all five verifiers
-reporting (70 requirements and 14 tasks indexed). That audit's findings — gaps in tests, one
-sequencer defect against AC-F3.2, and the deferred live proof — are in its readout, not here.
-It removed no row below: it ran no live GitHub remote, fixture session, third-party service or
-tracker CLI, and every row needs one of those or the owner, so all thirteen, carried from the
-`/audit-trd` passes of 2026-11-07, stay unchecked for that reason. The rows on squash and rebase
-merges, the `Monitor`-held CI wait, the reviewer bots and the Actions-started resume are the ones
-the deferred live proof (SHIP-T002) is planned to settle. Nothing this
-audit attempted went unresolved: no verifier failed and the PRD was supplied. The earlier
-`/audit-trd` settled, and removed, the claim that `promoteToTrd` does not add a discovery twice
-across `repeat` passes, and checked in scratch repositories the stash-and-switch (D43) and
-`[lint]`-row promotion (D19) behaviours its redesigns rest on.
+State after the second `/audit-build` of 2026-11-07, a re-audit of `feature/0-ship-build` at
+head `55b0a77` against this TRD and PRD `docs/PRD/ship-build.md`, with all five verifiers
+reporting (67 requirements and 21 tasks indexed). It was limited to whether the first round's
+defects are fixed and to the files changed since `dc727fd`; it took no fresh sample, so it is not
+evidence that every requirement is built and tested. Its one finding — no test pins that a
+`release` line without `identity=` fails to parse (AC-F14.3) — is in its readout, not here.
+It removed no row below: none of the thirteen falls inside that scope, and each needs a live
+GitHub remote, a fixture session, a third-party service, a tracker CLI or the owner, none of which
+this audit ran. All thirteen are carried unchanged from the first `/audit-build` (head `dc727fd`)
+and the `/audit-trd` passes before it. The rows on squash and rebase merges, the `Monitor`-held CI
+wait, the reviewer bots and the Actions-started resume are the ones the deferred live proof
+(SHIP-T002) is planned to settle. Nothing this audit attempted went unresolved: no verifier
+failed and the PRD was supplied. The earlier `/audit-trd` settled, and removed, the claim that
+`promoteToTrd` does not add a discovery twice across `repeat` passes, and checked in scratch
+repositories the stash-and-switch (D43) and `[lint]`-row promotion (D19) behaviours its redesigns
+rest on.
 
 | Claim | How I'd check it |
 |-------|------------------|

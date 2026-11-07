@@ -104,6 +104,15 @@ describe('the thirteen shipped primitives (TRD 3.2)', () => {
     expect(Object.keys(contracts.get('release').params).sort()).toEqual(['command', 'env', 'identity']);
     expect(contracts.get('run').rest).toBe('command');
   });
+
+  test('required parameters are marked required, and optional ones are not (AC-F14.3)', () => {
+    // A names-only check would pass if identity were quietly made optional again.
+    expect(contracts.get('release').params.identity).toEqual({ default: null, required: true });
+    expect(contracts.get('release').params.env.required).toBe(false);
+    expect(contracts.get('release').params.command.required).toBe(false);
+    expect(contracts.get('run').params.command.required).toBe(true);
+    expect(contracts.get('request-review').params.tool.required).toBe(true);
+  });
 });
 
 describe('the template examples parse against the contracts', () => {
@@ -165,6 +174,20 @@ describe('merge', () => {
 
 describe('release', () => {
   const t = flat('release');
+  // push first: release needs the head that push provides.
+  const parseShip = (line) => seq.parse(`## Ship\n\n1. push\n2. ${line}\n`, contracts);
+  test('a release line without identity= fails to parse, naming identity (AC-F14.3)', () => {
+    const r = parseShip('release env=production');
+    expect(r.errors.join('\n')).toMatch(/release needs identity/);
+  });
+  test('an empty identity= is rejected too', () => {
+    expect(parseShip('release env=production identity=').errors.join('\n')).toMatch(/release needs identity/);
+  });
+  test('a release line with identity= parses', () => {
+    const r = parseShip('release env=production identity="echo abc"');
+    expect(r.errors).toEqual([]);
+    expect(r.steps).toHaveLength(2);
+  });
   test('resolves its command with readFullDeploy and never guesses', () => {
     expect(t).toMatch(/readFullDeploy/);
     expect(t).toMatch(/no command is guessed/);
