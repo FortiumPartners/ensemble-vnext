@@ -27,12 +27,10 @@ environment is the one to prefer whenever the project has one.
 
 | Name | URL / how to reach it | What it is for | Loop may WRITE data? | Loop may DEPLOY to it? | Loop may RESTART it? |
 |------|----------------------|----------------|-----------------------|------------------------|----------------------|
-| preview | | per-branch, disposable — **prefer this** | may write | n/a — deploys automatically per branch | yes, freely |
-| local | `http://localhost:3000` (`npm run dev`) | day-to-day functional verification | may write | n/a — it runs from the working tree | yes, freely |
-| dev | | shared integration checks | may write | | |
-| staging | | pre-release only | read-only | **no** | **no** |
-| production | | — | **must not be touched** | **never** | **never** |
+| local | this working tree: `npx jest`, `bats <file>`, `pytest packages/router/tests`, and `node <lib> <cli args>` against `.claude/lib/` and `packages/core/lib/` | unit, library and prose checks; the default for every criterion that needs no model session | may write | n/a — it runs from the working tree | yes, freely |
+| fixtures | a headless `claude --print --plugin-dir packages/full --setting-sources project --permission-mode bypassPermissions` session in a scaffolded fixture repo under `.trd-state/<feature>/evidence/live/work/slot-<n>` (pattern: `test/smoke/lib/project.sh`); also the existing design fixtures `.trd-state/design-stage/evidence/live/work/{react-web,react-native}` | proving command and prompt behaviour with a live model session; interactive skills may be driven through a Forge-spawned session, whose `AskUserQuestion` prompts Forge can answer | may write | n/a — the slot's `.claude/` is refreshed from `packages/full` | yes, freely |
 | claude-artifacts | the Claude `Artifact` tool (the claude.ai artifact service): publish with `Artifact({ file_path, files, url })`, inspect with `action: "list"` / `"read"` | **always authorized**: proving anything this framework publishes — a report and its images, check pages, batching, one URL per feature. Publish a private throwaway page built from fixture content, never content holding a credential | may write | yes — publishing a private page is the exercise | n/a |
+| production | the published plugin: `origin/main`, release tags (`v*`) and the marketplace manifests | — | **must not be touched** | **never** | **never** |
 
 Permitted values for **Loop may WRITE data?**: `read-only`, `may write`, `must not be
 touched`. *read-only* authorises exercise that mutates nothing — no records created, no rows
@@ -54,11 +52,10 @@ resources, not another column on §1.
 
 | Resource | How many may exist at once | Which environments need it | How the loop creates and destroys one |
 |----------|-----------------------------|------------------------------|------------------------------------------|
-| e.g. iOS simulator | 4 | local | `xcrun simctl create … / xcrun simctl delete …` |
-| e.g. dev server on :3000 | 1 | local | — (never created; it is already up) |
-| e.g. shared Supabase project | 1 | dev | — |
-| production database | 0 | production | — |
+| working tree | 1 | local | — (never created; it is this checkout) |
+| headless fixture session | 4 | fixtures | create: `packages/core/scripts/scaffold-project.sh --plugin-dir packages/full .trd-state/<feature>/evidence/live/work/slot-<n>` (n = 1..4; slot n belongs to exercise slice n, so no two slices share a folder), then accept its folder-trust prompt once (start `claude` in it in tmux, Down then Enter, kill the session); destroy: `rm -rf` that slot folder |
 | claude.ai artifact (private throwaway page) | 4 | claude-artifacts | `Artifact({ file_path, files })` creates one; the owner deletes leftovers — the loop never deletes an artifact |
+| published plugin (origin/main, tags, marketplace) | 0 | production | — |
 
 The count is the only thing the framework reads here — never probed, never modelled, never
 inferred from any other cell in this file. The rules, not suggestions:
@@ -97,9 +94,8 @@ because those were proven, and the rebuild is what failed.
 
 | Environment | Fast refresh (per iteration) | Full deploy (end of run) | Roughly how long |
 |-------------|-------------------------------|-----------------------------|---------------------|
-| preview | | | |
-| local | e.g. hot reload — nothing to run | | — |
-| dev | e.g. `railway up`, `vercel deploy`, `docker compose up -d --build` | | |
+| local | nothing — tests and libraries read the working tree | | — |
+| fixtures | `packages/core/scripts/scaffold-project.sh --refresh --plugin-dir packages/full <slot folder>` (re-copies the slot's vendored `.claude/` from the edited plugin) | | about 2s per slot |
 
 **Where no full deploy is declared, leave the cell blank rather than guessing one.** A blank
 cell and a command that ran and failed are two different facts, and the report says which:
@@ -116,7 +112,9 @@ password written here is a leaked credential in git history.
 
 | What | Where it lives | Notes |
 |------|---------------|-------|
-| test user | e.g. `1Password → "Acme dev login"`, `.env.local` key `TEST_USER` | |
+| Claude model access (headless fixture sessions) | the running OS user's Claude Code login (`claude auth status`; stored under that user's `~/.claude`) | each Forge spawn user has its own login |
+| GitHub (PRs, CI status) | the running OS user's `gh` CLI login (`gh auth status`) | |
+| test user | none — the framework has no app sign-in to test | |
 
 ## 4. Verification tooling actually installed
 
@@ -124,8 +122,14 @@ Not what the stack could support — what is wired up and runnable today.
 
 | Tool | Installed? | Config |
 |------|-----------|--------|
-| Playwright / browser automation | | |
-| HTTP client for API checks | | |
+| Jest | yes | `package.json` `jest` key; `npx jest` |
+| BATS | yes (`/opt/homebrew/bin/bats`, devDependency `bats`) | `*.test.sh` under `packages/core/` and `test/integration/tests/` |
+| pytest | yes | `pytest packages/router/tests` |
+| ShellCheck, jq, gh | yes (`/opt/homebrew/bin`) | none |
+| `claude` CLI, headless | yes | `test/smoke/lib/project.sh` (`smoke_claude`, `--permission-mode bypassPermissions`) |
+| Forge (spawn and drive sessions, answer their `AskUserQuestion` prompts) | yes — `forge@forge` plugin and MCP server | for interactive skills such as `verification-setup` and `design-setup` |
+| Playwright / browser automation | no — not used by the loop (only the design render CLI uses it) | |
+| HTTP client for API checks | no — nothing here serves HTTP | |
 | Claude `Artifact` tool (publish, list files, read) | yes — always available | none; pages are private to the owner on publish |
 
 ## 5. What CANNOT be verified here
@@ -134,8 +138,7 @@ Not what the stack could support — what is wired up and runnable today.
 is written down is a stated gap. The same capability unwritten is an invisible one, and the
 report will show it as a pass.
 
-- e.g. "Salesforce close flows — the sandbox token expires weekly and re-auth is manual."
-- e.g. "Email delivery — no inbox we can read from in dev."
+- `claude --remote` sessions and failures that occur only on the GitHub Actions runner (for example `packages/core/lib/discovered.test.js` hangs there only): neither can be reproduced from this machine.
 
 ## 5a. Coverage floor
 
@@ -144,7 +147,7 @@ verification run may report `satisfied`, `stalled` or `stuck`. Below it the run 
 `insufficient-coverage` instead. Write a percentage or `none`; `none` leaves the check off.
 `/verification-setup` recommends a value from this project's past runs and says why.
 
-Coverage floor: none
+Coverage floor: 50%
 
 ## 5b. Never unattended
 
