@@ -222,6 +222,8 @@ describe('refine-design --auto decisions, answers and audit findings (DORCH-B004
     expect(text).toMatch(/scores predate this run's change \(<date>\); not re-judged: <reason>/);
     expect(text).toMatch(/new table judged no dimension \(every row "not judged"\)/);
     expect(text).toMatch(/[Hh]eader line names the command and date of the run that last touched the file/);
+    expect(raw).toMatch(/^\s*- Header, every run: rewrite the file's first line to\s*$/m);
+    expect(raw).toMatch(/^\s*`# Visual critique: <slug> \(\/refine-design, <YYYY-MM-DD>\)`, even when it kept every board/m);
   });
 
   test('names no product or orchestrator (O10)', () => {
