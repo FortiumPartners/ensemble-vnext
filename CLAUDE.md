@@ -313,31 +313,33 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released **4.16.1** (2026-11-06). 28 commands, 13 subagents. Test battery: 2884 Jest,
-125 pytest, 638 BATS. **History: `CHANGELOG.md`.**
+Released **4.17.0** (2026-11-07). 28 commands, 13 subagents. Test battery: 3233 Jest,
+125 pytest, 641 BATS. **History: `CHANGELOG.md`.**
 
-4.15.0: the design stage (`/create-design` and four siblings). 4.15.1: no backup wake-up
-for tracked work (#63). 4.16.0: design commands for multi-feature callers (#68). 4.16.1:
-design quality — design direction, style packs, measured checks and a visual critique (#70),
-plus its fixes (#71, #72).
+4.15.0: the design stage (`/create-design` and four siblings). 4.16.0–4.16.1: design
+commands for multi-feature callers (#68); design quality (#70, #71, #72). 4.17.0:
+`/ship-build` and `/ship-setup` (#74–#77) — `ship.md` strings 13 shipping primitives.
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
+- 4.17.0: `/ship-build` has not been run live against real GitHub, a reviewer bot, CI and a
+  release target (live proof SHIP-T002 and governance edits SHIP-D002 not done).
+  `custody.test.js` "passes on a later test-only commit" is flaky when a random commit hash
+  is all digits.
 - 4.16.1: the design-quality end-to-end live runs and the first critique-calibration replay
   are planned, not run; `/audit-design --drift` does not report a shipped screen that crashed
   or was removed (it reads as `uncaptured`).
-- 4.15.0/4.16.0: design flows are unproven live (#65, DORCH-T001).
-- 4.14.0: no live `/task`, setup check or fanned-out grounding run yet.
+- 4.14.0–4.16.0: design flows (#65, DORCH-T001), `/task`, the setup check and fanned-out
+  grounding are unproven live.
 - 4.13.8: the TRD-edit guard is unproven live and checks headings only.
-- 4.13.7 and earlier: the still-open items are in `CHANGELOG.md`, newest first.
+- 4.13.7 and earlier: see `CHANGELOG.md`.
 - 4.7.2: `packages/core/lib/discovered.test.js` hangs on the GitHub runner only (cause
   unidentified); excluded from CI via `jest.config.ci.js`, which holds the evidence.
 
-The modernization backlog, `docs/modernization/2026-08-improvement-plan.md`, is the live list
-for anything older than this.
+Older items: `docs/modernization/2026-08-improvement-plan.md`.
 
 ---
 
