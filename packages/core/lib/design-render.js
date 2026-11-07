@@ -15,8 +15,9 @@
  *   <out>/NN-name--<state>.png     one per `states.<name>`, rendered from a temporary copy of the
  *                                  board whose `data-props` carry that state's `props` (D7)
  *
- * Playwright is the PRODUCT's (D13): resolved from the project, then the global npm root, never
- * shipped in `.claude/`. Missing Playwright, or Playwright without its Chromium, is a ToolError
+ * Playwright is the PRODUCT's (D13): resolved from the project (as `playwright` or `@playwright/test`),
+ * then each workspace package folder of a monorepo, then the global npm root, never shipped in
+ * `.claude/`. Missing Playwright, or Playwright without its Chromium, is a ToolError
  * (exit 2) naming the install step.
  *
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1, or 2 for a missing tool):
@@ -109,22 +110,136 @@ class ToolError extends Error {
   }
 }
 
+/** Names a package may also be installed under; used only when a caller opts in (see resolveTool). */
+const TOOL_ALIASES = { playwright: ['@playwright/test'] };
+
+/** Strip quotes and a trailing comment from one YAML scalar. */
+const yamlScalar = (v) => v.replace(/\s+#.*$/, '').trim().replace(/^(['"])(.*)\1$/, '$2');
+
+/**
+ * Read the `packages:` list of a pnpm-workspace.yaml without a YAML dependency: block form
+ * (`- 'apps/*'`) and flow form (`packages: ['apps/*', 'packages/*']`, on one line or several). The list ends at the next
+ * top-level key (`catalog:`, `onlyBuiltDependencies:` ...), so those entries are never read.
+ */
+function pnpmWorkspacePatterns(file) {
+  let text;
+  try { text = fs.readFileSync(file, 'utf8'); } catch (_) { return []; }
+  const out = [];
+  const pushFlow = (body) => {
+    for (const item of body.split(',')) if (yamlScalar(item)) out.push(yamlScalar(item));
+  };
+  let inPackages = false;
+  let flowBuf = null; // a flow list opened on the `packages:` line and not yet closed
+  const closeFlow = () => {
+    const end = flowBuf.indexOf(']');
+    if (end !== -1) { pushFlow(flowBuf.slice(1, end)); flowBuf = null; }
+  };
+  for (const line of text.replace(/^\uFEFF/, '').split(/\r?\n/)) {
+    if (/^\s*(#.*)?$/.test(line)) continue;
+    if (flowBuf !== null) {
+      flowBuf += ' ' + line.replace(/\s+#.*$/, '').trim();
+      closeFlow();
+      continue;
+    }
+    const top = /^(['"]?)([A-Za-z0-9_$-]+)\1\s*:\s*(.*)$/.exec(line);
+    if (top) {
+      inPackages = top[2] === 'packages';
+      const rest = top[3].replace(/\s+#.*$/, '').trim();
+      if (inPackages && rest.startsWith('[')) { flowBuf = rest; closeFlow(); }
+      continue;
+    }
+    const item = inPackages && /^\s*-\s+(.*)$/.exec(line);
+    if (item && yamlScalar(item[1])) out.push(yamlScalar(item[1]));
+  }
+  return out;
+}
+
+const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch (_) { return false; } };
+
+/**
+ * Workspace package folders of a project: pnpm-workspace.yaml `packages:`, else package.json
+ * `workspaces` (an array or `{ packages }`). `dir/*` expands to that folder's immediate subfolders
+ * sorted by name; a plain path is taken as is; a `!folder` entry drops that folder, other `!` entries
+ * and anything with `**` are skipped; only
+ * folders that exist and hold a package.json are kept. A path outside the repo is allowed.
+ */
+function workspaceFolders(projectRoot) {
+  let patterns = pnpmWorkspacePatterns(path.join(projectRoot, 'pnpm-workspace.yaml'));
+  if (!patterns.length) {
+    try {
+      const w = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')).workspaces;
+      patterns = Array.isArray(w) ? w : (w && Array.isArray(w.packages) ? w.packages : []);
+    } catch (_) { patterns = []; }
+  }
+  const folders = [];
+  const excluded = patterns
+    .filter((r) => typeof r === 'string' && r.startsWith('!') && !r.includes('*'))
+    .map((r) => path.resolve(projectRoot, r.slice(1).replace(/\/+$/, '')));
+  for (const raw of patterns) {
+    if (typeof raw !== 'string' || raw.startsWith('!') || raw.includes('**')) continue;
+    const pat = raw.replace(/\/+$/, '');
+    let candidates;
+    if (pat.endsWith('/*')) {
+      const parent = path.resolve(projectRoot, pat.slice(0, -2));
+      try {
+        candidates = fs.readdirSync(parent, { withFileTypes: true })
+          .filter((e) => e.isDirectory() || (e.isSymbolicLink() && isDir(path.join(parent, e.name))))
+          .map((e) => e.name).sort().map((n) => path.join(parent, n));
+      } catch (_) { candidates = []; }
+    } else if (!pat.includes('*')) {
+      candidates = [path.resolve(projectRoot, pat)];
+    } else {
+      candidates = [];
+    }
+    for (const c of candidates) {
+      if (fs.existsSync(path.join(c, 'package.json')) && !excluded.includes(c) && !folders.includes(c)) folders.push(c);
+    }
+  }
+  return folders;
+}
+
 /**
  * Resolve a Node package from the product first, then the global npm root (D13).
  * `installHint` is the sentence a missing tool is reported with.
+ *
+ * `opts` is optional. With `{ workspace: true, alias: [...] }` (passed only by `launch()`, through
+ * `locateTool`), the
+ * project root and then each workspace package folder is searched, each under `name` and then the
+ * alias names (first hit wins), before the global root: a pnpm monorepo installs Playwright in an
+ * app folder, never at the root. Without it the lookup is the root and the global root only, which
+ * is what the bundler's tools (design-bundle.js) rely on.
  */
-function resolveTool(name, projectRoot, installHint) {
-  const roots = [path.resolve(projectRoot || '.')];
-  try {
-    return require(require.resolve(name, { paths: roots }));
-  } catch (_) { /* try the global root */ }
+function resolveTool(name, projectRoot, installHint, opts) {
+  return locateTool(name, projectRoot, installHint, opts).mod;
+}
+
+/** resolveTool, also returning the folder it was found from and whether that is a workspace package. */
+function locateTool(name, projectRoot, installHint, opts) {
+  const root = path.resolve(projectRoot || '.');
+  const names = [name, ...((opts && opts.alias) || [])];
+  const searched = [root];
+  const tryFolder = (folder) => {
+    for (const n of names) {
+      try { return { mod: require(require.resolve(n, { paths: [folder] })), folder }; } catch (_) { /* next */ }
+    }
+    return null;
+  };
+  let hit = tryFolder(root);
+  if (!hit && opts && opts.workspace) {
+    for (const folder of workspaceFolders(root)) {
+      searched.push(folder);
+      hit = tryFolder(folder);
+      if (hit) { hit.workspace = true; break; }
+    }
+  }
+  if (hit) return hit;
   const g = spawnSync('npm', ['root', '-g'], { encoding: 'utf8' });
   if (g.status === 0 && g.stdout.trim()) {
-    try {
-      return require(require.resolve(name, { paths: [g.stdout.trim()] }));
-    } catch (_) { /* fall through */ }
+    searched.push(g.stdout.trim());
+    hit = tryFolder(g.stdout.trim());
+    if (hit) return hit;
   }
-  throw new ToolError(`${name} is not installed for this project: ${installHint}`);
+  throw new ToolError(`${name} is not installed for this project (searched: ${searched.join(', ')}): ${installHint}`);
 }
 
 /**
@@ -552,12 +667,15 @@ async function capture(browser, { port, file, viewport, png, offline, floor, tok
 }
 
 async function launch(projectRoot) {
-  const pw = resolveTool('playwright', projectRoot, 'run `npm install --save-dev playwright` (or `npm install -g playwright`), then `npx playwright install chromium`');
+  const { mod: pw, folder, workspace } = locateTool('playwright', projectRoot, 'run `npm install --save-dev playwright` (or `npm install -g playwright`), then `npx playwright install chromium`', { workspace: true, alias: TOOL_ALIASES.playwright });
   try {
     return await pw.chromium.launch({ timeout: LAUNCH_TIMEOUT_MS });
   } catch (e) {
     if (/Executable doesn't exist|playwright install/i.test(e.message)) {
-      throw new ToolError("Playwright's Chromium is not installed: run `npx playwright install chromium`");
+      // Browsers are per Playwright version. Found in a workspace package, `npx` at the root would
+      // fetch some other version, so name the folder whose copy must install them.
+      const where = workspace ? ` in ${folder}` : '';
+      throw new ToolError(`Playwright's Chromium is not installed: run \`npx playwright install chromium\`${where}`);
     }
     throw e;
   }

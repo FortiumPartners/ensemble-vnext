@@ -230,6 +230,27 @@ describe('missing tools exit 2 naming the install step (D13)', () => {
     expect(r.stderr).toMatch(/playwright is not installed.*npm install --save-dev playwright.*npx playwright install chromium/);
   });
 
+  it('launch() reaches a workspace-package @playwright/test through the CLI (FIX-001)', () => {
+    // Drives the real path the design commands use. resolveTool-level tests cannot notice launch()
+    // dropping { workspace: true, alias } from its locateTool call; this one can.
+    const d = mkDesign([board('01-plain')], { '01-plain.dc.html': fixture('plain.dc.html') });
+    const marker = `STUB-WS-PLAYWRIGHT-${Math.random().toString(36).slice(2)}`;
+    const put = (rel, body) => {
+      fs.mkdirSync(path.dirname(path.join(d.repo, rel)), { recursive: true });
+      fs.writeFileSync(path.join(d.repo, rel), body);
+    };
+    put('package.json', JSON.stringify({ name: 'root' }));
+    put('pnpm-workspace.yaml', "packages:\n  - 'apps/*'\n");
+    put('apps/web/package.json', JSON.stringify({ name: 'web' }));
+    put('apps/web/node_modules/@playwright/test/package.json', JSON.stringify({ name: '@playwright/test', main: 'index.js' }));
+    put('apps/web/node_modules/@playwright/test/index.js',
+      `module.exports = { chromium: { launch: async () => { throw new Error(${JSON.stringify(marker)}); } } };`);
+    // PATH holds only node, so the global `npm root -g` lookup cannot rescue a dropped option.
+    const r = cliRun(d, { PATH: path.dirname(process.execPath) });
+    expect(r.stderr).toContain(marker);
+    expect(r.stderr).not.toMatch(/playwright is not installed/i);
+  });
+
   it('exits 2 when Playwright has no Chromium, and renders through the CLI when it has', () => {
     const d = mkDesign([board('01-plain')], { '01-plain.dc.html': fixture('plain.dc.html') });
     // Playwright resolves from this repository: run the CLI with the repo as the project root.
@@ -249,6 +270,135 @@ describe('missing tools exit 2 naming the install step (D13)', () => {
     expect(r.stderr).toMatch(/--out is required/);
     expect(render.parseArgs(['render', '--approved', '--dir', 'd']).opts).toEqual({ approved: true, dir: 'd' });
     expect(() => render.parseArgs(['render', '--dir'])).toThrow('needs a value');
+  });
+});
+
+describe('resolveTool workspace search (FIX-001)', () => {
+  const HINT = 'run `npm install x`';
+  const wsOpts = { workspace: true, alias: ['@playwright/test'] };
+  let seq = 0;
+  /** Resolve with the global npm lookup neutralised (empty PATH, so `npm root -g` cannot run). */
+  const resolveNoGlobal = (...args) => {
+    const saved = process.env.PATH;
+    process.env.PATH = '';
+    try { return render.resolveTool(...args); } finally { process.env.PATH = saved; }
+  };
+  const mkPkg = (dir, pkgName, marker) => {
+    const d = path.join(dir, 'node_modules', ...pkgName.split('/'));
+    fs.mkdirSync(d, { recursive: true });
+    fs.writeFileSync(path.join(d, 'package.json'), JSON.stringify({ name: pkgName, main: 'index.js' }));
+    fs.writeFileSync(path.join(d, 'index.js'), `module.exports = { marker: ${JSON.stringify(marker)} };`);
+  };
+  const mkRoot = (files = {}) => {
+    const root = tmp(`dr-ws${++seq}-`);
+    for (const [rel, body] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+      fs.writeFileSync(path.join(root, rel), body);
+    }
+    return root;
+  };
+  const pkgJson = (extra = {}) => JSON.stringify({ name: 'p', ...extra });
+  const web = (root, name = 'web') => {
+    fs.mkdirSync(path.join(root, 'apps', name), { recursive: true });
+    fs.writeFileSync(path.join(root, 'apps', name, 'package.json'), pkgJson());
+    return path.join(root, 'apps', name);
+  };
+
+  it('finds a stub in a pnpm workspace package, and throws without the workspace file', () => {
+    const root = mkRoot({ 'pnpm-workspace.yaml': "packages:\n  - 'apps/*'\n" });
+    mkPkg(web(root), '@playwright/test', 'pnpm-web');
+    expect(resolveNoGlobal('playwright', root, HINT, wsOpts).marker).toBe('pnpm-web');
+    const bare = mkRoot();
+    mkPkg(web(bare), '@playwright/test', 'no-ws-file');
+    expect(() => resolveNoGlobal('playwright', bare, HINT, wsOpts)).toThrow(render.ToolError);
+  });
+
+  it('reads package.json workspaces as an array and as { packages }', () => {
+    const a = mkRoot({ 'package.json': pkgJson({ workspaces: ['apps/*'] }) });
+    mkPkg(web(a), '@playwright/test', 'ws-array');
+    expect(resolveNoGlobal('playwright', a, HINT, wsOpts).marker).toBe('ws-array');
+    const b = mkRoot({ 'package.json': pkgJson({ workspaces: { packages: ['apps/*'] } }) });
+    mkPkg(web(b), '@playwright/test', 'ws-object');
+    expect(resolveNoGlobal('playwright', b, HINT, wsOpts).marker).toBe('ws-object');
+  });
+
+  it('reads flow-style and double-quoted YAML, and stops at the next top-level key', () => {
+    const flow = mkRoot({ 'pnpm-workspace.yaml': "packages: ['libs/*', \"apps/*\"]\n" });
+    mkPkg(web(flow), '@playwright/test', 'flow');
+    expect(resolveNoGlobal('playwright', flow, HINT, wsOpts).marker).toBe('flow');
+    // `catalog:` entries are not workspace folders: a package named like one must not be searched.
+    const cat = mkRoot({ 'pnpm-workspace.yaml': "packages:\n  - libs/*\ncatalog:\n  - apps/*\nonlyBuiltDependencies:\n  - apps/*\n" });
+    mkPkg(web(cat), '@playwright/test', 'from-catalog');
+    expect(() => resolveNoGlobal('playwright', cat, HINT, wsOpts)).toThrow(render.ToolError);
+  });
+
+  it('reads a multi-line flow list, a quoted top-level key and a commented flow line', () => {
+    const multi = mkRoot({ 'pnpm-workspace.yaml': "packages: [\n  'libs/*',\n  'apps/*'\n]\n" });
+    mkPkg(web(multi), '@playwright/test', 'multi');
+    expect(resolveNoGlobal('playwright', multi, HINT, wsOpts).marker).toBe('multi');
+    const quoted = mkRoot({ 'pnpm-workspace.yaml': "packages:\n  - libs/*\n'catalog':\n  - apps/*\n" });
+    mkPkg(web(quoted), '@playwright/test', 'quoted-key');
+    expect(() => resolveNoGlobal('playwright', quoted, HINT, wsOpts)).toThrow(render.ToolError);
+    const commented = mkRoot({ 'pnpm-workspace.yaml': "packages: ['apps/*'] # see [docs]\n" });
+    mkPkg(web(commented), '@playwright/test', 'commented');
+    expect(resolveNoGlobal('playwright', commented, HINT, wsOpts).marker).toBe('commented');
+  });
+
+  it('follows a workspace folder that is a symlink', () => {
+    const root = mkRoot({ 'pnpm-workspace.yaml': "packages:\n  - 'apps/*'\n" });
+    const real = mkRoot();
+    fs.writeFileSync(path.join(real, 'package.json'), pkgJson());
+    mkPkg(real, '@playwright/test', 'linked');
+    fs.mkdirSync(path.join(root, 'apps'), { recursive: true });
+    fs.symlinkSync(real, path.join(root, 'apps', 'web'), 'dir');
+    expect(resolveNoGlobal('playwright', root, HINT, wsOpts).marker).toBe('linked');
+  });
+
+  it('honours ! exclusions, skips ** entries and folders without package.json', () => {
+    const ex = mkRoot({ 'pnpm-workspace.yaml': "packages:\n  - 'apps/*'\n  - '!apps/web'\n" });
+    mkPkg(web(ex), '@playwright/test', 'excluded');
+    expect(() => resolveNoGlobal('playwright', ex, HINT, wsOpts)).toThrow(render.ToolError);
+    const deep = mkRoot({ 'pnpm-workspace.yaml': "packages:\n  - 'apps/**'\n" });
+    mkPkg(web(deep), '@playwright/test', 'globstar');
+    expect(() => resolveNoGlobal('playwright', deep, HINT, wsOpts)).toThrow(render.ToolError);
+    const nopkg = mkRoot({ 'pnpm-workspace.yaml': "packages:\n  - 'apps/*'\n" });
+    const d = web(nopkg);
+    fs.unlinkSync(path.join(d, 'package.json'));
+    mkPkg(d, '@playwright/test', 'no-package-json');
+    expect(() => resolveNoGlobal('playwright', nopkg, HINT, wsOpts)).toThrow(render.ToolError);
+  });
+
+  it('takes a plain path as is and searches sorted folders in order', () => {
+    const root = mkRoot({ 'pnpm-workspace.yaml': "packages:\n  - 'apps/*'\n" });
+    mkPkg(web(root, 'b'), '@playwright/test', 'b-stub');
+    mkPkg(web(root, 'a'), '@playwright/test', 'a-stub');
+    expect(resolveNoGlobal('playwright', root, HINT, wsOpts).marker).toBe('a-stub');
+    const plain = mkRoot({ 'package.json': pkgJson({ workspaces: ['apps/web'] }) });
+    mkPkg(web(plain), '@playwright/test', 'plain');
+    expect(resolveNoGlobal('playwright', plain, HINT, wsOpts).marker).toBe('plain');
+  });
+
+  it('finds a root @playwright/test in a single-package repo', () => {
+    const root = mkRoot({ 'package.json': pkgJson() });
+    mkPkg(root, '@playwright/test', 'root-alias');
+    expect(resolveNoGlobal('playwright', root, HINT, wsOpts).marker).toBe('root-alias');
+  });
+
+  it('does not search workspaces without the opts argument (bundler behaviour)', () => {
+    const root = mkRoot({ 'pnpm-workspace.yaml': "packages:\n  - 'apps/*'\n" });
+    mkPkg(web(root), '@playwright/test', 'hidden');
+    mkPkg(web(root), 'playwright', 'hidden2');
+    expect(() => resolveNoGlobal('playwright', root, HINT)).toThrow(render.ToolError);
+  });
+
+  it('names the searched folders when nothing is found', () => {
+    const root = mkRoot({ 'pnpm-workspace.yaml': "packages:\n  - 'apps/*'\n" });
+    web(root);
+    let msg = '';
+    try { resolveNoGlobal('playwright', root, HINT, wsOpts); } catch (e) { msg = e.message; expect(e.exitCode).toBe(2); }
+    expect(msg).toContain(HINT);
+    expect(msg).toContain(root);
+    expect(msg).toContain(path.join(root, 'apps', 'web'));
   });
 });
 
