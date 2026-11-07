@@ -10,7 +10,7 @@ templates/
 ├── claude-directory/                   # .claude/ directory scaffolding
 │   ├── agents/.gitkeep                 # Agent prompts directory
 │   ├── rules/                          # Shipped rule files: command-status.md, async-discipline.md,
-│   │                                   #   autonomy.md, verification.md
+│   │                                   #   autonomy.md, verification.md, design.md, ship.md
 │   ├── skills/.gitkeep                 # Stack-relevant skills directory
 │   ├── commands/.gitkeep               # Workflow commands directory
 │   ├── hooks/.gitkeep                  # Hook executables directory

@@ -57,6 +57,8 @@ SHORTER PATHS
                            recorded as a TRD row before the work, verified. No new TRD.
 /task <prompt|brief>   --> A job whose output is findings or a report, not code: steps
                            run once, outputs recorded, closed with a closed.json. No TRD.
+/ship-build            --> Ship what a closed feature left on the branch: runs the steps your
+                           ship.md lists, in order (set them up with the ship-setup skill)
 /verify-build          --> Re-run functional verification alone
 /fold-prompt           --> Optimize context for continued work
 

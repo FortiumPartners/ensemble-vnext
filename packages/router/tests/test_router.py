@@ -1078,3 +1078,4 @@ class TestFrameworkHintNamesCloseFeature:
 
     def test_flow_names_task_for_findings_jobs(self):
         assert "/task" in FRAMEWORK_HINT
+        assert "/ship-build" in FRAMEWORK_HINT

@@ -34,7 +34,7 @@ committed and keeping a project current are in [docs/guides/INSTALL.md](docs/gui
 
 | Group | Commands |
 |---|---|
-| Full pipeline (new feature) | `/create-prd` → `/audit-prd` → `/create-trd` → `/audit-trd` → `/implement-trd` → `/audit-build`; `/close-feature` closes a feature on your say-so |
+| Full pipeline (new feature) | `/create-prd` → `/audit-prd` → `/create-trd` → `/audit-trd` → `/implement-trd` → `/audit-build`; `/close-feature` closes a feature on your say-so; `/ship-build` then ships what it left on the branch, running the steps in your `ship.md` (filled in by the `ship-setup` skill) |
 | Shorter paths | `/plan` (defect, small change, refactor), `/amend` (one change to the feature in flight), `/sweep` (a list of small unrelated issues), `/task` (a job whose output is findings, not code) |
 | Verification | `/verify-build` (re-check the build against the PRD, fixing by default), `/refine-verification` (agree a recovery plan after a run falls short) |
 | Design stage | `/create-design`, `/refine-design`, `/audit-design`, `/design-system`, `/sync-design`: draw screens as boards on the Claude canvas, check them, build from approved boards, keep them in step with what shipped |

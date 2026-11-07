@@ -2255,6 +2255,25 @@ print('\n'.join(names))
     [ "$sha_before" = "$sha_after" ]
 }
 
+@test "SHIP-B001: a filled ship.md survives refresh byte-identical" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -f "$TEST_DIR/.claude/rules/ship.md" ]
+
+    printf '%s\n' "# My locally authored release policy" > "$TEST_DIR/.claude/rules/ship.md"
+    local sha_before
+    sha_before="$(shasum "$TEST_DIR/.claude/rules/ship.md" | awk '{print $1}')"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local sha_after
+    sha_after="$(shasum "$TEST_DIR/.claude/rules/ship.md" | awk '{print $1}')"
+    [ "$sha_before" = "$sha_after" ]
+}
+
 # ---------------------------------------------------------------------------
 # rebase-project.md governance lists (FIX-001)
 #

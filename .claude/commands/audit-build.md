@@ -248,7 +248,7 @@ extension), overwriting whatever report was there from a previous run:
 # Audit report: <feature>
 
 - Date: <YYYY-MM-DD>
-- Audited commit: <output of `git rev-parse --short HEAD`, or "unknown" if it fails>
+- Audited commit: <output of `git rev-parse HEAD` (the full id), or "unknown" if it fails>
 - TRD: <trd path>
 - PRD: <prd path, or "none">
 - Findings: <n> · applied: <n> · rejected: <n> · still unverified: <n> · verifiers reporting: <as returned>
@@ -257,7 +257,7 @@ extension), overwriting whatever report was there from a previous run:
 ```
 
 The workflow's return already carries `findings`, `applied`, `rejected`, `still_unverified`
-and `verifiers_reporting` — this header adds only the date and `git rev-parse --short HEAD`.
+and `verifiers_reporting` — this header adds only the date and `git rev-parse HEAD`.
 The report opens with the VERDICT line so a reader sees the verdict before anything else; the
 readout below repeats it. Keep the `- Audited commit:` line and the `VERDICT:` line exactly as
 shown: the close record below copies both.
@@ -475,11 +475,11 @@ says the feature closes with a caveat.
 
 **NEXT.** When `capReached` is true: a line saying the feature stays open and closing it is your
 call once you are satisfied, then `/close-feature docs/TRD/<feature>.md` alone in its fenced block;
-never `/audit-build`. When `reaudit` is true: `/audit-build <trd>` alone in its fenced block. When the audit closed the feature and a PR is open (`action` `opened` or
+never `/audit-build`. When `reaudit` is true: `/audit-build <trd>` alone in its fenced block. When the audit closed the feature: first a step saying to ship it, then `/ship-build docs/TRD/<feature>.md` alone in its fenced block (this command never runs it). Then, when a PR is open (`action` `opened` or
 `updated`): a line saying to merge the PR once you have reviewed it, naming it by number and URL
 (merging stays yours), in words, no command. Closed on a feature branch with no PR: a line saying to open a PR for the branch.
 Closed on the default branch (nothing was committed): a line saying to commit the report and
-close record. **Unsynced boards.** After `closed.json` is written, run `node .claude/lib/design-map.js unsynced --all --trd <trd-path>` (JSON `[{ design, id, trd }]`). For each design it lists, add one numbered step per design: a line naming that design's boards and saying to check them against the build with `/sync-design` now, or once the PR has merged, then `/sync-design <slug> --trd <trd-path>` alone in its fenced block. With none, say nothing about syncing. A failing check is one ISSUES line, never STUCK. It is named, never chained: this command never runs `/sync-design` (a separate command, the owner's call). On `do not proceed` with nothing chained: the design work the
+close record. **Unsynced boards.** After `closed.json` is written, run `node .claude/lib/design-map.js unsynced --all --trd <trd-path>` (JSON `[{ design, id, trd }]`). For each design it lists, add one numbered step per design. Where `.claude/rules/ship.md` lists `sync-design`, that step is a line naming that design's boards and saying they sync after the merge, naming no `/sync-design` and carrying no fenced block. Otherwise it is a line naming that design's boards and saying to check them against the build with `/sync-design` now, or once the PR has merged, then `/sync-design <slug> --trd <trd-path>` alone in its fenced block. With none, say nothing about syncing. A failing check is one ISSUES line, never STUCK. It is named, never chained: this command never runs `/sync-design` (a separate command, the owner's call). On `do not proceed` with nothing chained: the design work the
 readout names.
 
 ---

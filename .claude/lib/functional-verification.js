@@ -1904,6 +1904,60 @@ function missingVerificationSections(content) {
   return missing;
 }
 
+// ---------------------------------------------------------------------------
+// readFullDeploy -- the full-deploy command in verification.md section 2 (SHIP D23)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads the "Full deploy (end of run)" column of `verification.md` section 2 so `/ship-build`'s
+ * `release` step never guesses a release command. With `env`, that environment's cell
+ * (case-insensitive match on the first column). Without `env`, the command only when EXACTLY ONE
+ * environment declares one -- two or more is ambiguous and returns none, never the first.
+ *
+ * A blank cell, a dash or `n/a` is "no command". A file with no such table (an older
+ * `verification.md`) returns none; it never throws on content.
+ *
+ * @param {string} verificationText - the full contents of a `verification.md`
+ * @param {string|null} [env] - the environment name, or null/undefined for "the only one"
+ * @returns {{ command: string|null, env: string|null, reason: string|null }}
+ *   `reason` is set exactly when `command` is null.
+ * @example
+ *   readFullDeploy(text, 'production') // { command: 'npm run deploy', env: 'production', reason: null }
+ *   readFullDeploy(text, null)         // none with a reason when 0 or 2+ environments declare one
+ */
+function readFullDeploy(verificationText, env) {
+  if (typeof verificationText !== 'string') {
+    throw new TypeError('readFullDeploy: verificationText must be a string');
+  }
+  const none = (reason, name = null) => ({ command: null, env: name, reason });
+  const clean = (h) => String(h ?? '').replace(/\*\*|`/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const lines = maskFencedLines(verificationText.replace(/\r\n?/g, '\n').split('\n'));
+  const table = findTables(lines, 0, lines.length).find((t) =>
+    t.headerCells.some((h) => clean(h).startsWith('full deploy')));
+  if (!table) return none('verification.md has no section 2 table with a "Full deploy" column');
+
+  const col = table.headerCells.findIndex((h) => clean(h).startsWith('full deploy'));
+  const rows = table.dataRows.map((r) => {
+    const name = String(r.cells[0] ?? '').replace(/\*\*|`/g, '').trim();
+    const cell = String(r.cells[col] ?? '').replace(/`/g, '').trim();
+    const declared = cell !== '' && !/^(?:[-\u2013\u2014]+|n\/a|none)$/i.test(cell);
+    return { name, command: declared ? cell : null };
+  }).filter((r) => r.name);
+
+  if (env != null && String(env).trim() !== '') {
+    const want = String(env).trim().toLowerCase();
+    const row = rows.find((r) => r.name.toLowerCase() === want);
+    if (!row) return none(`verification.md section 2 has no environment named "${env}"`, String(env));
+    if (!row.command) return none(`environment "${row.name}" declares no full-deploy command`, row.name);
+    return { command: row.command, env: row.name, reason: null };
+  }
+
+  const declared = rows.filter((r) => r.command);
+  if (declared.length === 1) return { command: declared[0].command, env: declared[0].name, reason: null };
+  if (declared.length === 0) return none('no environment in verification.md section 2 declares a full-deploy command');
+  return none(`${declared.length} environments declare a full-deploy command (${declared.map((r) => r.name).join(', ')}); name one with env=`);
+}
+
 module.exports = {
   checkEvidence,
   decideNext,
@@ -1920,6 +1974,10 @@ module.exports = {
   readCoverageFloor,
   recommendCoverageFloor,
   readNeverUnattended,
+  readFullDeploy,
+  // Exported for custody.js's deploy link. Global flag: use String.prototype.match only,
+  // never .test()/.exec(), whose lastIndex would carry between calls.
+  BUILD_TOKEN,
   VERIFICATION_SECTION_LABELS,
   CAUSES,
   DEFAULT_CAP,

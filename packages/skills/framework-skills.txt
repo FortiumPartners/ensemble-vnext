@@ -6,6 +6,7 @@ verify-data-fidelity        check
 verify-design-structure     check
 verification-setup          support
 design-setup                support
+ship-setup                  support
 designing-on-canvas         support
 design-grounding            support
 frontend-design           design

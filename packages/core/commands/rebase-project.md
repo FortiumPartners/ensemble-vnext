@@ -21,7 +21,7 @@ disable-model-invocation: true
 > - **Git is the undo.** `.claude/` is committed (the constitution requires it), so every
 >   replacement is already recoverable with `git diff` and `git restore`. This command writes
 >   NO backup copies — see "Recovery is git" below.
-> - **User governance files** (`constitution.md`, `stack.md`, `process.md`, `verification.md`, `design.md`) are NEVER modified.
+> - **User governance files** (`constitution.md`, `stack.md`, `process.md`, `verification.md`, `design.md`, `ship.md`) are NEVER modified.
 > - **Framework-shipped rules** (`async-discipline.md`, `autonomy.md`, `command-status.md`) are replaced when they differ.
 
 ---
@@ -45,7 +45,7 @@ Examples:
 - Upgrade vendored runtime in `.claude/` to match the current plugin version
 - **Update any file whose content differs from the plugin** (agents, skills, commands, hooks, workflows, libs, contracts)
 - Leave recovery to git — never write parallel backup copies
-- Preserve user governance files (constitution.md, stack.md, process.md, verification.md, design.md)
+- Preserve user governance files (constitution.md, stack.md, process.md, verification.md, design.md, ship.md)
 - Preserve user-created files (agents/skills/commands not shipped by the plugin)
 - Update framework-shipped rules (async-discipline.md, autonomy.md, command-status.md) when they differ
 - Merge new settings.json defaults while preserving local overrides
@@ -1054,6 +1054,9 @@ Rules under `.claude/rules/` come in two categories with opposite update policie
 - `.claude/rules/design.md` — the owner declares the design system, platforms and design rules
   here (filled by `/design-setup`), so a refresh or rebase replacing it with the blank template
   would erase them. `scaffold-project.sh` refuses it unconditionally (`AUTHORED_RULES`).
+- `.claude/rules/ship.md` — the owner declares what shipping means here (filled by `/ship-setup`),
+  so a refresh or rebase replacing it with the blank template would erase that policy.
+  `scaffold-project.sh` refuses it unconditionally (`AUTHORED_RULES`).
 
 These are generated/customized at `init-project` and belong to the user. Even with
 `--force`, they are preserved.
@@ -1092,7 +1095,7 @@ protection commands and hooks already rely on. A user who annotated a framework 
 it in `git diff` after the rebase and can `git restore` or re-apply; a user who did not —
 the overwhelming majority — silently gets the current rules for the first time.
 
-**This does not touch user-owned governance.** `process.md`, `verification.md` and `design.md`, with
+**This does not touch user-owned governance.** `process.md`, `verification.md`, `design.md` and `ship.md`, with
 `constitution.md` and `stack.md`, are still never modified, with or without `--force`.
 
 Report:
@@ -1170,6 +1173,7 @@ the rebase report, with the stderr line, and list re-running this command as a n
 - `.claude/rules/process.md`
 - `.claude/rules/verification.md`
 - `.claude/rules/design.md`
+- `.claude/rules/ship.md`
 - All custom rules under `.claude/rules/` that the framework does not ship
 - All custom agents
 - All local settings overrides
@@ -1275,7 +1279,7 @@ regenerates the whole vendored runtime.
 
 ## Flag Behavior Summary
 
-`Rules` splits in two: **governance** (`constitution.md`, `stack.md`, `process.md`, `verification.md`, `design.md`)
+`Rules` splits in two: **governance** (`constitution.md`, `stack.md`, `process.md`, `verification.md`, `design.md`, `ship.md`)
 is never touched by any flag; **framework-shipped**
 (`async-discipline.md`, `autonomy.md`, `command-status.md`) behaves like commands.
 
@@ -1299,7 +1303,7 @@ transcript and does not change what the owner does next.
 
 - This command is safe to run multiple times
 - Destructive operations are recoverable from git (clean tree enforced up front)
-- Rules files (constitution.md, stack.md, process.md, verification.md, design.md) are NEVER modified
+- Rules files (constitution.md, stack.md, process.md, verification.md, design.md, ship.md) are NEVER modified
 - Custom agents/commands/hooks (not from plugin) are NEVER removed
 - Version tracking enables incremental upgrades
 - Use `--dry-run` first to preview changes before applying

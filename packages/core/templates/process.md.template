@@ -21,6 +21,8 @@ FULL PIPELINE (new feature)
                            closes the feature
 /close-feature         --> Close a feature on your say-so: records it and clears its
                            in-flight state
+/ship-build           --> Ship what a closed feature left on the branch: runs the steps
+                           your ship.md lists (push, open-pr, merge, release...), in order
 
 SHORTER PATHS
 /plan <what>           --> Defect / small change / refactor: sizes the work and writes
@@ -46,6 +48,7 @@ MAINTENANCE
                            review branch (light by default; --comprehensive for all)
 /rebase-project        --> Refresh the vendored runtime from the plugin
 /augment-trd-figma     --> Add Figma design context to a TRD
+ship-setup             --> (skill, not a command) interview to fill or update ship.md: the ordered shipping steps /ship-build runs
 verification-setup     --> (skill, not a command) interview to fill or update verification.md, incl. the coverage floor
 design-setup           --> (skill, not a command) interview to fill or update design.md: design system, platforms, how to reach a screen
 
@@ -223,6 +226,22 @@ re-check, a data capture) with the standard end state: `implement.json`, recorde
 
 **Output**: `.trd-state/task-<slug>/` (`implement.json`, `closed.json` with `outputs` and
 `followups`). Nothing is committed and follow-ups are listed, never acted on.
+
+### /ship-build
+
+**Purpose**: Ship the work a closed feature (or a sweep) left on the branch by running the
+steps you wrote in `.claude/rules/ship.md` (filled in by the `ship-setup` skill), in order,
+each one a shipping primitive: push, open a PR, wait for CI, fix review findings, merge,
+release, close the issue. With no steps listed it only pushes. A `merge` step is your standing
+go for `gh pr merge`; nothing else merges.
+
+**Usage**:
+```
+/ship-build [trd-path] [--resume]
+```
+
+**Output**: a run record under `.trd-state/<feature>/` (`shipped.json`, `custody.json`); a
+parked run (waiting on a reviewer) resumes with `--resume`.
 
 ### /cleanup-project
 

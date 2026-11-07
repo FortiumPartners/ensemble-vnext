@@ -624,7 +624,7 @@ describe('implement-trd.md declares --chained for its caller', () => {
       src().split("### 3.7 `--chained` mode")[1].split('## Step 4: Main Execution Loop')[0]
     );
     expect(section).toMatch(
-      /\[STATUS: \/implement-trd\] RETURN → chained by <caller: \/verify-build or \/audit-build>: <n> of <m> tasks built/
+      /\[STATUS: \/implement-trd\] RETURN → chained by <caller: \/verify-build, \/audit-build or \/ship-build>: <n> of <m> tasks built/
     );
     expect(section).toMatch(/RETURN → STUCK: <reason>/);
   });
@@ -674,7 +674,7 @@ describe('process docs describe the new default', () => {
 describe('verify-build.md argument-hint', () => {
   test('argument-hint carries --no-fix and --fix [plan-path]', () => {
     expect(read(CORE_VERIFY_BUILD)).toMatch(
-      /argument-hint: "\[trd-path\] \[--resume\] \[--cap N\] \[--no-fix\] \[--fix \[plan-path\]\] \[--chained\]"/
+      /argument-hint: "\[trd-path\] \[--resume\] \[--cap N\] \[--no-fix\] \[--fix \[plan-path\]\] \[--criteria <ids>\] \[--chained\]"/
     );
   });
 });
@@ -871,7 +871,7 @@ describe('audit-build owns the fix run and the round decision', () => {
 
   test('implement-trd.md section 3.7 names /audit-build as a caller of --chained', () => {
     expect(flat(section37)).toMatch(/`\/audit-build` runs the fix/);
-    expect(flat(section37)).toMatch(/`\/verify-build`'s fix loop and `\/audit-build` pass it/);
+    expect(flat(section37)).toMatch(/`\/verify-build`'s fix loop, `\/audit-build` and `\/ship-build` pass it/);
   });
 
   test('the mirrors are byte-identical', () => {
@@ -1541,15 +1541,15 @@ describe('verify-build.md verifies spec-sourced inputs without deriving', () => 
 });
 
 // plan-sweep-chain FIX-004: `/verify-build <sweep file> --chained` is one step of /plan's run.
-describe('verify-build.md --chained (sweep file only)', () => {
+describe('verify-build.md --chained (a sweep file, or a TRD with --criteria)', () => {
   const body = () => flat(read(CORE_VERIFY_BUILD));
   const section = () => body().split('## `--chained`')[1].split('## `--fix [plan-path]`')[0];
 
-  test('flag is stripped before the path is read and honoured only for a sweep file', () => {
+  test('flag is stripped before the path is read and honoured for a sweep file or a TRD with --criteria', () => {
     const b = body();
     expect(b).toMatch(/Strip it from the arguments before reading the path/);
-    expect(b).toMatch(/honoured \*\*only for a sweep file\*\*/);
-    expect(section()).toMatch(/with a TRD the flag is ignored/);
+    expect(b).toMatch(/honoured \*\*for a sweep file, or for a TRD run with `--criteria`\*\*/);
+    expect(section()).toMatch(/with a TRD alone the flag is ignored/);
   });
 
   test('Step 2 asks nothing in any mode: the default is taken and recorded as a verification.md need', () => {
@@ -1577,7 +1577,7 @@ describe('verify-build.md --chained (sweep file only)', () => {
 
   test('output discipline and autonomy sections defer to it', () => {
     const b = body();
-    expect(b.split('## Output discipline')[1]).toMatch(/Under `--chained` \(a sweep file\) none of the rest of this section applies/);
+    expect(b.split('## Output discipline')[1]).toMatch(/Under `--chained` \(a sweep file, or a TRD with `--criteria`\) none of the rest of this section applies/);
     expect(b.split('## Autonomous-execution discipline')[1]).toMatch(/Under `--chained` and under the fix loop it asks the owner no questions from start to finish/);
   });
 
@@ -2016,7 +2016,7 @@ describe('implement-trd.md verification-preflight surface (VPRE-B005)', () => {
     const t = src();
     expect(t.split('\n')[3]).toMatch(/\[--sweep-flag <text>\]/);
     expect(flat(t)).toMatch(/`--sweep-flag "<text>"` - \*\*For callers only\*\*/);
-    expect(flat(t.split('## User Input')[1].split('## Execution Model')[0])).toMatch(/`--chained`, `--sweep-flag "<text>"`/);
+    expect(flat(t.split('## User Input')[1].split('## Execution Model')[0])).toMatch(/`--chained`, `--shipping`, `--sweep-flag "<text>"`/);
   });
 
   test('outcome lists name setup-failure', () => {
@@ -2246,5 +2246,70 @@ describe('no fallback wake-up for harness-tracked work (cancel-backup-wakeup FIX
     const t = cmd('plan');
     expect(t).toContain('**Never on a handoff to a chained command.**');
     expect(t).toMatch(/Call it on every turn that prints \*this\* run's banner/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ship-build SHIP-B004: /implement-trd --shipping, /ship-build as a --chained caller,
+// Step 7.2's recording rule (D14, D25); /audit-build's full audited commit id and its
+// NEXT naming /ship-build (AC-F11.1, AC-F14.6).
+// ---------------------------------------------------------------------------
+describe('ship-build: implement-trd --shipping and Step 7.2 recording', () => {
+  const text = read(CORE_IMPLEMENT);
+  const sec = (from, to) => flat(text.split(from)[1].split(to)[0]);
+
+  test('argument-hint and User Input carry --shipping', () => {
+    expect(text).toMatch(/argument-hint: "[^"]*\[--chained\] \[--shipping\] \[--sweep-flag <text>\]"/);
+    expect(flat(text.split('## User Input')[1].split('## Execution Model')[0])).toMatch(/`--shipping`/);
+  });
+
+  test('the closed-feature guard lets --reconcile --chained --shipping through; a lone --shipping gets none', () => {
+    const guard = sec('**Closed-feature guard', '### 1.3 Git Branch Management');
+    expect(guard).toMatch(/`--shipping`, and only together with `--reconcile --chained`/);
+    expect(guard).toMatch(/no `### 1\.3` branch switch, no `### 1\.3a` write and `closed\.json` left exactly as it is/);
+    expect(guard).toMatch(/run stays on the current branch/);
+    expect(guard).toMatch(/A lone `--shipping`[^.]*gets no exception/);
+  });
+
+  test('§3.7 names /ship-build as a caller and skips §9.0 under --shipping', () => {
+    const s37 = sec('### 3.7 `--chained` mode', '## Step 4: Main Execution Loop');
+    expect(s37).toMatch(/`\/ship-build` runs the fix/);
+    expect(s37).toMatch(/only `\/verify-build`'s fix loop, `\/audit-build` and `\/ship-build` pass it/);
+    expect(s37).toMatch(/§9\.0's push is skipped/);
+    expect(s37).toMatch(/A lone `--shipping`/);
+    expect(sec('### 9.0 Final push', '```bash')).toMatch(/Under `--shipping` \(§3\.7\) skip this push entirely/);
+  });
+
+  test('Step 7.2 keeps "does not block" and records pending and unapplied review rows', () => {
+    const s72 = sec('### 7.2 End-of-run full-branch code review', '## Step 8');
+    expect(s72).toMatch(/does not block waiting for it to finish/);
+    expect(s72).toMatch(/\[review-pending\] \/code-review on <full commit id>/);
+    expect(s72).toMatch(/`git rev-parse HEAD`[^.]*never `--short`/);
+    expect(s72).toMatch(/\[review:<label>\] <summary>/);
+    expect(s72).toMatch(/discovered\.resolve/);
+    expect(s72).toMatch(/still running/);
+  });
+
+  test('the openPullRequest NEXT wording is unchanged', () => {
+    expect(text).toMatch(/passing `\/audit-build` opens the PR when `ensemble\.openPullRequest` is `auto`/);
+  });
+});
+
+describe('ship-build: audit-build full audited commit and NEXT', () => {
+  const ab = read(path.join(REPO, 'packages/core/commands/audit-build.md'));
+
+  test('both header mentions use git rev-parse HEAD, not --short', () => {
+    expect(ab).not.toContain('git rev-parse --short HEAD');
+    expect(ab.match(/git rev-parse HEAD/g).length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('NEXT names /ship-build alone in a fenced block and never runs it', () => {
+    expect(ab).toMatch(/When the audit closed the feature: first a step saying to ship it, then `\/ship-build docs\/TRD\/<feature>\.md` alone in its fenced block \(this command never runs it\)/);
+  });
+
+  test('both copies are byte-identical', () => {
+    for (const n of ['audit-build', 'implement-trd']) {
+      expect(read(path.join(REPO, `.claude/commands/${n}.md`))).toBe(read(path.join(REPO, `packages/core/commands/${n}.md`)));
+    }
   });
 });

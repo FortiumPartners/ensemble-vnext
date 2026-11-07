@@ -63,6 +63,7 @@ FULL PIPELINE
 /implement-trd --> implementation + .trd-state/ tracking (review/hardening/verify INSIDE it)
 /audit-build   --> verify delivered code against TRD and PRD; a passing audit closes the feature
 /close-feature --> close a feature on your say-so (records it, clears its in-flight state)
+/ship-build    --> ship what a closed feature left on the branch: runs your ship.md steps in order (fill it with the ship-setup skill)
 
 SHORTER PATHS
 /plan <what>   --> defect/small change/refactor: sizes work, writes a matching TRD —
@@ -312,7 +313,7 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released **4.16.1** (2026-11-06). 27 commands, 13 subagents. Test battery: 2884 Jest,
+Released **4.16.1** (2026-11-06). 28 commands, 13 subagents. Test battery: 2884 Jest,
 125 pytest, 638 BATS. **History: `CHANGELOG.md`.**
 
 4.15.0: the design stage (`/create-design` and four siblings). 4.15.1: no backup wake-up
@@ -331,27 +332,7 @@ one (4.10.0/4.9.0).
 - 4.15.0/4.16.0: design flows are unproven live (#65, DORCH-T001).
 - 4.14.0: no live `/task`, setup check or fanned-out grounding run yet.
 - 4.13.8: the TRD-edit guard is unproven live and checks headings only.
-- 4.13.7: no agent has yet started an audit or `/refine-verification` live.
-- 4.13.6: the version stamp is proven on fixtures only, not a live init or rebase.
-- 4.13.5: `--refresh` and initial scaffolding still build agent preloads from
-  `selected-skills.txt` as written; only the rebase's agent sync reconciles it.
-- 4.13.3: nothing-published-with-publishing-off is checked by reading only; the judge's
-  per-image cost is unmeasured.
-- 4.13.2: one commit deleting a TRD and adding a similar one reads as a rename, so the new
-  TRD can inherit the old one's records.
-- 4.13.0: `/audit-docs` is unproven end to end live.
-- 4.12.x: the sweep chain is unproven live; reused swept evidence ignores core edits to
-  files a swept fix read but did not change.
-- 4.11.0: after the re-audit cap, a fresh audit is still a narrow re-audit; live convergence
-  on a real feature is unproven.
-- 4.10.3: `/refine-verification` and fix-by-default are unproven in a live stalled run.
-- 4.10.2: subagent starting context has not measurably fallen.
-- 4.10.1: 2 of 124 replayed judgements judged an active `/goal` condition instead of the
-  discipline rubric (only in sessions running `/goal`, each bounded to one turn by the block
-  cap); consuming projects get the fix only after `/rebase-project`.
-- 4.10.0: the coverage floor `/verification-setup` recommends applies only if the judge that
-  reads it copies it into the loop.
-- 4.8.0: the functional-verification loop runs by default now; its cost is still unmeasured.
+- 4.13.7 and earlier: the still-open items are in `CHANGELOG.md`, newest first.
 - 4.7.2: `packages/core/lib/discovered.test.js` hangs on the GitHub runner only (cause
   unidentified); excluded from CI via `jest.config.ci.js`, which holds the evidence.
 

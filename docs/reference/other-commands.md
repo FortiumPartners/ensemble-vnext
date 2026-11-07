@@ -1,6 +1,6 @@
 # Reference: the other commands
 
-What happens inside `/plan`, `/sweep`, `/amend`, `/task`, `/audit-build`, `/close-feature` and
+What happens inside `/plan`, `/sweep`, `/amend`, `/task`, `/audit-build`, `/close-feature`, `/ship-build` and
 `/audit-docs`, step by step, and briefly inside the maintenance commands. For *when* to reach
 for each one, see [`docs/guides/PROCESS.md`](../guides/PROCESS.md) §1 and §4; this page does not
 repeat it.
@@ -388,6 +388,24 @@ tests rather than the lead's reading of the findings. It keeps a ledger, one lin
   round (matched by run id, not commit) prints one line and stops: no workflow, no report, no banner.
 
 ---
+
+## `/ship-build` — ship what a closed feature left on the branch
+
+Source: `commands/ship-build.md`; `lib/ship-sequencer.js`; one contract per step at
+`.claude/contracts/ship-primitive-<name>.md`. Fill the policy with the `ship-setup` skill, which
+writes `.claude/rules/ship.md`.
+
+`/audit-build` and `/close-feature` stop at an optional pull request. `/ship-build` is what comes
+after: it runs the steps you listed under `## Ship` in `ship.md`, in order (push, `open-pr`, CI
+wait, review rounds, `merge`, release, close the issue and file follow-ups). With no steps it
+only pushes. The sequencer (code) orders the steps, repeats a block, parks a run that waits on a
+reviewer and checks each step is authorized; the model carries out each step's contract.
+`/ship-build --resume` continues a parked run.
+
+Two decisions of [`pr-at-cycle-end`](../TRD/pr-at-cycle-end.md) are overridden here: `open-pr`
+is a second place a PR is opened, and a `merge` step in `ship.md` is your standing go for
+`gh pr merge`. `ensemble.openPullRequest` and the PR opening at the end of `/audit-build` and
+`/close-feature` are unchanged.
 
 ## `/task` — a job that produces findings, not code
 

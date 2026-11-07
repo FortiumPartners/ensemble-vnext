@@ -25,6 +25,8 @@ const {
   DEFAULT_CAP,
   COVERAGE_FLOOR,
   LOCATOR_SCAN_BYTES,
+  readFullDeploy,
+  BUILD_TOKEN,
 } = require('./functional-verification');
 
 const MODULE_PATH = path.join(__dirname, 'functional-verification.js');
@@ -4041,5 +4043,80 @@ describe('renderReport: setup-failure (§3.3, D11)', () => {
     const other = { ...base, outcome: 'stalled' };
     const { setup, ...withoutSetup } = other;
     expect(renderReport(other)).toBe(renderReport(withoutSetup));
+  });
+});
+
+describe('readFullDeploy (SHIP-B001)', () => {
+  const table = (rows) => [
+    '## 2. Bringing the environment to the new code',
+    '',
+    '| Environment | Fast refresh (per iteration) | Full deploy (end of run) | Roughly how long |',
+    '|-------------|------|------|------|',
+    ...rows,
+    '',
+  ].join('\n');
+
+  test('an env with a command returns it, backticks stripped, name matched case-insensitively', () => {
+    const text = table(['| local | nothing | | - |', '| Staging | x | `npm run deploy:staging` | 2m |']);
+    expect(readFullDeploy(text, 'staging')).toEqual({ command: 'npm run deploy:staging', env: 'Staging', reason: null });
+  });
+
+  test('an env without a command is none, naming the environment', () => {
+    const text = table(['| local | nothing | | - |']);
+    const r = readFullDeploy(text, 'local');
+    expect(r.command).toBeNull();
+    expect(r.reason).toMatch(/local/);
+  });
+
+  test('an unknown env is none with a reason', () => {
+    const r = readFullDeploy(table(['| local | x | | - |']), 'production');
+    expect(r.command).toBeNull();
+    expect(r.reason).toMatch(/production/);
+  });
+
+  test('no env: exactly one declared command is returned with its environment', () => {
+    const text = table(['| local | x | | - |', '| production | x | ./deploy.sh | 5m |']);
+    expect(readFullDeploy(text, null)).toEqual({ command: './deploy.sh', env: 'production', reason: null });
+  });
+
+  test('no env: two declared commands is none, never the first', () => {
+    const text = table(['| staging | x | ./a.sh | 1m |', '| production | x | ./b.sh | 1m |']);
+    const r = readFullDeploy(text);
+    expect(r.command).toBeNull();
+    expect(r.reason).toMatch(/2 environments/);
+  });
+
+  test.each(['-', '\u2014', 'n/a', 'N/A', 'none'])('the placeholder %s means no command', (cell) => {
+    const r = readFullDeploy(table([`| production | x | ${cell} | - |`]), 'production');
+    expect(r.command).toBeNull();
+  });
+
+  test('an older verification.md with no section 2 table is none and does not throw', () => {
+    const r = readFullDeploy('# Verification environments\n\n## 1. Environments\n\n| Name | URL |\n|---|---|\n| local | x |\n', 'local');
+    expect(r.command).toBeNull();
+    expect(r.reason).toMatch(/Full deploy/);
+  });
+
+  test('a table inside a code fence is ignored', () => {
+    const text = '```\n' + table(['| production | x | ./deploy.sh | 1m |']) + '```\n';
+    expect(readFullDeploy(text, 'production').command).toBeNull();
+  });
+
+  test('this repository\'s verification.md declares no full deploy', () => {
+    const repoFile = path.join(__dirname, '..', '..', '..', '.claude', 'rules', 'verification.md');
+    const r = readFullDeploy(fs.readFileSync(repoFile, 'utf8'), null);
+    expect(r.command).toBeNull();
+  });
+
+  test('a non-string argument throws a TypeError', () => {
+    expect(() => readFullDeploy(null, 'x')).toThrow(TypeError);
+  });
+});
+
+describe('BUILD_TOKEN export (SHIP-B001)', () => {
+  test('is the unchanged hex-token pattern and takes a SHA out of git describe output', () => {
+    expect(BUILD_TOKEN.source).toBe('(?:\\b|(?<=\\bg))[0-9a-f]{7,40}\\b');
+    expect('v4.13.8-3-gabc1234'.match(BUILD_TOKEN)).toEqual(['abc1234']);
+    expect('deployed 1234567'.match(BUILD_TOKEN)).toEqual(['1234567']);
   });
 });

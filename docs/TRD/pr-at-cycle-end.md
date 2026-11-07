@@ -4,6 +4,14 @@
 **Kind**: change
 **Weight**: small
 
+> **Note (ship-build, 2026-11):** `/ship-build` (TRD `ship-build`) overrides two decisions below.
+> (1) The non-goal "No automatic merge, tag or release" and the rule "no command may call
+> `gh pr merge`" no longer hold for a `merge` step the owner writes in `.claude/rules/ship.md`:
+> that step is the owner's standing go, and only `/ship-build` may run it. (2) `/ship-build`'s
+> `open-pr` step is a second place a PR is opened. Everything else stands: the
+> `ensemble.openPullRequest` setting, and PR opening at the end of `/audit-build` and
+> `/close-feature`, are unchanged, and those two commands still never merge.
+
 ## Objectives
 
 | ID | Objective | Source |

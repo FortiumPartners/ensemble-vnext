@@ -2,7 +2,7 @@
 name: sync-design
 description: After a build - capture each building board's screen from the build, compare, mark matches shipped, rebuild boards an owner ruling accepts, and keep the canvas in step
 version: 1.0.0
-argument-hint: "<slug> [--trd <path>] [--project <dir>]"
+argument-hint: "<slug> [--trd <path>] [--project <dir>] [--chained]"
 # Model-invocable like /audit-design. Scope authorization is autonomy.md's: a command runs to
 # its own banner, and /audit-build only NAMES this command in NEXT (AC-F13.1); it never chains it.
 ---
@@ -18,7 +18,13 @@ $ARGUMENTS
 
 The slug names `docs/ui/<slug>/`. If none is given, take the one `docs/ui/*/design-map.json`
 whose boards include `building` ones (with `--trd`, `building` ones of that feature); with several, the one `current.json` names, else end
-STUCK listing them. **Strip `--project <dir>` and `--trd <path>` first**, remembering both.
+STUCK listing them. **Strip `--project <dir>`, `--trd <path>` and `--chained` first**, remembering each.
+
+**`--chained`** means a caller (the `sync-design` shipping primitive) runs this command as one step of
+its own run. It changes one thing, marked in "Completion signal": the run ends on one RETURN line,
+with no banner and no `notify-complete.sh` call, because the caller's banner ends the run. Nothing
+else differs: this command already asks nothing. Its STUCK on an unfilled `design.md` (contract
+section 1) becomes a RETURN line.
 
 ---
 
@@ -103,7 +109,18 @@ above the banner.
 
 ## Completion signal (see `.claude/rules/command-status.md`)
 
-End your final turn with the banner as the last line, nothing after it:
+**Under `--chained`**, print one line and stop, in place of the readout and the banner. No banner,
+no `notify-complete.sh`. The counts are boards shipped, rebuilt, uncaptured (could not be captured
+here) and skipped (differing with no ruling, or failed):
+
+```
+[STATUS: /sync-design] RETURN → <n> shipped, <n> rebuilt, <n> uncaptured, <n> skipped
+```
+
+An unfilled or missing `design.md` ends on this line too, with nothing synced:
+`[STATUS: /sync-design] RETURN → 0 shipped, 0 rebuilt, 0 uncaptured, 0 skipped (design.md unfilled)`.
+
+**Otherwise** end your final turn with the banner as the last line, nothing after it:
 
 ```
 ═══ COMMAND COMPLETE: /sync-design ═══

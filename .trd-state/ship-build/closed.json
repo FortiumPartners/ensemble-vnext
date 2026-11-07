@@ -1,0 +1,12 @@
+{
+  "feature": "ship-build",
+  "trd": "docs/TRD/ship-build.md",
+  "closedAt": "2026-11-07T13:19:19Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: planned, not built yet: SHIP-T002 -- the owner's live proof on a throwaway GitHub repo, which needs the owner, a real remote, a CI, a reviewer bot and a release target, so it cannot run unattended; planned, not built yet: SHIP-D002 -- the governance edits to constitution.md, autonomy.md and stack.md, which change only after the owner approves the SHIP-D001 draft; 13 Could Not Verify claims stay unchecked (live GitHub behaviour, the reviewer bots, the Actions-started resume, the tracker CLIs, and the wording of ruling J)",
+    "report": ".trd-state/ship-build/audit-build-report.md",
+    "auditedCommit": "55b0a77b0593969c50fbb9fdf40a3a0ec5a233d0"
+  }
+}

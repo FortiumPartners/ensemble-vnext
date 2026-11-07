@@ -118,6 +118,19 @@ Technology stack definition for {{PROJECT_DESCRIPTION}}.
 
 ---
 
+## Issue Tracker
+
+Where follow-ups are filed and finished work is closed. Read by `/ship-build`. Left blank, or
+`none`, means no tracker: nothing is filed or closed.
+
+Tracker: none
+Project:
+
+(`Tracker` is `github`, `linear`, `jira` or `none`. `Project` is `<owner/repo>` for GitHub, a team
+key for Linear, a project key for Jira.)
+
+---
+
 ## Skill Categories
 
 Skills are compiled from the plugin library based on this stack definition.

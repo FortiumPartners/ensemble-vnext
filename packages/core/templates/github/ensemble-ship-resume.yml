@@ -1,0 +1,52 @@
+# Ensemble ship resume -- installed by /ship-setup, only on the owner's yes.
+#
+# When a reviewer approves a pull request that a `/ship-build` run parked at an
+# `await-approval trigger=github-actions` step, this workflow runs `/ship-build --resume`
+# on the PR's branch, so the remaining steps of `.claude/rules/ship.md` run without anyone
+# opening a session. The parked run's record (`.trd-state/<feature>/shipped.json`) is on the
+# branch because `/ship-build` pushed it when it parked.
+#
+# It needs a model credential in this repository's secrets, named below. The value is never
+# written in this file: add the secret yourself under Settings > Secrets and variables >
+# Actions. This workflow must be on the default branch to fire; `await-approval` checks that
+# before it claims a trigger exists.
+#
+# Unverified until the live proof (TRD ship-build SHIP-T002): that the action below runs a
+# project slash command from the vendored `.claude/` directory on a review event.
+
+name: Ensemble ship resume
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+concurrency:
+  group: ensemble-ship-resume-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  resume:
+    # Approvals only, from someone with a role in this repository (any account can submit an
+    # approving review on a public one), and never a fork's branch (it would run with this
+    # repository's secret).
+    if: >-
+      github.event.review.state == 'approved' &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: /ship-build --resume

@@ -19,11 +19,18 @@
  *     If the checked-out branch differs, skip BEFORE any push or gh call — the owner may have
  *     switched branches since, and a PR from the wrong branch is worse than none. Omitted means
  *     no check.
+ *   - `--base <branch>`: the branch the PR targets, instead of the default branch. The on-the-base
+ *     skip compares against it, `gh pr create` is given it, and an open PR for the branch that
+ *     targets another base is retargeted (`gh pr edit <url> --base <branch>`) and reported
+ *     'updated', reason `retargeted from <old>`. Without it an open PR is reused as it stands.
+ *   - `--listed`: skip the `openPullRequest` check. The caller (a /ship-build primitive) holds
+ *     its own authorization for opening the PR.
  *   - This lib never merges. Merging stays the owner's.
  *
  * CLI
  *   node pull-request.js mode                              -> one JSON line: "auto"|"never"
- *   node pull-request.js ensure --title <t> --body-file <f> [--expect-branch <b>] -> one JSON line
+ *   node pull-request.js ensure --title <t> --body-file <f> [--expect-branch <b>] [--base <b>] [--listed]
+ *                                                                          -> one JSON line
  */
 
 const fs = require('fs');
@@ -43,8 +50,8 @@ function readMode(settingsPath) {
  * Pure decision. Returns {action, reason}; action is 'skipped', 'opened' or 'updated'
  * ('opened' means "go and create one"; `ensure` turns a later error into 'failed').
  */
-function decide({ mode, branch, defaultBranch, ghAvailable, openPrUrl }) {
-  if (mode !== 'auto') return { action: 'skipped', reason: 'openPullRequest is never' };
+function decide({ mode, branch, defaultBranch, ghAvailable, openPrUrl, listed = false }) {
+  if (mode !== 'auto' && !listed) return { action: 'skipped', reason: 'openPullRequest is never' };
   if (!branch || branch === 'HEAD') return { action: 'skipped', reason: 'detached HEAD' };
   if (!ghAvailable) return { action: 'skipped', reason: 'gh missing or not authenticated' };
   if (!defaultBranch) return { action: 'skipped', reason: 'default branch unknown' };
@@ -88,32 +95,38 @@ function originHost() {
   return m && m[1] && !r.out.startsWith('/') ? m[1] : 'github.com';
 }
 
-function ensure({ title, bodyFile, expectBranch, settingsPath = './.claude/settings.json' }) {
+function ensure({ title, bodyFile, expectBranch, base: requestedBase, listed = false, settingsPath = './.claude/settings.json' }) {
   const mode = readMode(settingsPath);
   const skip = (reason) => ({ action: 'skipped', url: null, reason });
   const b = run('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
   const branch = b.ok ? b.out : '';
   // Settle every skip that needs no network first, so `never` makes no gh call at all, and
   // check auth before asking GitHub anything, so a missing gh is reported as that.
-  if (mode !== 'auto') return skip(decide({ mode }).reason);
-  if (!branch || branch === 'HEAD') return skip(decide({ mode, branch }).reason);
+  if (mode !== 'auto' && !listed) return skip(decide({ mode }).reason);
+  if (!branch || branch === 'HEAD') return skip(decide({ mode, branch, listed }).reason);
   if (expectBranch && branch !== expectBranch) {
     return skip(`on ${branch}, expected ${expectBranch}`);
   }
   const ghAvailable = run('gh', ['auth', 'status', '--hostname', originHost()]).ok;
-  const defaultBranch = ghAvailable ? findDefaultBranch() : '';
-  const base = { mode, branch, defaultBranch, ghAvailable };
+  // The requested base stands in for the default branch everywhere it is compared or passed on.
+  const defaultBranch = ghAvailable ? (requestedBase || findDefaultBranch()) : '';
+  const base = { mode, branch, defaultBranch, ghAvailable, listed };
   const pre = decide({ ...base, openPrUrl: null });
   if (pre.action === 'skipped') return skip(pre.reason);
 
   const push = run('git', ['push', '-u', 'origin', branch]);
   if (!push.ok) return { action: 'failed', url: null, reason: firstLine(push.err) };
 
-  const list = run('gh', ['pr', 'list', '--head', branch, '--state', 'open', '--json', 'url', '--jq', '.[0].url // empty']);
+  const list = run('gh', ['pr', 'list', '--head', branch, '--state', 'open', '--json', 'url,baseRefName', '--jq', '.[0] | if . then [.url, .baseRefName] | @tsv else empty end']);
   // A failed lookup is not "no open PR": creating blind could duplicate one or mislead.
   if (!list.ok) return { action: 'failed', url: null, reason: firstLine(list.err || list.out) };
-  const openPrUrl = list.out.split('\n')[0];
+  const [openPrUrl, openPrBase] = list.out.split('\n')[0].split('\t');
   const d = decide({ ...base, openPrUrl });
+  if (d.action === 'updated' && requestedBase && openPrBase && openPrBase !== requestedBase) {
+    const edit = run('gh', ['pr', 'edit', openPrUrl, '--base', requestedBase]);
+    if (!edit.ok) return { action: 'failed', url: openPrUrl, reason: firstLine(edit.err || edit.out) };
+    return { action: 'updated', url: openPrUrl, reason: `retargeted from ${openPrBase}` };
+  }
   if (d.action === 'updated') return { action: 'updated', url: openPrUrl, reason: d.reason };
 
   const create = run('gh', ['pr', 'create', '--base', defaultBranch, '--head', branch, '--title', title, '--body-file', bodyFile]);
@@ -121,6 +134,8 @@ function ensure({ title, bodyFile, expectBranch, settingsPath = './.claude/setti
   const url = create.out.split('\n').filter(Boolean).pop() || null;
   return { action: 'opened', url, reason: d.reason };
 }
+
+const USAGE_ENSURE = 'usage: ensure --title <t> --body-file <f> [--expect-branch <b>] [--base <b>] [--listed]';
 
 function argValue(argv, flag) {
   const i = argv.indexOf(flag);
@@ -138,13 +153,15 @@ function main(argv) {
     const title = argValue(argv, '--title');
     const bodyFile = argValue(argv, '--body-file');
     const expectBranch = argValue(argv, '--expect-branch');
+    const base = argValue(argv, '--base');
+    const listed = argv.includes('--listed');
     const result = title && bodyFile
-      ? ensure({ title, bodyFile, expectBranch })
-      : { action: 'failed', url: null, reason: 'usage: ensure --title <t> --body-file <f> [--expect-branch <b>]' };
+      ? ensure({ title, bodyFile, expectBranch, base, listed })
+      : { action: 'failed', url: null, reason: USAGE_ENSURE };
     process.stdout.write(JSON.stringify(result) + '\n');
     return 0;
   }
-  process.stderr.write('usage: pull-request.js mode | ensure --title <t> --body-file <f> [--expect-branch <b>]\n');
+  process.stderr.write('usage: pull-request.js mode | ensure --title <t> --body-file <f> [--expect-branch <b>] [--base <b>] [--listed]\n');
   return 2;
 }
 

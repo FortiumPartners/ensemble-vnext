@@ -21,6 +21,7 @@
  *     board serves is listed in `unmatched` with the boards that record it; an empty value is an error.
  *     Without --items, `buildable` prints a board array as before.
  *   node .claude/lib/design-map.js unsynced --all [--trd <path>]   (scans every design under docs/ui)
+ *   ... unsynced ... --merged-into <ref> [--merged-head <sha>]   (only boards whose feature's audited commit is merged)
  *
  * Example: node .claude/lib/design-map.js transition --dir docs/ui/checkout --ids 01-cart --to approved
  */
@@ -334,36 +335,84 @@ function held(map, dir, ids) {
 /** Feature name for a TRD path: basename without extension (the rule close-feature and router share). */
 const featureOf = (trd) => path.basename(String(trd), path.extname(String(trd)));
 
+/** A git ref or sha taken from the command line: never option-shaped, so it cannot become a flag. */
+const refOk = (v) => typeof v === 'string' && v.length > 0 && !v.startsWith('-');
+
+/** Full commit id for `rev` in `root`, or null when it is unknown or ambiguous (never a guess). */
+function resolveCommit(root, rev) {
+  if (!refOk(rev)) return null;
+  const r = git(root, ['rev-parse', '--verify', '--quiet', `${rev}^{commit}`]);
+  return r.status === 0 ? r.stdout.trim() : null;
+}
+
+/**
+ * Whether a feature's audited commit (`closed.json` `audit.auditedCommit`, 7 characters on every
+ * existing record) is an ancestor of `mergedInto`, or of `mergedHead` when the caller has proven
+ * that head merged (a squash or rebase merge never makes the audited commit an ancestor). A
+ * feature with no audited commit, or one that does not resolve to exactly one commit, is not merged.
+ */
+function auditedCommitMerged(root, feature, { mergedInto, mergedHead }) {
+  let closed;
+  try {
+    closed = JSON.parse(fs.readFileSync(path.join(root, '.trd-state', feature, 'closed.json'), 'utf8'));
+  } catch { return false; }
+  const audited = resolveCommit(root, closed && closed.audit && closed.audit.auditedCommit);
+  if (!audited) return false;
+  const inside = (target) => !!target && git(root, ['merge-base', '--is-ancestor', audited, target]).status === 0;
+  return inside(mergedInto) || inside(resolveCommit(root, mergedHead));
+}
+
+/** Resolves --merged-into / --merged-head once, so a bad ref is an error rather than an empty list. */
+function mergeScope(root, { mergedInto, mergedHead } = {}) {
+  if (mergedInto === undefined) {
+    if (mergedHead !== undefined) throw new Error('--merged-head needs --merged-into');
+    return null;
+  }
+  const into = resolveCommit(root, mergedInto);
+  if (!into) throw new Error(`--merged-into ${mergedInto} does not name a commit`);
+  return { mergedInto: into, mergedHead };
+}
+
 /**
  * To-be boards still `building` whose TRD's feature has a close record
  * (`.trd-state/<feature>/closed.json` under `root`): built and closed, but never synced.
  * A board with no `trd`, or in any other status, is never listed. With `trd`, only boards whose
  * TRD names the same feature are kept (compared by feature name, so path spellings do not matter).
- * Reads only the map and closed.json; it does not compare screens -- that is /sync-design's job.
+ * With `mergedInto`, a board is kept only when its feature's audited commit is an ancestor of that
+ * ref or of `mergedHead` (see `auditedCommitMerged`); the caller fetches, this runs read-only git.
+ * Otherwise it reads only the map and closed.json; it does not compare screens -- that is
+ * /sync-design's job.
  * @returns {{ design: string, id: string, trd: string }[]}
  */
-function unsynced(map, design, { root = '.', trd } = {}) {
+function unsynced(map, design, { root = '.', trd, mergedInto, mergedHead } = {}) {
   const only = trd ? featureOf(trd) : null;
+  const scope = mergeScope(root, { mergedInto, mergedHead });
+  const merged = new Map(); // feature -> boolean, so a feature's git calls run once
   const out = [];
   for (const b of map.boards || []) {
     if (b.kind !== 'to-be' || b.status !== 'building' || !b.trd) continue;
     const feature = featureOf(b.trd);
     if (only && feature !== only) continue;
     if (!fs.existsSync(path.join(root, '.trd-state', feature, 'closed.json'))) continue;
+    if (scope) {
+      if (!merged.has(feature)) merged.set(feature, auditedCommitMerged(root, feature, scope));
+      if (!merged.get(feature)) continue;
+    }
     out.push({ design, id: b.id, trd: b.trd });
   }
   return out;
 }
 
 /** `unsynced` over every design map under `root`/docs/ui; no docs/ui folder gives []. */
-function unsyncedAll(root, { trd } = {}) {
+function unsyncedAll(root, { trd, mergedInto, mergedHead } = {}) {
+  mergeScope(root, { mergedInto, mergedHead }); // a bad ref is an error even when no design exists
   const ui = path.join(root, 'docs', 'ui');
   if (!fs.existsSync(ui)) return [];
   const out = [];
   for (const name of fs.readdirSync(ui).sort()) {
     const dir = path.join(ui, name);
     if (!fs.existsSync(mapPath(dir))) continue; // _current, _design-system and the like
-    out.push(...unsynced(read(dir), name, { root, trd }));
+    out.push(...unsynced(read(dir), name, { root, trd, mergedInto, mergedHead }));
   }
   return out;
 }
@@ -564,7 +613,7 @@ async function main(argv) {
   const { verb, opts } = parseArgs(argv);
   if (verb === 'setup') return setup(opts.dir || '.');
   if (verb === 'direction') return direction(opts.dir || '.', { style: opts.style });
-  if (verb === 'unsynced' && opts.all) return unsyncedAll('.', { trd: opts.trd });
+  if (verb === 'unsynced' && opts.all) return unsyncedAll('.', { trd: opts.trd, mergedInto: opts['merged-into'], mergedHead: opts['merged-head'] });
   if (!opts.dir) throw new Error('--dir is required');
   switch (verb) {
     case 'read': return read(opts.dir);
@@ -582,7 +631,7 @@ async function main(argv) {
       return { ...out, held: held(map, opts.dir, out.boards.map((b) => b.id)) };
     }
     case 'held': return held(read(opts.dir), opts.dir, idList(opts.ids));
-    case 'unsynced': return unsynced(read(opts.dir), path.basename(path.resolve(opts.dir)), { trd: opts.trd });
+    case 'unsynced': return unsynced(read(opts.dir), path.basename(path.resolve(opts.dir)), { trd: opts.trd, mergedInto: opts['merged-into'], mergedHead: opts['merged-head'] });
     case 'stale': return stale(read(opts.dir), '.', { record: opts.record, dir: opts.dir });
     case 'transition': {
       if (!opts.ids || !opts.to) throw new Error('transition needs --ids and --to');
