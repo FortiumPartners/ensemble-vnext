@@ -10,6 +10,47 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.17.0] - 2026-11-07
+
+`/ship-build` and `/ship-setup`: shipping a finished feature, written down once and run the
+same way every time (#74, #75, #77), plus a CI fix (#76). Released as a minor at the owner's call.
+
+### Added
+
+- **`/ship-build` (#75).** Ships the work a closed feature (or a sweep) left on the branch by
+  running the steps your `.claude/rules/ship.md` lists, in order. With no steps listed it only
+  pushes the branch.
+- **`ship.md` strings 13 shipping primitives (#75):** push, open a PR, request a review, wait for
+  CI, wait for approval, collect and fix review findings, merge, release, sync the design, close
+  the issue, file follow-ups, `repeat` (a bounded loop of other steps) and `run` (any command).
+  A step that acts outside the repository runs only when `autonomy.md` makes the listed step
+  your standing authorization; otherwise the run records `not authorized` and stops.
+- **A deterministic sequencer (`ship-sequencer.js`)** decides which step runs next and whether
+  it is authorized, so the order is code, not the model's reading of a prompt.
+- **A custody check (`custody.js`)** proves each link in the chain (pushed, merged, deployed)
+  refers to the same code as the last verified commit, and names the file that differs when it
+  does not. A later commit that touches only tests passes.
+- **A resume workflow (`ensemble-ship-resume.yml`)**, installed into a project, restarts a
+  parked run when a review is approved.
+- **`/ship-setup`**, a skill that interviews you and writes `ship.md`.
+- **Guide, index and process updates for both (#77).**
+
+### Fixed
+
+- **The runtime-integrity parity tests skip owner-authored rules (#76).** `ship.md` is written
+  by the owner and has no template to match, so the parity tests no longer fail CI on it.
+
+### Not yet proven
+
+- **`/ship-build` has not been run live against real GitHub, a reviewer bot, CI and a release
+  target.** The planned live proof (SHIP-T002, on a throwaway GitHub repository) is not done,
+  and neither are the governance edits (SHIP-D002: the sentences in `constitution.md`,
+  `autonomy.md` and `stack.md`, which change only after the owner approves the draft). The
+  delivered-code audit left 13 claims about live GitHub behaviour unchecked.
+- **`custody.test.js` "passes on a later test-only commit" is flaky.** When the random commit
+  hash it builds is all digits, the check skips that token as a number and the test fails.
+  Rerunning passes. Not fixed in this release.
+
 ## [4.16.1] - 2026-11-06
 
 Design quality for the design stage (#70), and two rounds of fixes found by testing it live
