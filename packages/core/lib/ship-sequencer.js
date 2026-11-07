@@ -538,11 +538,16 @@ function readText(file) {
   }
 }
 
+/** Whether autonomy.md carries the standing-authorization sentence. */
+function hasSentence(autonomyPath) {
+  const autonomy = readText(autonomyPath);
+  return autonomy != null && collapse(autonomy).includes(collapse(AUTHORIZATION_SENTENCE));
+}
+
 /** Authorized when autonomy.md carries the sentence, or the contract's `unless` holds. */
 function isAuthorized(contract, { autonomyPath, settingsPath }) {
   if (contract.outward === 'no') return true;
-  const autonomy = readText(autonomyPath);
-  if (autonomy != null && collapse(autonomy).includes(collapse(AUTHORIZATION_SENTENCE))) return true;
+  if (hasSentence(autonomyPath)) return true;
   if (typeof contract.outward === 'object') {
     const raw = readText(settingsPath);
     if (raw != null) {
@@ -721,8 +726,7 @@ function status(stateDir) {
  *   steps inside a repeat included, in first-listed order
  */
 function authorization(text, contracts, { autonomyPath, settingsPath }) {
-  const autonomy = readText(autonomyPath);
-  const sentence = autonomy != null && collapse(autonomy).includes(collapse(AUTHORIZATION_SENTENCE)) ? 'present' : 'absent';
+  const sentence = hasSentence(autonomyPath) ? 'present' : 'absent';
   const listed = [];
   for (const step of parse(text, contracts).steps) {
     for (const s of step.primitive === 'repeat' ? step.body : [step]) listed.push(s.primitive);

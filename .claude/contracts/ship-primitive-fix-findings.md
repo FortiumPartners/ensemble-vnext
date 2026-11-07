@@ -38,7 +38,8 @@ row stops the step rather than becoming a model edit), `work`, `context`.
      the recorded path, like any other blocking row.
 3. **The rest is TRD work.** First snapshot the tree outside `.trd-state/`:
    `git status --porcelain --untracked-files=all` plus `git hash-object <path>` for each path it
-   lists (the pattern of `/plan`'s Step 7a). Then run `Skill({ skill: "implement-trd", args: "<work.trd>
+   lists that still exists (a deleted path has no content to hash; its status line alone is its
+   snapshot) (the pattern of `/plan`'s Step 7a). Then run `Skill({ skill: "implement-trd", args: "<work.trd>
    --reconcile --chained --shipping" })` (synchronous). Read its RETURN line. A STUCK return
    returns `stop` with its reason. Then snapshot again and compare: a path whose
    status line is new or different, or whose `git hash-object` differs, is the build's own edit
