@@ -35,5 +35,11 @@
     "url": "https://claude.ai/artifact/LDA8NVYSZAaTj3cwAXV5Jg",
     "updated_at": "2026-11-07T12:51:23.039Z",
     "command": "/verify-build"
+  },
+  "audit-build": {
+    "path": ".trd-state/ship-build/audit-build-report.md",
+    "url": "https://claude.ai/artifact/8K3GPHZy3KSg8TxowKzubL",
+    "updated_at": "2026-11-07T13:07:40.083Z",
+    "command": "/audit-build"
   }
 }
