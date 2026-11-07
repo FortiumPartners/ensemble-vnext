@@ -230,6 +230,27 @@ describe('missing tools exit 2 naming the install step (D13)', () => {
     expect(r.stderr).toMatch(/playwright is not installed.*npm install --save-dev playwright.*npx playwright install chromium/);
   });
 
+  it('launch() reaches a workspace-package @playwright/test through the CLI (FIX-001)', () => {
+    // Drives the real path the design commands use. resolveTool-level tests cannot notice launch()
+    // dropping { workspace: true, alias } from its locateTool call; this one can.
+    const d = mkDesign([board('01-plain')], { '01-plain.dc.html': fixture('plain.dc.html') });
+    const marker = `STUB-WS-PLAYWRIGHT-${Math.random().toString(36).slice(2)}`;
+    const put = (rel, body) => {
+      fs.mkdirSync(path.dirname(path.join(d.repo, rel)), { recursive: true });
+      fs.writeFileSync(path.join(d.repo, rel), body);
+    };
+    put('package.json', JSON.stringify({ name: 'root' }));
+    put('pnpm-workspace.yaml', "packages:\n  - 'apps/*'\n");
+    put('apps/web/package.json', JSON.stringify({ name: 'web' }));
+    put('apps/web/node_modules/@playwright/test/package.json', JSON.stringify({ name: '@playwright/test', main: 'index.js' }));
+    put('apps/web/node_modules/@playwright/test/index.js',
+      `module.exports = { chromium: { launch: async () => { throw new Error(${JSON.stringify(marker)}); } } };`);
+    // PATH holds only node, so the global `npm root -g` lookup cannot rescue a dropped option.
+    const r = cliRun(d, { PATH: path.dirname(process.execPath) });
+    expect(r.stderr).toContain(marker);
+    expect(r.stderr).not.toMatch(/playwright is not installed/i);
+  });
+
   it('exits 2 when Playwright has no Chromium, and renders through the CLI when it has', () => {
     const d = mkDesign([board('01-plain')], { '01-plain.dc.html': fixture('plain.dc.html') });
     // Playwright resolves from this repository: run the CLI with the repo as the project root.

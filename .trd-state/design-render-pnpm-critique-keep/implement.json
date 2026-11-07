@@ -53,6 +53,32 @@
       "files_deleted": [],
       "current_problem": null,
       "completed_at": "2026-11-07T03:42:39.778Z"
+    },
+    "AMEND-002": {
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "phase": 1,
+      "files_changed": [
+        "packages/core/commands/refine-design.md",
+        ".claude/commands/refine-design.md",
+        "packages/core/commands/refine-design-prose.test.js"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-07T04:46:02.821Z"
+    },
+    "AMEND-003": {
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "phase": 1,
+      "started_at": "2026-11-07T04:46:02.821Z",
+      "last_advanced": "2026-11-07T04:47:39.181Z",
+      "files_changed": [
+        "packages/core/lib/design-render.test.js"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-07T04:48:12.228Z"
     }
   },
   "checkpoints": [
