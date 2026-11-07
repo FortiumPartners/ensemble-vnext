@@ -14,12 +14,16 @@ Merges the pull request and proves that what merged is what was verified (D11, D
 
 ## Input
 
-`method` (`merge`, `squash` or `rebase`; default `merge`), plus `pr` and `base` from `context`.
+`method` (`merge`, `squash` or `rebase`; default `merge`), plus `pr`, `base` and `head` from `context`.
 
 ## Do
 
-1. `gh pr merge <pr> --<method>`. A failure, branch protection included, returns `stop` with
-   `gh`'s message. Never bypass protection.
+1. Read `gh pr view <pr> --json state`. Already `MERGED` (a merge whose proof failed, or one
+   done outside this run): skip to step 2. Otherwise
+   `gh pr merge <pr> --<method> --match-head-commit <head>`, where `<head>` is the full id in
+   `context.head`, so a commit pushed to the PR since the `push` step is never merged
+   unverified. A failure, branch protection included, returns `stop` with `gh`'s message. Never
+   bypass protection.
 2. Prove the merge link:
    ```bash
    node .claude/lib/custody.js check --state-dir <work.stateDir> --link merge --pr <pr> \

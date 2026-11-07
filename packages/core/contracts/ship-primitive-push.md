@@ -40,7 +40,8 @@ still to come) and `context` (every earlier result's `data`). No parameters.
    - `reverify` (shipped source changed since the anchor and the listed must-pass criteria need
      proof again): run `/verify-build <work.trd> --criteria <ids> --no-fix --chained` (a
      synchronous Skill call), then repeat the reconcile with `--reverified
-     <work.stateDir>/verification-state.json`. `moved`: go on. `refused`: return `stop`, naming
+     <work.stateDir>/reverify/verification-state.json` (the subset run writes there; the
+     feature's own `verification-state.json` is the old full run and would pass stale). `moved`: go on. `refused`: return `stop`, naming
      the criteria that are not `met`.
    - A `differing` list or any failure: return `stop`, naming the step and the differing files.
 3. `git push -u origin <branch>` (the branch the work is on now).

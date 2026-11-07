@@ -139,6 +139,11 @@ describe('parse', () => {
     expect(errorsOf(policy('1. alpha\n2. bravo\n3. charlie'))[0]).toMatch(/^line 7: charlie needs tool/);
   });
 
+  test('a step number used twice is an error (the cursor would loop on the first)', () => {
+    expect(errorsOf(policy('1. alpha\n1. india'))[0]).toMatch(/^line 6: step number 1 is used twice/);
+    expect(errorsOf(`## Ship\n\n1. alpha\n\n## After shipping\n\n1. hotel\n1. hotel\n`)[0]).toMatch(/step number 1 is used twice/);
+  });
+
   test('unmet needs, wrong section', () => {
     expect(errorsOf(policy('1. bravo'))[0]).toMatch(/^line 5: bravo needs head/);
     expect(errorsOf(policy('1. alpha\n2. hotel'))[0]).toMatch(/hotel belongs under ## After shipping/);

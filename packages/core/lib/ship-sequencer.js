@@ -342,6 +342,15 @@ function validateSteps(steps, contracts, errors) {
     c.provides.forEach((k) => provided.add(k));
     return extra;
   };
+  // A step is found again by its id (`locate`), so two steps sharing one would send the cursor
+  // back to the first every time: a `1.` `1.` `1.` list would push forever.
+  const ids = new Set();
+  for (const step of steps) {
+    if (ids.has(step.id)) {
+      errors.push(`line ${step.line}: step number ${step.id.replace(/^a/, '')} is used twice in this section; number the steps 1, 2, 3...`);
+    }
+    ids.add(step.id);
+  }
   for (const step of steps) {
     if (step.primitive !== 'repeat') {
       seen(step, step.section);
