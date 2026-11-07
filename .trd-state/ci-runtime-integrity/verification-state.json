@@ -1,0 +1,105 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ci-runtime-integrity/evidence/fs1-3-bats-main.txt",
+      "reason": "Captured bats run shows 'ok 2 every .claude/rules/ file matches its shipped template' and no DRIFT line, with the owner-filled verification.md in place (it differs from its template).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ci-runtime-integrity/evidence/fs1-3-bats-main.txt",
+      "reason": "Same capture shows 'ok 8 every framework rule template matches the live copy it ships' and no 'differ' line.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ci-runtime-integrity/evidence/fs1-3-bats-main.txt",
+      "reason": "All 18 tests report ok, no 'not ok' line, and the recorded exit status is 0.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ci-runtime-integrity/evidence/fs4-diff.txt",
+      "reason": "Artifact records diff exit 0 with no changed lines; re-running 'git diff --stat 9f61568 HEAD -- .claude/rules/verification.md' in the judge stage also printed nothing, and the working tree has no change to that file.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ci-runtime-integrity/evidence/fs5-bats-design-filled.txt",
+      "reason": "With design.md's 'Source of truth' field filled with 'code' in a scratch copy (fs5-design-diff.txt), both parity tests (2 and 8) report ok, no DRIFT: rules/design.md line, exit 0.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ci-runtime-integrity/evidence/fs6-7-bats-autonomy-edited.txt",
+      "reason": "With autonomy.md edited in a scratch copy, test 2 reports 'not ok' with 'DRIFT: rules/autonomy.md'.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ci-runtime-integrity/evidence/fs6-7-bats-autonomy-edited.txt",
+      "reason": "Same scratch run: test 8 reports 'not ok' with a 'differ' line naming templates/claude-directory/rules/autonomy.md and .claude/rules/autonomy.md.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-8",
+      "status": "not_verifiable",
+      "tier1": "fail",
+      "artifact": null,
+      "reason": "Needs the GitHub Actions run on the fix's push; GitHub Actions is not an environment listed in .claude/rules/verification.md section 1, so it is not authorized for exercise here. The PR's CI result is reported separately by the orchestrator.",
+      "cause": "environment-unreachable",
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": "satisfied"
+}
