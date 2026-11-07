@@ -104,6 +104,23 @@
         "status": "usable",
         "reason": "always authorized"
       }
+    },
+    "fix": {
+      "plan": ".trd-state/design-render-pnpm-critique-keep/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1
+      },
+      "rounds": [
+        {
+          "round": 1,
+          "tasksPromoted": 0,
+          "criteriaClosed": 1,
+          "criteriaOpen": 0,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
     }
   }
 }
