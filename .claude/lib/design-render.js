@@ -23,7 +23,7 @@
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1, or 2 for a missing tool):
  *   node .claude/lib/design-render.js render --dir docs/ui/<slug> --out <dir>
  *     [--runtime <dc-runtime.js>] [--boards a,b] [--at <sha> | --approved] [--map <file>]
-     [--floor-contrast <ratio>] [--floor-target <px>]
+ *     [--floor-contrast <ratio>] [--floor-target <px>]
  *   node .claude/lib/design-render.js runtime-check --live <file>
  *
  * `--runtime` is optional: it defaults to PINNED_RUNTIME, the `dc-runtime.js` that ships beside this
@@ -474,10 +474,11 @@ const MEASURE_SCRIPT = String.raw`function (args) {
   });
   drain(lg, measures);
   var pairs = 0, firstPair = null, many = targets.slice(0, 500);
+  var rects = many.map(function (el) { return el.getBoundingClientRect(); });
   for (var i = 0; i < many.length; i++) {
     for (var j = i + 1; j < many.length; j++) {
       if (many[i].contains(many[j]) || many[j].contains(many[i])) continue;
-      var a = many[i].getBoundingClientRect(), b = many[j].getBoundingClientRect();
+      var a = rects[i], b = rects[j];
       var ox = Math.min(a.right, b.right) - Math.max(a.left, b.left), oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
       if (ox > 1 && oy > 1) { pairs++; if (!firstPair) firstPair = describe(many[i]) + ' / ' + describe(many[j]); }
     }

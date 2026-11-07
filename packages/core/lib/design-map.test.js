@@ -443,6 +443,13 @@ describe('direction', () => {
     expect(r.floor).toEqual({ contrast: 4.5, target: 44 });
     expect(r.floor_blank).toBe(false);
   });
+  it('a style pack given as `style` is not reported blank; a fractional target is read whole', () => {
+    const d = project([...FILLED.map((l) => (/Accessibility/.test(l) ? '- **Accessibility floor:** contrast 4.5:1, targets 24.5 px' : l)), ...sect5({ brand: 'b', refs: 'r', lat: 'keep' })]);
+    const r = dm.direction(d, { style: 'style-pack-b' });
+    expect(r.blank).toEqual([]);
+    expect(r.style_pack.name).toBe('style-pack-b');
+    expect(r.floor.target).toBe(24.5);
+  });
   it('an unparseable floor line is floor_blank', () => {
     const r = dm.direction(project(FILLED.map((l) => (/Accessibility/.test(l) ? '- **Accessibility floor:** (the owner\'s answer, recorded by `/design-setup`)' : l))));
     expect(r.floor).toEqual({ contrast: null, target: null });

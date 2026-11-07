@@ -507,6 +507,7 @@ ${DATA_RULE}
 ${BATCH}`
     : `Critique the screen "${it.s.name}"${it.letter ? ` as drawn in direction ${it.letter.toUpperCase()}` : ''} (${it.s.route}, ${it.s.platform} ${it.s.viewport}) of the design at ${DIR}: render its boards,
 read every PNG, and score the TO-BE board.
+${it.recs.some((b) => b.kind === 'to-be') ? `Score ONLY the to-be board ${it.recs.filter((b) => b.kind === 'to-be').map((b) => b.id).join(', ')}: use that id as "board" on every score.` : 'This screen has no to-be board (its draw failed): render and measure, and return scores as an empty list.'}
 ${VISUAL_COMMON}
 Boards: ${it.recs.map((b) => b.id).join(', ')}
 Scratch map:
@@ -545,6 +546,12 @@ visual.forEach((r, i) => {
   if (!r || r.missing_tool) critiqueNotRun.push(...visualItems[i].recs.map((b) => b.id))
 })
 const visualAlive = visual.filter(Boolean)
+// Only the to-be board a screen critic was given is scored (contract section 8): a score on an as-is or
+// parts board is dropped everywhere (fix round, rank, critique), so nothing edits a board that must match its screenshot.
+const scoredIds = (it) => new Set(it.kind === 'screen' ? it.recs.filter((b) => b.kind === 'to-be').flatMap((b) => [b.id, b.file]) : [])
+const keptScores = (r) => (r.scores || []).filter((x) => scoredIds(r.item).has(x.board))
+const droppedScores = visualAlive.reduce((n, r) => n + (r.scores || []).length - keptScores(r).length, 0)
+if (droppedScores) log(`WARNING: ${droppedScores} critique score(s) named a board other than the screen's to-be board and were dropped`)
 
 // Explore: one rank agent per screen reads its directions' frames and critiques; the top-ranked direction is
 // the only one that enters the challenge and fix round (D15). The command asks the owner and renames files.
@@ -563,7 +570,7 @@ if (EXPLORE) {
       const v = visualAlive.find((r) => r.item.s === s && r.item.letter === d.letter)
       return `DIRECTION ${d.letter.toUpperCase()} (${EMPHASIS[d.letter]}): board ${d.rec.id}, file ${d.rec.file}
   frames folder: ${v && v.out ? v.out : '(none: its visual agent returned nothing; judge from the board source)'}
-  scores: ${JSON.stringify(v ? v.scores || [] : [])}
+  scores: ${JSON.stringify(v ? keptScores(v) : [])}
   measures: ${JSON.stringify(v ? v.measures || [] : [])}`
     }).join('\n')
     return agent(
@@ -660,7 +667,7 @@ const renderFindings = visualAlive.flatMap((r) => (r.errors || []).map((e) => ({
 const measureFindings = visualAlive.flatMap((r) => (r.measures || [])
   .filter((m) => MEASURE_RANK[m.verdict] && !asIsIds.has(m.board))
   .map((m) => ({ axis: 'measure', board: m.board, why: `${m.check} ${m.verdict}${m.detail ? ` (${m.detail})` : ''}${m.state ? ` in state ${m.state}` : ''}${m.viewport ? ` at ${m.viewport}` : ''}: ${m.value === undefined || m.value === null ? '' : m.value}${m.element ? ` at ${m.element}` : ''}`, rank: MEASURE_RANK[m.verdict] })))
-const scoreFindings = visualAlive.flatMap((r) => (r.scores || [])
+const scoreFindings = visualAlive.flatMap((r) => keptScores(r)
   .filter((x) => x.score !== null && !x.not_judged && SCORE_RANK[x.score])
   .map((x) => ({ axis: 'critique', board: x.board, why: `${x.dimension} scored ${x.score} of 5${(x.frames || []).length ? ` (${x.frames.join(', ')})` : ''}: ${x.reason || ''}`, rank: SCORE_RANK[x.score] })))
 // Under explore the as-is board is rendered once per direction, so the same render error can arrive several
@@ -720,7 +727,7 @@ return {
   critique: visualAlive.filter((r) => !r.missing_tool).map((r) => ({
     screen: r.item.kind === 'parts' ? 'parts' : `${r.item.s.n}-${r.item.s.key}`,
     ...(r.item.letter ? { direction: r.item.letter } : {}),
-    boards: r.item.recs.map((b) => b.id), errors: r.errors || [], measures: r.measures || [], scores: r.scores || [],
+    boards: r.item.recs.map((b) => b.id), errors: r.errors || [], measures: r.measures || [], scores: keptScores(r),
   })),
   critique_not_run: critiqueNotRun,
   render_missing_tool: (visualAlive.find((r) => r.missing_tool) || {}).missing_tool || '',

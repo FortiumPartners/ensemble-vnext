@@ -17,6 +17,10 @@ describe('audit-design command prose', () => {
     expect(read('.claude/workflows/audit-design.js')).toBe(read('packages/core/workflows/audit-design.js'));
   });
 
+  test('--drift tells the caller to pass driftRubric from verify-design-comparison ## Rubric', () => {
+    expect(text).toMatch(/`capture` and `driftRubric` \(the `## Capture` and `## Rubric` text of `verify-design-comparison`/);
+  });
+
   test('runs stale without --record and writes no map', () => {
     expect(text).toMatch(/design-map\.js stale --dir docs\/ui\/<slug>\s*```/);
     expect(text).toContain('without `--record`');

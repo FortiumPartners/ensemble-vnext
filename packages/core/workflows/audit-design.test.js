@@ -388,7 +388,7 @@ describe('audit-design --drift (DSGN-B015)', () => {
   const asIs = { id: '10-a', file: 'a.dc.html', kind: 'as-is', platform: 'web', viewport: '1280x800', status: 'approved' };
   const driftArgs = (o = {}) => baseArgs({
     map: JSON.stringify({ boards: [board(1), shipped, asIs] }), drift: true,
-    routes: ['/cart', '/orders'], capture: 'CAPTURE-TEXT', rubric: 'RUBRIC-TEXT',
+    routes: ['/cart', '/orders'], capture: 'CAPTURE-TEXT', rubric: 'RUBRIC-TEXT', driftRubric: 'DRIFT-RUBRIC-TEXT',
     systemVersions: { installed: 'v1', current: 'v2' }, ...o,
   });
 
@@ -417,7 +417,26 @@ describe('audit-design --drift (DSGN-B015)', () => {
     expect(p).not.toContain('"01-b"');
     expect(p).toMatch(/MUST NOT be under docs\/ui\/checkout/);
     expect(p).toContain('CAPTURE-TEXT');
+    // The comparison rubric, never contract section 8 (the visual critique rubric the critics score with).
+    expect(p).toContain('DRIFT-RUBRIC-TEXT');
+    expect(p).not.toMatch(/(^|[^-])RUBRIC-TEXT/);
     expect(p).toMatch(/never staging or production/);
+  });
+
+  it('states how comparison verdicts become findings and that no verdicts.json is written', async () => {
+    const { agent } = await audit({}, driftArgs());
+    const p = byLabel(agent, 'verify:drift-boards-1').prompt;
+    expect(p).toMatch(/match and minor are not findings; deviates is a board-drift finding; uncaptured is not a finding/);
+    expect(p).toMatch(/superseded is not a finding only when the rubric's cited ruling is named in why/);
+    expect(p).toMatch(/Write no verdicts\.json/);
+  });
+
+  it('a missing driftRubric yields one "drift rubric not supplied" finding and stops', async () => {
+    const { agent } = await audit({}, driftArgs({ driftRubric: '' }));
+    const p = byLabel(agent, 'verify:drift-boards-1').prompt;
+    expect(p).toMatch(/report one board-drift finding on the first board saying "drift rubric not supplied", and stop/);
+    const ok = byLabel((await audit({}, driftArgs())).agent, 'verify:drift-boards-1').prompt;
+    expect(ok).not.toContain('drift rubric not supplied');
   });
 
   it('gives the system verifier both versions, and reports a missing comparison rather than skipping it', async () => {

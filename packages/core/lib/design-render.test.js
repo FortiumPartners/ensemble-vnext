@@ -603,3 +603,26 @@ describe('measures (D3)', () => {
     expect(render.normalizeColor('var(--x)')).toBeNull();
   });
 });
+
+describe('design-render.js source hygiene', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'design-render.js'), 'utf8');
+
+  it('reads each target rect once, before the overlap pair loop in MEASURE_SCRIPT', () => {
+    const start = src.indexOf('const MEASURE_SCRIPT');
+    const pairLoop = src.indexOf('for (var j = i + 1', start);
+    const loopEnd = src.indexOf("measures.push({ check: 'layout', verdict: 'fault', detail: 'overlapping-targets'", pairLoop);
+    expect(pairLoop).toBeGreaterThan(start);
+    expect(loopEnd).toBeGreaterThan(pairLoop);
+    expect(src.slice(pairLoop, loopEnd)).not.toContain('getBoundingClientRect');
+  });
+
+  it('has a top doc-comment block in which every line carries its " * " prefix', () => {
+    const lines = src.split('\n');
+    const open = lines.findIndex((l) => l.startsWith('/**'));
+    const close = lines.findIndex((l, i) => i > open && l.trim() === '*/');
+    expect(open).toBeGreaterThanOrEqual(0);
+    expect(close).toBeGreaterThan(open);
+    const bad = lines.slice(open + 1, close).filter((l) => !/^ \*( |$)/.test(l));
+    expect(bad).toEqual([]);
+  });
+});

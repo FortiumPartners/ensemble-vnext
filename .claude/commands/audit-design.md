@@ -83,10 +83,10 @@ zero findings is a legitimate result.
    ```
    Workflow({ name: "audit-design", args: { slug: "<slug>", dir: "docs/ui/<slug>", brief: "docs/ui/<slug>/brief.md", sources: "<sources path or empty>", project: "<dir or empty>", map: "<design-map.json text>", conventions: "<text or empty>", stale: <stale result>, priorCnv: [<prior rows>], direction: <the direction result>, stylePack: "<style-pack text or empty>", rubric: "<contract section 8 text>", floor: <the direction result's floor> } })
    ```
-   **With `--drift`**, add `"drift": true` and four more inputs only this session can supply:
+   **With `--drift`**, add `"drift": true` and five more inputs only this session can supply:
    `routes` (the product's routes from `.claude/rules/design.md`, or empty), `systemVersions`
    (`{ installed, current }`, read from the hosted Design System artifact and the canvas, D12),
-   and `capture` (the `## Capture` text of `verify-design-comparison`'s
+   `capture` and `driftRubric` (the `## Capture` and `## Rubric` text of `verify-design-comparison`'s
    `SKILL.md`; the `rubric` arg stays contract section 8), and `"environment": "local"` (an environment `verification.md` section 1 lists;
    never `staging` or `production`). The result then also carries `undesigned_screens`; print
    them under ISSUES with `/create-design` to draw each as an as-is board.

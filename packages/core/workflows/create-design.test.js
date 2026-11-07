@@ -301,6 +301,36 @@ describe('create-design stage draw', () => {
     expect(result.critique.find((c) => c.screen === '01-screen-1').scores).toHaveLength(5);
   });
 
+  it('drops a score on any board but the screen\'s to-be board, so the fix round never edits an as-is board', async () => {
+    const { result } = await run(drawArgs(1), {
+      'visual:01-screen-1': {
+        errors: [], measures: [],
+        scores: [
+          { board: '01-screen-1--as-is', dimension: 'craft', score: 1, frames: ['a.png'], reason: 'as-is: x', vs_predecessor: 'no predecessor' },
+          { board: '01-screen-1', dimension: 'craft', score: 2, frames: ['t.png'], reason: 'to-be: y', vs_predecessor: 'same' },
+        ],
+      },
+    });
+    const critique = result.findings_open.filter((f) => f.axis === 'critique');
+    expect(critique.map((f) => f.board)).toEqual(['01-screen-1']);
+    // critique.md is written from `critique`: the dropped as-is score must not reach it either.
+    expect(result.critique.find((c) => c.screen === '01-screen-1').scores.map((x) => x.board)).toEqual(['01-screen-1']);
+  });
+
+  it('names the to-be board id the screen critic must score, and only that one', async () => {
+    const { agent } = await run(drawArgs(1));
+    const p = byLabel(agent, 'visual:01-screen-1').prompt;
+    expect(p).toContain('Score ONLY the to-be board 01-screen-1:');
+  });
+
+  it('names each explore direction\'s own to-be id in its critic prompt', async () => {
+    const { agent } = await run(drawArgs(1, { explore: true }));
+    for (const l of ['a', 'b', 'c']) {
+      const p = byLabel(agent, `visual:01-screen-1-${l}`).prompt;
+      expect(p).toMatch(new RegExp(`Score ONLY the to-be board 01-screen-1--dir-${l}:`));
+    }
+  });
+
   it('ranks a failed import as an off-token value, and keeps an as-is board\'s measures out of the fix round', async () => {
     const { result } = await run(drawArgs(1), {
       'visual:01-screen-1': {
