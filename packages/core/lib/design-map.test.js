@@ -572,6 +572,88 @@ describe('unsynced', () => {
   });
 });
 
+describe('unsynced --merged-into', () => {
+  // A real repository: main holds the audited commit of "merged", a side branch holds "unmerged".
+  const fixture = () => {
+    const root = tmp();
+    sh(root, 'init', '-q', '-b', 'main');
+    fs.writeFileSync(path.join(root, 'a.txt'), '1');
+    sh(root, 'add', '-A'); sh(root, 'commit', '-qm', 'base');
+    const base = sh(root, 'rev-parse', 'HEAD').stdout.trim();
+    sh(root, 'checkout', '-q', '-b', 'side');
+    fs.writeFileSync(path.join(root, 'b.txt'), '2');
+    sh(root, 'add', '-A'); sh(root, 'commit', '-qm', 'side work');
+    const side = sh(root, 'rev-parse', 'HEAD').stdout.trim();
+    sh(root, 'checkout', '-q', 'main');
+    const put = (name, boards) => {
+      const d = path.join(root, 'docs', 'ui', name);
+      fs.mkdirSync(d, { recursive: true });
+      fs.writeFileSync(path.join(d, 'design-map.json'), JSON.stringify(mapOf(boards)));
+    };
+    const close = (f, audit) => {
+      fs.mkdirSync(path.join(root, '.trd-state', f), { recursive: true });
+      fs.writeFileSync(path.join(root, '.trd-state', f, 'closed.json'), JSON.stringify({ feature: f, audit }));
+    };
+    const b = (id, f) => board({ id, file: `${id}.dc.html`, status: 'building', trd: `docs/TRD/${f}.md` });
+    return { root, base, side, put, close, b };
+  };
+  const ids = (list) => list.map((e) => e.id);
+
+  it('lists a board whose audited commit is an ancestor of the ref, and not one that is not', () => {
+    const { root, base, side, put, close, b } = fixture();
+    close('merged', { auditedCommit: base.slice(0, 7) }); // short id, as every real record has
+    close('unmerged', { auditedCommit: side });
+    put('d', [b('01', 'merged'), b('02', 'unmerged')]);
+    expect(ids(dm.unsyncedAll(root, { mergedInto: 'main' }))).toEqual(['01']);
+  });
+  it('lists a squash-merged feature with --merged-head and not without it', () => {
+    const { root, side, put, close, b } = fixture();
+    close('sq', { auditedCommit: side });
+    put('d', [b('01', 'sq')]);
+    expect(dm.unsyncedAll(root, { mergedInto: 'main' })).toEqual([]);
+    expect(ids(dm.unsyncedAll(root, { mergedInto: 'main', mergedHead: side }))).toEqual(['01']);
+  });
+  it('does not list a feature with "audit": null, no audit key, or an unknown commit', () => {
+    const { root, put, close, b } = fixture();
+    close('n', null);
+    fs.mkdirSync(path.join(root, '.trd-state', 'bare'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.trd-state', 'bare', 'closed.json'), '{}');
+    close('ghost', { auditedCommit: 'deadbee' });
+    put('d', [b('01', 'n'), b('02', 'bare'), b('03', 'ghost')]);
+    expect(dm.unsyncedAll(root, { mergedInto: 'main', mergedHead: 'main' })).toEqual([]);
+  });
+  it('treats an ambiguous short id as not merged', () => {
+    const { root, put, close, b } = fixture();
+    close('amb', { auditedCommit: '' });
+    put('d', [b('01', 'amb')]);
+    expect(dm.unsyncedAll(root, { mergedInto: 'main' })).toEqual([]);
+  });
+  it('without --merged-into the output is unchanged (closed.json need not name a commit)', () => {
+    const { root, put, close, b } = fixture();
+    close('n', null);
+    put('d', [b('01', 'n')]);
+    expect(ids(dm.unsyncedAll(root))).toEqual(['01']);
+  });
+  it('rejects an unresolvable ref, an option-shaped ref, and --merged-head alone', () => {
+    const { root, put, close, b, base } = fixture();
+    close('m', { auditedCommit: base });
+    put('d', [b('01', 'm')]);
+    expect(() => dm.unsyncedAll(root, { mergedInto: 'no-such-ref' })).toThrow(/merged-into/);
+    expect(() => dm.unsyncedAll(root, { mergedInto: '--all' })).toThrow(/merged-into/);
+    expect(() => dm.unsyncedAll(root, { mergedHead: base })).toThrow(/merged-head needs --merged-into/);
+  });
+  it('works through the CLI with --all and with --dir', () => {
+    const { root, base, put, close, b } = fixture();
+    close('m', { auditedCommit: base });
+    put('d', [b('01', 'm')]);
+    const script = path.join(__dirname, 'design-map.js');
+    const run = (...a) => spawnSync('node', [script, 'unsynced', ...a], { cwd: root, encoding: 'utf8' });
+    expect(ids(JSON.parse(run('--all', '--merged-into', 'main').stdout))).toEqual(['01']);
+    expect(ids(JSON.parse(run('--dir', 'docs/ui/d', '--merged-into', 'main').stdout))).toEqual(['01']);
+    expect(run('--all', '--merged-head', base).status).toBe(1);
+  });
+});
+
 describe('installed copy', () => {
   it('.claude/lib/design-map.js is byte-identical to packages/core/lib/design-map.js', () => {
     const root = path.join(__dirname, '..', '..', '..');

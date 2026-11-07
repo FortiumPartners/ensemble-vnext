@@ -2,7 +2,7 @@
 name: verify-build
 description: Run the functional verification loop on its own — does the delivered software do what the PRD says, checked with artifacts
 version: 1.0.0
-argument-hint: "[trd-path] [--resume] [--cap N] [--no-fix] [--fix [plan-path]] [--chained]"
+argument-hint: "[trd-path] [--resume] [--cap N] [--no-fix] [--fix [plan-path]] [--criteria <ids>] [--chained]"
 category: verification
 ---
 
@@ -16,11 +16,15 @@ $ARGUMENTS
 
 If no TRD path is given, resolve from `.trd-state/current.json`'s `trd`.
 
-`--chained` is **for callers only** (`/plan --implement` on a sweep list, which runs this
-command as one step of its own run). Strip it from the arguments before reading the path, so
-it is never taken for one. It is honoured **only for a sweep file** (Step 1); on any other
-input it is stripped and ignored, and the run is an ordinary one — banner, notification and
-all. See "`--chained`" below.
+`--chained` is **for callers only** (`/plan --implement` on a sweep list, and `/ship-build`'s
+re-verification, each of which runs this command as one step of its own run). Strip it from the
+arguments before reading the path, so it is never taken for one. It is honoured **for a sweep
+file, or for a TRD run with `--criteria`** (Step 1); on any other input it is stripped and
+ignored, and the run is an ordinary one — banner, notification and all. See "`--chained`" below.
+
+`--criteria <ids>` (also for callers; D13) re-verifies only the named criteria of a TRD. Strip
+the flag **and its value** (a comma- or space-separated list of criterion ids) before reading
+the path, so neither is taken for one. See "`--criteria`" below.
 
 ---
 
@@ -70,8 +74,11 @@ never the core feature's, and a stale `success-definition.md` there cannot be re
 `1`, `prd_path` is the sweep file's path, and the fix loop is skipped (see "A sweep file" in
 step 3a and the Readout). `<slug>` is the file's name before `.sweep.md`.
 
-**`--chained` on a sweep file turns the run into one step of its caller's run** (see
-"`--chained`" below); that is the only input it changes anything for.
+**`--chained` on a sweep file, or on a TRD with `--criteria`, turns the run into one step of
+its caller's run** (see "`--chained`" below); those are the only inputs it changes anything for.
+
+**`--criteria <ids>` on a TRD runs a subset** (see "`--criteria`" below). It is meaningless on a
+sweep file (a sweep has no criteria to name, so nothing re-runs): ignore it there.
 
 ### 2. Preflight the environment
 
@@ -251,6 +258,9 @@ exists (step 3 or 3a); select the checks the TRD's `## Verification Artifacts` s
 (or the same defaults §8.1b applies when it is absent or silent), append their rows, and
 resolve `checks`, `checkComments` and `pagesDir` exactly as §8.1b documents.
 
+**Under `--criteria`, skip this step entirely** (no check-skill rows; `checks` is `{}`,
+`checkComments` `[]`, `pagesDir` still set, under `reverify/`).
+
 Under the fix loop (below), union the plan's `## Extra checks` table into this selection
 first, restricted to rows naming a `check`-role skill in `framework-skills.txt` — a row naming
 the `support`-role `verification-setup`, or any other skill whose role is not `check`, is left
@@ -272,6 +282,11 @@ a TRD, run `node .claude/lib/functional-verification.js must-pass-coverage --trd
 .trd-state/<feature>/success-definition.md` and hold its `criteria` as `mustPassIds` and its
 `uncovered` as `mustPassUncovered`, unchanged — never read the `Must pass` column yourself. A
 sweep file has no TRD and declares no must-pass (D19): skip the call and use `[]` for both.
+
+**Under `--criteria`, 3c's coverage floor and must-pass are overridden** — a subset is not the
+whole definition, so a floor measured over it is meaningless: `coverageFloor` is `null`,
+`mustPassIds` is the must-pass-coverage `criteria` restricted to the named ids, and
+`mustPassUncovered` is `[]`. `fullRunCommand` is `""` (no end-of-run full deploy).
 
 ### 4. Dispatch
 
@@ -308,6 +323,12 @@ Workflow({ name: "verify-functional", args: {
   mustPassUncovered,                                             // must-pass-coverage's `uncovered` ([{id, text}]), unchanged (step 3c here); [] for a sweep file or when none
 } })
 ```
+
+**Under `--criteria`**, apply the "`--criteria`" section's overrides to the fields above:
+`feature` stays `<feature>`, but `evidenceDir`, `statePath`, `reportPath` and `pagesDir` sit
+under `.trd-state/<feature>/reverify/`, `cap` is `1`, `criteria` is the filtered subset, and
+`checks`, `fullRunCommand`, `coverageFloor`, `mustPassIds` and `mustPassUncovered` are as above.
+No field is added or removed: the list stays the 26 fields.
 
 ### 5. Report
 
@@ -399,17 +420,18 @@ Never `/refine-verification` or `/audit-build`.
 
 **For callers, not for direct use.** `/plan --implement` on a sweep list runs
 `/verify-build <sweep file> --chained` as one step of its own run, so this command must not
-end that run. Honoured only when Step 1 resolved a sweep file; with a TRD the flag is ignored
-and none of this section applies. Under it:
+end that run. Honoured only when Step 1 resolved a sweep file, or a TRD with `--criteria`; with a TRD alone the
+flag is ignored and none of this section applies. Under it:
 
 - **Asks nothing, as in every mode.** Each environment needing one thing from the owner takes
   the default (its criteria resolve `not_verifiable`) and the need is recorded as a
   `verification.md` discovery exactly as the fix loop's step 2 records one. No
   `AskUserQuestion` reaches the owner (compare `/implement-trd` §3.7).
 - **Still does the work.** Steps 1–5 run in full: the loop is dispatched, the report is
-  written to `.trd-state/<slug>-sweep/verification-report.md`, and the evidence step in 3a
-  ("After a satisfied sweep run, carry the evidence to the core") still runs, because the
-  core feature's own run reads that evidence. A published report link, if any, is stated on
+  written to `.trd-state/<slug>-sweep/verification-report.md` (a `--criteria` run: the
+  `reverify/` report), and the evidence step in 3a
+  ("After a satisfied sweep run, carry the evidence to the core") still runs for a sweep file,
+  because the core feature's own run reads that evidence. A published report link, if any, is stated on
   its own line above the RETURN line.
 - **Ends with one line, not the readout:**
 
@@ -424,6 +446,29 @@ and none of this section applies. Under it:
 - **No banner, no `notify-complete.sh`, no `PushNotification`.** The caller owns the run's
   only terminator; `notify-complete.sh` would mark the run finished and switch off the
   autonomy judge for the rest of the chain.
+
+## `--criteria <ids>`
+
+**For callers (`/ship-build`'s re-verification), written `--criteria <ids> --no-fix --chained`.**
+Re-verifies only the named criteria of an already-built TRD (D13). The feature's own records
+belong to its full run, so a subset must never overwrite them. Under it:
+
+- **Strip the flag and its value** before the path is read (Step 1).
+- **Its own paths**: `statePath`, `reportPath`, `evidenceDir` and `pagesDir` are all under
+  `.trd-state/<feature>/reverify/` (`verification-state.json`, `verification-report.md`,
+  `evidence`, `verification-artifacts`). The feature's own `verification-state.json` and
+  `verification-report.md` are not touched.
+- **`cap: 1`**: one iteration, so the loop never reaches its in-place Debug stage; a Debug pass
+  would edit code outside the recorded path. `--no-fix` is implied: skip the fix loop.
+- **Only the named criteria**: read the feature's `success-definition.md` (present, as for any
+  run), then filter `criteria` to the named ids. Restrict `mustPassIds` to them,
+  `mustPassUncovered: []`, `coverageFloor: null` (no coverage floor).
+- **No check-skill rows** (skip step 3b), **no full deploy** (`fullRunCommand: ""`), **no
+  publish** and **no `artifacts.js record`**: skip the Artifact link section entirely.
+- **An unknown id fails loudly**: if any named id is not a criterion of the definition, run
+  nothing and end on `[STATUS: /verify-build] RETURN → not run: unknown criterion <id>`.
+- **`--chained --criteria` ends on the existing `RETURN` line** from "`--chained`", with no
+  banner and no `notify-complete.sh`.
 
 ## `--fix [plan-path]`, `--no-fix`, and `--resume`
 
@@ -576,8 +621,9 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
 
 ## Output discipline (see `.claude/rules/command-status.md`)
 
-**Under `--chained` (a sweep file) none of the rest of this section applies:** the run ends
-with the one `RETURN` line from "`--chained`", above — no banner, no `notify-complete.sh`.
+**Under `--chained` (a sweep file, or a TRD with `--criteria`) none of the rest of this section
+applies:** the run ends with the one `RETURN` line from "`--chained`", above — no banner, no
+`notify-complete.sh`, and under `--criteria` no publish and no `artifacts.js record`.
 
 ### Artifact link (see `.claude/rules/command-status.md`)
 

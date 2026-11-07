@@ -1,7 +1,7 @@
 ---
 name: implement-trd
 description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
-argument-hint: "[trd-path] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify] [--no-verify] [--chained] [--sweep-flag <text>]"
+argument-hint: "[trd-path] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify] [--no-verify] [--chained] [--shipping] [--sweep-flag <text>]"
 version: 4.0.0
 category: implementation
 ---
@@ -38,6 +38,11 @@ category: implementation
 >   §9.0a's publishing; emits no banner, no `notify-complete.sh`, no `PushNotification`. Ends
 >   with one handoff line, `[STATUS: /implement-trd] RETURN → …`, reporting the build back to
 >   its caller instead of the usual four-section readout (§3.7).
+> - `--shipping` - **For `/ship-build` only** (ship-build TRD D14), never typed by hand, and valid
+>   only together with `--reconcile --chained`: lets the fix run pass §1.2's closed-feature guard
+>   without reopening the feature (no §1.3 branch switch, no §1.3a `current.json` write,
+>   `closed.json` untouched) and skips §9.0's push, so a fix reaches the remote only through
+>   `/ship-build`'s next push step, after re-verification (§3.7).
 > - `--sweep-flag "<text>"` - **For callers only** (`/plan`'s sweep chain, preflight D14), never
 >   typed by hand: the one-line flag `/plan` carries when a sweep file's swept fixes were
 >   committed without being verified because the environment, not the code, was broken. Step 9's
@@ -54,10 +59,10 @@ $ARGUMENTS
 ```
 
 Parse: TRD path, `--resume`/`--continue`, `--reconcile`, `--include-deferred`,
-`--reset-state`, `--verify`, `--no-verify`, `--chained`, `--sweep-flag "<text>"`. Verification runs by default; `--no-verify` opts out;
+`--reset-state`, `--verify`, `--no-verify`, `--chained`, `--shipping`, `--sweep-flag "<text>"`. Verification runs by default; `--no-verify` opts out;
 `--verify` is still parsed explicitly, and doing so alongside `--resume` is exactly what §3.6
-step 0 checks for. `--chained` (§3.7) is for callers only — `/verify-build`'s fix loop is the one
-thing that passes it. `--sweep-flag` is likewise for callers only — `/plan`'s sweep chain is the
+step 0 checks for. `--chained` (§3.7) is for callers only — `/verify-build`'s fix loop, `/audit-build`
+and `/ship-build` are the things that pass it. `--shipping` (§3.7) is for `/ship-build` only. `--sweep-flag` is likewise for callers only — `/plan`'s sweep chain is the
 one thing that passes it — and its text is carried to Step 9's ISSUES unchanged.
 
 ---
@@ -172,7 +177,11 @@ see that step's Error Handling for what a missing or unparseable section does.
 **Closed-feature guard (D13, §3.5).** Whichever of steps 1–3 above resolved the TRD, and in
 every mode this command runs in — plain, `--resume`, `--reconcile`, `--reset-state`,
 `--chained` — stop right here, before `### 1.3` switches branches, before `### 1.3a` writes the
-feature pointer, and before `### 2.1`'s `--reset-state` deletes state. `<feature>` is the TRD's
+feature pointer, and before `### 2.1`'s `--reset-state` deletes state. **The one exception is
+`--shipping`, and only together with `--reconcile --chained`** (§3.7): that combination passes
+this guard and runs on, with no `### 1.3` branch switch, no `### 1.3a` write and `closed.json`
+left exactly as it is; the run stays on the current branch. A lone `--shipping` — without
+`--reconcile` and `--chained` both — gets no exception and meets this guard like any other run. `<feature>` is the TRD's
 basename without its extension (the rule `/close-feature`'s §3.2 shares with `router.py`'s
 `derive_feature()`). If `.trd-state/<feature>/closed.json` exists:
 
@@ -992,8 +1001,9 @@ discoverable before the loop started, and `not_verifiable` is the status that di
 ### 3.7 `--chained` mode (verification-fix-loop TRD §3.3, D2)
 
 **For callers, not for direct use.** `--chained` is how `/verify-build`'s fix loop builds each
-round's plan blockers and promoted failures, and how `/audit-build` runs the fix for the gaps its
-audit handed off (its RETURN line names the caller) —
+round's plan blockers and promoted failures, how `/audit-build` runs the fix for the gaps its
+audit handed off, and how `/ship-build` runs the fix for review and CI findings (the RETURN line
+names the caller) —
 `Skill({ skill: "implement-trd", args: "<trd> --reconcile --chained" })` — never something the
 owner types by hand.
 
@@ -1003,7 +1013,7 @@ proceeds as a normal run: Step 3.6 dispatches the derive pass, Step 8 runs the v
 loop **by default** (skipped only by `--no-verify`), §9.0a publishes, and Step 9 ends the run
 with this command's own `═══ COMMAND COMPLETE: /implement-trd ═══` banner — or
 `═══ COMMAND STUCK: /implement-trd ═══` on Step 10.1 retry exhaustion. Only `--chained` turns
-those off, and only `/verify-build`'s fix loop and `/audit-build` pass it.
+those off, and only `/verify-build`'s fix loop, `/audit-build` and `/ship-build` pass it.
 
 Parsed alongside the other flags (User Input, above). Under it:
 
@@ -1024,6 +1034,14 @@ Parsed alongside the other flags (User Input, above). Under it:
   banner and its only completion notifications (`command-status.md`: one banner per RUN, not
   per command name).
 
+- **`--shipping`** (ship-build D14; for `/ship-build` only, valid only as
+  `--reconcile --chained --shipping`): §1.2's closed-feature guard lets the run through without
+  §1.3, §1.3a or touching `closed.json`, the run stays on the current branch (`{branch_base}` and
+  `{branch_name}` are assigned only in §1.3, so nothing here reads them), and **§9.0's push is
+  skipped** — the fix reaches the remote only through `/ship-build`'s next `push` step, after
+  re-verification. A lone `--shipping`, without `--reconcile --chained`, changes nothing: the
+  guard applies as usual.
+
 **Unchanged**: phase gates, checkpoints, commits, and Step 7.2's end-of-run
 `Skill({ skill: "code-review", args: "high --fix {branch_base}...HEAD" })` still run exactly as
 in an ordinary build.
@@ -1032,7 +1050,7 @@ in an ordinary build.
 banner:
 
 ```
-[STATUS: /implement-trd] RETURN → chained by <caller: /verify-build or /audit-build>: <n> of <m> tasks built[; not built: <id> — <why>, …]
+[STATUS: /implement-trd] RETURN → chained by <caller: /verify-build, /audit-build or /ship-build>: <n> of <m> tasks built[; not built: <id> — <why>, …]
 ```
 
 This line is a sibling of the DISPATCHED/RESUMED/PHASE lines in `## Output discipline` below —
@@ -1485,6 +1503,21 @@ model-startable and forks itself to background subagents — this command does n
 waiting for it to finish, and does not claim it "will report back": it states, in the past
 tense, that the review was dispatched (with its session reference, if the tool returns one),
 which is a factual statement about a completed dispatch, not a deferred-notification claim.
+
+**Recording (ship-build D25).** Not waiting is not forgetting. Each row below goes through
+`node -e 'require("./.claude/lib/discovered").record(".trd-state/<feature>",{...})'`, non-blocking,
+with a `summary` (a row without one is dropped):
+
+1. At dispatch, record one row `[review-pending] /code-review on <full commit id>` with
+   `foundBy: "code-review"`, where the id is the full output of `git rev-parse HEAD` taken at
+   that moment (never `--short`).
+2. When the review's result reaches this session — this turn or a later one — record one row per
+   finding the review did not apply, with summary `[review:<label>] <summary>` (`[review:unlabeled]`
+   when it carries no label), plus its `file` and `evidence`; then resolve the pending row with
+   `discovered.resolve(stateDir, { ts, summary }, note)`.
+3. While the result has not arrived, say so in the present tense: the review is still running.
+   An unresolved `[review-pending]` row is a review whose findings never arrived; `/ship-build`'s
+   `file-followups` step reports it.
 
 ---
 
@@ -1954,6 +1987,8 @@ before.
 ## Step 9: Completion
 
 ### 9.0 Final push
+
+Under `--shipping` (§3.7) skip this push entirely and go on to the readout (or the RETURN line).
 
 ```bash
 git push -u origin {branch_name}

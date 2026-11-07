@@ -1675,7 +1675,7 @@ refresh_rules() {
     # unattended --refresh (SessionStart hook) would silently overwrite that
     # owner-filled copy with the blank template. Make the invariant refuse to
     # break rather than break quietly.
-    local AUTHORED_RULES=("constitution.md" "stack.md" "process.md" "verification.md" "design.md")
+    local AUTHORED_RULES=("constitution.md" "stack.md" "process.md" "verification.md" "design.md" "ship.md")
 
     local count=0
     local rule_file rule_basename authored skip

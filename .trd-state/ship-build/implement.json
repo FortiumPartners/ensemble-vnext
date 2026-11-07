@@ -1,0 +1,267 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/ship-build.md",
+  "trd_hash": "dd1113f103d6462fda2bbc680a51b0c2af0160f0f27c6876162c67f595e78ba9",
+  "branch": "feature/0-ship-build",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "SHIP-B001": {
+      "description": "The policy file and the release-command reader. The ship.md template (owner-governed header, empty ## Ship and ## After ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/templates/claude-directory/rules/ship.md",
+        ".claude/rules/ship.md",
+        "packages/core/lib/functional-verification.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T10:40:58.082Z",
+      "completed_at": "2026-11-07T10:57:30.346Z",
+      "last_advanced": "2026-11-07T10:43:28.860Z"
+    },
+    "SHIP-B002": {
+      "description": "custody.js (§3.5) with CLI and tests against temp git repos, a local bare origin and a stub gh on PATH",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/custody.js",
+        "packages/core/lib/custody.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T10:40:58.083Z",
+      "completed_at": "2026-11-07T10:57:30.347Z",
+      "last_advanced": "2026-11-07T10:43:28.861Z"
+    },
+    "SHIP-B004": {
+      "description": "The two pipeline commands shipping chains and follows. implement-trd.md (both copies): --shipping (D14), /ship-build adm",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/audit-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T10:40:58.083Z",
+      "completed_at": "2026-11-07T10:57:30.347Z",
+      "last_advanced": "2026-11-07T10:43:28.861Z"
+    },
+    "SHIP-B008": {
+      "description": "verify-build.md (both copies): --criteria <ids> and --chained honoured with it (D13); new verify-build-criteria.test.js;",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-build.md",
+        "packages/core/commands/verify-build-criteria.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T10:40:58.083Z",
+      "completed_at": "2026-11-07T10:57:30.347Z",
+      "last_advanced": "2026-11-07T10:43:28.861Z"
+    },
+    "SHIP-B015": {
+      "description": "ship-sequencer.js (§3.1, §3.3, §3.4) with CLI and tests over fixture contracts in a temp directory",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-sequencer.js",
+        "packages/core/lib/ship-sequencer.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T10:40:58.083Z",
+      "completed_at": "2026-11-07T10:57:30.347Z",
+      "last_advanced": "2026-11-07T10:43:28.861Z"
+    },
+    "SHIP-B017": {
+      "description": "Post-merge design sync, the parts outside the primitive: design-map.js unsynced --merged-into <ref> [--merged-head <sha>",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/design-map.js",
+        "packages/core/commands/sync-design.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T10:40:58.083Z",
+      "completed_at": "2026-11-07T10:57:30.347Z",
+      "last_advanced": "2026-11-07T10:43:28.861Z"
+    },
+    "SHIP-B018": {
+      "description": "pull-request.js ensure --base <branch> --listed with retargeting (D22) and its tests",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/pull-request.js",
+        "packages/core/lib/pull-request.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T10:40:58.083Z",
+      "completed_at": "2026-11-07T10:57:30.347Z",
+      "last_advanced": "2026-11-07T10:43:28.861Z"
+    },
+    "SHIP-D001": {
+      "description": "Write docs/plan/ship-build.governance-draft.md: the constitution.md Governance Split row and the same row for constituti",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "technical-architect",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "docs/plan/ship-build.governance-draft.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-07T10:40:58.083Z",
+      "completed_at": "2026-11-07T10:57:30.347Z",
+      "last_advanced": "2026-11-07T10:43:28.861Z"
+    },
+    "SHIP-B016": {
+      "description": "The thirteen primitive contracts, packages/core/contracts/ship-primitive-<name>.md (+ .claude/contracts/ copies), per §3",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "implementer_type": "agent-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "SHIP-B013": {
+      "description": "packages/core/commands/ship-build.md (+ .claude/commands/ copy) per §3.7; ship-build-surface.test.js; ship-build.seam.te",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "implementer_type": "agent-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "SHIP-B014": {
+      "description": "packages/skills/ship-setup/SKILL.md (+ __tests__/, vendored copy in .claude/skills/ship-setup/), framework-skills.txt ro",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "implementer_type": "agent-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "SHIP-D003": {
+      "description": "Add /ship-build and /ship-setup to process.md (+ template), CLAUDE.md (pipeline, command count 27 → 28), CLAUDE.md.templ",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "SHIP-D002": {
+      "description": "Apply SHIP-D001's approved draft: constitution.md and its template, autonomy.md and its template, this repository's stac",
+      "phase": 3,
+      "status": "deferred",
+      "cycle_position": "implement",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "SHIP-T002": {
+      "description": "[LIVE] Owner's live proof on a throwaway GitHub repository (see Deferred by design)",
+      "phase": 3,
+      "status": "deferred",
+      "cycle_position": "implement",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "pending",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-07T11:00:58.448Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "pending",
+    "last_checkpoint_timestamp": "2026-11-07T11:00:58.448Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/PRD/ship-build.md",
+    "target": {
+      "environment": null,
+      "source": "none"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest/bats/pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude fixtures declared; claude CLI installed"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool always authorized"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "verification.md §1: must not be touched"
+      }
+    }
+  }
+}

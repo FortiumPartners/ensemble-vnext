@@ -41,6 +41,7 @@ describe('decide', () => {
   test('gh unavailable -> skipped', () => expect(decide({ ...ok, ghAvailable: false }).action).toBe('skipped'));
   test('no open PR -> opened', () => expect(decide(ok).action).toBe('opened'));
   test('open PR -> updated', () => expect(decide({ ...ok, openPrUrl: 'u' }).action).toBe('updated'));
+  test('listed bypasses the never mode', () => expect(decide({ ...ok, mode: 'never', listed: true }).action).toBe('opened'));
 });
 
 describe('ensure CLI', () => {
@@ -92,10 +93,12 @@ case "$1 $2" in
                  exit 0 ;;
   "repo view") [ -n "$STUB_DEFAULT" ] && { echo "$STUB_DEFAULT"; exit 0; } || exit 1 ;;
   "pr list") [ -n "$STUB_LIST_FAIL" ] && { echo "HTTP 502: list failed" >&2; exit 1; }
-             [ -n "$STUB_OPEN_URL" ] && echo "$STUB_OPEN_URL"
+             # --json url,baseRefName is answered as "<url><TAB><base>", as the real --jq prints it.
+             [ -n "$STUB_OPEN_URL" ] && printf '%s\t%s\n' "$STUB_OPEN_URL" "$STUB_OPEN_BASE"
              # A closed PR is only listed when the query does not filter to open ones.
              case "$*" in *"--state open"*) ;; *) [ -n "$STUB_CLOSED_URL" ] && echo "$STUB_CLOSED_URL" ;; esac
              exit 0 ;;
+  "pr edit") [ -n "$STUB_EDIT_FAIL" ] && { echo "edit failed" >&2; exit 1; } ; exit 0 ;;
   "pr create") [ -n "$STUB_CREATE_FAIL" ] && { echo "boom: create failed" >&2; echo "second line" >&2; exit 1; }
                echo "https://example.test/pr/7"; exit 0 ;;
 esac
@@ -161,6 +164,56 @@ exit 0
     const out = s.ensure({ STUB_DEFAULT: 'main', STUB_OPEN_URL: 'https://example.test/pr/3' });
     expect(out).toMatchObject({ action: 'updated', url: 'https://example.test/pr/3' });
     expect(s.calls()).not.toMatch(/pr create/);
+  });
+
+  describe('--base and --listed (D22)', () => {
+    const URL3 = 'https://example.test/pr/3';
+    test('--base develop --listed opens against develop with the setting never', () => {
+      const s = setup({ mode: 'never' });
+      const out = s.ensure({}, ['--base', 'develop', '--listed']);
+      expect(out).toMatchObject({ action: 'opened', url: 'https://example.test/pr/7' });
+      expect(s.calls()).toMatch(/pr create --base develop --head feature\/x/);
+    });
+    test('--listed alone still uses the default branch', () => {
+      const s = setup({ mode: 'never' });
+      const out = s.ensure({ STUB_DEFAULT: 'main' }, ['--listed']);
+      expect(out.action).toBe('opened');
+      expect(s.calls()).toMatch(/pr create --base main /);
+    });
+    test('--base without --listed still honors never', () => {
+      const s = setup({ mode: 'never' });
+      expect(s.ensure({}, ['--base', 'develop']).action).toBe('skipped');
+      expect(s.calls()).toBe('');
+    });
+    test('on the requested base -> skipped, even when it is not the default branch', () => {
+      const s = setup({ branch: 'develop' });
+      const out = s.ensure({ STUB_DEFAULT: 'main' }, ['--base', 'develop', '--listed']);
+      expect(out).toMatchObject({ action: 'skipped', reason: 'on the default branch' });
+    });
+    test('open PR already on the base -> reused, no edit, no create', () => {
+      const s = setup();
+      const out = s.ensure({ STUB_OPEN_URL: URL3, STUB_OPEN_BASE: 'develop' }, ['--base', 'develop', '--listed']);
+      expect(out).toMatchObject({ action: 'updated', url: URL3, reason: 'open pull request exists' });
+      expect(s.calls()).not.toMatch(/pr edit|pr create/);
+    });
+    test('open PR on another base -> retargeted and reported updated', () => {
+      const s = setup();
+      const out = s.ensure({ STUB_OPEN_URL: URL3, STUB_OPEN_BASE: 'main' }, ['--base', 'develop', '--listed']);
+      expect(out).toEqual({ action: 'updated', url: URL3, reason: 'retargeted from main' });
+      expect(s.calls()).toMatch(new RegExp(`pr edit ${URL3} --base develop`));
+      expect(s.calls()).not.toMatch(/pr create/);
+    });
+    test('retarget failure -> failed with the first error line', () => {
+      const s = setup();
+      const out = s.ensure({ STUB_OPEN_URL: URL3, STUB_OPEN_BASE: 'main', STUB_EDIT_FAIL: '1' }, ['--base', 'develop', '--listed']);
+      expect(out).toMatchObject({ action: 'failed', reason: 'edit failed' });
+    });
+    test('without --base an open PR on any base is reused as it stands', () => {
+      const s = setup();
+      const out = s.ensure({ STUB_DEFAULT: 'main', STUB_OPEN_URL: URL3, STUB_OPEN_BASE: 'release' });
+      expect(out).toMatchObject({ action: 'updated', reason: 'open pull request exists' });
+      expect(s.calls()).not.toMatch(/pr edit/);
+    });
   });
 
   test('--expect-branch mismatch -> skipped before any push or gh call', () => {
