@@ -67,7 +67,7 @@ refactor) and **weight** (trivial, small or medium) — and writes a TRD to matc
 already lists acceptance criteria it locks them verbatim and can split the independent ones
 into a sweep list (see [other-commands.md](other-commands.md) "the spec path"). `/amend`
 adds one change to the feature already in flight. `/sweep` fixes a list of small unrelated
-issues with no TRD at all. `/task` runs a job whose output is findings, not code. The `/plan`
+issues with no TRD at all. `/task` runs a job whose output is findings, not code. `/ship-build` ships what a closed feature left on the branch. The `/plan`
 steps, in order:
 
 | # | Step | Kind | Where it lives |
@@ -87,6 +87,7 @@ The other shorter paths:
 | `/sweep` | 1. Resolve the list verbatim (**model**). 2. The sweep workflow triages, then dispatches one fixer per issue — different areas in parallel, one area in sequence (**code** + **model**). 3. The lead confirms every claimed file shows up in `git status`; an issue whose claimed files are untouched is reported failed (**code**). 4. Deferred items are recorded (**code**). | `sweep.md` Steps 1–4; `workflows/sweep.js` |
 | `/amend` | 1. Is this one task — no ordering between parts, one specialism, no undecided product question? File count is deliberately not a signal (**model**). 2. Ground it (**model**). 3. Write the `AMEND-<nnn>` row into the TRD's Master Task List and a discovery row **before** the work (**code**). 4. One implementer, chosen by `lib/agent-routing.js` (**model** does the work). 5. Run the check battery and attest through `implement-state.js` `recordResult()`, which fails a success claim whose files do not exist (**code**). | `amend.md` Steps 1–5 |
 | `/verify-build` | With a plan newer than the last report, rounds of: record buildable failures, chain `/implement-trd --reconcile --chained` once, re-verify open criteria, then `lib/functional-verification.js decide-fix-round` (code) says continue or stop. This is the default; `--no-fix` runs one verify pass and builds nothing. When it stops with work left, or with no plan at all, NEXT points you to `/refine-verification` (add `--auto` for an unattended answer), which writes `.trd-state/<feature>/verification-plan.md` for the next run. A broken environment ends the run `setup-failure` — the environment, not the code — and never stops to ask. | `verify-build.md` "`--fix [plan-path]`, `--no-fix`, and `--resume`"; see [verification.md](verification.md) |
+| `/ship-build` | Runs the steps in `ship.md` in order, each a shipping primitive (push, open-pr, ci-wait, review rounds, merge, release); the sequencer, not the model, orders steps and decides where a run parks. A `merge` step is your standing go for `gh pr merge`. Fill `ship.md` with the `ship-setup` skill. | `ship-build.md`; see [other-commands.md](other-commands.md) |
 | `/sync-design` | After a build that used design boards: capture each `building` board's screen from the build, compare, mark matches `shipped`, rebuild boards an owner ruling accepts, report the rest. | `sync-design.md`; see [design.md](design.md) |
 
 ### Maintenance commands
@@ -134,6 +135,7 @@ does all the work itself.
 | `/amend` | an `AMEND-<nnn>` TRD row, a discovery row, the change | none | one implementer, chosen by `lib/agent-routing.js` | [other-commands](other-commands.md) |
 | `/sweep` | fixes; `.trd-state/_sweep/discovered.jsonl` for what was deferred | `sweep.js` | technical-architect (triage), backend-implementer (one per issue) | [other-commands](other-commands.md) |
 | `/task` | `.trd-state/task-<slug>/implement.json` and `closed.json`; recorded report artifacts | none | lead only, or an implementer with an explicit type for an implementation-shaped step | [other-commands](other-commands.md) |
+| `/ship-build` | `.trd-state/<feature>/shipped.json` and `custody.json`; the push, PR, merge and release the steps in `ship.md` perform | `ship-sequencer.js` (code); primitives run by the model | lead; a primitive may dispatch a fixer | [other-commands](other-commands.md) |
 | `/audit-docs` | corrections on a local `docs-audit/<date>-<sha>` branch; `docs/PRD/INDEX.md`, `docs/TRD/INDEX.md`; a change set under `.trd-state/_docs-audit/runs/` | `audit-docs.js` (once per batch) | code-reviewer (drift score on Haiku; read-only verifiers on Opus for high-drift docs); backend-implementer (apply on Opus, or a single Sonnet review for medium drift) | [other-commands](other-commands.md) |
 | `/design-system` | the design system's built files under `docs/ui/_design-system/`; a Design System artifact installed on each canvas | none | lead only | [design](design.md) |
 | `/create-design` | `docs/ui/<slug>/` (brief, grounding, boards, `design-map.json`, rendered frames); a Design canvas | `create-design.js` (twice: ground, then draw) | backend-implementer (grounding, render), product-manager (brief), frontend-implementer (boards, fix), code-reviewer (challenge) | [design](design.md) |

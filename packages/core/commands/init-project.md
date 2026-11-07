@@ -385,6 +385,9 @@ files generated above. Currently:
 - `verification.md` — copied unfilled; it describes the environments, resource
   capacity and coverage floor a functional-verification run needs and none of this
   project's own. It is owner-governed: run `/verification-setup` to fill it in.
+- `ship.md` — copied unfilled; it lists the ordered steps `/ship-build` runs to ship a
+  finished feature (push, open a PR, merge, release). It is owner-governed: run `/ship-setup`
+  to fill it in.
 - `design.md` — copied unfilled; it describes the design system, per-platform
   settings, how to reach a screen and the design rules the design commands need. It is
   owner-governed: run `/design-setup` to fill it in.
@@ -927,6 +930,7 @@ Commands Available:
   /amend           - ONE change to the feature already in flight, without a new TRD
   /sweep           - A list of small unrelated fixes, in parallel, without a TRD
   /task            - A job whose output is findings or a report, not code; no TRD
+  /ship-build      - Ship what a closed feature left on the branch (steps from ship.md)
   /verify-build    - Re-run functional verification alone
   /fold-prompt     - Optimize context for continued work
 

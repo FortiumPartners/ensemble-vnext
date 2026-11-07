@@ -529,6 +529,10 @@ sys.exit(1 if 'agents' in plugin or any('agents' in p for p in entries) else 0)
     # CLAUDE.md's went 15000 -> 15500 at release 4.13.1: one trim (dropping the
     # 4.13.0 status line) left it 11 bytes over, and the known-open list grows by
     # a line per release; per the owner's rule, trim once, then raise with a reason.
+    # It went 15500 -> 16000 for ship-build (SHIP-D003): the Forge PM charter had already
+    # taken it to 17160, one trim (the 4.13.7-and-earlier known-open entries, now pointed
+    # at CHANGELOG.md) brought it to 15,834 with /ship-build's pipeline line and the
+    # 27 -> 28 command count added, still over 15500.
     for dir in "${REPO_ROOT}/.claude/rules" "${REPO_ROOT}/packages/core/templates/claude-directory/rules"; do
         async_bytes=$(wc -c < "${dir}/async-discipline.md")
         autonomy_bytes=$(wc -c < "${dir}/autonomy.md")
@@ -546,8 +550,8 @@ sys.exit(1 if 'agents' in plugin or any('agents' in p for p in entries) else 0)
     done
 
     claude_md_bytes=$(wc -c < "${REPO_ROOT}/CLAUDE.md")
-    if [ "$claude_md_bytes" -gt 15500 ]; then
-        echo "CLAUDE.md = ${claude_md_bytes} bytes, exceeds 15500" >&2
+    if [ "$claude_md_bytes" -gt 16000 ]; then
+        echo "CLAUDE.md = ${claude_md_bytes} bytes, exceeds 16000" >&2
         false
     fi
 }
