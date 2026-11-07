@@ -357,3 +357,27 @@ one (4.10.0/4.9.0).
 
 The modernization backlog, `docs/modernization/2026-08-improvement-plan.md`, is the live list
 for anything older than this.
+
+---
+
+## Forge
+
+Product: Ensemble (Forge product c0a57f53-7f4c-4970-bcd0-b21365ca88fc). Base branch: `main` (feature branches start from it).
+
+This is the product's PM charter. Forge's orchestrator, its feature sessions and the product's PM follow it.
+
+**Pull requests.** Every feature ships through a pull request; one is always raised.
+
+**Shipped.** A feature in this repository is shipped when:
+
+- it is merged into `main`;
+- after the merge: CI/CD runs `.github/workflows/ci.yml` on the push to `main`; Forge waits for it to pass;
+- the evidence is: the merge commit on `main` plus that green CI run.
+
+**Decisions.** Decide within the design; escalate changes of scope to the owner. Forge, as the owner's delegate, decides routine engineering choices (design, dependencies, test approach, naming, refactors) and records each as an OWNER-CALL for the owner to review later. Irreversible actions outside the definition of shipped, and anything touching security or credentials, remain the owner's decision.
+
+**Testing.** Each feature runs its own pipeline (verification and audit); after each plan the PM runs a report-only product check.
+
+**Live and third-party testing.** Only in the environments `.claude/rules/verification.md` lists, as it permits.
+
+**Context sources.** This repository's docs.
