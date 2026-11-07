@@ -1,0 +1,93 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/design-render-pnpm-critique-keep/evidence/fs1-transcript.txt",
+      "reason": "With the options the render path itself passes (workspace lookup, @playwright/test alias; design-render.js:670), resolveTool('playwright', worktree) printed 'playwright found' and returned a module where the TRD's reproduction printed FAIL. A bare call with no options still throws, which the capture labels as intended for the bundler's own tool lookups.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/design-render-pnpm-critique-keep/evidence/fs2-transcript.txt",
+      "reason": "fs2.js resolved playwright through resolveTool against the worktree, launched chromium (browser version 148.0.7778.96) and printed 'closed cleanly'.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/design-render-pnpm-critique-keep/evidence/fs3-render-stdout.json",
+      "reason": "The render path wrote 01-trips-home.png and 02-trip-editor.png at 1440x900 with errors {} and empty stderr, and measured contrast and target size on both; the 01-trips-home image shows the rendered board.",
+      "cause": null,
+      "provenAt": 1,
+      "image": "evidence/render-out/01-trips-home.png",
+      "ui": true,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "not_verifiable",
+      "tier1": "fail",
+      "artifact": null,
+      "reason": "Needs a live /create-design and /audit-design run on the worktree (about an hour each), which the owner ruled out of this loop; the only audit on disk predates the fix. The render step these depend on now works (FS-3), but nothing shows critique, ranking or the visual verifiers running.",
+      "cause": "capability-absent",
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "not_verifiable",
+      "tier1": "fail",
+      "artifact": null,
+      "reason": "Needs a post-fix /refine-design --auto run, which this loop may not start. The only after-refine critique.md on disk (05b-critique-after-refine.md) predates the fix and shows the defect, not its repair; the prose tests (80/80) run no model.",
+      "cause": "capability-absent",
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "not_verifiable",
+      "tier1": "fail",
+      "artifact": null,
+      "reason": "Needs a before/after pair around a post-fix no-feedback /refine-design --auto; the before file (04-critique.md) exists but the only after file is pre-fix and lacks the tables. No live refine run is permitted in this loop.",
+      "cause": "capability-absent",
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "not_verifiable",
+      "tier1": "fail",
+      "artifact": null,
+      "reason": "Needs a post-fix refine run in which a changed board was not re-judged. The only after file on disk is pre-fix and shows 04-chat and 03-pre-trip as 'not judged' with no earlier scores. No live refine run is permitted in this loop.",
+      "cause": "capability-absent",
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": "must-pass-unproven"
+}
