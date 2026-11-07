@@ -11,5 +11,11 @@
     "url": "",
     "updated_at": "2026-11-07T20:59:24.038Z",
     "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/ship-build-live-fixes/verification-report.md",
+    "url": "https://claude.ai/artifact/5QgojnJVnMucS4AYo72Nib",
+    "updated_at": "2026-11-07T21:11:25.163Z",
+    "command": "/implement-trd"
   }
 }
