@@ -16,7 +16,7 @@ export const meta = {
 //
 // args: { slug, dir, brief, sources, project, map, conventions, stale, priorCnv,
 //         direction, stylePack, rubric, floor,
-//         drift, routes, systemVersions, capture, environment }
+//         drift, routes, systemVersions, capture, driftRubric, environment }
 //   dir         docs/ui/<slug>
 //   map         design-map.json text (the command ran `design-map.js read`)
 //   conventions the designing-on-canvas rules, as text
@@ -32,7 +32,8 @@ export const meta = {
 //               Absent, the verifier set is exactly the default one.
 //   routes      the product's routes from design.md, for "screens never designed"
 //   systemVersions { installed, current }  read from the hosted artifact by the command (D12)
-//   capture     verify-design-comparison's Capture text (drift); environment: `local`
+//   capture, driftRubric  verify-design-comparison's Capture and Rubric text (drift only; `rubric`
+//               above is contract section 8 and is never the drift comparison's rubric); environment: `local`
 
 function readArgs(raw) {
   if (typeof raw === 'string') {
@@ -364,12 +365,15 @@ folder under the system temp directory. The scratch folder MUST NOT be under ${D
 changes no tracked file. Report a board whose screen no longer matches (check board-drift, the
 difference quoted in why). An as-is board with screenshot_match false is already marked: name it
 once, do not report it as new drift. A screen you cannot reach is not a finding.
-
+Comparison verdicts become findings so:
+match and minor are not findings; deviates is a board-drift finding; uncaptured is not a finding.
+Write no verdicts.json: this audit changes no tracked file.
+${a.driftRubric ? '' : '\nThe drift rubric was not supplied: report one board-drift finding on the first board saying "drift rubric not supplied", and stop.\n'}
 CAPTURE:
 ${a.capture || '(not supplied: report one board-drift finding on the first board saying drift capture was not run, and stop)'}
 
 RUBRIC:
-${a.rubric || ''}
+${a.driftRubric || '(drift rubric not supplied)'}
 
 BOARDS:
 ${JSON.stringify(c.map((b) => ({ id: b.id, file: b.file, kind: b.kind, status: b.status, shipped_commit: b.shipped_commit })), null, 1)}`,

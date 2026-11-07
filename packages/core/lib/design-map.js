@@ -432,13 +432,14 @@ function direction(projectDir, { style } = {}) {
     const row = s5.map((l) => l.split('|').map((c) => c.trim())).find((c) => c.length >= 4 && re.test(c[1]));
     fields[key] = row ? row[2] : '';
   }
-  const blank = DIRECTION_FIELDS.map(([k]) => k).filter((k) => !fields[k]);
+  // A pack named by `style` (--style, or the brief's Style pack line) is in use, so its field is not reported blank.
+  const blank = DIRECTION_FIELDS.map(([k]) => k).filter((k) => !fields[k] && !(k === 'style_pack' && style));
   const given = fields.departure_latitude.toLowerCase().replace(/[`*]/g, '').trim();
   const latitude = LATITUDES.includes(given) ? given : 'refine';
   if (fields.departure_latitude && !LATITUDES.includes(given)) blank.push('departure_latitude (unrecognised)');
   const line = sectionOf(/^## 4\. Design rules/).find((l) => /accessibility floor/i.test(l)) || '';
   const c = /(\d+(?:\.\d+)?)\s*:\s*1/.exec(line);
-  const t = /(\d+)\s*px/.exec(line);
+  const t = /(\d+(?:\.\d+)?)\s*px/.exec(line);
   const floor = { contrast: c ? Number(c[1]) : null, target: t ? Number(t[1]) : null };
   const { dir, packs } = findPacks(projectDir);
   // Markdown formatting is stripped as for the latitude: `style-pack-x` in a table cell names style-pack-x.

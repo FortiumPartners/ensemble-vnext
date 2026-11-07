@@ -507,6 +507,7 @@ ${DATA_RULE}
 ${BATCH}`
     : `Critique the screen "${it.s.name}"${it.letter ? ` as drawn in direction ${it.letter.toUpperCase()}` : ''} (${it.s.route}, ${it.s.platform} ${it.s.viewport}) of the design at ${DIR}: render its boards,
 read every PNG, and score the TO-BE board.
+Score ONLY the to-be board ${it.recs.filter((b) => b.kind === 'to-be').map((b) => b.id).join(', ')}: use that id as "board" on every score.
 ${VISUAL_COMMON}
 Boards: ${it.recs.map((b) => b.id).join(', ')}
 Scratch map:
@@ -660,8 +661,11 @@ const renderFindings = visualAlive.flatMap((r) => (r.errors || []).map((e) => ({
 const measureFindings = visualAlive.flatMap((r) => (r.measures || [])
   .filter((m) => MEASURE_RANK[m.verdict] && !asIsIds.has(m.board))
   .map((m) => ({ axis: 'measure', board: m.board, why: `${m.check} ${m.verdict}${m.detail ? ` (${m.detail})` : ''}${m.state ? ` in state ${m.state}` : ''}${m.viewport ? ` at ${m.viewport}` : ''}: ${m.value === undefined || m.value === null ? '' : m.value}${m.element ? ` at ${m.element}` : ''}`, rank: MEASURE_RANK[m.verdict] })))
+// Only the to-be board a screen critic was given is scored (contract section 8): a score on an as-is or
+// parts board is dropped, never sent to the fix round, which would edit a board that must match its screenshot.
+const scoredIds = (it) => new Set(it.kind === 'screen' ? it.recs.filter((b) => b.kind === 'to-be').flatMap((b) => [b.id, b.file]) : [])
 const scoreFindings = visualAlive.flatMap((r) => (r.scores || [])
-  .filter((x) => x.score !== null && !x.not_judged && SCORE_RANK[x.score])
+  .filter((x) => scoredIds(r.item).has(x.board) && x.score !== null && !x.not_judged && SCORE_RANK[x.score])
   .map((x) => ({ axis: 'critique', board: x.board, why: `${x.dimension} scored ${x.score} of 5${(x.frames || []).length ? ` (${x.frames.join(', ')})` : ''}: ${x.reason || ''}`, rank: SCORE_RANK[x.score] })))
 // Under explore the as-is board is rendered once per direction, so the same render error can arrive several
 // times: keep one finding per axis, board and why.

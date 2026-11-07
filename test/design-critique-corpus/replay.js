@@ -52,8 +52,11 @@ function parseLabels(text, baseDir) {
         if (!Number.isInteger(v) || v < 1 || v > 5) throw new LabelError(`${where}: dimension "${k}" must be an integer 1-5`);
       }
     }
+    const base = path.resolve(baseDir);
     for (const f of ['frame', 'measures']) {
-      if (!fs.existsSync(path.join(baseDir, r[f]))) throw new LabelError(`${where}: ${f} file ${r[f]} does not exist`);
+      const p = path.resolve(base, r[f]);
+      if (!p.startsWith(base + path.sep)) throw new LabelError(`${where}: ${f} file ${r[f]} is outside the corpus folder`);
+      if (!fs.existsSync(p)) throw new LabelError(`${where}: ${f} file ${r[f]} does not exist`);
     }
     rows.push(r);
   });
@@ -188,7 +191,8 @@ function invokeCritic(prompt, { model, spawn = spawnSync } = {}) {
   if (model) args.push('--model', model);
   args.push('--output-format', 'json', '--allowedTools', 'Read');
   const res = spawn('claude', args, { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024, timeout: 300000 });
-  if (res.error) throw res.error;
+  // Tagged so run() can tell a CLI that never started (fatal) from a critic that ran and failed (recorded).
+  if (res.error) { res.error.spawnFailed = true; throw res.error; }
   if (res.status !== 0) throw new Error(`claude exited with code ${res.status}: ${res.stderr}`);
   const cli = JSON.parse(String(res.stdout).trim());
   if (!cli.result) throw new Error('claude returned an empty result');
@@ -216,8 +220,15 @@ function run({ dir = __dirname, runs = 1, model, spawn } = {}) {
       measuresText: fs.readFileSync(path.join(dir, l.measures), 'utf8'),
     });
     for (let n = 1; n <= runs; n++) {
-      const out = invokeCritic(prompt, { model, spawn });
-      results.push({ id: l.id, run: n, scores: out.scores, mean: meanScore(out) });
+      // One failed critic run is recorded and the replay goes on: a throw here would discard every run so far.
+      // A spawn that failed (missing claude) stays fatal, or every run would read as merely "unscored".
+      try {
+        const out = invokeCritic(prompt, { model, spawn });
+        results.push({ id: l.id, run: n, scores: out.scores, mean: meanScore(out) });
+      } catch (e) {
+        if (e.spawnFailed) throw e;
+        results.push({ id: l.id, run: n, scores: {}, mean: null, error: e.message });
+      }
     }
   }
   return { model: model || null, runsPerFrame: runs, runs: results, report: buildReport(labels, results) };
@@ -239,8 +250,13 @@ function parseArgs(argv) {
 function formatReport(result) {
   const { band: b, agreement: a, perDimension: pd, spread: sp } = result.report;
   const L = [`Replay: ${result.runsPerFrame} run(s) per frame, model ${result.model || 'CLI default'}`];
+  const failed = (result.runs || []).filter((r) => r.error);
+  if (failed.length) L.push(`${failed.length} of ${result.runs.length} critic runs failed: ${failed[0].error}`);
   if (b) {
-    const un = b.unscored.length ? `; ${b.unscored.length} frame(s) unscored (every dimension not judged): ${b.unscored.join(', ')}` : '';
+    // A frame whose every run failed was not "judged as nothing"; the failure line above covers it.
+    const allFailed = (id) => (result.runs || []).filter((r) => r.id === id).every((r) => r.error);
+    const unscored = b.unscored.filter((id) => !allFailed(id));
+    const un = unscored.length ? `; ${unscored.length} frame(s) unscored (every dimension not judged): ${unscored.join(', ')}` : '';
     L.push(b.computable ? `Agreement by band: ${b.inBand}/${b.frames} scored frames in their label's band (${(b.share * 100).toFixed(0)}%; good band = mean rounding to 4 or 5)${un}` : `Agreement by band: ${b.reason}${un}`);
   }
   L.push(a.computable ? `Agreement by ranking: ${a.wins}/${a.pairs} good-poor pairs ranked right (${(a.share * 100).toFixed(0)}%)` : `Agreement by ranking: ${a.reason}`);
