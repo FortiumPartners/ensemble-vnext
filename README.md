@@ -5,7 +5,7 @@ experienced user drives Claude Code (write the requirements, plan, build in phas
 against the requirements, review) into slash commands that run from one invocation to one
 result, with state kept on disk so work can resume.
 
-Version **4.16.0** (2026-11-05): 27 commands, 13 subagents. What changed in each release is in
+Version **4.16.1** (2026-11-06): 27 commands, 13 subagents. What changed in each release is in
 [CHANGELOG.md](CHANGELOG.md).
 
 ## How it is built

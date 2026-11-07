@@ -10,6 +10,51 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.16.1] - 2026-11-06
+
+Design quality for the design stage (#70), and two rounds of fixes found by testing it live
+and by reviewing it (#71, #72). Released as a patch at the owner's call.
+
+### Added
+
+- **Design direction (#70).** `design.md` gains §5: brand, style pack, references and how far
+  a to-be board may depart from today's screen (`keep`, `refine`, `rethink`). `/design-setup`
+  asks for it. A blank field does not stop a design command; it is named in the readout.
+- **Six style packs** in a new `design` skill role, chosen with `--style` or the brief.
+- **Every board renders, publishing on or off:** the canvas runtime ships with the framework.
+- **Measured checks on every board:** contrast, touch-target size, layout faults (overlap,
+  overflow) and fidelity to the design system's components and tokens.
+- **A ten-dimension visual critique** inside `/create-design`, `/refine-design` and
+  `/audit-design`, with one fix round in `/create-design`, and an explore mode
+  (`--explore`) that draws and ranks several directions.
+- **A labelled critique corpus with a replay** (`test/design-critique-corpus/`) to calibrate
+  the critique against owner labels.
+
+### Fixed
+
+- **The design commands find Playwright in a pnpm monorepo (#71).** The render lookup now
+  searches workspace packages and accepts `@playwright/test`. Before, every render, critique,
+  ranking and visual audit check in such a repo skipped as "Playwright not installed".
+- **`/refine-design` keeps critique scores it did not replace (#71).** It merges `critique.md`
+  board by board instead of overwriting it, and rewrites the header line each run.
+- **`/audit-design --drift` judges against the drift comparison's own rubric (#72)**, not the
+  visual-critique rubric, and a missing drift rubric is reported rather than guessed.
+- **Scores on as-is boards no longer reach `/create-design`'s fix round (#72)**, its ranking or
+  its critique output; only the to-be board is scored.
+- **A style pack given as `style` is no longer reported blank, and `24.5 px` reads as 24.5,
+  not 5 (#72).**
+- **The critique replay records a failed critic run and carries on (#72)**, exiting 1 only when
+  every run fails, and rejects label paths outside the corpus folder.
+- **The overlap check reads each target's position once (#72)**, not once per pair.
+
+### Not yet proven
+
+- The design-quality end-to-end live runs and the first calibration replay are planned, not
+  run. The drift rubric's effect on judging quality and the overlap check's speed-up are
+  unmeasured.
+- `/audit-design --drift` treats `uncaptured` as not a finding, which also hides a shipped
+  screen that crashed or was removed. Left for the owner to decide.
+
 ## [4.16.0] - 2026-11-05
 
 The design commands can now be driven by an outside caller that runs several features off
