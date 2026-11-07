@@ -1,0 +1,1 @@
+{"iteration":2,"gaps":["FS-8"],"unbuilt":[],"previousGaps":["FS-8"],"cap":3,"coverageFloor":0.5,"refreshFailed":false,"met":["FS-1","FS-3","FS-4","FS-5","FS-6","FS-10","FS-11","FS-2","FS-7","FS-9"],"total":11,"mustPass":["FS-1","FS-2","FS-3","FS-4","FS-7"],"mustPassUncovered":[]}

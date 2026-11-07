@@ -1,0 +1,121 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-live-fixes/evidence/jest-ship-verbose.txt",
+      "reason": "Contract text starts the reviewer with --allowedTools for gh pr view/diff/comment/review and gh api; Jest text test passes.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-live-fixes/evidence/jest-ship-verbose.txt",
+      "reason": "Merge contract matches on the pr-head observed headRefOid, never context.head; Jest merge test and custody pr-head stub-gh tests pass.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-live-fixes/evidence/jest-ship-verbose.txt",
+      "reason": "custody.test.js (temp git repo, stub gh): .trd-state-only difference passes; shipped-file difference fails naming the file.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-live-fixes/evidence/jest-ship-verbose.txt",
+      "reason": "await-approval step 3 compares PR author with gh api user and says someone else must approve; Jest test passes.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-live-fixes/evidence/jest-ship-verbose.txt",
+      "reason": "await-approval sets remoteResume true only with the workflow file and ANTHROPIC_API_KEY listed, else false plus an ISSUES line; Jest test passes.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-live-fixes/evidence/jest-ship-verbose.txt",
+      "reason": "wait-ci uses the merge commit (mergeCommit.oid, gh run list --commit) when context.merged is true; Jest test passes.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-live-fixes/evidence/sequencer-direct-fs8-fs11.txt",
+      "reason": "Real sequencer: wait-ci failed gives status stuck, wait-ci is re-handed out, release result stays null.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-live-fixes/evidence/jest-fs2-fs8-run2.txt",
+      "reason": "Fresh Jest run, all ship-review.test.js tests pass. A review by the gh login, on the head commit and submitted after the request is recognised. Another login, an older commit and a submission before the request are each not recognised and named. One match among failing reviews is found. The match is made in code (matchToolReview in ship-review.js), and both copies of the request-review contract reference it.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-live-fixes/evidence/fs7-fs9-text-run2b.txt",
+      "reason": "The implement-trd command text says that under --shipping the RETURN line waits for the end-of-run review (section 7.2) to return and for its commit of the review's edits. The vendored and plugin copies are identical. This is a prose instruction, the evidence the criterion asks for. No fixture session was run.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-live-fixes/evidence/fs7-fs9-text-run2b.txt",
+      "reason": "The ship-setup SKILL.md runs ship-sequencer.js authorization. When the sentence is absent and steps are refused, ISSUES names each refused step and quotes the missing sentence, and NEXT says so too. The vendored and plugin copies are identical. Prose evidence only; no Forge session was run.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-8",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/ship-build-live-fixes/evidence/sequencer-direct-fs8-run3.txt",
+      "reason": "Tier 1 failed: the locator text No \"Master Task List\" heading found in was not found in the artifact (locator-not-found), so the artifact content was not read or credited. The same gap was open last iteration and was not closed.",
+      "cause": "locator-not-found",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0,
+    0
+  ],
+  "outcome": "stalled"
+}

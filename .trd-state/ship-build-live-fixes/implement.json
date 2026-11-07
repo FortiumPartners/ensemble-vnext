@@ -4,7 +4,7 @@
   "trd_hash": "c520a6d7f51d26babfff7d10eaf8a90756206cc8a0bc2021f3646aef52395f6e",
   "branch": "feature/ship-build-live-fixes/impl",
   "strategy": "bug-fix",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "request-review contract: start the claude reviewer with --allowedTools naming the five gh subcommand patterns in the Decision; define the tool's review for claude as authored by gh api user's login, on the current head, submitted at or after a recorded requestedAt; a clean exit with nothing posted returns wait with the output saved to <stateDir>/review-<head>.log",
@@ -138,12 +138,36 @@
       "started_at": "2026-11-07T20:45:58.138Z",
       "completed_at": "2026-11-07T20:52:36.008Z",
       "last_advanced": "2026-11-07T20:46:29.792Z"
+    },
+    "FIX-009": {
+      "description": "ship-review.js matcher (amendment)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-review.js",
+        "packages/core/lib/ship-review.test.js"
+      ],
+      "commit": "040decedeb1b6e093a9c6518773cb2a6ba110e46",
+      "started_at": "2026-11-07T21:06:21.907Z",
+      "completed_at": "2026-11-07T21:06:21.908Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "7331852044b32e97ae8cdcea97752c410f083905",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-07T20:53:36.248Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "7331852044b32e97ae8cdcea97752c410f083905",
+    "last_checkpoint_timestamp": "2026-11-07T20:53:36.248Z",
     "interrupted": false,
     "interrupt_reason": null
   },
