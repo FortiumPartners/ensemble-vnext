@@ -122,6 +122,10 @@ node .claude/lib/ship-sequencer.js next --state-dir <state-dir>
 
   A result the contract does not declare is refused; read the reason and record the right
   one. Pass any line a step wants shown to the owner in `data.issues`.
+
+  A result the contract lists under `stops-on` (for example `wait-ci`'s `failed`) outside a
+  `repeat` returns `status: "stuck"` and leaves the cursor on that step; the next step is never
+  handed out. Go to Step 5.
 - **`{action: "wait"}`**: the run is parked. Go to Step 5.
 - **`{action: "stop", reason}`**: the run is stuck. A step the sequencer refused as not
   authorized is recorded `stop` by the sequencer itself (`not authorized: <primitive>`); keep

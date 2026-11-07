@@ -38,9 +38,15 @@ describe('mirror and structure', () => {
   });
 
   test('passes lint-command-structure', () => {
-    if (!fs.existsSync(LINT)) return;
+    expect(fs.existsSync(LINT)).toBe(true);
     const r = spawnSync(process.execPath, [LINT, CORE], { encoding: 'utf8' });
-    expect(r.stdout + r.stderr).not.toMatch(/error|fail/i);
+    expect(r.error).toBeUndefined();
+    expect(r.status).toBe(0);
+    // The linter reports its summary on stderr ("structure ok: 1 file(s)"); stdout stays empty.
+    // Pinning the exact success line means a crash or a silent no-op cannot pass.
+    expect(r.stdout).toBe('');
+    expect(r.stderr.trim()).toBe('structure ok: 1 file(s)');
+    expect(r.stdout + r.stderr).not.toMatch(/ship-build\S*:\d+\s+\[/);
   });
 
   test('code fences are balanced', () => {

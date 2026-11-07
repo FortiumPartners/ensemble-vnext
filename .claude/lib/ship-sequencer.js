@@ -11,7 +11,7 @@
  * it knows about a primitive it reads from that primitive's contract file,
  * `ship-primitive-<name>.md`, in the contracts directory beside this library (front matter:
  * `primitive`, `params`, `results`, `outward`, `needs`, `provides`, `section`, `rest`,
- * `repeat-until`). A new primitive is one new contract file and no change here (D41).
+ * `repeat-until`, `stops-on`). A new primitive is one new contract file and no change here (D41).
  *
  * `ship.md` GRAMMAR (D2): under `## Ship` and `## After shipping`, numbered lines
  *   `N. <primitive> key=value key="quoted value"`
@@ -177,15 +177,19 @@ function loadPrimitives(dir = DEFAULT_CONTRACTS_DIR) {
       errors.push(`${file}: rest names "${rest}", which is not a declared parameter`);
       continue;
     }
+    const results = listOf(fm.results, { keepNone: true });
     contracts.set(expected, {
       primitive: expected,
       params,
-      results: listOf(fm.results, { keepNone: true }),
+      results,
       outward,
       needs: listOf(fm.needs),
       provides: listOf(fm.provides),
       section,
       rest,
+      // Results that are failures, not success (`stops-on:` in the contract). Outside a repeat,
+      // recording one stops the run on that step (AC-F3.2). Absent means every result continues.
+      stopsOn: listOf(fm['stops-on']).filter((w) => results.includes(w)),
       repeatUntil: fm['repeat-until'] && fm['repeat-until'] !== 'none' ? fm['repeat-until'] : null,
       path: full,
     });
@@ -363,6 +367,10 @@ function validateSteps(steps, contracts, errors) {
     for (const b of step.body) seen(b, step.section);
     const bodyContracts = step.body.map((b) => contracts.get(b.primitive)).filter(Boolean);
     if (step.repeat.until) {
+      // A failure result must never be what ends a repeat: the owner would move on to merge or
+      // release on the strength of "failed". Failures keep the loop going or stop the run.
+      const failing = bodyContracts.find((c) => c.stopsOn.includes(step.repeat.until));
+      if (failing) errors.push(`line ${step.line}: until=${step.repeat.until} is a failure result of ${failing.primitive}; a failure cannot end a repeat`);
       if (!bodyContracts.some((c) => c.results.includes(step.repeat.until))) {
         errors.push(`line ${step.line}: until=${step.repeat.until} is a result no step in the repeat declares`);
       }
@@ -647,6 +655,10 @@ function record(stateDir, { step, result, data, reason }, opts = {}) {
       state.status = 'stuck';
       state.reason = `repeat ended without ${r.until} after ${r.rounds} rounds`;
     }
+  } else if (contract.stopsOn.includes(result)) {
+    // The cursor stays on this step, so next() never hands out the step after it.
+    state.status = 'stuck';
+    state.reason = `step ${step} (${contract.primitive}) recorded ${result}; the run stops here`;
   } else {
     moveToTop(state, entry.top + 1);
   }

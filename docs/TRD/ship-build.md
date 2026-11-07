@@ -662,6 +662,13 @@ them aside unless `--include-deferred` is passed.
 | SHIP-D003 | Add `/ship-build` and `/ship-setup` to `process.md` (+ template), `CLAUDE.md` (pipeline, command count 27 → 28), `CLAUDE.md.template`, `docs/reference/other-commands.md` and `README.md`, `init-project.md`'s rules and command lists (three copies), and the router's `FRAMEWORK_HINT`; add to `docs/TRD/pr-at-cycle-end.md` a note naming the two decisions this overrides | O7 | | SHIP-B013, SHIP-B014 | Each file names both; `pr-at-cycle-end.md`'s note names `/ship-build`'s `open-pr` and a `ship.md` `merge` step as the two exceptions and says its setting and PR opening stand; `test_router.py` asserts `/ship-build` in the hint; init-project copies byte-identical; `runtime-integrity.test.sh`'s byte-ceiling test passes — which it does not today (see grounding): one trim of `CLAUDE.md`, then the ceiling raised with the reason in the test's comment if the trim is not enough |
 | SHIP-D002 | Apply SHIP-D001's approved draft: `constitution.md` and its template, `autonomy.md` and its template, this repository's `stack.md` | D36, D24; AC-F12.1, AC-F12.2, AC-F12.3 | | SHIP-D001 | The owner's approval is recorded; §3.10's sentence is present in both `autonomy.md` copies; `ship-sequencer.js` hands out an outward step on them; the `openPullRequest: auto` exception and its pin are unchanged; the byte-ceiling test passes |
 | SHIP-T002 | [LIVE] Owner's live proof on a throwaway GitHub repository (see Deferred by design) | AC-F4.2, AC-F7.1, AC-F9.3, AC-F14.3, AC-F17.1, J-5, J-7 | | SHIP-B013, SHIP-B014, SHIP-D002 | Evidence under `.trd-state/ship-build/evidence/live/SHIP-T002/`: the default string and each owner example reaching `shipped: true` (example 5 with one deployable environment); a squash and a rebase merge passing the merge link; an issue named on the branch closed; a follow-up filed once across two runs; a resume started by an approving review; on a fixture with a design, a post-merge `sync-design` opening its PR or naming its uncaptured boards |
+| AMEND-001 | [review:high] ship-sequencer advances on any declared result outside a repeat, so a failed wait-ci result moves the run on to merge (AC-F3.2); needs a design decision: reject at parse a wait-ci not inside a repeat, or stop on non-passing results (`packages/core/lib/ship-sequencer.js`) — promoted from a bug discovery found by code-review | amendment — no objective recorded |  | None | [review:high] ship-sequencer advances on any declared result outside a repeat, so a failed wait-ci result moves the run on to merge (AC-F3.2); needs a design decision: reject at parse a wait-ci not inside a repeat, or stop on non-passing results no longer reproduces: end-of-run /code-review high --fix, 2026-11-07 |
+| AMEND-002 | [defect] ship-sequencer record() advances on any declared result outside a repeat, so a failed wait-ci hands out merge next; AC-F3.2 requires a step to start only after the previous recorded success — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/lib/ship-sequencer.js record() else-branch moveToTop(state, entry.top + 1); reproduced 2026-11-07: policy push/open-pr/wait-ci/merge, record step 3 failed -> cursor step 4 (merge); open blocking row '[review:high] ship-sequencer advances on any declared result outside a repeat' in .trd-state/ship-build/discovered.jsonl with no resolving row) | amendment — no objective recorded |  | None | [defect] ship-sequencer record() advances on any declared result outside a repeat, so a failed wait-ci hands out merge next; AC-F3.2 requires a step to start only after the previous recorded success no longer holds |
+| AMEND-003 | [test-gap] No test pins that the ship.md template has no active step under ## Ship and that the default string is its first example — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: ship-sequencer.js parse on packages/core/templates/claude-directory/rules/ship.md returns policy none; packages/core/contracts/ship-primitives.test.js:110 reads the template only to parse example blocks; skill-md.test.js:204 locates the default by regex; covered by SHIP-B001) | amendment — no objective recorded |  | None | [test-gap] No test pins that the ship.md template has no active step under ## Ship and that the default string is its first example no longer holds |
+| AMEND-004 | [test-gap] stack.md.template's ## Issue Tracker section (Tracker: none default) has no test — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/templates/stack.md.template carries the section; no test file under packages/ or test/ mentions 'Issue Tracker'; covered by SHIP-B001) | amendment — no objective recorded |  | None | [test-gap] stack.md.template's ## Issue Tracker section (Tracker: none default) has no test no longer holds |
+| AMEND-005 | [test-gap] No test asserts close-issue and file-followups read the declared tracker from stack.md — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: ship-primitive-close-issue.md and ship-primitive-file-followups.md read ## Issue Tracker; grep -i tracker over ship-primitives.test.js, ship-build.seam.test.js, ship-build-surface.test.js and ship-setup tests: no match; covered by SHIP-B016) | amendment — no objective recorded |  | None | [test-gap] No test asserts close-issue and file-followups read the declared tracker from stack.md no longer holds |
+| AMEND-006 | [test-gap] No test pins the no-tracker path: close-issue returns none, file-followups files nothing and names each unfiled row in data.issues — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: ship-primitive-close-issue.md lines 20-21, ship-primitive-file-followups.md lines 62-65; ship-primitives.test.js asserts neither; covered by SHIP-B016) | amendment — no objective recorded |  | None | [test-gap] No test pins the no-tracker path: close-issue returns none, file-followups files nothing and names each unfiled row in data.issues no longer holds |
+| AMEND-007 | [test-gap] ship-build-surface.test.js lint test passes on a loose /error\|fail/i output match and returns early if the lint script is absent — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/commands/ship-build-surface.test.js:40-44; packages/core/scripts/lint-command-structure.js exists, so the early return does not fire today) | amendment — no objective recorded |  | None | [test-gap] ship-build-surface.test.js lint test passes on a loose /error\|fail/i output match and returns early if the lint script is absent no longer holds |
 
 ## Deferred by design
 
@@ -1033,6 +1040,36 @@ re-run, said where it matters.
   - "An issue closed" needs the work to name one: a `<issue>-<session>` branch or the issue on the PRD's `**Source**:` line (D29).
   - Run SHIP-D002 first, after approval.
 
+### AMEND-001
+
+- **Touches:** `packages/core/lib/ship-sequencer.js`, `packages/core/lib/ship-sequencer.test.js`
+- **Follow:** DECISION (Forge OWNER-CALL, 2026-11-07): record() outside a `repeat` advances only on a success result. Any other declared result outside a repeat (e.g. wait-ci `failed`) sets status `stuck` with a reason naming the step and result, and does NOT move the cursor. Inside a repeat, behaviour is unchanged. Write the failing test first (policy push/open-pr/wait-ci/merge, record wait-ci failed -> status stuck, cursor still on wait-ci, next never hands out merge). Use each primitive contract's own list of success results (see `loadPrimitives` contracts) rather than hardcoding names.
+
+### AMEND-002
+
+- **Touches:** `packages/core/lib/ship-sequencer.js`, `packages/core/lib/ship-sequencer.test.js`
+- **Careful:** same defect as AMEND-001 (a duplicate raised by the audit). Run AFTER AMEND-001; do not redo it. Do only the class sweep: look for any other place in ship-sequencer.js where a non-success result advances the run, fix and list each; if none, say so.
+
+### AMEND-003
+
+- **Touches:** `packages/core/contracts/ship-template.test.js`
+
+### AMEND-004
+
+- **Touches:** `packages/core/contracts/ship-tracker.test.js`
+
+### AMEND-005
+
+- **Touches:** `packages/core/contracts/ship-tracker.test.js`
+
+### AMEND-006
+
+- **Touches:** `packages/core/contracts/ship-tracker.test.js`
+
+### AMEND-007
+
+- **Touches:** `packages/core/commands/ship-build-surface.test.js`
+
 ## Open Questions — resolved 2026-11-07 (refine-trd non-interactive)
 
 Every question live after the 2.0.0 restructure is closed; none is open. Each row gives the
@@ -1076,18 +1113,19 @@ Closed earlier: OQ-7 was answered in 1.1.0; OQ-8 (does `ci-green` fix by default
 
 ## Could Not Verify
 
-State after the second `/audit-trd` of 2026-11-07 (TRD 2.3.0), which read this TRD against PRD
-2.2.2 and the code, with all five verifiers reporting. It settled one claim and removed it: that
-`promoteToTrd` does not add a discovery twice across `repeat` passes — a scratch ledger promoted
-twice added two tasks, then none. It also checked, in scratch repositories and ledgers, the two
-behaviours its own redesigns rest on: a switch to `origin/<base>` aborts over a modified tracked
-state file, and a tagged `git stash push -u` then `git stash apply <sha>` carries that file across
-the switch and back (D43); a `[lint]` row left open is promoted into a TRD task, and a resolved one
-is not (D19). It ran no live GitHub remote, fixture session, third-party service or tracker CLI,
-so the thirteen rows below, all carried from earlier passes, stay unchecked for that reason. The
-2026-11-06 refinement re-checked and tagged every file path, line number, function, test name and
-count in Task Grounding on this branch; neither 2026-11-07 audit repeated that pass. Every row
-needs a live remote, a fixture session, a third-party service, the tracker CLIs or the owner.
+State after `/audit-build` of 2026-11-07, which checked the delivered code and tests on
+`feature/0-ship-build` (head `dc727fd`) against this TRD and PRD 2.2.2, with all five verifiers
+reporting (70 requirements and 14 tasks indexed). That audit's findings — gaps in tests, one
+sequencer defect against AC-F3.2, and the deferred live proof — are in its readout, not here.
+It removed no row below: it ran no live GitHub remote, fixture session, third-party service or
+tracker CLI, and every row needs one of those or the owner, so all thirteen, carried from the
+`/audit-trd` passes of 2026-11-07, stay unchecked for that reason. The rows on squash and rebase
+merges, the `Monitor`-held CI wait, the reviewer bots and the Actions-started resume are the ones
+the deferred live proof (SHIP-T002) is planned to settle. Nothing this
+audit attempted went unresolved: no verifier failed and the PRD was supplied. The earlier
+`/audit-trd` settled, and removed, the claim that `promoteToTrd` does not add a discovery twice
+across `repeat` passes, and checked in scratch repositories the stash-and-switch (D43) and
+`[lint]`-row promotion (D19) behaviours its redesigns rest on.
 
 | Claim | How I'd check it |
 |-------|------------------|

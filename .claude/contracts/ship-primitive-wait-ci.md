@@ -2,6 +2,7 @@
 primitive: wait-ci
 params:
 results: passed, failed, no-checks
+stops-on: failed
 outward: no
 needs: head
 section: ship

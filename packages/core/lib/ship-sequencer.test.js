@@ -31,6 +31,7 @@ const CONTRACTS = {
   foxtrot: { primitive: 'foxtrot', params: '', results: 'good, bad', outward: 'no', needs: 'head', section: 'ship', 'repeat-until': 'good' },
   golf: { primitive: 'golf', params: 'command', results: 'ran', outward: 'yes', section: 'any', rest: 'command' },
   hotel: { primitive: 'hotel', params: 'below-bar=no', results: 'filed, none', outward: 'yes', section: 'after' },
+  'wait-ci': { primitive: 'wait-ci', params: '', results: 'passed, failed, no-checks', 'stops-on': 'failed', outward: 'no', section: 'ship' },
   india: { primitive: 'india', params: '', results: 'gone', outward: 'no', section: 'ship' },
 };
 
@@ -154,6 +155,13 @@ describe('parse', () => {
     expect(errorsOf(policy('1. alpha\n2. repeat until=fixed rounds=2\n   - delta'))[0]).toMatch(/until=fixed is a result no step/);
     expect(errorsOf(policy('1. alpha\n2. repeat\n   - india'))[0]).toMatch(/^line 6: repeat has no until=/);
     expect(errorsOf(policy('1. alpha\n2. repeat\n   - delta\n   - foxtrot'))[0]).toMatch(/declare different ones \(clean, good\)/);
+  });
+
+  test('until naming a failure result (stops-on) of a body step is rejected, so a failure never ends a repeat', () => {
+    const errs = errorsOf(policy('1. alpha\n2. repeat until=failed rounds=2\n   - wait-ci\n3. india'));
+    expect(errs[0]).toMatch(/until=failed is a failure result of wait-ci/);
+    // a success result of the same step is still a valid until
+    expect(errorsOf(policy('1. alpha\n2. repeat until=passed rounds=2\n   - wait-ci\n3. india'))).toEqual([]);
   });
 
   test('nested repeat, stray indented step, empty repeat', () => {
@@ -282,6 +290,28 @@ describe('record', () => {
   test('a record after done is refused', () => {
     drive(noAuth(), { 1: 'done', 2: 'gone' });
     expect(seq.record(stateDir(), { step: '2', result: 'gone' }, noAuth()).ok).toBe(false);
+  });
+});
+
+describe('failure results outside a repeat', () => {
+  beforeEach(() => seq.start(startOpts(policy('1. alpha\n2. wait-ci\n3. india'))));
+
+  test('a failed step stops the run on that step and never hands out the next', () => {
+    seq.next(stateDir(), noAuth());
+    seq.record(stateDir(), { step: '1', result: 'done' }, noAuth());
+    seq.next(stateDir(), noAuth());
+    const r = seq.record(stateDir(), { step: '2', result: 'failed' }, noAuth());
+    expect(r).toMatchObject({ ok: true, status: 'stuck', reason: 'step 2 (wait-ci) recorded failed; the run stops here' });
+    expect(seq.status(stateDir()).cursor.step).toBe('2');
+    expect(seq.next(stateDir(), noAuth()).step.id).toBe('2');
+  });
+
+  test('passed and no-checks still advance', () => {
+    expect(drive(noAuth(), { 1: 'done', 2: 'passed', 3: 'gone' }).handed.map((h) => h.id)).toEqual(['1', '2', '3']);
+  });
+
+  test('no-checks advances', () => {
+    expect(drive(noAuth(), { 1: 'done', 2: 'no-checks', 3: 'gone' }).handed.map((h) => h.id)).toEqual(['1', '2', '3']);
   });
 });
 
