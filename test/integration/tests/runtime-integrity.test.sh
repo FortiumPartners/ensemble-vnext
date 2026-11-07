@@ -112,6 +112,10 @@ setup() {
     for rule in "${REPO_ROOT}/packages/core/templates/claude-directory/rules/"*.md; do
         local base
         base="$(basename "$rule")"
+        # verification.md and design.md are owner-authored (scaffold-project.sh
+        # AUTHORED_RULES): the live copy is filled in by the owner, the template is
+        # blank, so byte parity is meaningless and must not be forced.
+        case "$base" in verification.md|design.md) continue ;; esac
         local vendored="${REPO_ROOT}/.claude/rules/${base}"
         if [ ! -f "$vendored" ]; then
             drift+=("MISSING (.claude/rules): ${base}")
@@ -289,13 +293,17 @@ PY
     count=0
     for t in "$TPL"/*.md; do
         base="$(basename "$t")"
+        # verification.md and design.md are owner-authored (scaffold-project.sh
+        # AUTHORED_RULES): the live copy is filled in by the owner, the template is
+        # blank, so byte parity is meaningless and must not be forced.
+        case "$base" in verification.md|design.md) continue ;; esac
         live="${REPO_ROOT}/.claude/rules/${base}"
         [ -f "$live" ]
         diff -q "$t" "$live"
         count=$((count + 1))
     done
     # Discovered, not hardcoded — but a template dir that went empty must fail.
-    [ "$count" -ge 4 ]
+    [ "$count" -ge 3 ]
 }
 
 @test "a user-authored skill is never removed by rebase" {
