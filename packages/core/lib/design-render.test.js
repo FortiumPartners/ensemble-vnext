@@ -311,6 +311,28 @@ describe('resolveTool workspace search (FIX-001)', () => {
     expect(() => resolveNoGlobal('playwright', cat, HINT, wsOpts)).toThrow(render.ToolError);
   });
 
+  it('reads a multi-line flow list, a quoted top-level key and a commented flow line', () => {
+    const multi = mkRoot({ 'pnpm-workspace.yaml': "packages: [\n  'libs/*',\n  'apps/*'\n]\n" });
+    mkPkg(web(multi), '@playwright/test', 'multi');
+    expect(resolveNoGlobal('playwright', multi, HINT, wsOpts).marker).toBe('multi');
+    const quoted = mkRoot({ 'pnpm-workspace.yaml': "packages:\n  - libs/*\n'catalog':\n  - apps/*\n" });
+    mkPkg(web(quoted), '@playwright/test', 'quoted-key');
+    expect(() => resolveNoGlobal('playwright', quoted, HINT, wsOpts)).toThrow(render.ToolError);
+    const commented = mkRoot({ 'pnpm-workspace.yaml': "packages: ['apps/*'] # see [docs]\n" });
+    mkPkg(web(commented), '@playwright/test', 'commented');
+    expect(resolveNoGlobal('playwright', commented, HINT, wsOpts).marker).toBe('commented');
+  });
+
+  it('follows a workspace folder that is a symlink', () => {
+    const root = mkRoot({ 'pnpm-workspace.yaml': "packages:\n  - 'apps/*'\n" });
+    const real = mkRoot();
+    fs.writeFileSync(path.join(real, 'package.json'), pkgJson());
+    mkPkg(real, '@playwright/test', 'linked');
+    fs.mkdirSync(path.join(root, 'apps'), { recursive: true });
+    fs.symlinkSync(real, path.join(root, 'apps', 'web'), 'dir');
+    expect(resolveNoGlobal('playwright', root, HINT, wsOpts).marker).toBe('linked');
+  });
+
   it('honours ! exclusions, skips ** entries and folders without package.json', () => {
     const ex = mkRoot({ 'pnpm-workspace.yaml': "packages:\n  - 'apps/*'\n  - '!apps/web'\n" });
     mkPkg(web(ex), '@playwright/test', 'excluded');

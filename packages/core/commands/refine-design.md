@@ -139,7 +139,8 @@ A caller with nobody to ask drives `--auto` through its argument. The record for
    reason, then the measured values. A board this run changed and re-judged has its section
    replaced by the new scores. A board this run changed whose visual critique did not run keeps
    its earlier scores under the line "scores predate this run's change (<date>); not re-judged:
-   <reason>". A board this run did not change keeps its section unchanged. The header line names
+   <reason>"; so does one whose new table judged no dimension (every row "not judged"), with
+   that as the reason. A board this run did not change keeps its section unchanged. The header line names
    the command and date of the run that last touched the file. Nothing blocks a commit on a
    score.
    Set `brief_items` in `design-map.js`'s map only on boards this run redrew, to the brief item

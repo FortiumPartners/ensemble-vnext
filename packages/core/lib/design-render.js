@@ -118,22 +118,34 @@ const yamlScalar = (v) => v.replace(/\s+#.*$/, '').trim().replace(/^(['"])(.*)\1
 
 /**
  * Read the `packages:` list of a pnpm-workspace.yaml without a YAML dependency: block form
- * (`- 'apps/*'`) and flow form (`packages: ['apps/*', 'packages/*']`). The list ends at the next
+ * (`- 'apps/*'`) and flow form (`packages: ['apps/*', 'packages/*']`, on one line or several). The list ends at the next
  * top-level key (`catalog:`, `onlyBuiltDependencies:` ...), so those entries are never read.
  */
 function pnpmWorkspacePatterns(file) {
   let text;
   try { text = fs.readFileSync(file, 'utf8'); } catch (_) { return []; }
   const out = [];
+  const pushFlow = (body) => {
+    for (const item of body.split(',')) if (yamlScalar(item)) out.push(yamlScalar(item));
+  };
   let inPackages = false;
-  for (const line of text.split(/\r?\n/)) {
+  let flowBuf = null; // a flow list opened on the `packages:` line and not yet closed
+  for (const line of text.replace(/^\uFEFF/, '').split(/\r?\n/)) {
     if (/^\s*(#.*)?$/.test(line)) continue;
-    const top = /^([A-Za-z0-9_$-]+)\s*:\s*(.*)$/.exec(line);
+    if (flowBuf !== null) {
+      flowBuf += ' ' + line.replace(/\s+#.*$/, '').trim();
+      const end = flowBuf.indexOf(']');
+      if (end !== -1) { pushFlow(flowBuf.slice(1, end)); flowBuf = null; }
+      continue;
+    }
+    const top = /^(['"]?)([A-Za-z0-9_$-]+)\1\s*:\s*(.*)$/.exec(line);
     if (top) {
-      inPackages = top[1] === 'packages';
-      const flow = /^\[(.*)\]/.exec(top[2].trim());
-      if (inPackages && flow) {
-        for (const item of flow[1].split(',')) if (yamlScalar(item)) out.push(yamlScalar(item));
+      inPackages = top[2] === 'packages';
+      const rest = top[3].replace(/\s+#.*$/, '').trim();
+      if (inPackages && rest.startsWith('[')) {
+        const end = rest.indexOf(']');
+        if (end !== -1) pushFlow(rest.slice(1, end));
+        else flowBuf = rest;
       }
       continue;
     }
@@ -150,6 +162,8 @@ function pnpmWorkspacePatterns(file) {
  * and anything with `**` are skipped; only
  * folders that exist and hold a package.json are kept. A path outside the repo is allowed.
  */
+const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch (_) { return false; } };
+
 function workspaceFolders(projectRoot) {
   let patterns = pnpmWorkspacePatterns(path.join(projectRoot, 'pnpm-workspace.yaml'));
   if (!patterns.length) {
@@ -170,7 +184,8 @@ function workspaceFolders(projectRoot) {
       const parent = path.resolve(projectRoot, pat.slice(0, -2));
       try {
         candidates = fs.readdirSync(parent, { withFileTypes: true })
-          .filter((e) => e.isDirectory()).map((e) => e.name).sort().map((n) => path.join(parent, n));
+          .filter((e) => e.isDirectory() || (e.isSymbolicLink() && isDir(path.join(parent, e.name))))
+          .map((e) => e.name).sort().map((n) => path.join(parent, n));
       } catch (_) { candidates = []; }
     } else if (!pat.includes('*')) {
       candidates = [path.resolve(projectRoot, pat)];
@@ -195,12 +210,17 @@ function workspaceFolders(projectRoot) {
  * is what the bundler's tools (design-bundle.js) rely on.
  */
 function resolveTool(name, projectRoot, installHint, opts) {
+  return locateTool(name, projectRoot, installHint, opts).mod;
+}
+
+/** resolveTool, also returning the folder it was found from and whether that is a workspace package. */
+function locateTool(name, projectRoot, installHint, opts) {
   const root = path.resolve(projectRoot || '.');
   const names = [name, ...((opts && opts.alias) || [])];
   const searched = [root];
   const tryFolder = (folder) => {
     for (const n of names) {
-      try { return { found: require(require.resolve(n, { paths: [folder] })) }; } catch (_) { /* next */ }
+      try { return { mod: require(require.resolve(n, { paths: [folder] })), folder }; } catch (_) { /* next */ }
     }
     return null;
   };
@@ -209,15 +229,15 @@ function resolveTool(name, projectRoot, installHint, opts) {
     for (const folder of workspaceFolders(root)) {
       searched.push(folder);
       hit = tryFolder(folder);
-      if (hit) break;
+      if (hit) { hit.workspace = true; break; }
     }
   }
-  if (hit) return hit.found;
+  if (hit) return hit;
   const g = spawnSync('npm', ['root', '-g'], { encoding: 'utf8' });
   if (g.status === 0 && g.stdout.trim()) {
     searched.push(g.stdout.trim());
     hit = tryFolder(g.stdout.trim());
-    if (hit) return hit.found;
+    if (hit) return hit;
   }
   throw new ToolError(`${name} is not installed for this project (searched: ${searched.join(', ')}): ${installHint}`);
 }
@@ -647,12 +667,15 @@ async function capture(browser, { port, file, viewport, png, offline, floor, tok
 }
 
 async function launch(projectRoot) {
-  const pw = resolveTool('playwright', projectRoot, 'run `npm install --save-dev playwright` (or `npm install -g playwright`), then `npx playwright install chromium`', { workspace: true, alias: TOOL_ALIASES.playwright });
+  const { mod: pw, folder, workspace } = locateTool('playwright', projectRoot, 'run `npm install --save-dev playwright` (or `npm install -g playwright`), then `npx playwright install chromium`', { workspace: true, alias: TOOL_ALIASES.playwright });
   try {
     return await pw.chromium.launch({ timeout: LAUNCH_TIMEOUT_MS });
   } catch (e) {
     if (/Executable doesn't exist|playwright install/i.test(e.message)) {
-      throw new ToolError("Playwright's Chromium is not installed: run `npx playwright install chromium`");
+      // Browsers are per Playwright version. Found in a workspace package, `npx` at the root would
+      // fetch some other version, so name the folder whose copy must install them.
+      const where = workspace ? ` in ${folder}` : '';
+      throw new ToolError(`Playwright's Chromium is not installed: run \`npx playwright install chromium\`${where}`);
     }
     throw e;
   }

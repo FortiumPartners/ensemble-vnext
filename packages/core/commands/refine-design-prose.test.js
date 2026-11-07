@@ -220,6 +220,7 @@ describe('refine-design --auto decisions, answers and audit findings (DORCH-B004
     expect(text).toMatch(/Read the existing `docs\/ui\/<slug>\/critique\.md` first/);
     expect(text).toMatch(/[Aa] board this run did not change keeps its section unchanged/);
     expect(text).toMatch(/scores predate this run's change \(<date>\); not re-judged: <reason>/);
+    expect(text).toMatch(/new table judged no dimension \(every row "not judged"\)/);
     expect(text).toMatch(/[Hh]eader line names the command and date of the run that last touched the file/);
   });
 
