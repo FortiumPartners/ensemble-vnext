@@ -313,31 +313,29 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released **4.17.0** (2026-11-07). 28 commands, 13 subagents. Test battery: 3233 Jest,
+Released **4.17.1** (2026-11-07). 28 commands, 13 subagents. Test battery: 3233 Jest,
 125 pytest, 641 BATS. **History: `CHANGELOG.md`.**
 
-4.15.0: the design stage (`/create-design` and four siblings). 4.16.0–4.16.1: design
-commands for multi-feature callers (#68); design quality (#70, #71, #72). 4.17.0:
-`/ship-build` and `/ship-setup` (#74–#77) — `ship.md` strings 13 shipping primitives.
+4.15.0–4.16.1: the design stage (`/create-design` and siblings). 4.17.0: `/ship-build` and
+`/ship-setup` (#74–#77). 4.17.1: their docs (#79); a listed `ship.md` step authorizes itself (#80).
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
-**Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
-- 4.17.0: `/ship-build` has not been run live against real GitHub, a reviewer bot, CI and a
-  release target (live proof SHIP-T002 and governance edits SHIP-D002 not done).
-  `custody.test.js` "passes on a later test-only commit" is flaky when a random commit hash
-  is all digits.
-- 4.16.1: the design-quality end-to-end live runs and the first critique-calibration replay
-  are planned, not run; `/audit-design --drift` does not report a shipped screen that crashed
-  or was removed (it reads as `uncaptured`).
-- 4.14.0–4.16.0: design flows (#65, DORCH-T001), `/task`, the setup check and fanned-out
-  grounding are unproven live.
-- 4.13.8: the TRD-edit guard is unproven live and checks headings only.
-- 4.13.7 and earlier: see `CHANGELOG.md`.
-- 4.7.2: `packages/core/lib/discovered.test.js` hangs on the GitHub runner only (cause
-  unidentified); excluded from CI via `jest.config.ci.js`, which holds the evidence.
+**Known open**, newest first (details, and older ones, in `CHANGELOG.md`):
+- 4.17.1: `/ship-build` ran live on a throwaway GitHub repo (push, PR, CI, merge, release, a
+  CI failure fixed and resumed); not live: an approving review (one login), CodeRabbit/Codex.
+  7 defects, fix PR pending: `request-review tool=claude` cannot post by default; merge after
+  an `await-approval` park uses a stale head; that park misses self-authored PRs and an unset
+  `ANTHROPIC_API_KEY` secret; the chained fix build can leave an edit uncommitted; the TRD is
+  parsed only at fix time; a `custody.test.js` case flakes on all-digit hashes.
+- 4.16.1: design-quality live runs and the first critique-calibration replay not run;
+  `/audit-design --drift` reads a crashed or removed shipped screen as `uncaptured`.
+- 4.13.8–4.16.0: unproven live: design flows (#65), `/task`, setup check, fanned-out
+  grounding, TRD-edit guard (checks headings only).
+- 4.7.2: `discovered.test.js` hangs on the GitHub runner only, cause unknown; excluded
+  from CI by `jest.config.ci.js`, which holds the evidence.
 
 Older items: `docs/modernization/2026-08-improvement-plan.md`.
 

@@ -10,6 +10,53 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.17.1] - 2026-11-07
+
+Two things 4.17.0 should have carried: the `/ship-build` and `/ship-setup` documentation (#79),
+and the sentence in `autonomy.md` that lets `/ship-build` act on what `ship.md` lists (#80).
+Plus the first live run of `/ship-build`.
+
+### Added
+
+- **The `/ship-build` and `/ship-setup` documentation (#79).** A new guide,
+  `docs/guides/ship-build.md`, and the matching updates to the guide index, `PROCESS.md`,
+  `QUICK-REFERENCE.md`, `INSTALL.md`, the README, the command reference and the
+  `process.md` template. 4.17.0 listed these as shipped (#77), but #77 merged with only the
+  plan for them; the written docs arrived in #79.
+
+### Fixed
+
+- **A fresh project's `/ship-build` stopped at its first outward step (#80).** The sequencer
+  authorizes a merge, release or `run` step only when `autonomy.md` says a step listed in
+  `ship.md` is the owner's standing authorization, and no `autonomy.md` said so. The
+  owner-approved sentence is now in `.claude/rules/autonomy.md` and its template, so every
+  project gets it on scaffold or refresh. A sequencer test fixture that silently read the real
+  `autonomy.md` now points at a missing file instead.
+
+### Proven live
+
+- **`/ship-build` ran end to end against a throwaway real GitHub repository:** push, open a PR,
+  wait for CI, merge, and a GitHub release, including a real CI failure that was fixed and
+  the run resumed.
+
+### Not yet proven
+
+- **A real approving review** (only one GitHub login was available, and a PR author cannot
+  approve their own PR) and the **CodeRabbit and Codex review bots** were not exercised live.
+
+### Known defects
+
+Seven defects, none fixed in this release; a separate PR fixing them is pending:
+
+- `request-review tool=claude` cannot post a review with the default setup.
+- A `merge` after an `await-approval` park merges against a stale head commit.
+- `await-approval` does not notice a self-authored PR, which that login can never approve.
+- `await-approval` does not check that the `ANTHROPIC_API_KEY` secret is set.
+- The chained fix build can leave an edit uncommitted.
+- The TRD is parsed only when a fix runs, not when the run starts.
+- Carried from 4.17.0: `custody.test.js` "passes on a later test-only commit" is flaky when
+  the random commit hash it builds is all digits.
+
 ## [4.17.0] - 2026-11-07
 
 `/ship-build` and `/ship-setup`: shipping a finished feature, written down once and run the
