@@ -15,8 +15,8 @@
   "trd": {
     "path": "docs/TRD/ship-build.md",
     "url": "https://claude.ai/artifact/DsC552WYK9hBxqh25T38DB",
-    "updated_at": "2026-11-04T07:20:49.296Z",
-    "command": "/audit-trd"
+    "updated_at": "2026-11-07T08:22:36.248Z",
+    "command": "/refine-trd"
   },
   "audit-trd": {
     "path": ".trd-state/ship-build/audit-trd-report.md",
