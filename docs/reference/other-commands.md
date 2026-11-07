@@ -403,8 +403,12 @@ reviewer and checks each step is authorized; the model carries out each step's c
 `/ship-build --resume` continues a parked run.
 
 Two decisions of [`pr-at-cycle-end`](../TRD/pr-at-cycle-end.md) are overridden here: `open-pr`
-is a second place a PR is opened, and a `merge` step in `ship.md` is your standing go for
-`gh pr merge`. `ensemble.openPullRequest` and the PR opening at the end of `/audit-build` and
+is a second place a PR is opened, and `/ship-build` may call `gh pr merge`. Listing a `merge`
+(or any outward) step in `ship.md` does not by itself authorize it: `isAuthorized()` in
+`ship-sequencer.js` refuses it unless `autonomy.md` carries the standing-authorization
+sentence (or, for `open-pr` only, `ensemble.openPullRequest` is `auto`); see
+[the ship-build guide](../guides/ship-build.md#the-outward-authorization-gate).
+`ensemble.openPullRequest` and the PR opening at the end of `/audit-build` and
 `/close-feature` are unchanged.
 
 ## `/task` — a job that produces findings, not code
