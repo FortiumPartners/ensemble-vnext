@@ -9,7 +9,7 @@
 | O1 | In a pnpm (or npm/yarn) workspace monorepo whose Playwright is a dependency of a workspace package rather than of the root, the design commands find it and render, so the visual critique, explore ranking and the audit's visual verifiers run instead of reporting "Playwright not installed" | the reproduction below; owner instruction 2026-11-06 ("should check workspace packages and accept @playwright/test") | yes |
 | O2 | A product that has `@playwright/test` but not `playwright` itself gets the same render as one with `playwright` | owner instruction 2026-11-06 | yes |
 | O3 | `/refine-design` never loses scores it did not replace: a board this run did not re-judge keeps its earlier scores in `critique.md`, and a board it did not change keeps its whole section | the reproduction below; owner instruction 2026-11-06 ("/refine-design overwrites critique.md and loses the scores") | yes |
-| O4 | A product with no Playwright anywhere still gets the existing exit-2 ToolError naming the install step (D13 of the design-quality TRD is unchanged in that respect) | `docs/TRD/design-quality.md` D13; existing test `design-render.test.js:221` | |
+| O4 | A product with no Playwright anywhere still gets the existing exit-2 ToolError naming the install step (D13 of the design-stage TRD is unchanged in that respect) | `docs/TRD/design-stage.md` D13; existing test `design-render.test.js:225` | |
 
 ## Reproduction
 
@@ -73,7 +73,7 @@ parser reads the block form (`- 'apps/*'`, quoted or not) and the flow form
 also carry `catalog:` and `onlyBuiltDependencies:`).
 
 The YAML is read with a line parser for the `packages:` block (`- 'apps/*'`, quoted or not),
-because the framework ships no YAML dependency (`stack.md`) and the block's shape is fixed.
+because the vendored `.claude/lib` runs on Node built-ins alone in the product's repo (`design-render.js:61-67` requires nothing else; `js-yaml` is only a devDependency of this repository's `package.json`) and the block's shape is fixed.
 Rejected: walking every `node_modules` under the project — slow on a large monorepo and it
 would pick up nested copies nobody declared; adding `NODE_PATH` instructions — the live test's
 workaround, which moves the burden to every owner.
@@ -129,6 +129,8 @@ none
 | FIX-001 | Give `resolveTool` an opt-in workspace search with a name alias, used only by `launch()` for `playwright` → `@playwright/test`, per the Decision; update the header comment's D13 line and make the not-found message name the folders it searched | O1, O2, O4 | None | Every test neutralises the global lookup (an empty `PATH` for the call, as the existing CLI test does) and each stub exports a unique marker the test asserts. (1) Fixture with `pnpm-workspace.yaml` listing `apps/*` and a stub `apps/web/node_modules/@playwright/test`: `resolveTool('playwright', root, hint, opts)` returns that stub; the same fixture without the workspace file throws ToolError. (2) The same with `package.json` `workspaces: ["apps/*"]`, with `{ packages: [...] }`, and with the flow-style YAML list; a YAML file whose `packages:` block is followed by `catalog:` reads only the packages. (3) `!apps/web` excludes it; an entry with `**` is skipped; a folder without `package.json` is skipped. (4) Two packages `apps/a` and `apps/b` each with a stub: `a`'s is returned (sorted order). (5) A root `@playwright/test` stub is returned in a single-package repo (O2 alone). (6) Without the opts argument the workspace stub is NOT found (bundler behaviour unchanged). (7) The not-found message names the searched folders. (8) Existing exit-2 tests and `design-bundle.js` tests still pass |
 | FIX-002 | Rewrite `/refine-design` step 3's `critique.md` instruction as a per-board merge, per the Decision, and extend `refine-design-prose.test.js` | O3 | None | (1) `refine-design.md` no longer says "overwritten each run" for `critique.md`, and says to read the existing file first, keep unchanged boards' sections, and keep earlier scores labelled "predate this run's change" when a changed board was not re-judged. (2) It says the header line names the command and date of the run that last touched the file. (3) The prose test asserts each of these and fails on the old text. (4) `create-design.md`'s whole-file write is unchanged |
 | AMEND-001 | Make `/refine-design`'s `critique.md` header rule its own step, so every run rewrites the file's first line with the command and date (a live refine on lightning-lane, 2026-11-06, merged per board but left the header "# Critique (before the fix round)") — amendment, 2026-11-06 | amendment | FIX-002 | | (1) `refine-design.md` (and its `.claude/` mirror) states the header rewrite as its own bullet, naming the line's form and that it is rewritten every run; (2) the prose test asserts that bullet and fails on the old single-sentence text |
+| AMEND-002 | refine-design left critique.md header unchanged in a live run; make the header rule its own step — promoted from a gap discovery found by /amend — duplicate of AMEND-001 (the same /amend discovery, promoted by the audit's --reconcile); satisfied by AMEND-001's commit d8fdfa2 | amendment — no objective recorded | None | refine-design left critique.md header unchanged in a live run; make the header rule its own step no longer holds |
+| AMEND-003 | [test-gap] O1/O2: no test proves launch() passes { workspace: true, alias } to locateTool; add a CLI render (or launch()) test against a workspace fixture whose only Playwright is a stub @playwright/test in apps/web, asserting the stub is the module used, with the global lookup neutralised — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/lib/design-render.js:670 (launch -> locateTool with workspace opts); packages/core/lib/design-render.test.js:255-380 call resolveTool directly; no test calls launch or a CLI render against a workspace fixture) | amendment — no objective recorded | None | [test-gap] O1/O2: no test proves launch() passes { workspace: true, alias } to locateTool; add a CLI render (or launch()) test against a workspace fixture whose only Playwright is a stub @playwright/test in apps/web, asserting the stub is the module used, with the global lookup neutralised no longer holds |
 
 ## Task Grounding
 
@@ -146,13 +148,23 @@ none
 - **Follow:** keep the table shape (dimension, score or "not judged", versus predecessor, frames read, reason, then measured values) so the audit and later refines read the same format
 - **Careful:** `refine-design.md:85` lists `## Visual critique scores` as part of the audit report it reads — a different file; do not touch that line
 
+### AMEND-002
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
+### AMEND-003
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
 ## Could Not Verify
 
-- Applied from the adversarial review (2026-11-06): the workspace search is limited to Playwright (it picked lightning-lane's mobile Tailwind 3 for the bundler); the loop order is folders outer so a global install cannot beat the product's copy; the tests neutralise the global npm root and assert exact stubs.
+After `/audit-build` (2026-11-06; 5 of 5 verifiers reported, no source PRD supplied):
 
-- That a real `/create-design` run on lightning-lane now critiques and ranks unaided. Owner ruling 2026-11-06 (R1): FS-4 (critique, ranking and `/audit-design`'s visual checks run on rendered boards) is accepted as proven by the render evidence: each of those steps reaches Playwright only through `node .claude/lib/design-render.js render` (`create-design.js:357,489`, `audit-design.js:283`), and that command ran in a fresh session in the worktree on 2026-11-06 with no `NODE_PATH` and returned frames with no errors (`.trd-state/design-render-pnpm-critique-keep/evidence/live-refine-r4/refine-pane-r4.txt`). No live `/create-design` or `/audit-design` run is required for this fix; whether the critique agents score and rank well is outside it.
-- That a model following the new refine prose actually merges rather than overwrites; the prose test proves only that the instruction is there.
+- Fidelity to a product source: this TRD has no source PRD (it was written from the live-test findings), so `/audit-build`'s check against product requirements did not run. Only traceability between this TRD and the delivered code was checked.
+- That a real `/create-design` run on lightning-lane now critiques and ranks unaided. Out of scope for this audit, which read code and tests only. Owner ruling 2026-11-06 (R1): FS-4 (critique, ranking and `/audit-design`'s visual checks run on rendered boards) is accepted as proven by the render evidence: each of those steps reaches Playwright only through `node .claude/lib/design-render.js render` (`create-design.js:357,489`, `audit-design.js:283`), and that command ran in a fresh session in the worktree on 2026-11-06 with no `NODE_PATH` and returned frames with no errors (`.trd-state/design-render-pnpm-critique-keep/evidence/live-refine-r4/refine-pane-r4.txt`). No live `/create-design` or `/audit-design` run is required for this fix; whether the critique agents score and rank well is outside it.
+- That a model following the new refine prose actually merges rather than overwrites. Out of scope for this audit (it reads prose and tests, not model behaviour); the prose test proves only that the instruction is there.
 
 ## Changelog
 
+- 2026-11-06: `/audit-build`: O4's source now cites `docs/TRD/design-stage.md` D13 (was design-quality D13, an unrelated row) and the exit-2 test at `design-render.test.js:225`; the YAML line-parser rationale now cites the vendored lib's Node-only requires instead of `stack.md`; Could Not Verify rewritten.
 - 2026-11-06: owner ruling R1 (via `/refine-verification`): FS-4 accepted as proven by the live render evidence; no hour-long design or audit run for this fix.
