@@ -27,6 +27,7 @@
     "testPathIgnorePatterns": [
       "/node_modules/",
       "<rootDir>/.claude/worktrees/",
+      "<rootDir>/.claude/skills/",
       "<rootDir>/test/evals/",
       "<rootDir>/test/discipline-corpus/",
       "<rootDir>/test/integration/hooks/"
@@ -34,6 +35,7 @@
     "modulePathIgnorePatterns": [
       "<rootDir>/.claude/worktrees/",
       "<rootDir>/test/evals/",
+      "<rootDir>/.claude/skills/",
       "<rootDir>/test/discipline-corpus/",
       "<rootDir>/test/integration/hooks/"
     ]
