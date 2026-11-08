@@ -109,7 +109,7 @@ describe('audit-build: empty index', () => {
     const agent = makeAgentStub(planWithIndex(NONEMPTY_INDEX));
     await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs({ prd: '' }) });
     expect(SOURCE).toContain("'no-source'");
-    expect(SOURCE).toMatch(/action 'no-source' and no\s+id/);
+    expect(SOURCE).toMatch(/action 'no-source' and id\s+'NO-PRD'/);
   });
 
   it('caps the verdict when no PRD was supplied, even with zero findings', async () => {
