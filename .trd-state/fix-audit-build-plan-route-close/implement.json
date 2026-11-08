@@ -37,6 +37,21 @@
       "commit": null,
       "started_at": null,
       "completed_at": "2026-11-08T11:15:03.673Z"
+    },
+    "AMEND-001": {
+      "description": "[test-gap] workflow prompt test is text-only",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/audit-build.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-08T11:29:22.472Z",
+      "completed_at": "2026-11-08T11:30:02.635Z",
+      "last_advanced": "2026-11-08T11:29:53.341Z"
     }
   },
   "checkpoints": [],
