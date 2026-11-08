@@ -70,9 +70,9 @@ describe('the ship.md template', () => {
       expect(parsed.policy).toBe('ship.md');
     });
 
-    test('its ## Ship steps are push, open-pr, repeat, merge, release in order', () => {
+    test('its ## Ship steps are push, open-pr, repeat, merge, wait-ci, release in order', () => {
       const ship = parsed.steps.filter((s) => s.section === 'ship');
-      expect(ship.map((s) => s.primitive)).toEqual(['push', 'open-pr', 'repeat', 'merge', 'release']);
+      expect(ship.map((s) => s.primitive)).toEqual(['push', 'open-pr', 'repeat', 'merge', 'wait-ci', 'release']);
     });
 
     test('the repeat is until=clean rounds=2 around the review loop', () => {

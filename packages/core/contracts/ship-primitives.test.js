@@ -170,6 +170,15 @@ describe('merge', () => {
     expect(t).toMatch(/gh pr merge <pr> --<method>/);
     expect(t.indexOf('--link merge')).toBeGreaterThan(t.indexOf('gh pr merge'));
   });
+  test('checks the open PR head before merging and matches on the observed id', () => {
+    expect(t.indexOf('--link pr-head')).toBeGreaterThan(-1);
+    expect(t.indexOf('--link pr-head')).toBeLessThan(t.indexOf('gh pr merge'));
+    expect(t).toMatch(/--match-head-commit <observed>/);
+    expect(t).not.toMatch(/--match-head-commit <head>/);
+  });
+  test('an already MERGED PR still skips to the merge proof', () => {
+    expect(t).toMatch(/Already `MERGED`[^]*skip to step 2/);
+  });
 });
 
 describe('release', () => {
@@ -200,6 +209,14 @@ describe('release', () => {
 });
 
 describe('the waiting primitives', () => {
+  test('wait-ci reads the merge commit after a merge and polls 120s before no-checks', () => {
+    const t = flat('wait-ci');
+    expect(t).toMatch(/context\.merged/);
+    expect(t).toMatch(/--json mergeCommit/);
+    expect(t).toMatch(/up to 120s before returning `no-checks`/);
+    const waiting = t.slice(t.indexOf('## Waiting'));
+    expect(waiting).toMatch(/gh run list --commit <merge-sha>/);
+  });
   test.each(['request-review', 'wait-ci', 'await-approval', 'collect-findings'])('%s defines the current head as the head last published', (name) => {
     const t = flat(name);
     expect(t).toMatch(/headRefOid/);
@@ -224,11 +241,33 @@ describe('the waiting primitives', () => {
     expect(t).toMatch(/@codex review/);
     expect(t).toMatch(/run_in_background: true/);
   });
+  test('request-review tool=claude narrows its permissions and defines how its review is recognised', () => {
+    const t = flat('request-review');
+    expect(t).toMatch(/--allowedTools/);
+    expect(t).toMatch(/Bash\(gh pr comment:\*\)/);
+    expect(t).not.toMatch(/Bash\(gh:\*\)/);
+    expect(t).toMatch(/gh api user --jq \.login/);
+    expect(t).toMatch(/requestedAt/);
+    expect(t).toMatch(/ship-review\.js match --login/);
+    expect(t).toMatch(/review-<head>\.log/);
+    expect(t).toMatch(/exit with nothing posted[^.]*return(s)? `wait`/);
+  });
   test('await-approval returns wait, with remoteResume only when the workflow file is on the remote default branch', () => {
     const t = flat('await-approval');
     expect(t).toMatch(/return `wait`/);
     expect(t).toMatch(/remoteResume: true/);
     expect(t).toMatch(/exists on the remote default branch/);
+  });
+  test('await-approval names a self-authored PR and ties remoteResume to the workflow file and the ANTHROPIC_API_KEY secret', () => {
+    const t = flat('await-approval');
+    expect(t).toMatch(/gh pr view <pr> --json author/);
+    expect(t).toMatch(/gh api user --jq \.login/);
+    expect(t).toMatch(/does not let an author approve their own PR/);
+    expect(t).toMatch(/selfAuthored/);
+    expect(t).toMatch(/gh secret list --json name/);
+    expect(t).toMatch(/ANTHROPIC_API_KEY/);
+    expect(t).toMatch(/Only if the file exists and the secret is listed, put `remoteResume: true`/);
+    expect(t).toMatch(/organization-level secret is not visible/);
   });
 });
 

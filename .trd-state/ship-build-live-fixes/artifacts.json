@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/ship-build-live-fixes.md",
+    "url": "https://claude.ai/artifact/CAPf4XMdjSzY1z86krv25e",
+    "updated_at": "2026-11-07T20:43:40.509Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/ship-build-live-fixes/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-07T20:59:24.038Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/ship-build-live-fixes/verification-report.md",
+    "url": "https://claude.ai/artifact/5QgojnJVnMucS4AYo72Nib",
+    "updated_at": "2026-11-07T21:11:25.163Z",
+    "command": "/implement-trd"
+  }
+}

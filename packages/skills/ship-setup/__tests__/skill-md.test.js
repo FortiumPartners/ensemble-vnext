@@ -155,6 +155,17 @@ describe('packages/skills/ship-setup/SKILL.md', () => {
   });
 });
 
+describe('authorization check', () => {
+  const body = parseFrontmatter(fs.readFileSync(SKILL_PATH, 'utf8')).body;
+  test('runs the authorization verb and reports refused steps in ISSUES without editing autonomy.md', () => {
+    expect(body).toContain('ship-sequencer.js authorization --policy');
+    expect(body).toMatch(/In ISSUES, name each refused step/);
+    expect(body).toMatch(/this skill never edits that file/);
+    const never = body.slice(body.indexOf('## Never'), body.indexOf('## Readout'));
+    expect(never).toMatch(/Edit any file other than `\.claude\/rules\/ship\.md`/);
+  });
+});
+
 describe('contract parameters are asked with no skill edit (D34)', () => {
   // The skill tells the model to read `params:` from each contract. Prove that reading works for
   // a contract that did not exist when the skill was written: a fixture primitive's parameter is

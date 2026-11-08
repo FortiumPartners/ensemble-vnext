@@ -326,10 +326,8 @@ one (4.10.0/4.9.0).
 **Known open**, newest first (details, and older ones, in `CHANGELOG.md`):
 - 4.17.1: `/ship-build` ran live on a throwaway GitHub repo (push, PR, CI, merge, release, a
   CI failure fixed and resumed); not live: an approving review (one login), CodeRabbit/Codex.
-  7 defects, fix PR pending: `request-review tool=claude` cannot post by default; merge after
-  an `await-approval` park uses a stale head; that park misses self-authored PRs and an unset
-  `ANTHROPIC_API_KEY` secret; the chained fix build can leave an edit uncommitted; the TRD is
-  parsed only at fix time; a `custody.test.js` case flakes on all-digit hashes.
+  Its 6 live-test defects are fixed (#82, unreleased); a `custody.test.js` case still flakes
+  on all-digit commit hashes.
 - 4.16.1: design-quality live runs and the first critique-calibration replay not run;
   `/audit-design --drift` reads a crashed or removed shipped screen as `uncaptured`.
 - 4.13.8–4.16.0: unproven live: design flows (#65), `/task`, setup check, fanned-out
