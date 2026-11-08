@@ -298,6 +298,22 @@ prompt hint stops treating the feature as in flight, and `/implement-trd` and `/
 to work on it. `implement.json`, the TRD and the reports are left as they are. To reopen a
 feature, delete its `closed.json`.
 
+### `/ship-build` — ship it
+
+`/ship-build [trd-path] [--resume]` ships the work a closed feature (or a sweep) left on the
+branch. It runs the steps your project lists in `.claude/rules/ship.md` (written by the
+`ship-setup` skill), in order, each step one of 13 shipping primitives: push, open a PR, wait
+for CI, collect and fix findings, merge, release and so on. A full feature must be closed
+first. With no step under `## Ship` in `ship.md` (as `/init-project` ships it, unfilled) it
+runs only `push`. Before a push, merge or deploy it checks the
+commit against the one that was verified, and it stops rather than ship something else.
+
+Steps that act beyond your branch (merge, release, closing an issue) run only when
+`autonomy.md` carries the owner's standing-authorization sentence; listing a step in `ship.md`
+does not authorize it. A step waiting on a human parks the run, and `/ship-build --resume`
+continues it from `.trd-state/<feature>/shipped.json`. Details, the line format and the
+authorization rule: [ship-build.md](ship-build.md).
+
 ---
 
 ## 2a. The design stage (optional)

@@ -1263,3 +1263,8 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] A CI failure only counts as "this feature's code" for the ownership judge when the failing test and the code it tests are in the branch's diff against `main`. A fixture whose base already holds `src/greet.js` (or whose failing test is not in the checkout) is classed `[not-this-feature]` and the run stops, which looks like a defect but is the contract working. To prove the fix-through-the-recorded-path class, commit `src/greet.js`, `src/greet.test.js` and the matching TRD row only on the feature branch (`it3/prep-needsfix3.sh` plus the branch setup in the iteration-3 notes above).
 - [ran] Stub-gh switches in `it3/stubs/gh`: `ci-flaky` (fails until `gh run rerun` is called), `ci-lint` (fails until `src/greet.js` holds `formatted-by-fmt`, which `stubs/fmt.sh` writes), `ci-needs-fix`, `ci-notmine`, `comments.json` (PR review comments), and `deploy-fail` read by `stubs/deploy.sh`. Seven failure classes of AC-F5.2 each got one live run in `it3/fs29-summary.txt`.
 - [ran] A `/ship-build` that stops at `collect-findings` on a `[not-this-feature]` failure records the row but never reaches `## After shipping`, so that failure is reported and recorded but not filed in that run (`it3/notmine`).
+
+## Documentation-only features (ship-build-docs)
+
+- [ran] `<base>` for a branch-diff criterion is the commit the dispatch names (`ac12bfe`), not necessarily `git merge-base origin/main HEAD` as the local `origin/main` ref can be ahead of it (here it printed `f836af8`'s sibling `d31c68e` / merge-base `f836af8`); use the dispatch's stated base.
+- [ran] In zsh `echo ======` fails (`= ` expansion); quote separator strings when capturing evidence.

@@ -1,0 +1,154 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-docs/evidence/diff-name-status.txt",
+      "reason": "docs/guides/ship-build.md is A vs base ac12bfe; titled 'Shipping: /ship-build and /ship-setup' with passages on both.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-docs/evidence/guide-claims-table.md",
+      "reason": "Claim table pairs guide claims with ship-sequencer.js/contracts/command lines. I confirmed isAuthorized(), AUTHORIZATION_SENTENCE and the 13 outward flags. The supporting code is byte-identical between base and origin/main (local main ref is stale).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-docs/evidence/guide-claims-table.md",
+      "reason": "The guide says listing a step does not by itself authorize an outward step. It quotes the exact autonomy.md sentence and gives open-pr/openPullRequest=auto as the single exception, matching isAuthorized().",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-docs/evidence/diff-guides-readme.txt",
+      "reason": "docs/guides/README.md names /ship-build and /ship-setup and links ship-build.md, which resolves to the guide in the same directory.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-docs/evidence/diff-quick-reference.txt",
+      "reason": "QUICK-REFERENCE.md adds rows naming /ship-build (linking ship-build.md) and ship-setup.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-docs/evidence/diff-root-readme.txt",
+      "reason": "README.md's ship-setup/ship-build mention links docs/guides/ship-build.md, and the docs table does too.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-docs/evidence/fs-7-process-vs-isauthorized.txt",
+      "reason": "The /ship-build entry in .claude/rules/process.md (checked in the working tree too) no longer says 'standing go'. It says outward steps run only if autonomy.md carries the standing-authorization sentence, with open-pr exempt when ensemble.openPullRequest is auto. That matches isAuthorized() and AUTHORIZATION_SENTENCE on origin/main, and its list of outward steps matches the contracts' outward values. It paraphrases the sentence instead of quoting it, the same reading accepted for FS-8.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-docs/evidence/diff-process-template.txt",
+      "reason": "The template entry drops 'standing go'. It says outward steps need the autonomy.md standing-authorization sentence, makes open-pr the single exception when openPullRequest is auto, and lists outward steps that match the contracts. It paraphrases the sentence rather than quoting it, but the condition is the same.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-docs/evidence/standing-go-grep.txt",
+      "reason": "At HEAD the exact sentence appears only in docs/TRD/ship-build-docs.md and the success definition, both quoting it as the old wording. The base hits in docs/reference are gone. The remaining 'standing go' uses are decision-of-record text in older PRD/TRDs, not this sentence.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-docs/evidence/doc-only-check.txt",
+      "reason": "The name-only diff contains only Markdown docs, .trd-state records and the Markdown process.md.template. The sequencer diff exits 0.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-docs/evidence/autonomy-unchanged.txt",
+      "reason": "The UNCHANGED autonomy.md sentinel is present. I re-ran git diff --stat for both autonomy.md paths and it printed nothing.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/ship-build-docs/evidence/constitution-stack-unchanged.txt",
+      "reason": "The sentinel is present. I re-ran git diff --stat and it printed nothing.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0,
+    1
+  ],
+  "outcome": "satisfied"
+}

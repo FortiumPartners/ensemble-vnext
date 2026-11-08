@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "slug": "fix-audit-build-plan-route-close",
+  "name": "Fix /audit-build never closing a /plan-routed feature",
+  "source": { "command": "/plan-fix", "artifact": "docs/plans/fix-audit-build-plan-route-close/brief.md" },
+  "repo": "/Users/james/dev/fortium/ensemble-vnext",
+  "base_branch": "main",
+  "rigor": "bug-fix",
+  "features": [
+    {
+      "name": "Audit closes a plan-route feature with no PRD",
+      "description": "Audit closes a plan-route feature with no PRD - feature F-1 of workplan fix-audit-build-plan-route-close.\nFor a feature routed through /plan (a light TRD, no PRD by design), /audit-build ends with 0 defects, 0 test gaps and one uncovered item whose only content is 'no source supplied'. audit-rounds.js decide() returns close:false while uncovered > 0, so closed.json is never written. Make a missing PRD a caveat in the verdict, not an uncovered requirement, so the audit closes the feature when every TRD objective is covered. GitHub issue FortiumPartners/ensemble-vnext#83.\nAcceptance: (1) a plan-route audit with no PRD, 0 defects, 0 test gaps and only the no-PRD item closes and keeps the caveat in the verdict; (2) a feature WITH a PRD and an uncovered requirement stays open; (3) a no-PRD audit with a real uncovered TRD objective stays open; (4) a no-PRD audit with a real defect still chains a fix run; (5) .claude/lib/audit-rounds.js stays identical to packages/core/lib/audit-rounds.js.\nBuilds on: none.\nDecisions: where to mark the no-PRD finding as a caveat (at the source in audit-build.js or in tally): the implementer takes the smaller change (owner's call, taken by Forge, 2026-11-08).\nDesign: packages/core/workflows/audit-build.js:241 and :566-585; packages/core/lib/audit-rounds.js:99-100 and :166; tests packages/core/lib/audit-rounds.test.js and packages/core/workflows/audit-build.test.js.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 0,
+      "dependencies": [],
+      "entry_point": "bug",
+      "route": "plan",
+      "route_rigor": "bug-fix"
+    }
+  ]
+}

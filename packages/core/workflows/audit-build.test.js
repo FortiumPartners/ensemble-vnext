@@ -105,6 +105,31 @@ describe('audit-build: empty index', () => {
     expect(result.readout).toMatch(/NO ACTION/);
   });
 
+  // Asserts on the prompt actually dispatched to the validation verifier, not the workflow source,
+  // so removing or always-applying the no-PRD branch fails these.
+  async function validationPrompt(prd) {
+    const agent = makeAgentStub(planWithIndex(NONEMPTY_INDEX));
+    await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs({ prd }) });
+    const calls = agent.calls.filter((c) => c.opts.label === 'verify:validation-audit');
+    expect(calls).toHaveLength(1);
+    return calls[0].prompt;
+  }
+
+  it('tells the validation verifier to mark the missing PRD as no-source, a caveat not a requirement', async () => {
+    const prompt = await validationPrompt('');
+    expect(prompt).toMatch(/action 'no-source' and id\s+'NO-PRD'/);
+    expect(prompt).toContain('No PRD was supplied');
+    expect(prompt).not.toContain('Read docs/PRD/');
+  });
+
+  it('does not send the no-PRD instruction when a PRD path is supplied', async () => {
+    const prompt = await validationPrompt('docs/PRD/example.md');
+    expect(prompt).not.toContain('NO-PRD');
+    expect(prompt).not.toContain('no-source');
+    expect(prompt).not.toContain('No PRD was supplied');
+    expect(prompt).toContain('Read docs/PRD/example.md fully');
+  });
+
   it('caps the verdict when no PRD was supplied, even with zero findings', async () => {
     const agent = makeAgentStub(planWithIndex(NONEMPTY_INDEX));
 

@@ -75,15 +75,15 @@ codebases:
    quality gates, approval rules and verification level) and `process.md` (the workflow).
 4. **Vendors the runtime** into `.claude/`:
    - `agents/` — the 13 subagents
-   - `commands/` — 25 workflow commands (`/init-project` and `/rebase-project` stay in the plugin)
+   - `commands/` — 26 workflow commands (`/init-project` and `/rebase-project` stay in the plugin)
    - `hooks/` plus hook registrations in `settings.json`
    - `rules/` — the framework rules (`async-discipline.md`, `autonomy.md`,
-     `command-status.md`) and two unfilled owner files, `verification.md` and `design.md`
-   - `skills/` — skills chosen for your stack, plus eight that ship to every project
+     `command-status.md`) and three unfilled owner files, `verification.md`, `design.md` and `ship.md`
+   - `skills/` — skills chosen for your stack, plus nine that ship to every project
      (listed in the plugin's `packages/skills/framework-skills.txt`): four verification checks
      (`verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity`,
-     `verify-design-structure`), the two setup interviews (`verification-setup`,
-     `design-setup`), and two the design commands read (`designing-on-canvas`,
+     `verify-design-structure`), the three setup interviews (`verification-setup`,
+     `design-setup`, `ship-setup`), and two the design commands read (`designing-on-canvas`,
      `design-grounding`)
    - `workflows/`, `lib/`, `contracts/` — scripts and reference text the commands use
 5. **Stamps the plugin version** into `.claude/settings.json` (`ensemble.version`). If it
@@ -151,6 +151,15 @@ truth (code, Figma or the canvas), each platform the product ships, how to reach
 (routes, sign-in by reference to `verification.md`, seed data, capture command), and your design
 rules. Like `/verification-setup`, it interviews you with detected defaults, and running it is
 the approval. Until it is filled, every design command stops with "run `/design-setup`".
+
+### Ship setup (only if you want `/ship-build` to ship for you)
+
+`/ship-build` runs the ordered steps in `.claude/rules/ship.md`, which `/init-project` ships
+unfilled. Run the `/ship-setup` skill to fill it: it interviews you and writes the steps (push,
+open a PR, review rounds, merge, release). Running it is the approval. Steps that act beyond
+your branch also need the owner's authorization sentence in `.claude/rules/autonomy.md`; a step
+listed in `ship.md` is not authorized by that alone, and `autonomy.md` is framework-owned, so a
+sentence added by hand is overwritten at the next refresh. See [ship-build.md](ship-build.md).
 
 ## 6. Who owns what
 

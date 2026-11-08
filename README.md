@@ -5,7 +5,7 @@ experienced user drives Claude Code (write the requirements, plan, build in phas
 against the requirements, review) into slash commands that run from one invocation to one
 result, with state kept on disk so work can resume.
 
-Version **4.17.0** (2026-11-07): 28 commands, 13 subagents. What changed in each release is in
+Version **4.17.1** (2026-11-07): 28 commands, 13 subagents. What changed in each release is in
 [CHANGELOG.md](CHANGELOG.md).
 
 ## How it is built
@@ -41,10 +41,12 @@ committed and keeping a project current are in [docs/guides/INSTALL.md](docs/gui
 | Refinement | `/refine-prd`, `/refine-trd`, `/augment-trd-figma` |
 | Maintenance | `/init-project`, `/rebase-project`, `/update-project`, `/cleanup-project`, `/audit-docs`, `/fold-prompt` |
 
-Two owner-run setup skills fill the rules files the commands read: `verification-setup`
-writes `.claude/rules/verification.md` (which environments verification may reach) and
+Three owner-run setup skills fill the rules files the commands read: `verification-setup`
+writes `.claude/rules/verification.md` (which environments verification may reach),
 `design-setup` writes `.claude/rules/design.md` (how the product is designed and how to reach
-a screen).
+a screen), and `ship-setup` writes `.claude/rules/ship.md` (the ordered shipping steps
+`/ship-build` runs; listing a step there does not by itself authorize an outward one, see
+[docs/guides/ship-build.md](docs/guides/ship-build.md)).
 
 Every command ends with a short readout (what exists, what it decided, what needs you, what to
 run next) and a `COMMAND COMPLETE` or `COMMAND STUCK` line.
@@ -55,6 +57,7 @@ run next) and a `COMMAND COMPLETE` or `COMMAND STUCK` line.
 |---|---|
 | [docs/guides/README.md](docs/guides/README.md) | Start here: quick start and the guides |
 | [docs/guides/QUICK-REFERENCE.md](docs/guides/QUICK-REFERENCE.md) | Which command to reach for, common flags, where files live, outcomes |
+| [docs/guides/ship-build.md](docs/guides/ship-build.md) | Shipping with `/ship-build` and `ship-setup`: the `ship.md` format, the 13 primitives, the authorization gate, resuming |
 | [docs/reference/README.md](docs/reference/README.md) | Every command step by step, which agent does it, and where it is defined |
 | [CHANGELOG.md](CHANGELOG.md) | Release history and what is not yet proven |
 

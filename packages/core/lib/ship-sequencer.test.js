@@ -439,7 +439,7 @@ describe('outward gate', () => {
     seq.start(startOpts(policy('1. alpha\n2. bravo')));
     const settings = path.join(tmp, 'settings.json');
     fs.writeFileSync(settings, '{ not json');
-    expect(run({ contractsDir, autonomyPath: '', settingsPath: settings }).action).toBe('stop');
+    expect(run({ contractsDir, autonomyPath: path.join(tmp, 'none.md'), settingsPath: settings }).action).toBe('stop');
   });
 });
 
