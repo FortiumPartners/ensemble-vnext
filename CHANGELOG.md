@@ -10,11 +10,14 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
-## [Unreleased]
+## [4.17.2] - 2026-11-08
+
+The fixes for the defects the first live run of `/ship-build` found (#82), and an
+`/audit-build` fix for features routed through `/plan` (#84).
 
 ### Fixed
 
-Defects found by running `/ship-build` live for the first time:
+Defects found by running `/ship-build` live for the first time (#82):
 
 - The `claude` reviewer can now post a review and is recognised as a reviewer.
 - A merge after an approval park re-reads the PR head instead of trusting the stale one.
@@ -23,6 +26,33 @@ Defects found by running `/ship-build` live for the first time:
 - A TRD that cannot be parsed is refused at the start of the run.
 - `ship-setup` reports a missing standing-authorization sentence.
 - `wait-ci` after a merge waits on the merge commit; the default string is updated.
+
+And one from a real run:
+
+- **`/audit-build` never closed a feature routed through `/plan` (#84, issue #83).** Such a
+  feature has no PRD, and the audit counted "no PRD supplied" as an uncovered requirement, so
+  the feature stayed open however clean the build. A missing PRD is now reported as a caveat
+  (fidelity to a source and omissions go unchecked), not as an open requirement.
+
+### Proven live
+
+- The `/ship-build` live test ran on 2026-11-07 against a throwaway GitHub repository.
+
+### Not yet proven
+
+- A real approving review by a second GitHub account, and the CodeRabbit and Codex review
+  bots, have not been exercised live.
+
+### Known defects
+
+- Three `/ship-build` custody problems (custody: the check that what ships is what was
+  verified), found by Forge on real Storybook runs, are open: custody is checked after the
+  merge, compares raw heads and counts framework-written files as shipped code (#85); it
+  blocks the push that would create the preview environment its own preview criteria need
+  (#86); and the post-merge re-check drops PM rulings and treats untouched evidence as stale
+  (#87).
+- Carried from 4.17.0: `custody.test.js` "passes on a later test-only commit" is flaky when
+  the random commit hash it builds is all digits.
 
 ## [4.17.1] - 2026-11-07
 

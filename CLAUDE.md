@@ -313,21 +313,21 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released **4.17.1** (2026-11-07). 28 commands, 13 subagents. Test battery: 3233 Jest,
+Released **4.17.2** (2026-11-08). 28 commands, 13 subagents. Test battery: 3233 Jest,
 125 pytest, 641 BATS. **History: `CHANGELOG.md`.**
 
 4.15.0–4.16.1: the design stage (`/create-design` and siblings). 4.17.0: `/ship-build` and
-`/ship-setup` (#74–#77). 4.17.1: their docs (#79); a listed `ship.md` step authorizes itself (#80).
+`/ship-setup` (#74–#77). 4.17.1: their docs (#79), self-authorizing `ship.md` steps (#80).
+4.17.2: `/ship-build` live-test fixes (#82); `/audit-build` closes `/plan` features (#84).
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first (details, and older ones, in `CHANGELOG.md`):
-- 4.17.1: `/ship-build` ran live on a throwaway GitHub repo (push, PR, CI, merge, release, a
-  CI failure fixed and resumed); not live: an approving review (one login), CodeRabbit/Codex.
-  Its 6 live-test defects are fixed (#82, unreleased); a `custody.test.js` case still flakes
-  on all-digit commit hashes.
+- 4.17.2: `/ship-build` ran live 2026-11-07 on a throwaway GitHub repo; not live: an
+  approval by a second account, CodeRabbit/Codex. Open custody issues from Forge's Storybook
+  runs: #85, #86, #87. `custody.test.js` flakes on all-digit commit hashes.
 - 4.16.1: design-quality live runs and the first critique-calibration replay not run;
   `/audit-design --drift` reads a crashed or removed shipped screen as `uncaptured`.
 - 4.13.8–4.16.0: unproven live: design flows (#65), `/task`, setup check, fanned-out
