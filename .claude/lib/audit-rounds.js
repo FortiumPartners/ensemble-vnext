@@ -61,6 +61,9 @@ function isDeferredId(id, { deferred = [], index } = {}) {
   return Boolean(servers && servers.length > 0 && servers.every((t) => set.has(t)));
 }
 
+/** Actions that are always notes: never work for the fix run, never an uncovered requirement. */
+const NOTE_ACTIONS = new Set(['fix-citation', 'no-source']);
+
 /**
  * Class of a finding, a pure function of what the verifier said and which tasks are deferred.
  * A deferred task is "not built yet" by design, so only the GAP actions on it are reclassified;
@@ -73,9 +76,8 @@ function classify({ id, action, check } = {}, ctx = {}) {
   // A citation already fixed in place, or a gap on a task deferred by design, is not work for
   // the fix run whatever check reported it -- test-quality included, or a deferred task (which
   // has no tests by design) would be chained to the fix run as a test gap.
-  if (action === 'fix-citation') return 'note';
-  // A missing PRD is a caveat in the verdict, not a requirement: nothing was left unbuilt.
-  if (action === 'no-source') return 'note';
+  // A missing PRD (no-source) is likewise a caveat in the verdict, not a requirement.
+  if (NOTE_ACTIONS.has(action)) return 'note';
   const gap = action === 'gap-unbuilt' || action === 'gap-untested' || action === 'untested';
   if (gap && isDeferredId(id, ctx)) return 'deferred';
   // Tests are not the product: a test-quality finding is a test gap whatever its action. A weak
@@ -100,7 +102,7 @@ function tally(handoff = [], ctx = {}) {
     // A fixed citation is already done: no task covers a descriptive sentence, so the agent may
     // well mark it covered:false, and counting it uncovered would hold the feature open forever.
     // The same holds for the no-PRD finding (action 'no-source'): the verdict carries it.
-    if (item.covered === false && item.action !== 'fix-citation' && item.action !== 'no-source') { out.uncovered += 1; continue; }
+    if (item.covered === false && !NOTE_ACTIONS.has(item.action)) { out.uncovered += 1; continue; }
     const cls = classify(item, ctx);
     if (cls === 'defect') out.defects += 1;
     else if (cls === 'test-gap') out.testGaps += 1;
