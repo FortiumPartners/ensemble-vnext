@@ -164,7 +164,7 @@ as context size. Prefer one grep over five. Do not re-open a file you have read.
 // can be dispatched alongside it instead of waiting for it.
 // gap-unbuilt: required, never built. gap-untested: built, no test proving it. The command's
 // lib derives the class from these, so the verifier names the kind of gap at the source.
-const ACTIONS = ['gap-unbuilt', 'gap-untested', 'untested', 'mismatch', 'fix-citation', 'confirm-wanted']
+const ACTIONS = ['gap-unbuilt', 'gap-untested', 'untested', 'mismatch', 'fix-citation', 'confirm-wanted', 'no-source']
 const CHECKS = ['traceability', 'verification', 'validation', 'test-quality', 'consistency', 'citation']
 const FINDING_ITEMS = {
   type: 'array',
@@ -238,8 +238,9 @@ ${PRD
 delivered code and the TRD's own requirement index above -- a requirement can survive
 faithfully into the TRD and still not be built, or the TRD can satisfy its own restated
 version of a requirement while quietly dropping what the PRD actually asked for.`
-  : `No PRD was supplied. Report that as your single finding and stop -- a validation pass
-without a source cannot run, and guessing what the PRD asked for would manufacture findings.`}`,
+  : `No PRD was supplied. Report that as your single finding, with action 'no-source' and id
+'NO-PRD', and stop -- a validation pass without a source cannot run, and guessing what the PRD asked
+for would manufacture findings. It is a caveat for the verdict, not a requirement.`}`,
   },
   {
     key: 'test-quality-audit', effort: 'medium',
@@ -682,7 +683,9 @@ ${CHAIN_NOTE}
 ALSO return \`handoff\`: one item per finding you ACCEPTED that /implement-trd --reconcile would
 act on (id, action, check, summary, evidence, covered), plus every requirement with no covering
 task as covered: false, plus every FIXED THE CITATION item (action "fix-citation") and every
-PLANNED, NOT BUILT YET gap -- the caller counts those as notes, never as work. Do not classify
+PLANNED, NOT BUILT YET gap -- the caller counts those as notes, never as work. The no-PRD
+finding (action "no-source", id "NO-PRD") stays in \`handoff\` with that action and never as covered: false;
+it is a caveat the verdict already carries, not a requirement. Do not classify
 them; the caller does. Empty when none.
 
 One screen. If there are 40 clean requirements, print the COUNT as one line, not forty.`,

@@ -51,6 +51,29 @@ describe('classify with deferrals', () => {
   });
 });
 
+describe('no-source (a missing PRD is a caveat, not a requirement)', () => {
+  const noPrd = { action: 'no-source', check: 'validation', covered: false };
+  test('the no-PRD item alone counts as a note and the audit closes', () => {
+    const counts = A.tally([noPrd]);
+    expect(counts).toEqual({ defects: 0, testGaps: 0, uncovered: 0, notes: 1, deferred: 0 });
+    expect(A.decide({ rounds: rounds(1), verdict: 'proceed with these caveats: no source supplied', ...counts }))
+      .toMatchObject({ chain: false, close: true });
+  });
+  test('a real uncovered TRD objective beside it keeps the feature open', () => {
+    const counts = A.tally([noPrd, { action: 'gap-unbuilt', check: 'traceability', covered: false }]);
+    expect(counts.uncovered).toBe(1);
+    expect(A.decide({ rounds: rounds(1), verdict: 'proceed', ...counts })).toMatchObject({ close: false });
+  });
+  test('a real defect beside it still chains a fix run', () => {
+    const counts = A.tally([noPrd, { action: 'mismatch', check: 'verification', covered: true }]);
+    expect(counts.defects).toBe(1);
+    expect(A.decide({ rounds: rounds(1), verdict: 'proceed', ...counts })).toMatchObject({ chain: true, close: false });
+  });
+  test('a PRD-backed uncovered requirement (no marker) stays uncovered', () => {
+    expect(A.tally([{ action: 'gap-unbuilt', check: 'validation', covered: false }]).uncovered).toBe(1);
+  });
+});
+
 describe('decide', () => {
   test('no findings closes, no chain, no reaudit', () => {
     expect(A.decide({ rounds: rounds(1), verdict: 'proceed' })).toEqual({ chain: false, reaudit: false, close: true, capReached: false, caveats: [] });
