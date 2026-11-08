@@ -74,6 +74,8 @@ function classify({ id, action, check } = {}, ctx = {}) {
   // the fix run whatever check reported it -- test-quality included, or a deferred task (which
   // has no tests by design) would be chained to the fix run as a test gap.
   if (action === 'fix-citation') return 'note';
+  // A missing PRD is a caveat in the verdict, not a requirement: nothing was left unbuilt.
+  if (action === 'no-source') return 'note';
   const gap = action === 'gap-unbuilt' || action === 'gap-untested' || action === 'untested';
   if (gap && isDeferredId(id, ctx)) return 'deferred';
   // Tests are not the product: a test-quality finding is a test gap whatever its action. A weak
@@ -97,7 +99,8 @@ function tally(handoff = [], ctx = {}) {
     if (!item) continue;
     // A fixed citation is already done: no task covers a descriptive sentence, so the agent may
     // well mark it covered:false, and counting it uncovered would hold the feature open forever.
-    if (item.covered === false && item.action !== 'fix-citation') { out.uncovered += 1; continue; }
+    // The same holds for the no-PRD finding (action 'no-source'): the verdict carries it.
+    if (item.covered === false && item.action !== 'fix-citation' && item.action !== 'no-source') { out.uncovered += 1; continue; }
     const cls = classify(item, ctx);
     if (cls === 'defect') out.defects += 1;
     else if (cls === 'test-gap') out.testGaps += 1;
