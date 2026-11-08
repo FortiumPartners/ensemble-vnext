@@ -1264,23 +1264,7 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] Stub-gh switches in `it3/stubs/gh`: `ci-flaky` (fails until `gh run rerun` is called), `ci-lint` (fails until `src/greet.js` holds `formatted-by-fmt`, which `stubs/fmt.sh` writes), `ci-needs-fix`, `ci-notmine`, `comments.json` (PR review comments), and `deploy-fail` read by `stubs/deploy.sh`. Seven failure classes of AC-F5.2 each got one live run in `it3/fs29-summary.txt`.
 - [ran] A `/ship-build` that stops at `collect-findings` on a `[not-this-feature]` failure records the row but never reaches `## After shipping`, so that failure is reported and recorded but not filed in that run (`it3/notmine`).
 
-## Exercising the ship primitives (ship-build-live-fixes)
+## Documentation-only features (ship-build-docs)
 
-- [ran] The ship primitives are prose contracts (`packages/core/contracts/ship-primitive-*.md`); their Jest tests (`ship-primitives.test.js`) assert contract TEXT, not stubbed-`gh` behaviour. Only `custody.js` (git-repo tests in `custody.test.js`) and `ship-sequencer.js` run as code. Evidence for a prose behaviour is the contract text plus the passing text assertion, and must be reported as such.
-- [ran] `ship-sequencer.js` can be driven with no GitHub: `start({stateDir, policyPath, work, contractsDir: packages/core/contracts})`, then `next`/`record` with `{autonomyPath, settingsPath}` opts (an autonomy.md holding `seq.AUTHORIZATION_SENTENCE`). A recorded `failed` on `wait-ci` (stops-on) sets status `stuck` and `next` re-hands out `wait-ci`, never `release`.
-- [ran] A fix-findings policy must be valid first (`push`, `open-pr`, `repeat until=clean` containing `collect-findings` before `fix-findings`), else `start` reports ordering errors instead of the TRD error.
-
-## Exercising ship-build-live-fixes FS-2/FS-7/FS-8/FS-9 (2026-11-07, iteration 1)
-
-- [ran] `npx jest packages/core/lib/ship-review.test.js packages/core/lib/ship-sequencer.test.js --verbose` runs in about 1s (62 tests); FS-2's match (`matchToolReview`) and FS-8's start refusal are covered there with no `gh` call at all, since the match is pure code. Evidence: `.trd-state/ship-build-live-fixes/evidence/jest-fs2-fs8-run2.txt`.
-- [read] FS-7 and FS-9 live in prose (`.claude/commands/implement-trd.md` §3.7/§7.2, `.claude/skills/ship-setup/SKILL.md`); the vendored and `packages/` copies are byte-identical (`diff -q`), so one grep covers both.
-
-## Exercising `ship-sequencer.js start` (2026-11-07, ship-build-live-fixes)
-
-- [ran] `start({stateDir, policyPath, contractsDir: packages/core/contracts, work:{kind:'feature',id,trd,branch}})` can be called directly with a throwaway ship.md and TRD. A checklist TRD that HAS a `## Master Task List` heading yields the message `No "Phase <n>" heading found...`; to get `No "Master Task List" heading found in <path>` the fixture must have no such heading at all. The sequencer itself never invokes git/gh, so a PATH-stubbed call log is empty by construction.
-
-## Exercising `audit-rounds.js` and a headless `/audit-build` (2026-11-08, fix-audit-build-plan-route-close)
-
-- [ran] `node packages/core/lib/audit-rounds.js tally '{"handoff":[{"id":"x","check":"validation","covered":false,"action":"no-source"}]}'` prints `uncovered:0,notes:1`; `decide` takes `{"rounds":[{"ts":"<iso>"}],"verdict":...,"defects":0,"testGaps":0,"uncovered":N,"reportOnly":false}` and prints `close`.
-- [ran] `scaffold-project.sh --plugin-dir packages/full --force <slot>` (and `--refresh`) leaves the slot's `.claude/agents/` EMPTY, so a headless `/audit-build` stops with `agent type 'technical-architect' not found`. Fixture workaround: `cp .claude/agents/*.md <slot>/.claude/agents/` before running. Passing a path to the slash command works; a plain `claude --print` run needs `< /dev/null`.
-- [ran] A headless `/audit-build docs/TRD/greet.md` over a no-PRD light TRD takes about 2 min and writes `closed.json` plus a `VERDICT: proceed with these caveats: no source supplied` line.
+- [ran] `<base>` for a branch-diff criterion is the commit the dispatch names (`ac12bfe`), not necessarily `git merge-base origin/main HEAD` as the local `origin/main` ref can be ahead of it (here it printed `f836af8`'s sibling `d31c68e` / merge-base `f836af8`); use the dispatch's stated base.
+- [ran] In zsh `echo ======` fails (`= ` expansion); quote separator strings when capturing evidence.

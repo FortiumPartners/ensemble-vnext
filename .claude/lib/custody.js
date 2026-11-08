@@ -5,8 +5,8 @@
  * code that was pushed, merged and deployed (TRD ship-build 3.5, D9-D12).
  *
  * WHY A SCRIPT: "is this the same code" is deterministic, and a prompt would re-derive it
- * differently each run. One anchor commit is held in `<stateDir>/custody.json`; four links
- * (push, pr-head, merge, deploy) are each compared to it.
+ * differently each run. One anchor commit is held in `<stateDir>/custody.json`; three links
+ * (push, merge, deploy) are each compared to it.
  *
  * CODE EQUALITY (D9, D10): `git diff --no-renames --name-only -z <a> <b>`, each path classified
  *   ignored   anything under `.trd-state/`, and the work's TRD
@@ -28,12 +28,9 @@
  *   node custody.js reconcile --state-dir D --trd <path|none> [--closed P] [--definition P]
  *                             [--reason format] [--reverified <verification-state.json>]
  *   node custody.js check --state-dir D --link push --branch B --trd <path|none>
- *   node custody.js check --state-dir D --link pr-head --pr N --trd <path|none>
  *   node custody.js check --state-dir D --link merge --pr N --target BASE --trd <path|none>
  *   node custody.js check --state-dir D --link deploy --identity-output <text> --trd <path|none>
  *
- * The pr-head link reads an OPEN PR's own `headRefOid` (the id `gh pr merge --match-head-commit`
- * compares against) and judges it; its `observed` is what the merge step passes to GitHub.
  * The deploy link compares whole trees: the identity command must report the commit released
  * from this work. A build from a target branch that moved after this work's base carries other
  * commits' files and fails the link (safe: it stops).
@@ -361,7 +358,7 @@ function judgeLink(link, sha, anchor, trdRel, cwd, label) {
 
 /**
  * One link's comparison to the anchor. Never writes.
- * @param {{stateDir: string, link: 'push'|'pr-head'|'merge'|'deploy', branch?: string, pr?: number,
+ * @param {{stateDir: string, link: 'push'|'merge'|'deploy', branch?: string, pr?: number,
  *          target?: string, identityOutput?: string, trdPath?: string|null, cwd?: string}} args
  * @returns {{ok: boolean, link: string, observed: string|null, differing: string[], reason: string}}
  */
@@ -382,21 +379,6 @@ function check(args) {
     const sha = ls.out.split(/\s+/)[0];
     if (!sha) return fail(`branch ${args.branch} is not on origin`);
     return judgeLink('push', sha, anchor, trdRel, cwd, `origin/${args.branch}`);
-  }
-
-  if (link === 'pr-head') {
-    if (!Number.isInteger(args.pr) || args.pr <= 0) return fail('pr-head link needs a PR number');
-    const v = run('gh', ['pr', 'view', String(args.pr), '--json', 'state,headRefOid'], cwd);
-    if (!v.ok) return fail(`gh pr view failed: ${v.err || v.out}`);
-    let pr;
-    try {
-      pr = JSON.parse(v.out);
-    } catch {
-      return fail('gh pr view gave unparseable output');
-    }
-    if (pr.state !== 'OPEN') return fail(`PR #${args.pr} is ${pr.state}, not open`, pr.headRefOid || null);
-    if (!pr.headRefOid) return fail(`PR #${args.pr} reports no head commit`);
-    return judgeLink('pr-head', pr.headRefOid, anchor, trdRel, cwd, `PR #${args.pr} head`);
   }
 
   if (link === 'merge') {
@@ -448,7 +430,7 @@ function check(args) {
 
 const USAGE =
   'usage: custody.js reconcile --state-dir D --trd <path|none> [--closed P] [--definition P] [--reason format] [--reverified P]\n' +
-  '       custody.js check --state-dir D --link push|pr-head|merge|deploy --trd <path|none> [--branch B] [--pr N --target BASE] [--identity-output TEXT]';
+  '       custody.js check --state-dir D --link push|merge|deploy --trd <path|none> [--branch B] [--pr N --target BASE] [--identity-output TEXT]';
 
 function flag(argv, name) {
   const i = argv.indexOf(name);

@@ -26,26 +26,15 @@ otherwise the `commit` of the latest `pushed` result in `context`. It is never l
    requires no review, so an empty one counts too when a `latestReviews` entry is `APPROVED` and
    no entry is `CHANGES_REQUESTED`.
 2. Otherwise return `wait`; do not poll in-session.
-3. Compare the PR's author with the account this run uses, read-only: `gh pr view <pr> --json author`
-   against `gh api user --jq .login`. When they are equal, the wait reason and `data.issues` say
-   PR #N was opened by <login>, the account this run uses, GitHub does not let an author approve
-   their own PR, so someone else must approve; `data` gains `selfAuthored: true`. If `gh api user`
-   fails the author is unknown: skip the message.
-4. With `trigger=github-actions`, check two things, both read-only. First, whether
-   `.github/workflows/ensemble-ship-resume.yml` exists on the remote default branch
-   (`git ls-tree origin/<default> -- .github/workflows/ensemble-ship-resume.yml`). Second, whether
-   the `ANTHROPIC_API_KEY` secret the workflow uses is listed by `gh secret list --json name`.
-   Only if the file exists and the secret is listed, put `remoteResume: true` in the wait's `data`.
-   Otherwise `remoteResume: false`; when the secret is not listed, or the call is refused (it needs
-   admin), add an ISSUES line: ANTHROPIC_API_KEY could not be confirmed (an organization-level
-   secret is not visible to this check), so the run must be resumed by hand. The result is still
-   `wait`. This is the one place a workflow file is checked; `/ship-build` claims a trigger only
-   for a `wait` carrying it.
+3. With `trigger=github-actions`, check whether `.github/workflows/ensemble-ship-resume.yml`
+   exists on the remote default branch (`git ls-tree origin/<default> -- .github/workflows/ensemble-ship-resume.yml`).
+   Only if it does, put `remoteResume: true` in the wait's `data`. This is the one place a
+   workflow file is checked; `/ship-build` claims a trigger only for a `wait` carrying it.
 
 ## Result
 
 `approved`, with `data`: `{ decision, head }`. Else `wait` with a reason and `data`:
-`{ remoteResume: true|false, selfAuthored?: true }`.
+`{ remoteResume: true|false }`.
 
 ## Waiting
 

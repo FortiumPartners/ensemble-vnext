@@ -35,8 +35,7 @@ prints the commit the deployed environment runs):
    - collect-findings
    - fix-findings
 4. merge
-5. wait-ci
-6. release env=production identity="<command that prints the deployed commit>"
+5. release env=production identity="<command that prints the deployed commit>"
 
 ## After shipping
 1. sync-design

@@ -49,7 +49,7 @@ where it differs, then "keep". Skipping a topic leaves that part of the file unt
 
 1. **The default string.** Offer it first, as the first option, so accepting it is one
    answer. It is the string labelled "the default string" in `template.md`'s examples: push,
-   open a pull request, a bounded review-and-fix block, merge, wait-ci (CI on the merge commit), release, then the after-shipping
+   open a pull request, a bounded review-and-fix block, merge, release, then the after-shipping
    steps. Show the whole string in the question. If the owner accepts it, go to Per-step
    questions for the values it leaves blank (the `release` environment, command and identity);
    otherwise go to topic 2.
@@ -128,18 +128,6 @@ node .claude/lib/ship-sequencer.js parse --policy .claude/rules/ship.md
 
 Any entry in its `errors` is this skill's own defect: report each in ISSUES, with the line
 number, rather than leaving a file the next `/ship-build` would refuse.
-
-Then check the authorization the written steps need:
-
-```
-node .claude/lib/ship-sequencer.js authorization --policy .claude/rules/ship.md
-```
-
-When it prints `"sentence":"absent"` and `refused` is not empty, those steps would stop the next
-`/ship-build` with `not authorized`. In ISSUES, name each refused step, quote the sentence
-`A step listed in \`.claude/rules/ship.md\` is the owner's standing authorization for that act.`
-and say the owner adds it to `.claude/rules/autonomy.md`; this skill never edits that file. Say
-so in NEXT as well, ahead of `/ship-build`.
 
 ## Never
 

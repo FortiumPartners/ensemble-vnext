@@ -1041,9 +1041,6 @@ Parsed alongside the other flags (User Input, above). Under it:
   skipped** — the fix reaches the remote only through `/ship-build`'s next `push` step, after
   re-verification. A lone `--shipping`, without `--reconcile --chained`, changes nothing: the
   guard applies as usual.
-  **The RETURN line waits for §7.2's review result**: under `--shipping`, do not emit it until
-  that result has arrived and §7.2's commit of the review's edits has been made, so no review
-  edit is left uncommitted when `/ship-build` goes on to re-verify.
 
 **Unchanged**: phase gates, checkpoints, commits, and Step 7.2's end-of-run
 `Skill({ skill: "code-review", args: "high --fix {branch_base}...HEAD" })` still run exactly as
@@ -1518,15 +1515,7 @@ with a `summary` (a row without one is dropped):
    finding the review did not apply, with summary `[review:<label>] <summary>` (`[review:unlabeled]`
    when it carries no label), plus its `file` and `evidence`; then resolve the pending row with
    `discovered.resolve(stateDir, { ts, summary }, note)`.
-3. **Commit what the review changed (every mode).** When the result reaches this session, take
-   the files the review's result says it edited, keep those that
-   `git status --porcelain --untracked-files=all` shows changed (ignoring `.trd-state/`), and
-   commit only those by pathspec: `git add -- <paths>` then
-   `git commit -m "fix(<feature>): end-of-run review edits" -- <paths>`. Never `git add -A`, and
-   never commit a dirty path the review did not name: an edit that was already in the tree, or
-   one Step 8's debug stage made while the review ran, is not a review edit. Nothing changed: no
-   commit. This is prose the model follows, not a deterministic step.
-4. While the result has not arrived, say so in the present tense: the review is still running.
+3. While the result has not arrived, say so in the present tense: the review is still running.
    An unresolved `[review-pending]` row is a review whose findings never arrived; `/ship-build`'s
    `file-followups` step reports it.
 
@@ -1999,17 +1988,15 @@ before.
 
 ### 9.0 Final push
 
-Under `--shipping` (§3.7) skip this push entirely and go on to the readout (or the RETURN line). The RETURN line still waits for §7.2's review result and its pathspec commit.
+Under `--shipping` (§3.7) skip this push entirely and go on to the readout (or the RETURN line).
 
 ```bash
 git push -u origin {branch_name}
 ```
 
 The one push of the run — everything committed at each phase checkpoint (Step 5.2) and by
-Step 7.2's review-edit commit, when the review's result arrived before this point, goes up
-together. A review result that arrives after this push makes its commit then; push that commit
-too (`git push origin {branch_name}`, not under `--shipping`), or it stays local. A network
-failure here follows the same retry-then-pause handling as any other git push (Step 10).
+Step 7.2's review fixes goes up together. A network failure here follows the same retry-then-
+pause handling as any other git push (Step 10).
 
 **Format: the four-section readout in `.claude/rules/command-status.md`** — STATE, DECISIONS,
 ISSUES, NEXT, in that order, one screen, written for someone who was not in the session.
