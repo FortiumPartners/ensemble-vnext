@@ -97,6 +97,11 @@ loads it (`resumed: true`) and ignores `ship.md`.
 
 - `ok: false`: the errors name the lines of `ship.md` that do not parse. `COMMAND STUCK`,
   reason naming each line, Next `/ship-setup`.
+- `ok: false` with an error reading `<trd>: step <id> (<primitive>) needs a TRD /implement-trd
+  can read: …` (not a `ship.md` parse failure, so not the bullet above): a step whose
+  contract says `requires: trd` (fix-findings) needs a TRD `/implement-trd` can read, and none
+  was written (no state file). `COMMAND STUCK`, reason quoting the error (a missing file or a
+  Master Task List problem), Next: fix the TRD, then rerun.
 - `policy: "none"` (no `ship.md`, or no step under `## Ship`): the run is the single step
   `push`, and the readout says so (see Step 6).
 - `status: "done"`: the work already shipped. `COMMAND COMPLETE` with nothing run.

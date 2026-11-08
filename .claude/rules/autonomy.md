@@ -40,10 +40,6 @@ deploy, a release — those need their own authorization. The one exception: wit
 `ensemble.openPullRequest: auto`, opening a PR (never merging one) is authorized by that
 setting. The whole pipeline unattended stays available; it just has to be **asked for**.
 
-A step listed in `.claude/rules/ship.md` is the owner's standing authorization for that act.
-It is the act's own authorization, given in advance by running `/ship-setup`: a listed
-`merge`, `run` or `release` (to any environment, production included) needs no further go.
-
 ## What's legitimate to ask (the FOUR cases)
 
 The model MAY (and SHOULD) use `AskUserQuestion` when: **(1)** the PRD/TRD is genuinely
