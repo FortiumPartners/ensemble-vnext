@@ -30,6 +30,7 @@ environment is the one to prefer whenever the project has one.
 | local | this working tree: `npx jest`, `bats <file>`, `pytest packages/router/tests`, and `node <lib> <cli args>` against `.claude/lib/` and `packages/core/lib/` | unit, library and prose checks; the default for every criterion that needs no model session | may write | n/a — it runs from the working tree | yes, freely |
 | fixtures | a headless `claude --print --plugin-dir packages/full --setting-sources project --permission-mode bypassPermissions` session in a scaffolded fixture repo under `.trd-state/<feature>/evidence/live/work/slot-<n>` (pattern: `test/smoke/lib/project.sh`); also the existing design fixtures `.trd-state/design-stage/evidence/live/work/{react-web,react-native}` | proving command and prompt behaviour with a live model session; interactive skills may be driven through a Forge-spawned session, whose `AskUserQuestion` prompts Forge can answer | may write | n/a — the slot's `.claude/` is refreshed from `packages/full` | yes, freely |
 | claude-artifacts | the Claude `Artifact` tool (the claude.ai artifact service): publish with `Artifact({ file_path, files, url })`, inspect with `action: "list"` / `"read"` | **always authorized**: proving anything this framework publishes — a report and its images, check pages, batching, one URL per feature. Publish a private throwaway page built from fixture content, never content holding a credential | may write | yes — publishing a private page is the exercise | n/a |
+| github-live-test | https://github.com/islayjames/ship-build-live-test (private, default branch `main`), reached with the running OS user's `gh` login | proving `/ship-build` merge-order behaviour (custody gate, pr-head check, merge) on real GitHub | may write | yes — inside that repo only: merges and GitHub releases there; never `FortiumPartners/ensemble-vnext` `main`, its tags or the marketplace | n/a |
 | production | the published plugin: `origin/main`, release tags (`v*`) and the marketplace manifests | — | **must not be touched** | **never** | **never** |
 
 Permitted values for **Loop may WRITE data?**: `read-only`, `may write`, `must not be
@@ -56,6 +57,7 @@ resources, not another column on §1.
 | headless fixture session | 4 | fixtures | create: `packages/core/scripts/scaffold-project.sh --plugin-dir packages/full .trd-state/<feature>/evidence/live/work/slot-<n>` (n = 1..4; slot n belongs to exercise slice n, so no two slices share a folder), then accept its folder-trust prompt once (start `claude` in it in tmux, Down then Enter, kill the session); destroy: `rm -rf` that slot folder |
 | claude.ai artifact (private throwaway page) | 4 | claude-artifacts | `Artifact({ file_path, files })` creates one; the owner deletes leftovers — the loop never deletes an artifact |
 | published plugin (origin/main, tags, marketplace) | 0 | production | — |
+| github-live-test pull request (a branch and its PR in islayjames/ship-build-live-test) | 1 | github-live-test | create: push a branch to islayjames/ship-build-live-test and open a PR from it; destroy: close the PR and delete the branch |
 
 The count is the only thing the framework reads here — never probed, never modelled, never
 inferred from any other cell in this file. The rules, not suggestions:
@@ -115,6 +117,7 @@ password written here is a leaked credential in git history.
 | Claude model access (headless fixture sessions) | the running OS user's Claude Code login (`claude auth status`; stored under that user's `~/.claude`) | each Forge spawn user has its own login |
 | GitHub (PRs, CI status) | the running OS user's `gh` CLI login (`gh auth status`) | |
 | test user | none — the framework has no app sign-in to test | |
+| GitHub for the live test (islayjames/ship-build-live-test) | the running OS user's `gh` CLI login (`gh auth status`) | needs repo and workflow scopes and merge rights on that repo |
 
 ## 4. Verification tooling actually installed
 
