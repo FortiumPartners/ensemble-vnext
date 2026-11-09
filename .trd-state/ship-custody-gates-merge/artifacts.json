@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/Uo8itPN8mFTeJfnyj4UVw5",
     "updated_at": "2026-11-09T04:03:54.940Z",
     "command": "/implement-trd"
+  },
+  "verification-plan": {
+    "path": ".trd-state/ship-custody-gates-merge/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-11-09T04:06:38.068Z",
+    "command": "/refine-verification"
   }
 }
