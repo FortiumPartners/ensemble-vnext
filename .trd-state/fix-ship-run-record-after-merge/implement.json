@@ -4,7 +4,7 @@
   "trd_hash": "c31ddb1888773f804fb141d79453b56d6dd7a3fed821c34bf2c2e62a6b5acc17",
   "branch": "feature/0-fix-ship-run-record-after-merge",
   "strategy": "bug-fix",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "ship-record-dir module; custody detach, pointer-routed custody path, push link removed",
@@ -64,10 +64,19 @@
       "last_advanced": "2026-11-09T07:12:48.121Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "f4ccf4319fc91250c6f627252b945005e2d3029b",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-09T07:30:14.287Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "f4ccf4319fc91250c6f627252b945005e2d3029b",
+    "last_checkpoint_timestamp": "2026-11-09T07:30:14.287Z",
     "interrupted": false,
     "interrupt_reason": null
   },
