@@ -30,6 +30,12 @@ describe('owner-rules wiring', () => {
     );
   });
 
+  test.each(WIRED)('%s has no raw branch-path read of an owner-governed rule', (f) => {
+    const t = read(`packages/core/${f}`);
+    expect(t).not.toMatch(/readFileSync\(\s*["'`]\.claude\/rules\/(verification|stack|ship)\.md/);
+    expect(t).not.toMatch(/(--policy|read-coverage-floor|check-verification-unfilled)\s+\.claude\/rules\//);
+  });
+
   test.each(WIRED)('%s equals its .claude/ copy', (f) => {
     expect(read(`.claude/${f}`)).toBe(read(`packages/core/${f}`));
   });
