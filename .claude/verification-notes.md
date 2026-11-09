@@ -1291,3 +1291,7 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 
 - [ran] FS-19 is a static grep over `packages/core/commands/ship-build.md`, `packages/core/contracts/ship-primitive-*.md` and their `.claude/` mirrors (all 14 pairs `diff -q` identical). The one grep that matters for "no direct read" is `grep -nE "\.claude/rules/(ship|verification|design)\.md"`; it hits only descriptive prose at ship-build.md:18. Copy grep output into a fresh `evidence/FS-19-iter2.txt` rather than reusing a committed file (stale-mtime rule above).
 - [read] `ship-primitive-sync-design.md:38` mentions `verification.md` section 2's refresh without its own `path` command; only ship-build.md Step 2b's general rule covers it. Left for the judge.
+
+## Exercising design-render copy and state slugs (2026-11-08, `fix-design-render-copy-and-state-names`)
+
+- [ran] `render()` from `packages/core/lib/design-render.js` runs offline with `TMPDIR=/private/tmp` and no browser setup beyond node_modules Playwright; a setgid source is made with `chgrp devteam <dir> && chmod 02755 <dir>` (no chown or sudo needed, the user is in devteam). The render root is deleted when `render()` returns, so list it by wrapping `fs.rmSync` in the driving script (no source edit).

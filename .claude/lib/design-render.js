@@ -13,7 +13,8 @@
  *
  *   <out>/NN-name.png              the default state
  *   <out>/NN-name--<state>.png     one per `states.<name>`, rendered from a temporary copy of the
- *                                  board whose `data-props` carry that state's `props` (D7)
+ *                                  board whose `data-props` carry that state's `props` (D7); <state>
+ *                                  is the name itself when it is file-safe, else its stateSlug()
  *
  * Playwright is the PRODUCT's (D13): resolved from the project (as `playwright` or `@playwright/test`),
  * then each workspace package folder of a monorepo, then the global npm root, never shipped in
@@ -98,8 +99,48 @@ window.__msgs = [];
 addEventListener('message', function (e) {
   if (e.data && typeof e.data.type === 'string' && e.data.type.indexOf('__dc') === 0) window.__msgs.push(e.data);
 });
-document.getElementById('f').src = new URLSearchParams(location.search).get('b');
+document.getElementById('f').src = new URLSearchParams(location.search).get('b').split('/').map(encodeURIComponent).join('/');
 </script></body></html>`;
+
+/**
+ * A state name as a file name. Only the characters that break the render or the path are touched:
+ * `?`, `#`, `%`, `/`, `\` and control characters (a `?` or `#` ends the iframe URL's path, a lone
+ * `%` makes the server's decode fail, a slash makes a folder). They are dropped at either end and
+ * each inner run becomes one '-'; an empty result becomes 'state'. Every other name, spaces and
+ * non-ASCII included, rendered before and keeps its exact file name.
+ */
+const UNSAFE_STATE = /[?#%/\\\x00-\x1f\x7f]+/g;
+function stateSlug(name) {
+  const s = String(name);
+  const ends = new RegExp(`^${UNSAFE_STATE.source}|${UNSAFE_STATE.source}$`, 'g');
+  return s.replace(ends, '').replace(UNSAFE_STATE, '-') || 'state';
+}
+
+/**
+ * The file-name slug of each state of one board, as a Map name -> slug, with no two alike. Two
+ * passes: a name that is already safe keeps itself (so an existing frame never changes file name
+ * whatever its position), then each other name takes its slug, or `-2`, `-3`... the first form not
+ * already taken by a name or slug of this board, or listed in `reserved` (the `<rest>` of another
+ * board id `<this id>--<rest>`, such as `as-is`, whose PNG shares the output folder). Taken forms
+ * compare case-insensitively, because a case-insensitive file system (macOS, Windows) would write
+ * `--Empty.png` over `--empty.png`.
+ */
+function stateSlugs(names, reserved = []) {
+  const slugs = new Map();
+  const taken = new Set(Array.from(reserved, (r) => String(r).toLowerCase()));
+  const own = new Set();
+  for (const n of names) if (stateSlug(n) === n) { slugs.set(n, n); own.add(n.toLowerCase()); }
+  for (const t of own) taken.add(t);
+  for (const n of names) {
+    if (slugs.has(n)) continue;
+    const base = stateSlug(n);
+    let slug = base;
+    for (let i = 2; taken.has(slug.toLowerCase()); i++) slug = `${base}-${i}`;
+    slugs.set(n, slug);
+    taken.add(slug.toLowerCase());
+  }
+  return slugs;
+}
 
 /** A missing or unusable tool: the CLI exits 2 and the message names the install step (D13). */
 class ToolError extends Error {
@@ -322,13 +363,48 @@ function withProps(source, props, boardId) {
   return source.replace(tag[0], () => nextTag);
 }
 
+/**
+ * Copy a folder's contents into `dest`, bytes only: folders are made with the default mode and files
+ * written fresh, so no mode, owner or setgid bit is carried (fs.cpSync copies the mode, and a setgid
+ * source folder makes the chmod fail with EPERM on macOS under /private/tmp). Symlinks are followed;
+ * a dangling link is skipped (it would 404 either way), and a folder link to one of its own
+ * ancestors is skipped so a cycle cannot loop. Two links to the same folder are both copied.
+ */
+function copyTree(src, dest) {
+  const walk = (from, to, ancestors) => {
+    const real = fs.realpathSync(from);
+    if (ancestors.has(real)) return;
+    ancestors.add(real);
+    fs.mkdirSync(to, { recursive: true });
+    for (const e of fs.readdirSync(from, { withFileTypes: true })) {
+      const f = path.join(from, e.name);
+      const t = path.join(to, e.name);
+      let dir = e.isDirectory();
+      if (e.isSymbolicLink()) {
+        let st;
+        try {
+          st = fs.statSync(f);
+        } catch (err) {
+          if (err.code === 'ENOENT' || err.code === 'ELOOP') continue;
+          throw err;
+        }
+        dir = st.isDirectory();
+      }
+      if (dir) walk(f, t, ancestors);
+      else fs.writeFileSync(t, fs.readFileSync(f));
+    }
+    ancestors.delete(real);
+  };
+  walk(src, dest, new Set());
+}
+
 /** A render root: the boards' mirror folder, ds/<folder>/ copies, the runtime as support.js, the host page. */
 function buildRoot({ mirror, dsDir, runtime }) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'design-render-')));
-  fs.cpSync(mirror, root, { recursive: true });
+  copyTree(mirror, root);
   if (dsDir && fs.existsSync(dsDir)) {
     for (const e of fs.readdirSync(dsDir, { withFileTypes: true })) {
-      if (e.isDirectory()) fs.cpSync(path.join(dsDir, e.name), path.join(root, 'ds', e.name), { recursive: true });
+      if (e.isDirectory()) copyTree(path.join(dsDir, e.name), path.join(root, 'ds', e.name));
     }
   }
   fs.copyFileSync(runtime, path.join(root, 'support.js'));
@@ -751,11 +827,15 @@ async function render(o) {
       try {
         for (const b of group) {
           const targets = [{ state: null, file: b.file, png: `${b.id}.png` }];
+          const prefix = `${b.id}--`;
+          const reserved = map.boards.filter((x) => x && typeof x.id === 'string' && x.id !== b.id && x.id.startsWith(prefix)).map((x) => x.id.slice(prefix.length));
+          const slugs = stateSlugs(Object.keys(b.states || {}), reserved);
           for (const [name, st] of Object.entries(b.states || {})) {
             if (!st || !st.props) continue; // a state without props has nothing to override
-            const copy = path.join(path.dirname(b.file), `${b.id}--${name}.dc.html`);
+            const slug = slugs.get(name); // a file name only; the frame's state stays the real name
+            const copy = path.join(path.dirname(b.file), `${b.id}--${slug}.dc.html`);
             fs.writeFileSync(path.join(root, copy), withProps(fs.readFileSync(path.join(root, b.file), 'utf8'), st.props, b.id));
-            targets.push({ state: name, file: copy, png: `${b.id}--${name}.png` });
+            targets.push({ state: name, file: copy, png: `${b.id}--${slug}.png` });
           }
           for (const t of targets) {
             const png = path.join(o.out, t.png);
@@ -824,7 +904,7 @@ async function main(argv) {
   return render({ ...opts, floor: Object.keys(floor).length ? floor : undefined, boards: opts.boards ? opts.boards.split(',') : null });
 }
 
-module.exports = { render, runtimeCheck, readTokens, normalizeColor, PINNED_RUNTIME, PINNED_RUNTIME_SHA256, serve, resolveTool, withProps, parseArgs, ToolError };
+module.exports = { stateSlug, stateSlugs, copyTree, render, runtimeCheck, readTokens, normalizeColor, PINNED_RUNTIME, PINNED_RUNTIME_SHA256, serve, resolveTool, withProps, parseArgs, ToolError };
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(

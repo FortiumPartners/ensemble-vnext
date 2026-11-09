@@ -1,0 +1,109 @@
+{
+  "feature": "fix-design-render-copy-and-state-names",
+  "prd": "docs/TRD/fix-design-render-copy-and-state-names.md § Reproduction",
+  "definitionPath": ".trd-state/fix-design-render-copy-and-state-names/success-definition.md",
+  "outcome": "satisfied",
+  "reason": "no gaps remain — every criterion is met or not verifiable here",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "Copying a source folder whose subfolder `ds/` has mode `02755` and a group the user belongs to (for example `devteam`) into a fresh `mkdtemp` folder under `/private/tmp` (group `wheel`), by the step that builds the design render root, completes without throwing (no `EPERM, Operation not permitted`)",
+      "cites": "Reproduction, Steps 1; Actual 1 (the `EPERM` on `…/c/ds`); Expected 1 (\"The copy succeeds.\")",
+      "status": "met",
+      "artifact": ".trd-state/fix-design-render-copy-and-state-names/evidence/fs-walk-1.txt",
+      "reason": "Transcript shows source ds/ as drwxr-sr-x (2755, group devteam), render root a /private/tmp mkdtemp folder, copied ds/ listed, and 'SUCCESS: render completed without throwing'; no EPERM.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "statement": "The folders produced by that copy take the destination's default mode and do not carry the setgid bit",
+      "cites": "Reproduction, Expected 1 (\"The copied folders take the destination's default mode and do not carry the setgid bit\")",
+      "status": "met",
+      "artifact": ".trd-state/fix-design-render-copy-and-state-names/evidence/fs-walk-1.txt",
+      "reason": "Copied ds/acme/ds is mode 0755 (drwxr-xr-x, group wheel) beside the source's 2755 (drwxr-sr-x); setgid not carried.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "statement": "Rendering a design whose board `02-state` (fixture `stateful.dc.html`) declares the state `\"empty?\"` with props `{ empty: true }`, via `render()` from `packages/core/lib/design-render.js` with `offline: true`, produces a state frame whose runtime booted: no `[empty?] the runtime never sent __dc_booted and __dc_render_errors` error, and the frame shows the board with its `empty: true` props applied",
+      "cites": "Reproduction, Steps 2; Actual 2 (the `__dc_booted` error and the 404); Expected 2 (\"The state renders with its props\")",
+      "status": "met",
+      "artifact": ".trd-state/fix-design-render-copy-and-state-names/evidence/fs-walk-1.txt",
+      "reason": "render() returned a frame for state 'empty?' with ERRORS: {}; its PNG shows 'EMPTY STATE' whereas the default-state PNG shows 'FILLED STATE', so the empty: true props were applied.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null,
+      "image": "evidence/render-out-1/02-state--empty.png",
+      "ui": true,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "statement": "That state's frame PNG is written as `02-state--empty.png`, a slug of the state name, and no file named `02-state--empty?.png` is written",
+      "cites": "Reproduction, Actual 2 (\"The PNG is still written as `02-state--empty?.png`, a name that is also invalid on Windows\"); Expected 2 (\"its copy and PNG are named by a slug of the state name: `02-state--empty.png`\")",
+      "status": "met",
+      "artifact": ".trd-state/fix-design-render-copy-and-state-names/evidence/fs-walk-1.txt",
+      "reason": "Output listing holds 01-plain.png, 02-state--empty.png and 02-state.png, none with a '?'; the frame's png path names 02-state--empty.png.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "statement": "The temporary copy of the board made for that state is named by the same slug, `02-state--empty.dc.html`, not `02-state--empty?.dc.html`",
+      "cites": "Reproduction, Actual 2 (\"The temp copy is named `02-state--empty?.dc.html`\"); Expected 2 (\"its copy and PNG are named by a slug of the state name\")",
+      "status": "met",
+      "artifact": ".trd-state/fix-design-render-copy-and-state-names/evidence/fs-walk-1.txt",
+      "reason": "Render root listing before cleanup shows 02-state--empty.dc.html and no '?' name; 'temp copies written' records the same file.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "statement": "The frame record `render()` returns for that state still carries the real state name in its `state` field: `empty?`",
+      "cites": "Reproduction, Expected 2 (\"The frame's `state` field still carries the real name, `empty?`\")",
+      "status": "met",
+      "artifact": ".trd-state/fix-design-render-copy-and-state-names/evidence/fs-walk-1.txt",
+      "reason": "The returned frame carries \"state\": \"empty?\" beside png .../02-state--empty.png.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  },
+  "mustPass": [
+    "FS-1",
+    "FS-3",
+    "FS-4"
+  ],
+  "mustPassUncovered": []
+}
