@@ -879,7 +879,10 @@ the agent never wrote one).
 `verification.md` or `stack.md` in this pass uses the path `node .claude/lib/owner-rules.js path
 <file>` prints, recomputed at the read, never a path remembered from here. Each notice becomes an
 ISSUES line in Step 9 (an "owner-rules notice": who acts is the owner, who pushes or merges the rule
-change, or rebases the branch). A notice never stops the run.
+change, or rebases the branch). A notice never stops the run. **This `resolve` runs even when the
+rest of §3.6a does not:** on the `--verify --resume` path (§3.6 step 0) §8.2 runs it first, before
+it reads the recorded environments, so a resumed verification still fetches the base and still
+reports its notices.
 
 **Moved here from the tail of the run (formerly §8.4a). It classifies POLICY only (preflight
 D17): whether each environment `verification.md` declares may be exercised and has what it
@@ -1719,8 +1722,10 @@ file, or a terminal one), `resume` is `null`.
 **After resolving `criteria` here, this path also runs §8.1's `must-pass-coverage` call** (the
 resumed run's state file holds no must-pass set, and the TRD and definition are on disk), **and
 runs §8.1a exactly like a fresh run does** — it
-is not exempt from lane resolution merely because it skipped the phase loop. Read
-`.trd-state/<feature>/implement.json`'s `functional_verification.environments` (§3.6a) first;
+is not exempt from lane resolution merely because it skipped the phase loop. First run §3.6a's
+opening `node .claude/lib/owner-rules.js resolve` and keep its notices for Step 9 — always on this
+path, whether or not §3.6a's environment checks also run below. Then read
+`.trd-state/<feature>/implement.json`'s `functional_verification.environments` (§3.6a);
 a resumed run that also skipped Step 3.6a (this composition can only be reached via §3.6
 step 0, which fires before §3.6a ever runs) will find that key absent. In that case, run
 §3.6a's environment checks now, once, before proceeding into §8.1a — there is no other point
@@ -2082,7 +2087,7 @@ DECISIONS
 
 ISSUES
   {what is wrong or needs you, each saying who acts}
-  {for each owner-rules notice from §3.6a: "owner-rules notice: {notice}. The owner acts: push or merge the rule change, or rebase the branch."}
+  {for each owner-rules notice from §3.6a (or §8.2 on a resumed verification): "owner-rules notice: {notice}. The owner acts: push or merge the rule change, or rebase the branch."}
   {if finalRun.status === 'fail': "The declared full-environment run ({finalRun.command})
     failed — {who acts}. The criteria proven before it are still real evidence; this does not
     retract them."}

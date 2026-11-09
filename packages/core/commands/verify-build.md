@@ -433,6 +433,9 @@ flag is ignored and none of this section applies. Under it:
   ("After a satisfied sweep run, carry the evidence to the core") still runs for a sweep file,
   because the core feature's own run reads that evidence. A published report link, if any, is stated on
   its own line above the RETURN line.
+- **Prints each owner-rules notice step 2's `resolve` returned**, one `owner-rules notice:
+  <notice>` line each, above the RETURN line: there is no readout to carry them, so this is
+  where the caller and the owner see them.
 - **Ends with one line, not the readout:**
 
 ```

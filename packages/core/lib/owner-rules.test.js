@@ -173,6 +173,52 @@ describe('owner-rules', () => {
     expect(r.notices).toEqual([]);
   });
 
+  test('path reuses the base a fetching resolve recorded, instead of looking it up again', () => {
+    const repo = fixture();
+    // a second base branch whose copy differs; origin/HEAD still points at main
+    g(repo, 'checkout', '-q', '-b', 'develop', 'main');
+    commit(repo, VER, '## 5a. Coverage floor\n\nCoverage floor: 90%\n');
+    g(repo, 'push', '-q', 'origin', 'develop');
+    g(repo, 'checkout', '-q', 'feature');
+    resolve({ root: repo, base: 'develop', gh: false, fetch: true });
+    const p = pathFor('verification.md', { root: repo, gh: false });
+    expect(fs.readFileSync(p, 'utf8')).toContain('90%');
+  });
+
+  test('a base that is not a plain branch name falls back to the branch copies', () => {
+    const repo = fixture();
+    for (const bad of ['--upload-pack=touch x', 'main:main']) {
+      const r = resolve({ root: repo, base: bad, gh: false, fetch: true });
+      expect(r.files['verification.md']).toMatchObject({ use: VER, source: 'branch' });
+      expect(r.notices).toHaveLength(1);
+      expect(r.notices[0]).toMatch(/not a valid branch name/);
+    }
+  });
+
+  test('a one-line edit reports 1 line differing; an unchanged base copy is not rewritten', () => {
+    const repo = fixture();
+    advanceMain(repo, '## 5a. Coverage floor\n\nCoverage floor: 80%\n');
+    const r = resolve({ ...opts(repo), fetch: true });
+    expect(r.notices[0]).toMatch(/\(1 lines differ\)/);
+    const use = r.files['verification.md'].use;
+    fs.utimesSync(use, new Date(0), new Date(0));
+    resolve(opts(repo));
+    expect(fs.statSync(use).mtimeMs).toBe(0);
+    expect(fs.readdirSync(path.dirname(use)).filter((n) => n.endsWith('.tmp'))).toEqual([]);
+  });
+
+  test('a file the base removed keeps the branch copy and says it was removed', () => {
+    const repo = fixture();
+    g(repo, 'checkout', '-q', 'main');
+    g(repo, 'rm', '-q', VER);
+    g(repo, 'commit', '-q', '-m', 'drop');
+    g(repo, 'push', '-q', 'origin', 'main');
+    g(repo, 'checkout', '-q', 'feature');
+    const r = resolve(opts(repo));
+    expect(r.files['verification.md']).toMatchObject({ use: VER, source: 'branch' });
+    expect(r.notices[0]).toMatch(/removed on origin\/main/);
+  });
+
   test('usage errors exit 2', () => {
     expect(cli([]).status).toBe(2);
     expect(cli(['path']).status).toBe(2);
