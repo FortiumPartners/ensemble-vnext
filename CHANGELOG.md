@@ -10,10 +10,27 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
-## [Unreleased]
+## [4.17.3] - 2026-11-09
+
+The fixes for the `/ship-build` custody problems Forge found on real runs (#94, #95), owner
+rules read from the base branch (#93), and a design-render fix (#92).
 
 ### Fixed
 
+- **Custody now gates the merge, not the push (#94; issues #85, #86, #87, #88).** Custody is
+  the check that what ships is what was verified. It used to run after the merge, compare raw
+  branch heads and count framework-written files as shipped code; it blocked the push that
+  creates the preview environment its own preview criteria need; the post-merge re-check
+  dropped PM rulings and treated untouched evidence as stale; and its re-anchor commit moved
+  the PR head, so a merge pinned to the head commit was refused. The check now runs before the
+  merge, against the commit last verified, and ignores framework record files.
+- **The ship run record survives a merge (#95).** After a merge the run record and the custody
+  anchor were lost with the deleted branch. Both now move outside the working tree on any
+  post-merge result, and a resume loads only a record whose kind, id and branch match.
+- **Design render no longer fails on macOS temp folders, and odd state names render (#92,
+  issue #91).** The render copy no longer copies the setgid bit (an EPERM under
+  `/private/tmp`), and board states whose names hold `?` or other unsafe characters save under
+  a safe name.
 - Verification and ship steps now read the owner-governed rule files (`constitution.md`, `stack.md`,
   `process.md`, `verification.md`, `design.md`, `ship.md`) from the base branch, not from a feature
   branch that may be stale (#90). One library, `owner-rules.js`, owns the file list and the git
@@ -21,6 +38,25 @@ the work is actually released.
   and the release and close-issue ship contracts read through it. When the branch copy differs from
   the base it prints a loud notice instead of failing the run, and a file the owner edited on the
   branch is kept.
+
+### Proven live
+
+- The custody fixes (#94) ran end to end on a throwaway GitHub repository on 2026-11-08:
+  push, PR, merge and the post-merge checks, 13 of 13 checks met.
+
+### Not yet proven
+
+- The run-record fix (#95) was proven against real local git repositories, not a live GitHub
+  merge.
+- Carried from 4.17.2: an approving review by a second GitHub account, and the CodeRabbit and
+  Codex review bots, have not been exercised live; nor a Vercel preview or a protected branch.
+
+### Known defects
+
+- A merge step handed out again from `main` after its branch is deleted still stops at the
+  custody check.
+- Carried from 4.17.0: `custody.test.js` "passes on a later test-only commit" is flaky when
+  the random commit hash it builds is all digits.
 
 ## [4.17.2] - 2026-11-08
 
