@@ -42,6 +42,8 @@ Block 1: cursor on step `3` (merge) with `push:pushed open-pr:opened merge:stop`
 `start` returns no `resumed` and `status: running`. `repro.sh` exits 0 then; it exits 1 today.
 
 ### Root cause  [ran]
+Line numbers in this section, and in the Reuse and Replaces lines under Task Grounding, are at
+the base commit `2c4d123`, before this fix; code named under Replaces no longer exists.
 - **Block 1:** `record()` (`packages/core/lib/ship-sequencer.js:799-806`) detaches only on a
   result listed in the contract's `detach-on` and never on `wait`/`stop`. The merge contract
   lists only `merged`, so a `stop` after the PR merged stays in the tracked file, which the
@@ -178,14 +180,14 @@ screen, design, data view or user flow is in scope. Jest and `repro.sh` are the 
 ### FIX-001
 - **Touches:** `packages/core/lib/ship-record-dir.js`, `.claude/lib/ship-record-dir.js`, `packages/full/lib/ship-record-dir.js`, `packages/core/lib/custody.js`, `.claude/lib/custody.js`, `packages/core/lib/custody.test.js`
 - **Reuse:** `externalDir`/`externalPath` bodies at `ship-sequencer.js:443-465` (strip `GIT_DIR`/`GIT_WORK_TREE`/`GIT_INDEX_FILE`, walk up to an existing dir, `git rev-parse --git-common-dir`) [read]; `implementState.save` for atomic writes, as `writeCustody` does at `custody.js:204-207` [read]; `setup()`, `anchored()`, `s.args()` and `cleanEnv()` in `custody.test.js` [read]
-- **Replaces:** the `push` branch at `custody.js:484-491`, header line 40, the JSDoc union at 470, usage at 558, the `branch` argument in `main` (~588), the `describe('check: push link')` block at `custody.test.js:300-339`, and the push check in the CLI test at `custody.test.js:713-723` [read]
+- **Replaces:** the `push` branch at `custody.js:484-491`, header line 40, the JSDoc union at 470, usage at 558, the `branch` argument in `main` (~588), the `describe('check: push link')` block at `custody.test.js:300-339`, and the push check in the CLI test at `custody.test.js:713-723` [read; all at base `2c4d123` and gone now: `check` accepts only `pr-head`, `merge` and `deploy` (`custody.js:506`), and the push-link tests are replaced by `describe('check: unknown link (the push link is gone)')` at `custody.test.js:302`]
 - **Follow:** every git call is `spawnSync` with an argument array; every CLI verb prints one JSON line and exits 0, `refused`/`ok:false` on failure (`custody.js` header CONTRACT) [read]
 - **Careful:** with no record folder (outside git) or no pointer and no tracked `shipped.json`, `custodyPath` must return the tracked path, so `/verify-build` and pre-ship calls behave as today [read]
 
 ### FIX-002
 - **Touches:** `packages/core/lib/ship-sequencer.js`, `.claude/lib/ship-sequencer.js`, `packages/core/lib/ship-sequencer.test.js`
 - **Reuse:** `ship-record-dir.js` from FIX-001; the `detach-on` parsing at `ship-sequencer.js:~205-215` as the model for `detach-on-data`; the `describe('detach-on')` helpers `makeRepo`, `startIn`, `handOut`, `step` at `ship-sequencer.test.js:529-571` [read]
-- **Replaces:** `latestExternal` (`ship-sequencer.js:472-486`), the `fallback` option of `loadState` (`:500-529`), the `externalDir`/`externalPath` bodies (moved to the shared module), the detach condition at `:799-806`, the STATE/CLI header text at `:21-45`; the `.git/ensemble` absence assertion at `ship-sequencer.test.js:630` [read]
+- **Replaces:** `latestExternal` (`ship-sequencer.js:472-486`), the `fallback` option of `loadState` (`:500-529`), the `externalDir`/`externalPath` bodies (moved to the shared module), the detach condition at `:799-806`, the STATE/CLI header text at `:21-45`; the `.git/ensemble` absence assertion at `ship-sequencer.test.js:630` [read; all at base `2c4d123`; `latestExternal` no longer exists, and `externalPath` is now a thin wrapper over `ship-record-dir.js`]
 - **Follow:** "PRIMITIVE-BLIND: this module names no primitive and no primitive's result word" (`ship-sequencer.js:10-14`): the data key comes from the contract's `detach-on-data`, never a literal in the sequencer [read]
 - **Careful:** the existing test 'a record never committed before the merge is still found after the branch is deleted' calls `status` before `start --resume`; it must pass through the pointer written at `start`. `next()` writes the tracked file before `record()` detaches (`:731`); keep that. A `stop` leaves `status: 'stuck'` with the cursor on the step, which is what makes a resume hand that step out again [read]
 
@@ -198,5 +200,20 @@ screen, design, data view or user flow is in scope. Jest and `repro.sh` are the 
 
 ## Could Not Verify
 
-- A live merge on GitHub; the fix is proven against the sequencer and custody libraries with real local git repos only.
-- A merge step handed out again from `main` after the branch is deleted runs the custody gate's `reconcile --head <PR head>`, which compares local `HEAD` with the PR head (`custody.js:337-345`) and refuses when `main` holds base commits the PR head lacks. The resumed run then stops again at the merge step, with its record kept, rather than starting over. Fixing that gate behaviour is outside this TRD.
+Rewritten by `/audit-build`, 2026-11-08. That audit confirmed O1-O5 built and tested against
+real local git repos (Jest, `repro.sh` exits 0, the `.claude/` copies match byte for byte);
+what remains is what it did not or could not check.
+
+- **A live merge on GitHub.** Not checked: the Verification Environment for this fix is the
+  local working tree, and `github-live-test` is outside this fix's scope. The owner's
+  2026-11-08 ruling to prove a fix live on that repo concerned the custody-ordering fix (PR #94),
+  not this one.
+- **A merge step handed out again from `main` after the branch is deleted.** Not checked, by
+  design: it runs the custody gate's `reconcile --head <PR head>`, which compares local `HEAD`
+  with the PR head (`custody.js:348-373`: `HEAD` read at 351, refusal at 371) and refuses when
+  `main` holds base commits the PR head lacks. The resumed run then stops again at the merge
+  step, with its record kept, rather than starting over. Fixing that gate behaviour is outside
+  this TRD (Decision, "not absorbed").
+- **Fidelity to a product requirement.** No PRD exists for this defect (the source is the
+  owner's 2026-11-08 instruction and the reproduction), so the audit checked the code against
+  this TRD only; whether the TRD captured every intent was not checked.
