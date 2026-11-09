@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/4mwENdKmw4YehrgnbM2E7p",
     "updated_at": "2026-11-09T03:54:45.666Z",
     "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/owner-rules-from-base/audit-build-report.md",
+    "url": "https://claude.ai/artifact/VQcKqgDwo6HkNHaMuDQ8xP",
+    "updated_at": "2026-11-09T04:11:49.990Z",
+    "command": "/audit-build"
   }
 }
