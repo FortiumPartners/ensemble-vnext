@@ -32,11 +32,11 @@ no release runs that could not be proven), `work`, `context`.
    Neither source gives a command: return `stop` with the snippet's `reason` and say no
    `command=` is set either: no command is guessed. Record which source supplied it
    (`verification.md` or `ship.md`) in `data.source`.
-2. **Run the custody gate** (`ship-custody-gate.md`) with the local `HEAD` and no `--head`,
+2. Before anything runs, confirm `identity` is non-empty; an empty one returns `stop` now, because
+   the deploy link cannot pass without one and the release below cannot be taken back.
+3. **Run the custody gate** (`ship-custody-gate.md`) with the local `HEAD` and no `--head`,
    passing `--base origin/<context.base>` only when a PR step gave a base. A gate stop returns
    `stop` before the command runs. Commit and push nothing between the gate and the command.
-3. Before anything runs, confirm `identity` is non-empty; an empty one returns `stop` now, because
-   the deploy link cannot pass without one and the release below cannot be taken back.
 4. Run the command as written. A non-zero exit returns `stop` with its output; do not fix it,
    retry it or run a different command (AC-F5.2).
 5. Run the `identity=` command and capture its output.

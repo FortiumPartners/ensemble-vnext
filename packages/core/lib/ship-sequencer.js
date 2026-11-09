@@ -504,17 +504,19 @@ function parseState(file) {
  */
 function loadState(stateDir, { fallback = true } = {}) {
   let { state, err } = parseState(statePath(stateDir));
+  let fromExternal = false;
   if (err && err.code === 'ENOENT' && fallback) {
     const ext = latestExternal(stateDir);
     if (ext) {
       state = ext;
       err = null;
+      fromExternal = true;
     }
   }
   if (err) {
     return { error: err.code === 'ENOENT' ? `no ${STATE_FILE} in ${stateDir}; run start first` : `${STATE_FILE} unreadable: ${err.message}` };
   }
-  if (state.startedAt) {
+  if (state.startedAt && !fromExternal) {
     const ext = externalPath(stateDir, state.startedAt);
     if (ext && fs.existsSync(ext)) {
       const detached = parseState(ext);

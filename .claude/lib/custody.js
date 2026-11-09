@@ -339,7 +339,7 @@ function reconcile(args) {
     const local = compare(head, localHead, trdRel, cwd);
     if (local.error) return { action: 'refused', anchor: '', reason: local.error };
     if (!local.equal) {
-      return { action: 'refused', anchor: '', differing: local.differing, reason: `local HEAD has shipped changes not on the PR head: ${local.differing.join(', ')}` };
+      return { action: 'refused', anchor: '', differing: local.differing, reason: `local HEAD has shipped changes not on the PR head (or the PR head has changes not pulled here): ${local.differing.join(', ')}` };
     }
   }
 
@@ -395,9 +395,10 @@ function reconcile(args) {
     });
   }
 
-  if (reason === 'format' && shipped.length > 0) {
-    // The formatter commit is the shortcut only when it is the sole un-excused change; an earlier
-    // unverified change would otherwise be waved through with it.
+  if (reason === 'format' && shipped.length > 0 && excused.length === 0) {
+    // The formatter commit is the shortcut only when it is the sole change; an earlier unverified
+    // change, or a base-excused path (which still puts must-pass criteria in doubt), would
+    // otherwise be waved through with it.
     const parent = run('git', ['rev-parse', '--verify', `${head}^`], cwd);
     if (parent.ok) {
       const before = compare(anchor, parent.out, trdRel, cwd, baseCommit);

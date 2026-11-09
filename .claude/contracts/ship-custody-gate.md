@@ -14,8 +14,10 @@ The caller gives the gate `work`, `context`, and which act it guards (`merge` or
    `git ls-remote origin refs/heads/<branch>` reports for what was pushed (the branch the work is
    on now); the PR's reported head can trail a push by about 80s. Not local `HEAD`: a parked
    record commit that was never pushed sits on it, and the PR head would never match. Still
-   different after 8 polls: return `stop` naming both ids. Keep the PR's `headRefOid` as
-   `<PR headRefOid>`.
+   different after 8 polls: return `stop` naming both ids. Skip the poll when
+   `gh pr view <pr> --json state` reads `MERGED` (merged by hand while the run was parked; its
+   branch may already be deleted, so `ls-remote` reports nothing): the merged PR's `headRefOid`
+   is final. Keep the PR's `headRefOid` as `<PR headRefOid>`.
 2. **Reconcile:**
    ```bash
    node .claude/lib/custody.js reconcile --state-dir <work.stateDir> --trd <work.trd|none> \
@@ -36,7 +38,8 @@ The caller gives the gate `work`, `context`, and which act it guards (`merge` or
      would pass stale). `moved`: go on.
    - `refused`, or any failure: return `stop` with the reason, naming the criteria that are not
      `met` and the differing files. This includes "local HEAD has shipped changes not on the PR
-     head": push, let CI pass, then `/ship-build --resume`.
+     head": push (or pull, when the PR head is the one ahead), let CI pass, then
+     `/ship-build --resume`.
 4. **Report.** Put the `reused` ids (proof reused because their files did not change) and the
    `excused` paths (they came from the base) in `data.custody`, one readout line each; they are
    not issues, so they stay out of `data.issues`.
