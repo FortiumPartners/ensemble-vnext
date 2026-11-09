@@ -21,28 +21,36 @@
  * "Examples (not run)" are never parsed.
  *
  * Contract front-matter keys: primitive, params, results, outward, needs, provides, section,
- * rest, stops-on, detach-on, repeat-until, requires (`trd`: the work's TRD must parse at start).
+ * rest, stops-on, detach-on, detach-on-data, repeat-until, requires (`trd`: the work's TRD must
+ * parse at start).
  * `detach-on: <results>`: from the first recorded result in that list onward, the record moves out
- * of the work tree (see STATE).
+ * of the work tree (see STATE). `detach-on-data: <keys>`: the same, when a recorded result of ANY
+ * kind (a stop or wait included) carries data with one of those keys set to true -- how a step
+ * that failed after its outward act landed still moves the record out of the tree.
  *
  * STATE: `<stateDir>/shipped.json` (TRD 3.4). This module is its only writer. It holds the
  * step snapshot taken at `start`, so a resume never re-reads `ship.md`.
- * Once a result listed in a contract's `detach-on` is recorded, the record is written to
- * `<git common dir>/ensemble/ship/<state dir name>/<startedAt>.json` instead (an untracked file
- * that survives the branch being deleted) and the tracked file is never written again. The file
- * name carries the run's startedAt, so a later run under the same slug never reads it; loadState
+ * Once a result listed in a contract's `detach-on` (or data under `detach-on-data`) is recorded,
+ * the record is written to `<git common dir>/ensemble/ship/<state dir name>/<startedAt>.json`
+ * instead (an untracked file that survives the branch being deleted), the tracked file is never
+ * written again, and the custody anchor is copied beside it (custody.detach). The file name
+ * carries the run's startedAt, so a later run under the same slug never reads it; loadState
  * prefers it only when the tracked record (committed before the detach) has the same startedAt.
- * With no tracked file at all (the branch or worktree is gone, or the record was never committed
- * before the merge), next/record/status and `start --resume` read the latest detached record;
- * a plain `start` begins a fresh run.
- * With no git directory the tracked file is kept. `record` and `status` report `recordPath`.
+ * `start` (and a detach) write a pointer, `current.json`, in that folder naming the current run
+ * (ship-record-dir.js). With no tracked file at all (the branch or worktree is gone, or the
+ * record was never committed before the merge), next/record/status follow the pointer to its
+ * detached record. `start --resume` with no tracked file loads only a detached record whose work
+ * kind, id and branch equal what `start` was given; no match, or a plain `start`, begins a fresh
+ * run. With no git directory the tracked file is kept. `record` and `status` report
+ * `recordPath`; `record` reports `custodyDetach` after a detach; `status` reports `custodyPath`.
  *
  * CLI (one JSON line per call; exit 0, except exit 2 on a usage error -- the convention of
  * `pull-request.js`):
  *   parse  --policy <file> [--contracts <dir>]
  *   start  --state-dir <dir> --policy <file> --fallback "<string>" --kind <k> --id <id>
  *          [--trd <path>] [--branch <b>] [--contracts <dir>] [--resume]
- *          (`--resume`: with no tracked shipped.json, continue the latest detached record)
+ *          (`--resume`: with no tracked shipped.json, continue the detached record of the same
+ *          kind, id and branch, if any)
  *   next   --state-dir <dir> [--contracts <dir>] [--autonomy <file>] [--settings <file>]
  *   record --state-dir <dir> --step <id> --result <word> [--data '<json>'] [--reason <text>]
  *   status --state-dir <dir>
@@ -57,6 +65,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { maskFencedLines, parseTrd } = require('./trd-parser');
 const implementState = require('./implement-state');
+const recordDirs = require('./ship-record-dir');
 
 const STATE_FILE = 'shipped.json';
 const DEFAULT_ROUNDS = 2;
@@ -209,6 +218,8 @@ function loadPrimitives(dir = DEFAULT_CONTRACTS_DIR) {
       stopsOn: listOf(fm['stops-on']).filter((w) => results.includes(w)),
       // Results after which the record moves out of the tree (`detach-on:` in the contract).
       detachOn: listOf(fm['detach-on']).filter((w) => results.includes(w)),
+      // Data keys that, set to true on any recorded result, also move the record out of the tree.
+      detachOnData: listOf(fm['detach-on-data']),
       repeatUntil: fm['repeat-until'] && fm['repeat-until'] !== 'none' ? fm['repeat-until'] : null,
       path: full,
     });
@@ -436,53 +447,11 @@ function parseFallback(fallback, contracts) {
 const statePath = (stateDir) => path.join(stateDir, STATE_FILE);
 const now = () => new Date().toISOString();
 
-/**
- * Where a detached record lives, or null when stateDir is not inside a git directory. The git
- * common dir is shared by every worktree, so the record outlives the branch and its worktree.
- */
-function externalDir(stateDir) {
-  let dir = path.resolve(stateDir);
-  while (!fs.existsSync(dir)) {
-    const up = path.dirname(dir);
-    if (up === dir) return null;
-    dir = up;
-  }
-  const env = { ...process.env };
-  delete env.GIT_DIR;
-  delete env.GIT_WORK_TREE;
-  delete env.GIT_INDEX_FILE;
-  const r = spawnSync('git', ['rev-parse', '--git-common-dir'], { cwd: dir, encoding: 'utf8', env });
-  if (r.status !== 0 || !r.stdout.trim()) return null;
-  const common = path.resolve(dir, r.stdout.trim());
-  return path.join(common, 'ensemble', 'ship', path.basename(path.resolve(stateDir)));
-}
-
+/** Where this run's detached record is (or would be), or null outside git. */
 function externalPath(stateDir, startedAt) {
   if (!startedAt) return null;
-  const dir = externalDir(stateDir);
-  if (!dir) return null;
-  return path.join(dir, `${String(startedAt).replace(/[^A-Za-z0-9_-]/g, '-')}.json`);
-}
-
-/**
- * The most recently updated detached record for this state directory, or null. Used only when
- * the tracked file is gone (the branch or worktree was deleted, or the record was never
- * committed before the merge): it is how a resumed run finds its own post-merge record.
- */
-function latestExternal(stateDir) {
-  const dir = externalDir(stateDir);
-  let names;
-  try {
-    names = fs.readdirSync(dir).filter((n) => n.endsWith('.json'));
-  } catch {
-    return null;
-  }
-  let best = null;
-  for (const n of names) {
-    const { state } = parseState(path.join(dir, n));
-    if (state && state.detached && (!best || String(state.updatedAt) > String(best.updatedAt))) best = state;
-  }
-  return best;
+  const dir = recordDirs.recordDir(stateDir);
+  return dir ? path.join(dir, `${recordDirs.safeName(startedAt)}.json`) : null;
 }
 
 /** The file the record is (or would be) in right now. */
@@ -498,16 +467,16 @@ function parseState(file) {
 }
 
 /**
- * @param {{fallback?: boolean}} opts fallback (default true): with no tracked file, load the
- *   latest detached record. `start` passes it only on a resume, so a fresh run is never mistaken
- *   for a finished one.
+ * Loads the run record: the tracked file, or (when it is gone) the detached record the pointer
+ * names. A pointer to a missing or not-detached record is the ordinary "run start first" error.
  */
-function loadState(stateDir, { fallback = true } = {}) {
+function loadState(stateDir) {
   let { state, err } = parseState(statePath(stateDir));
   let fromExternal = false;
-  if (err && err.code === 'ENOENT' && fallback) {
-    const ext = latestExternal(stateDir);
-    if (ext) {
+  if (err && err.code === 'ENOENT') {
+    const ptr = recordDirs.readPointer(stateDir);
+    const ext = ptr && parseState(externalPath(stateDir, ptr.startedAt)).state;
+    if (ext && ext.detached) {
       state = ext;
       err = null;
       fromExternal = true;
@@ -571,15 +540,48 @@ function trdRefusal(steps, contracts, trdPath) {
 }
 
 /**
+ * The newest detached record in the folder whose work kind, id and branch equal `work` (an
+ * absent branch compares as null), or null. This is the only way a resume finds a record once
+ * the tracked file is gone, so a record of another branch's run is never mistaken for this one.
+ */
+function matchingDetached(stateDir, work) {
+  const dir = recordDirs.recordDir(stateDir);
+  let names;
+  try {
+    names = fs.readdirSync(dir).filter((n) => n.endsWith('.json') && n !== 'current.json' && !n.endsWith('.custody.json'));
+  } catch {
+    return null;
+  }
+  let best = null;
+  for (const n of names) {
+    const { state } = parseState(path.join(dir, n));
+    const w = state && state.work;
+    if (!state || !state.detached || state.version !== 2 || !w) continue;
+    if (w.kind !== work.kind || w.id !== work.id || (w.branch ?? null) !== (work.branch ?? null)) continue;
+    if (!best || String(state.updatedAt) > String(best.updatedAt)) best = state;
+  }
+  return best;
+}
+
+/**
  * Begin a run, or load the one in progress. With no state file the steps are parsed from the
  * policy (or, with no policy, from the caller's fallback string) and snapshotted; with one,
  * `ship.md` is never read again.
  */
 function start({ stateDir, policyPath, fallback, work, contractsDir, resume = false }) {
   if (!stateDir) return { ok: false, status: null, errors: ['start needs a state directory'] };
-  const existing = loadState(stateDir, { fallback: resume });
-  if (existing.state) return { ok: true, status: existing.state.status, errors: [], resumed: true };
-  if (!existing.error.startsWith('no ')) return { ok: false, status: null, errors: [existing.error] };
+  if (fs.existsSync(statePath(stateDir))) {
+    const existing = loadState(stateDir);
+    if (!existing.state) return { ok: false, status: null, errors: [existing.error] };
+    recordDirs.writePointer(stateDir, { startedAt: existing.state.startedAt, work: existing.state.work });
+    return { ok: true, status: existing.state.status, errors: [], resumed: true };
+  }
+  // No tracked file: only --resume may continue a detached record, and only this work's own.
+  const match = resume ? matchingDetached(stateDir, work) : null;
+  if (match) {
+    recordDirs.writePointer(stateDir, { startedAt: match.startedAt, work: match.work });
+    return { ok: true, status: match.status, errors: [], resumed: true };
+  }
 
   const { contracts, errors: loadErrors } = loadPrimitives(contractsDir);
   if (loadErrors.length) return { ok: false, status: null, errors: loadErrors };
@@ -620,6 +622,7 @@ function start({ stateDir, policyPath, fallback, work, contractsDir, resume = fa
     shippedAt: null,
   };
   saveState(stateDir, state);
+  recordDirs.writePointer(stateDir, { startedAt: t, work: { kind: work.kind, id: work.id, branch: work.branch || null } });
   return { ok: true, status: 'running', errors: [], policy: parsed.policy };
 }
 
@@ -796,16 +799,31 @@ function record(stateDir, { step, result, data, reason }, opts = {}) {
   } else {
     moveToTop(state, entry.top + 1);
   }
-  // Detach only on a real result (never wait/stop), and only where a git directory exists.
-  if (!state.detached && result !== 'wait' && result !== 'stop' && contract.detachOn.includes(result)) {
+  // Detach on a real result listed in detach-on, or on ANY result (stop and wait included) whose
+  // data sets a detach-on-data key to true; only where a git directory exists.
+  let detachedNow = false;
+  const flagged = contract.detachOnData.some((k) => (data || {})[k] === true);
+  const listed = result !== 'wait' && result !== 'stop' && contract.detachOn.includes(result);
+  if (!state.detached && (listed || flagged)) {
     const ext = externalPath(stateDir, state.startedAt);
     if (ext) {
       state.detached = true;
       state.recordPath = ext;
+      detachedNow = true;
     }
   }
   saveState(stateDir, state);
-  return { ok: true, recordPath: recordPathOf(stateDir, state), status: state.status, shipped: state.shipped, ...(state.reason ? { reason: state.reason } : {}) };
+  let custodyDetach;
+  if (detachedNow) {
+    recordDirs.writePointer(stateDir, { startedAt: state.startedAt, work: { kind: state.work.kind, id: state.work.id, branch: state.work.branch } });
+    try {
+      // Lazy: custody.js is not needed unless a run detaches. A failure never fails the record.
+      custodyDetach = require('./custody').detach({ stateDir, startedAt: state.startedAt });
+    } catch (e) {
+      custodyDetach = { ok: false, action: 'none', path: null, reason: e.message };
+    }
+  }
+  return { ok: true, recordPath: recordPathOf(stateDir, state), status: state.status, shipped: state.shipped, ...(state.reason ? { reason: state.reason } : {}), ...(custodyDetach ? { custodyDetach } : {}) };
 }
 
 function status(stateDir) {
@@ -816,7 +834,7 @@ function status(stateDir) {
     const last = [...state.results].reverse().find((r) => r.step === e.step.id);
     return { id: e.step.id, primitive: e.step.primitive, result: last ? last.result : null, pass: last ? last.pass : null };
   });
-  const out = { recordPath: recordPathOf(stateDir, state), status: state.status, shipped: state.shipped, policy: state.policy, cursor: state.cursor, steps };
+  const out = { recordPath: recordPathOf(stateDir, state), custodyPath: recordDirs.custodyPath(stateDir), status: state.status, shipped: state.shipped, policy: state.policy, cursor: state.cursor, steps };
   if (state.status === 'waiting') out.waiting = state.reason;
   if (state.status === 'stuck') out.stuck = state.reason;
   return out;

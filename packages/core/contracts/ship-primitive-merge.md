@@ -6,6 +6,7 @@ outward: yes
 needs: pr
 provides: merged
 detach-on: merged
+detach-on-data: merged
 section: ship
 ---
 
@@ -45,12 +46,17 @@ Merges the pull request and proves that what merged is what was verified (D11, D
    `ok: false` returns `stop` with the reason and the differing files.
 4. The merged head is the PR's `headRefOid` read from `gh pr view <pr> --json headRefOid,state`.
 
+**One rule for every stop.** Before returning any `stop` from this contract (a custody-gate stop,
+a pr-head failure, a `gh pr merge` failure, a merge-link failure), read
+`gh pr view <pr> --json state` again. When it reads `MERGED`, that stop carries
+`data: { merged: true, base }`, so the run record can still leave the tracked tree.
+
 ## Result
 
 `merged`, with `data`: `{ merged: true, mergedHead, base, method }`. `merged` is the key
-`sync-design` needs and `mergedHead` is what it reads. After `merged` the sequencer keeps the run
-record outside the tracked tree (`detach-on: merged`), so nothing after the merge dirties the
-merged branch. A gate stop leaves the PR unmerged.
+`sync-design` needs and `mergedHead` is what it reads. After `merged`, or after any stop carrying `data.merged: true`, the sequencer keeps the run
+record outside the tracked tree (`detach-on: merged`, `detach-on-data: merged`), so nothing after
+the merge dirties the merged branch. A gate stop on an open PR leaves it unmerged.
 
 ## Waiting
 

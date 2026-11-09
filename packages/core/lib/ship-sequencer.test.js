@@ -626,8 +626,10 @@ describe('detach-on', () => {
     expect(saved.detached).toBeUndefined();
     expect(saved.cursor).not.toEqual({ step: '1', pass: 1 }); // the tracked file carries the progress
     expect(seq.status(repoState(root))).toMatchObject({ status: 'done', shipped: true, recordPath: file });
-    // Nothing was written under the git common dir by the sequencer.
-    expect(fs.existsSync(path.join(root, '.git', 'ensemble'))).toBe(false);
+    // No detached run record was written under the git common dir (only the pointer may be).
+    const folder = path.join(root, '.git', 'ensemble', 'ship', 'f');
+    const records = fs.existsSync(folder) ? fs.readdirSync(folder).filter((n) => n !== 'current.json') : [];
+    expect(records).toEqual([]);
   });
 
   test('status still reads the detached record after the branch is merged and deleted', () => {
@@ -666,6 +668,84 @@ describe('detach-on', () => {
     expect(seq.start({ ...o, resume: true })).toMatchObject({ ok: true, resumed: true });
     step(root, '3', 'gone', opts);
     expect(seq.status(repoState(root))).toMatchObject({ status: 'done', shipped: true });
+  });
+
+  describe('detach-on-data', () => {
+    const REC = (root) => path.join(root, '.git', 'ensemble', 'ship', 'f');
+    beforeEach(() => {
+      writeContract(contractsDir, {
+        primitive: 'mike', params: '', results: 'merged, blocked', 'detach-on': 'merged', 'detach-on-data': 'merged, other', outward: 'no', section: 'ship',
+      });
+    });
+    const startOpts2 = (root, branch) => {
+      const o = startIn(root);
+      return { ...o, work: { ...o.work, branch } };
+    };
+
+    test('a stop carrying data.merged detaches; a resume from main after the branch is gone continues at that step', () => {
+      const root = makeRepo();
+      const o = startIn(root);
+      const opts = authOpts();
+      step(root, '1', 'done', opts);
+      handOut(root, '2', opts);
+      fs.writeFileSync(path.join(repoState(root), 'custody.json'), JSON.stringify({ anchor: 1 }));
+      const r = seq.record(repoState(root), { step: '2', result: 'stop', data: { merged: true }, reason: 'link failed' }, opts);
+      const startedAt = JSON.parse(fs.readFileSync(path.join(repoState(root), 'shipped.json'), 'utf8')).startedAt;
+      expect(r.recordPath).toBe(path.join(REC(root), `${startedAt.replace(/[:.]/g, '-')}.json`));
+      expect(fs.existsSync(r.recordPath)).toBe(true);
+      expect(r.custodyDetach).toMatchObject({ ok: true, action: 'detached' });
+      expect(fs.existsSync(path.join(REC(root), `${startedAt.replace(/[:.]/g, '-')}.custody.json`))).toBe(true);
+      expect(JSON.parse(fs.readFileSync(path.join(REC(root), 'current.json'), 'utf8')).startedAt).toBe(startedAt);
+      expect(seq.status(repoState(root)).custodyPath).toBe(r.custodyDetach.path);
+
+      git(root, 'checkout', '-q', 'main');
+      git(root, 'branch', '-q', '-D', 'feature');
+      fs.rmSync(path.join(root, '.trd-state'), { recursive: true, force: true });
+      expect(seq.start({ ...o, resume: true })).toMatchObject({ ok: true, resumed: true });
+      const st = seq.status(repoState(root));
+      expect(st).toMatchObject({ status: 'stuck', cursor: { step: '2', pass: 1 } });
+      expect(st.steps.find((x) => x.id === '1').result).toBe('done');
+      handOut(root, '2', opts); // the stopped step is handed out again
+    });
+
+    test('a finished detached run of another branch is not resumed; the new run owns the pointer', () => {
+      const root = makeRepo();
+      const o = startIn(root);
+      const opts = authOpts();
+      step(root, '1', 'done', opts);
+      step(root, '2', 'merged', opts);
+      step(root, '3', 'gone', opts);
+      fs.rmSync(path.join(root, '.trd-state'), { recursive: true, force: true });
+      const r = seq.start({ ...o, work: { ...o.work, branch: 'new-branch' }, resume: true });
+      expect(r.resumed).toBeUndefined();
+      expect(r.status).toBe('running');
+      expect(seq.status(repoState(root))).toMatchObject({ status: 'running', cursor: { step: '1', pass: 1 } });
+      fs.rmSync(path.join(root, '.trd-state'), { recursive: true, force: true });
+      expect(seq.status(repoState(root)).error).toMatch(/run start first/);
+    });
+
+    test('a stop without the data key keeps the tracked file', () => {
+      const root = makeRepo();
+      startIn(root);
+      const opts = authOpts();
+      step(root, '1', 'done', opts);
+      handOut(root, '2', opts);
+      const r = seq.record(repoState(root), { step: '2', result: 'stop', data: { merged: false } }, opts);
+      expect(r.recordPath).toBe(path.join(repoState(root), 'shipped.json'));
+      expect(r.custodyDetach).toBeUndefined();
+      expect(fs.existsSync(path.join(REC(root), 'current.json'))).toBe(true); // written by start
+      expect(fs.readdirSync(REC(root)).filter((n) => n !== 'current.json')).toEqual([]);
+    });
+
+    test('a resume with a different kind, id or branch than the detached record starts fresh', () => {
+      const root = makeRepo();
+      const o = startOpts2(root, 'feature');
+      const opts = authOpts();
+      step(root, '1', 'done', opts);
+      step(root, '2', 'merged', opts);
+      fs.rmSync(path.join(root, '.trd-state'), { recursive: true, force: true });
+      expect(seq.start({ ...o, work: { ...o.work, branch: null }, resume: true }).resumed).toBeUndefined();
+    });
   });
 
   test('without --resume, start ignores a detached record and begins a fresh run', () => {

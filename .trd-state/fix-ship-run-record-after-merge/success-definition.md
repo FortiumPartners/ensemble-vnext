@@ -1,0 +1,20 @@
+# Functional Success Definition: fix-ship-run-record-after-merge
+
+**Source**: docs/TRD/fix-ship-run-record-after-merge.md §Reproduction
+**Source kind**: reproduction
+**Derived**: 2026-11-09T06:58:24Z
+**Criteria**: 6
+
+Line numbers in `Cites` are lines of the extracted `## Reproduction` section (line 1 is the
+`## Reproduction` heading). Every exercise runs in a throwaway git repository under
+`mktemp -d`, as the reproduction itself does (§Reproduction lines 3-4), never against live
+`.trd-state/`.
+
+| ID | Functional statement | Cites | Evidence that would prove it | Derivation | Tier 1 | Parts | Must pass |
+|----|----------------------|-------|------------------------------|------------|--------|-------|-----------|
+| FS-1 | After a run on `feature` records `push` → `pushed`, `open-pr` → `opened` and `merge` → `stop` with `data.merged: true`, and branch `feature` and the tracked `.trd-state/f/shipped.json` are then deleted from `main`, `start --resume` with the same kind and id and `--branch feature` continues the same run: `status` shows the cursor on step `3` (merge) with `push:pushed open-pr:opened merge:stop`, not a fresh run at step `1` | §Reproduction line 27 (Expected, Block 1); steps lines 8-13; actual lines 20, 23 | Transcript of the Block 1 sequence in a throwaway repo (or `repro.sh`'s Block 1 output line) showing `push:pushed open-pr:opened merge:stop` and the cursor at step `"3"` | [read] | locator | | O1 |
+| FS-2 | Recording `merge` → `stop` with `data.merged: true` (the merge landed, its proof failed) moves the run record out of the tracked state file, so a detached copy exists that does not depend on the tracked `.trd-state/f/shipped.json` or the branch | §Reproduction lines 31-35 (Root cause, Block 1: "detaches only on a result listed in the contract's `detach-on` and never on `wait`/`stop` ... a `stop` after the PR merged stays in the tracked file") | Transcript: after the `record` call, a listing of the detached record outside the tracked state directory, and its content showing the `merge` step with outcome `stop` | [read] | locator | | O1 |
+| FS-3 | In a repository where a finished run on `old-branch` (`pushed`, `opened`, `merged`, `closed`; status `done`) left a detached record and the tracked record is deleted, `start --resume --branch new-branch` with the same kind and id does not load that run: its result carries no `resumed` and reports `status: running` | §Reproduction lines 27-28 (Expected, Block 2); steps lines 14-16; actual line 21 | Transcript of `start --resume --branch new-branch` showing its JSON result with `"status":"running"` and no `resumed` key | [read] | locator | | O3 |
+| FS-4 | After FS-3's `start` on `new-branch`, `status` reports the new run on `new-branch` (running), not `old-branch`'s finished run: this work is not reported as already shipped | §Reproduction line 24 ("loaded another branch's finished run and reported this work as already shipped"); lines 36-38 (Root cause, Block 2: the newest detached record is fed "to every `next`/`record`/`status`") | Transcript of `status` run right after FS-3's `start`, showing status `running`, not `done` | [read] | locator | | O3 |
+| FS-5 | A custody anchor move made after the PR merged is not lost when the merged branch (and its tracked state directory) is deleted: reading custody afterwards returns the moved anchor | §Reproduction lines 39-42 (Root cause, Custody: "`custody.json` lives only at `<stateDir>/custody.json` ... so the last anchor move is lost with the branch") | Transcript in a throwaway repo: record the merge, move the custody anchor, delete the branch and the tracked state directory, then read custody and show the moved anchor's commit | [read] | locator | | O2 |
+| FS-6 | The reproduction script `docs/plans/fix-ship-run-record-after-merge/repro.sh` exits 0 (it exits 1 before the fix) | §Reproduction line 28 (Expected: "`repro.sh` exits 0 then; it exits 1 today") | Transcript of running `repro.sh` with its full output and its exit status printed as 0 | [read] | locator | | O1, O3 |

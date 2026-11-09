@@ -1,0 +1,81 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-ship-run-record-after-merge/evidence/fs1-5-transcript.txt",
+      "reason": "After branch delete and tracked shipped.json removal, start --resume returned resumed:true and status shows push:pushed open-pr:opened merge:stop with cursor at step \"3\".",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-ship-run-record-after-merge/evidence/fs1-5-transcript.txt",
+      "reason": "The record call returned a recordPath under .git/ensemble/ship/f/; the detached file lists merge with result stop and data.merged true, outside the tracked state dir, and it survived deleting the branch and the tracked file.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-ship-run-record-after-merge/evidence/fs1-5-transcript.txt",
+      "reason": "With old-branch done, start --resume --branch new-branch returned {\"ok\":true,\"status\":\"running\",\"errors\":[],\"policy\":\"ship.md\"} with no resumed key.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-ship-run-record-after-merge/evidence/fs1-5-transcript.txt",
+      "reason": "Status right after shows status running, shipped false, cursor at step 1 with every step result null: a fresh run, not old-branch's done run.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-ship-run-record-after-merge/evidence/fs1-5-transcript.txt",
+      "reason": "Anchor moved after merge from 232ecb2 to 719336d in the detached custody file; after .trd-state was deleted, custody reconcile reads anchor 719336da8431a8200b3fc3820e7eeeccc8342751.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-ship-run-record-after-merge/evidence/fs6-repro-run.txt",
+      "reason": "repro.sh output: block 1 OK, block 2 OK, EXIT STATUS: 0.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": "satisfied"
+}

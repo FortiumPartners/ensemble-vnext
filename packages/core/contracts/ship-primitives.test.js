@@ -231,6 +231,12 @@ describe('merge', () => {
     expect(contracts.get('merge').detachOn).toEqual(['merged']);
     expect(t).toMatch(/outside the tracked tree/);
   });
+  test('detach-on-data: merged loads, and one rule ties every stop to the MERGED re-read', () => {
+    expect(contracts.get('merge').detachOnData).toEqual(['merged']);
+    expect(t).toMatch(/One rule for every stop/);
+    expect(t).toMatch(/Before returning any `stop`[^]*`gh pr view <pr> --json state`[^]*`MERGED`[^]*`data: \{ merged: true, base \}`/);
+    expect(t).toMatch(/sequencer keeps the run\s+record outside the tracked tree/);
+  });
 });
 
 describe('release', () => {

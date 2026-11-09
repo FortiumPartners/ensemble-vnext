@@ -299,43 +299,84 @@ describe('reconcile: moving the anchor', () => {
   });
 });
 
-describe('check: push link', () => {
-  test('passes when the pushed branch is code-equal to the anchor', () => {
+describe('check: unknown link (the push link is gone)', () => {
+  test('--link push is unknown with or without an anchor', () => {
+    const s = setup();
+    expect(check(s.args({ link: 'push' }))).toMatchObject({ ok: false, reason: 'unknown link push' });
+    s.commit('work', { 'src/a.js': 'a2' });
+    reconcile(s.args());
+    expect(check(s.args({ link: 'push' }))).toMatchObject({ ok: false, reason: 'unknown link push' });
+  });
+});
+
+describe('detach: custody follows the run out of the tree', () => {
+  const dirs = require('./ship-record-dir');
+  const STARTED = '2026-11-08T10:00:00.000Z';
+  const anchored = () => {
     const s = setup();
     s.commit('work', { 'src/a.js': 'a2' });
     reconcile(s.args());
-    git(s.repo, 'push', '-u', 'origin', 'feature/x');
-    const r = check(s.args({ link: 'push', branch: 'feature/x' }));
-    expect(r).toMatchObject({ ok: true, link: 'push', differing: [] });
+    return s;
+  };
+  const external = (s, started = STARTED) => path.join(dirs.recordDir(s.stateDir), `${dirs.safeName(started)}.custody.json`);
+
+  test('detach copies the anchor out; later moves land there, and check survives deleting .trd-state', () => {
+    const s = anchored();
+    const anchor = s.readCustody().anchor.commit;
+    dirs.writePointer(s.stateDir, { startedAt: STARTED, work: { kind: 'feature', id: 'f', branch: 'feature/x' } });
+    const r = custody.detach({ stateDir: s.stateDir, startedAt: STARTED });
+    expect(r).toMatchObject({ ok: true, action: 'detached', path: external(s) });
+    expect(JSON.parse(fs.readFileSync(external(s), 'utf8')).anchor.commit).toBe(anchor);
+    expect(custody.detach({ stateDir: s.stateDir, startedAt: STARTED }).action).toBe('none');
+
+    // a later reconcile move writes the external file, not the tracked one
+    const moved = s.commit('more', { 'src/b.js': 'b2' });
+    expect(reconcile(s.args({ trdPath: 'none' })).action).toBe('moved');
+    expect(JSON.parse(fs.readFileSync(external(s), 'utf8')).anchor.commit).toBe(moved);
+    expect(s.readCustody().anchor.commit).toBe(anchor);
+
+    fs.rmSync(path.join(s.repo, '.trd-state'), { recursive: true, force: true });
+    git(s.repo, 'checkout', '--', '.');
+    expect(check(s.args({ link: 'nope' })).reason).toBe('unknown link nope');
+    expect(custody.check({ stateDir: s.stateDir, link: 'deploy', identityOutput: moved, trdPath: TRD, cwd: s.repo }).reason)
+      .not.toBe('no anchor');
   });
 
-  test('a test-only commit pushed after the anchor still passes', () => {
+  test('no tracked anchor, no pointer or outside git: detach is a no-op / custodyPath stays tracked', () => {
     const s = setup();
-    s.commit('work', { 'src/a.js': 'a2' });
-    reconcile(s.args());
-    s.commit('tests', { 'src/a.test.js': 't' });
-    git(s.repo, 'push', '-u', 'origin', 'feature/x');
-    expect(check(s.args({ link: 'push', branch: 'feature/x' })).ok).toBe(true);
+    expect(custody.detach({ stateDir: s.stateDir, startedAt: STARTED })).toMatchObject({ ok: true, action: 'none' });
+    expect(dirs.custodyPath(s.stateDir)).toBe(path.join(s.stateDir, 'custody.json'));
+    const outside = path.join(tmp(), 'f');
+    expect(dirs.custodyPath(outside)).toBe(path.join(outside, 'custody.json'));
+    expect(custody.detach({ stateDir: s.stateDir, startedAt: '' }).ok).toBe(false);
   });
 
-  test('fails naming the shipped file that differs', () => {
-    const s = setup();
-    s.commit('work', { 'src/a.js': 'a2' });
-    reconcile(s.args());
-    s.commit('sneaky', { 'src/b.js': 'b2' });
-    git(s.repo, 'push', '-u', 'origin', 'feature/x');
-    const r = check(s.args({ link: 'push', branch: 'feature/x' }));
-    expect(r.ok).toBe(false);
-    expect(r.differing).toEqual(['src/b.js']);
-    expect(r.reason).toMatch(/src\/b\.js/);
+  test('two runs share a state-dir name: the tracked shipped.json names run B, so A\'s custody is ignored', () => {
+    const s = anchored();
+    const anchorB = s.readCustody().anchor.commit;
+    dirs.writePointer(s.stateDir, { startedAt: STARTED });
+    fs.writeFileSync(external(s), JSON.stringify({ version: 1, anchor: { commit: 'a'.repeat(40), source: 'pushed' }, moves: [] }));
+    fs.writeFileSync(path.join(s.stateDir, 'shipped.json'), JSON.stringify({ startedAt: '2026-11-09T00:00:00.000Z' }));
+    expect(dirs.custodyPath(s.stateDir)).toBe(path.join(s.stateDir, 'custody.json'));
+    expect(reconcile(s.args()).anchor).toBe(anchorB);
+    expect(check(s.args({ link: 'deploy', identityOutput: 'x' })).reason).not.toMatch(/aaaa/);
   });
 
-  test('fails when the branch is not on origin, and with no anchor', () => {
+  test('with the run\'s detached record present and no anchor yet, --set-only writes the external file', () => {
     const s = setup();
-    expect(check(s.args({ link: 'push', branch: 'feature/x' })).reason).toBe('no anchor');
-    reconcile(s.args());
-    expect(check(s.args({ link: 'push', branch: 'feature/x' })).reason).toMatch(/not on origin/);
-    expect(fs.existsSync(path.join(s.stateDir, 'custody.json'))).toBe(true);
+    const head = s.commit('work', { 'src/a.js': 'a2' });
+    dirs.writePointer(s.stateDir, { startedAt: STARTED });
+    fs.writeFileSync(path.join(dirs.recordDir(s.stateDir), `${dirs.safeName(STARTED)}.json`), '{}');
+    expect(reconcile(s.args({ setOnly: true }))).toMatchObject({ action: 'set', anchor: head });
+    expect(JSON.parse(fs.readFileSync(external(s), 'utf8')).anchor.commit).toBe(head);
+    expect(fs.existsSync(path.join(s.stateDir, 'custody.json'))).toBe(false);
+  });
+
+  test('the CLI detach verb prints one JSON line', () => {
+    const s = anchored();
+    const r = spawnSync('node', [LIB, 'detach', '--state-dir', s.stateDir, '--started-at', STARTED], { cwd: s.repo, encoding: 'utf8', env: cleanEnv() });
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout.trim())).toMatchObject({ ok: true, action: 'detached' });
   });
 });
 
@@ -716,9 +757,8 @@ describe('CLI', () => {
     const head = s.commit('work', { 'src/a.js': 'a2' });
     const rec = cli(s.repo, ['reconcile', '--state-dir', s.stateDir, '--trd', TRD]);
     expect(rec).toMatchObject({ status: 0, json: { action: 'set', anchor: head } });
-    git(s.repo, 'push', '-u', 'origin', 'feature/x');
-    const chk = cli(s.repo, ['check', '--state-dir', s.stateDir, '--link', 'push', '--branch', 'feature/x', '--trd', TRD]);
-    expect(chk).toMatchObject({ status: 0, json: { ok: true, link: 'push' } });
+    const chk = cli(s.repo, ['check', '--state-dir', s.stateDir, '--link', 'push', '--trd', TRD]);
+    expect(chk).toMatchObject({ status: 0, json: { ok: false, reason: 'unknown link push' } });
     const sweep = cli(s.repo, ['reconcile', '--state-dir', s.stateDir, '--trd', 'none']);
     expect(sweep.json.action).toBe('none');
   });

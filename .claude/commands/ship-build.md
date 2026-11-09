@@ -100,8 +100,13 @@ ISSUES; a notice never stops the run. Every contract's read of an owner-governed
 node .claude/lib/ship-sequencer.js start --state-dir <state-dir> \
   --policy "$(node .claude/lib/owner-rules.js path ship.md)" --fallback "1. push" \
   --kind <feature|plan|sweep> --id <feature or sweep id> \
-  [--trd <trd-path>] --branch <current branch> [--resume]
+  [--trd <trd-path>] --branch <work branch> [--resume]
 ```
+
+`<work branch>` is the current branch, except under `--resume`: then it is the work's own branch,
+the `branch` in `.trd-state/<feature>/implement.json` (the field Step 1 reads), falling back to
+the current branch when there is none. After a merge the current branch is often `main`, not the
+work's. A kept record is continued only when its kind, id and branch all match.
 
 Pass `--resume` when the owner did. It prints one JSON line `{ok, status, errors, policy}`. With
 a state file already there it loads it (`resumed: true`) and ignores `ship.md`. Under `--resume`
@@ -198,7 +203,7 @@ four-section readout from `.claude/rules/command-status.md`, one screen, written
 who was not in the session:
 
 - **STATE** — shipped or not; which steps ran and with what result; the custody anchor and any
-  moves (`custody.json`, read-only); the PR number and URL if there is one. Name what proves a
+  moves (read from the file at `status`'s `custodyPath`, read-only); the PR number and URL if there is one. Name what proves a
   claim of "shipped". After a merge, name the record's path from `status`'s `recordPath`
   (a file under the git common directory, untracked, nothing to commit). When the merge step
   recorded `data.custody`, say which proofs were reused (`reused` ids) and which paths were

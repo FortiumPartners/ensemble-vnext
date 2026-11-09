@@ -5,8 +5,9 @@
  * code that was pushed, merged and deployed (TRD ship-build 3.5, D9-D12).
  *
  * WHY A SCRIPT: "is this the same code" is deterministic, and a prompt would re-derive it
- * differently each run. One anchor commit is held in `<stateDir>/custody.json`; four links
- * (push, pr-head, merge, deploy) are each compared to it.
+ * differently each run. One anchor commit is held in `<stateDir>/custody.json` (or, once the run
+ * detaches at the merge, beside its detached record: see ship-record-dir.js); three links
+ * (pr-head, merge, deploy) are each compared to it.
  *
  * CODE EQUALITY (D9, D10): `git diff --no-renames --name-only -z <a> <b>`, each path classified
  *   ignored   anything under `.trd-state/`, the work's TRD, and `.claude/verification-notes.md`
@@ -37,10 +38,10 @@
  *   node custody.js reconcile --state-dir D --trd <path|none> [--closed P] [--definition P]
  *                             [--reason format] [--reverified <verification-state.json>]
  *                             [--base <ref>] [--head <sha>] [--set-only]
- *   node custody.js check --state-dir D --link push --branch B --trd <path|none>
  *   node custody.js check --state-dir D --link pr-head --pr N --trd <path|none>
  *   node custody.js check --state-dir D --link merge --pr N --target BASE --trd <path|none>
  *   node custody.js check --state-dir D --link deploy --identity-output <text> --trd <path|none>
+ *   node custody.js detach --state-dir D --started-at T
  *
  * `--head <sha>` judges that commit (the PR head) instead of local HEAD, and refuses when local
  * HEAD has shipped changes not in it (re-verification runs on the working tree). `--set-only` sets
@@ -59,6 +60,7 @@ const { spawnSync } = require('child_process');
 const { BUILD_TOKEN } = require('./functional-verification');
 const liveEvidence = require('./live-evidence');
 const implementState = require('./implement-state');
+const recordDirs = require('./ship-record-dir');
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
 const COMMIT_ID = /^[0-9a-f]{4,40}$/i;
@@ -190,9 +192,8 @@ function compare(a, b, trdRel, cwd, baseCommit) {
 // custody.json
 // ---------------------------------------------------------------------------
 
-function custodyPath(stateDir) {
-  return path.join(stateDir, 'custody.json');
-}
+// The anchor's file: tracked until the run detaches, then outside the tree (ship-record-dir.js).
+const custodyPath = recordDirs.custodyPath;
 
 function readCustody(stateDir) {
   try {
@@ -205,8 +206,36 @@ function readCustody(stateDir) {
 }
 
 function writeCustody(stateDir, custody) {
-  fs.mkdirSync(stateDir, { recursive: true });
-  implementState.save(custodyPath(stateDir), custody);
+  const file = custodyPath(stateDir);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  implementState.save(file, custody);
+}
+
+/**
+ * Copies the tracked custody.json out of the tree, beside the run's detached record, so the merged
+ * branch is not left with a file that keeps changing. The tracked copy stays and is never written
+ * again (deleting it would dirty the merged branch). No-op when the copy exists or nothing is tracked.
+ * @returns {{ok: boolean, action: 'detached'|'none', path: string|null, reason: string}}
+ */
+function detach({ stateDir, startedAt }) {
+  if (!startedAt) return { ok: false, action: 'none', path: null, reason: 'detach needs a startedAt' };
+  const dir = recordDirs.recordDir(stateDir);
+  if (!dir) return { ok: true, action: 'none', path: null, reason: 'not inside a git directory' };
+  const dest = path.join(dir, `${recordDirs.safeName(startedAt)}.custody.json`);
+  if (fs.existsSync(dest)) return { ok: true, action: 'none', path: dest, reason: 'already detached' };
+  let tracked;
+  try {
+    tracked = JSON.parse(fs.readFileSync(path.join(stateDir, 'custody.json'), 'utf8'));
+  } catch {
+    return { ok: true, action: 'none', path: dest, reason: 'no tracked anchor' };
+  }
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    implementState.save(dest, tracked);
+  } catch (e) {
+    return { ok: false, action: 'none', path: dest, reason: `cannot write ${dest}: ${e.message}` };
+  }
+  return { ok: true, action: 'detached', path: dest, reason: 'custody anchor copied out of the tree' };
 }
 
 /** The audited commit recorded by /audit-build in closed.json, or null. */
@@ -467,28 +496,20 @@ function judgeLink(link, sha, anchor, trdRel, cwd, label) {
 
 /**
  * One link's comparison to the anchor. Never writes.
- * @param {{stateDir: string, link: 'push'|'pr-head'|'merge'|'deploy', branch?: string, pr?: number,
+ * @param {{stateDir: string, link: 'pr-head'|'merge'|'deploy', pr?: number,
  *          target?: string, identityOutput?: string, trdPath?: string|null, cwd?: string}} args
  * @returns {{ok: boolean, link: string, observed: string|null, differing: string[], reason: string}}
  */
 function check(args) {
   const { stateDir, link, trdPath = null, cwd = process.cwd() } = args;
   const fail = (reason, observed = null, differing = []) => ({ ok: false, link, observed, differing, reason });
+  if (!['pr-head', 'merge', 'deploy'].includes(link)) return fail(`unknown link ${link}`);
   const custody = readCustody(stateDir);
   if (!custody) return fail('no anchor');
   const anchor = custody.anchor.commit;
   if (!hasCommit(anchor, cwd)) run('git', ['fetch', 'origin', anchor], cwd);
   if (!hasCommit(anchor, cwd)) return fail(`anchor commit ${anchor} is not available locally`);
   const trdRel = trdRelative(trdPath, cwd);
-
-  if (link === 'push') {
-    if (!args.branch) return fail('push link needs a branch');
-    const ls = run('git', ['ls-remote', 'origin', `refs/heads/${args.branch}`], cwd);
-    if (!ls.ok) return fail(`git ls-remote failed: ${ls.err}`);
-    const sha = ls.out.split(/\s+/)[0];
-    if (!sha) return fail(`branch ${args.branch} is not on origin`);
-    return judgeLink('push', sha, anchor, trdRel, cwd, `origin/${args.branch}`);
-  }
 
   if (link === 'pr-head') {
     if (!Number.isInteger(args.pr) || args.pr <= 0) return fail('pr-head link needs a PR number');
@@ -545,7 +566,7 @@ function check(args) {
     return last || fail('no token in the identity output resolves to a commit');
   }
 
-  return fail(`unknown link ${link}`);
+  return fail(`unknown link ${link}`); // unreachable: the link is validated above
 }
 
 // ---------------------------------------------------------------------------
@@ -555,7 +576,8 @@ function check(args) {
 const USAGE =
   'usage: custody.js reconcile --state-dir D --trd <path|none> [--closed P] [--definition P] [--reason format] [--reverified P]\n' +
   '                         [--base REF] [--head SHA] [--set-only]\n' +
-  '       custody.js check --state-dir D --link push|pr-head|merge|deploy --trd <path|none> [--branch B] [--pr N --target BASE] [--identity-output TEXT]';
+  '       custody.js check --state-dir D --link pr-head|merge|deploy --trd <path|none> [--pr N --target BASE] [--identity-output TEXT]\n' +
+  '       custody.js detach --state-dir D --started-at T';
 
 function flag(argv, name) {
   const i = argv.indexOf(name);
@@ -594,16 +616,18 @@ function main(argv) {
         stateDir,
         link: flag(argv, '--link'),
         trdPath: trd === 'none' ? null : trd,
-        branch: flag(argv, '--branch'),
         pr: pr === undefined ? undefined : Number(pr),
         target: flag(argv, '--target'),
         identityOutput: flag(argv, '--identity-output'),
       })
     );
   }
+  if (cmd === 'detach' && stateDir && flag(argv, '--started-at')) {
+    return emit(detach({ stateDir, startedAt: flag(argv, '--started-at') }));
+  }
   return emit({ ok: false, action: 'refused', reason: USAGE });
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { reconcile, check, classifyPath, resolveCommit, compare, main };
+module.exports = { reconcile, check, detach, classifyPath, resolveCommit, compare, main };
