@@ -375,7 +375,9 @@ function reconcile(args) {
     // The base commit the head actually took in, not the moving tip of the base branch.
     const mb = run('git', ['merge-base', head, ref.commit], cwd);
     if (!mb.ok) return { action: 'refused', anchor, reason: `no merge base between the head and ${args.base}` };
-    baseCommit = mb.out;
+    // A head the base already contains (a PR merged by hand, a merge-commit merge) took nothing in
+    // from the base: every change since the anchor would read as base-only. Excuse nothing then.
+    if (mb.out !== head) baseCommit = mb.out;
   }
 
   const cmp = compare(anchor, head, trdRel, cwd, baseCommit);
@@ -383,14 +385,14 @@ function reconcile(args) {
   const shipped = cmp.differing;
   const excused = cmp.excused;
   // `excused` appears only when a base was given, so a no-flag run reports exactly what it always did.
-  const out = (o) => (baseCommit ? { ...o, excused } : o);
+  const out = (o) => (args.base ? { ...o, excused } : o);
 
   if (shipped.length === 0 && excused.length === 0) {
-    return {
+    return out({
       action: justSet ? 'set' : 'none',
       anchor,
       reason: justSet ? `anchor set (${custody.anchor.source})` : 'no shipped source changed since the anchor',
-    };
+    });
   }
 
   if (reason === 'format' && shipped.length > 0) {

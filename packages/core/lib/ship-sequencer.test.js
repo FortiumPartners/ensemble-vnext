@@ -630,6 +630,38 @@ describe('detach-on', () => {
     expect(o.stateDir).toBe(repoState(root));
   });
 
+  test('a record never committed before the merge is still found after the branch is deleted', () => {
+    const root = makeRepo();
+    const o = startIn(root);
+    const opts = authOpts();
+    step(root, '1', 'done', opts);
+    step(root, '2', 'merged', opts);
+    // Nothing under .trd-state was ever committed: deleting the branch's checkout loses the
+    // tracked file entirely.
+    git(root, 'checkout', '-q', 'main');
+    git(root, 'branch', '-q', '-D', 'feature');
+    fs.rmSync(path.join(root, '.trd-state'), { recursive: true, force: true });
+    expect(seq.status(repoState(root))).toMatchObject({ status: 'running', shipped: false, cursor: { step: '3', pass: 1 } });
+    // A plain start is a fresh run; start --resume continues the detached one.
+    expect(seq.start({ ...o, resume: true })).toMatchObject({ ok: true, resumed: true });
+    step(root, '3', 'gone', opts);
+    expect(seq.status(repoState(root))).toMatchObject({ status: 'done', shipped: true });
+  });
+
+  test('without --resume, start ignores a detached record and begins a fresh run', () => {
+    const root = makeRepo();
+    const o = startIn(root);
+    const opts = authOpts();
+    step(root, '1', 'done', opts);
+    step(root, '2', 'merged', opts);
+    fs.rmSync(path.join(root, '.trd-state'), { recursive: true, force: true });
+    const r = seq.start(o);
+    expect(r.ok).toBe(true);
+    expect(r.resumed).toBeUndefined();
+    expect(JSON.parse(fs.readFileSync(tracked2(root), 'utf8')).cursor).toEqual({ step: '1', pass: 1 });
+  });
+  const tracked2 = (root) => path.join(repoState(root), 'shipped.json');
+
   test('outside a git repo the tracked file is used', () => {
     startOpts(POLICY);
     expect(seq.start(startOpts(POLICY)).ok).toBe(true);

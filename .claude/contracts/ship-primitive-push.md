@@ -36,6 +36,9 @@ still to come) and `context` (every earlier result's `data`). No parameters.
    node .claude/lib/custody.js reconcile --set-only --state-dir <work.stateDir> \
      --trd <work.trd|none> --closed <work.stateDir>/closed.json
    ```
+   `set` or `none`: go on. `refused` (for example an audited commit that cannot be found): put
+   the reason in `data.issues` and go on; the push is not gated, and the custody gate before a
+   merge or release refuses on the same reason.
 3. `git push -u origin <branch>` (the branch the work is on now). The push itself is not gated by
    custody.
 

@@ -89,11 +89,13 @@ Run `notify-complete.sh` and `PushNotification` as for any STUCK (see "Completio
 node .claude/lib/ship-sequencer.js start --state-dir <state-dir> \
   --policy .claude/rules/ship.md --fallback "1. push" \
   --kind <feature|plan|sweep> --id <feature or sweep id> \
-  [--trd <trd-path>] --branch <current branch>
+  [--trd <trd-path>] --branch <current branch> [--resume]
 ```
 
-It prints one JSON line `{ok, status, errors, policy}`. With a state file already there it
-loads it (`resumed: true`) and ignores `ship.md`.
+Pass `--resume` when the owner did. It prints one JSON line `{ok, status, errors, policy}`. With
+a state file already there it loads it (`resumed: true`) and ignores `ship.md`. Under `--resume`
+with no tracked `shipped.json` (the branch or worktree is gone after a merge), it continues the
+run's record kept under the git directory instead of starting a fresh run.
 
 - `ok: false`: the errors name the lines of `ship.md` that do not parse. `COMMAND STUCK`,
   reason naming each line, Next `/ship-setup`.

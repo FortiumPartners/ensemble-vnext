@@ -601,6 +601,17 @@ describe('reconcile: base, head and set-only', () => {
     expect(r.excused).toEqual(['src/c.js']);
   });
 
+  test('a head the base already contains (merged by hand) excuses nothing', () => {
+    const s = anchored();
+    s.commit('late feature edit', { 'src/b.js': 'b3' });
+    git(s.repo, 'push', 'origin', 'HEAD:main');
+    git(s.repo, 'fetch', 'origin');
+    const r = reconcile(s.args({ base: 'origin/main' }));
+    expect(r.differing).toEqual(['src/b.js']);
+    expect(r.excused).toEqual([]);
+    expect(s.readCustody().moves[0].rule).toBe('no-success-definition');
+  });
+
   test('a conflict-resolved file, and a resolution taking the base wholesale, stay differing', () => {
     const s = anchored();
     landOnBase(s, { 'src/b.js': 'b-base' });

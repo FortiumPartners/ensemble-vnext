@@ -11,9 +11,11 @@ The caller gives the gate `work`, `context`, and which act it guards (`merge` or
 
 1. **Merge only: get the PR head and the base.** `git fetch origin <base>` (the PR's base). Then
    poll `gh pr view <pr> --json headRefOid` up to 8 times, 15s apart, until it equals the id
-   `git rev-parse HEAD` reports for what was pushed; the PR's reported head can trail a push by
-   about 80s. Still different after 8 polls: return `stop` naming both ids. Keep the PR's
-   `headRefOid` as `<PR headRefOid>`.
+   `git ls-remote origin refs/heads/<branch>` reports for what was pushed (the branch the work is
+   on now); the PR's reported head can trail a push by about 80s. Not local `HEAD`: a parked
+   record commit that was never pushed sits on it, and the PR head would never match. Still
+   different after 8 polls: return `stop` naming both ids. Keep the PR's `headRefOid` as
+   `<PR headRefOid>`.
 2. **Reconcile:**
    ```bash
    node .claude/lib/custody.js reconcile --state-dir <work.stateDir> --trd <work.trd|none> \

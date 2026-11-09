@@ -281,7 +281,7 @@ commits are equal when no shipped path differs.
 **Reconcile** is the custody gate (`ship-custody-gate.md`). It runs before `merge` and before
 `release`, not in `push`: a push is not gated by custody. `push` only records the anchor when none
 exists yet (`reconcile --set-only`); it never compares or moves one. The gate runs on the pushed
-head (for `merge`, the PR's `headRefOid` after a poll until it matches the local `HEAD`), against
+head (for `merge`, the PR's `headRefOid` after a poll until it matches the branch's commit on `origin`), against
 the base fetched from `origin`. Paths that differ only because they came from the base are
 excused, not counted as shipped changes.
 

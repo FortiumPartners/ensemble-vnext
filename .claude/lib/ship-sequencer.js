@@ -32,13 +32,17 @@
  * that survives the branch being deleted) and the tracked file is never written again. The file
  * name carries the run's startedAt, so a later run under the same slug never reads it; loadState
  * prefers it only when the tracked record (committed before the detach) has the same startedAt.
+ * With no tracked file at all (the branch or worktree is gone, or the record was never committed
+ * before the merge), next/record/status and `start --resume` read the latest detached record;
+ * a plain `start` begins a fresh run.
  * With no git directory the tracked file is kept. `record` and `status` report `recordPath`.
  *
  * CLI (one JSON line per call; exit 0, except exit 2 on a usage error -- the convention of
  * `pull-request.js`):
  *   parse  --policy <file> [--contracts <dir>]
  *   start  --state-dir <dir> --policy <file> --fallback "<string>" --kind <k> --id <id>
- *          [--trd <path>] [--branch <b>] [--contracts <dir>]
+ *          [--trd <path>] [--branch <b>] [--contracts <dir>] [--resume]
+ *          (`--resume`: with no tracked shipped.json, continue the latest detached record)
  *   next   --state-dir <dir> [--contracts <dir>] [--autonomy <file>] [--settings <file>]
  *   record --state-dir <dir> --step <id> --result <word> [--data '<json>'] [--reason <text>]
  *   status --state-dir <dir>
@@ -436,8 +440,7 @@ const now = () => new Date().toISOString();
  * Where a detached record lives, or null when stateDir is not inside a git directory. The git
  * common dir is shared by every worktree, so the record outlives the branch and its worktree.
  */
-function externalPath(stateDir, startedAt) {
-  if (!startedAt) return null;
+function externalDir(stateDir) {
   let dir = path.resolve(stateDir);
   while (!fs.existsSync(dir)) {
     const up = path.dirname(dir);
@@ -451,8 +454,35 @@ function externalPath(stateDir, startedAt) {
   const r = spawnSync('git', ['rev-parse', '--git-common-dir'], { cwd: dir, encoding: 'utf8', env });
   if (r.status !== 0 || !r.stdout.trim()) return null;
   const common = path.resolve(dir, r.stdout.trim());
-  const name = String(startedAt).replace(/[^A-Za-z0-9_-]/g, '-');
-  return path.join(common, 'ensemble', 'ship', path.basename(path.resolve(stateDir)), `${name}.json`);
+  return path.join(common, 'ensemble', 'ship', path.basename(path.resolve(stateDir)));
+}
+
+function externalPath(stateDir, startedAt) {
+  if (!startedAt) return null;
+  const dir = externalDir(stateDir);
+  if (!dir) return null;
+  return path.join(dir, `${String(startedAt).replace(/[^A-Za-z0-9_-]/g, '-')}.json`);
+}
+
+/**
+ * The most recently updated detached record for this state directory, or null. Used only when
+ * the tracked file is gone (the branch or worktree was deleted, or the record was never
+ * committed before the merge): it is how a resumed run finds its own post-merge record.
+ */
+function latestExternal(stateDir) {
+  const dir = externalDir(stateDir);
+  let names;
+  try {
+    names = fs.readdirSync(dir).filter((n) => n.endsWith('.json'));
+  } catch {
+    return null;
+  }
+  let best = null;
+  for (const n of names) {
+    const { state } = parseState(path.join(dir, n));
+    if (state && state.detached && (!best || String(state.updatedAt) > String(best.updatedAt))) best = state;
+  }
+  return best;
 }
 
 /** The file the record is (or would be) in right now. */
@@ -467,8 +497,20 @@ function parseState(file) {
   }
 }
 
-function loadState(stateDir) {
+/**
+ * @param {{fallback?: boolean}} opts fallback (default true): with no tracked file, load the
+ *   latest detached record. `start` passes it only on a resume, so a fresh run is never mistaken
+ *   for a finished one.
+ */
+function loadState(stateDir, { fallback = true } = {}) {
   let { state, err } = parseState(statePath(stateDir));
+  if (err && err.code === 'ENOENT' && fallback) {
+    const ext = latestExternal(stateDir);
+    if (ext) {
+      state = ext;
+      err = null;
+    }
+  }
   if (err) {
     return { error: err.code === 'ENOENT' ? `no ${STATE_FILE} in ${stateDir}; run start first` : `${STATE_FILE} unreadable: ${err.message}` };
   }
@@ -531,9 +573,9 @@ function trdRefusal(steps, contracts, trdPath) {
  * policy (or, with no policy, from the caller's fallback string) and snapshotted; with one,
  * `ship.md` is never read again.
  */
-function start({ stateDir, policyPath, fallback, work, contractsDir }) {
+function start({ stateDir, policyPath, fallback, work, contractsDir, resume = false }) {
   if (!stateDir) return { ok: false, status: null, errors: ['start needs a state directory'] };
-  const existing = loadState(stateDir);
+  const existing = loadState(stateDir, { fallback: resume });
   if (existing.state) return { ok: true, status: existing.state.status, errors: [], resumed: true };
   if (!existing.error.startsWith('no ')) return { ok: false, status: null, errors: [existing.error] };
 
@@ -842,6 +884,7 @@ function main(argv) {
       policyPath: arg('--policy'),
       fallback: arg('--fallback'),
       contractsDir,
+      resume: argv.includes('--resume'),
       work: { kind: arg('--kind'), id: arg('--id'), trd: arg('--trd'), branch: arg('--branch') },
     }));
     return 0;
