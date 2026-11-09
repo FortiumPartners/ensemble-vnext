@@ -357,6 +357,17 @@ describe('setup', () => {
     expect(dm.setup(proj('mine', 'T'))).toBe('filled');
     expect(dm.setup(proj('mine'))).toBe('filled');
   });
+  it('--file reads design.md from the given path (the base-branch copy), not .claude/rules', () => {
+    const d = proj('T', 'T'); // the branch's own copy is still the template
+    fs.writeFileSync(path.join(d, 'base-design.md'), 'filled on base');
+    expect(dm.setup(d)).toBe('unfilled');
+    expect(dm.setup(d, { file: 'base-design.md' })).toBe('filled');
+    expect(dm.setup(d, { file: path.join(d, 'base-design.md') })).toBe('filled');
+    expect(dm.setup(d, { file: 'absent.md' })).toBe('missing');
+    const cli = require('child_process').spawnSync(process.execPath,
+      [path.join(__dirname, 'design-map.js'), 'setup', '--file', 'base-design.md'], { cwd: d, encoding: 'utf8' });
+    expect(cli.stdout.trim()).toBe('"filled"');
+  });
 });
 
 describe('setup, prior templates (D6)', () => {

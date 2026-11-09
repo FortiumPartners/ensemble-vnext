@@ -604,6 +604,90 @@ describe('measures (D3)', () => {
   });
 });
 
+describe('state names that are not file-safe', () => {
+  it('slugs: safe names unchanged, unsafe runs collapse, empty becomes state', () => {
+    expect(render.stateSlug('empty')).toBe('empty');
+    expect(render.stateSlug('empty?')).toBe('empty');
+    expect(render.stateSlug('is it ok?')).toBe('is it ok');
+    expect(render.stateSlug('???')).toBe('state');
+    expect(render.stateSlug('a/b#c%d')).toBe('a-b-c-d');
+    expect(render.stateSlug('-x')).toBe('-x');
+    // Names that rendered before the fix keep their exact file name (O3).
+    expect(render.stateSlug('is it ok')).toBe('is it ok');
+    expect(render.stateSlug('vacío')).toBe('vacío');
+  });
+
+  it('safe names keep their slug whatever their position; collisions take a suffix that is free', () => {
+    const a = render.stateSlugs(['empty?', 'empty']);
+    expect(a.get('empty')).toBe('empty');
+    expect(a.get('empty?')).toBe('empty-2');
+    const b = render.stateSlugs(['empty', 'empty?', 'empty-2']);
+    expect(b.get('empty-2')).toBe('empty-2');
+    expect(b.get('empty?')).toBe('empty-3');
+  });
+
+  it('slugs avoid case-only clashes and forms reserved by sibling board ids', () => {
+    const c = render.stateSlugs(['empty', 'Empty?']);
+    expect(c.get('Empty?')).toBe('Empty-2');
+    const d = render.stateSlugs(['as/is'], ['as-is']);
+    expect(d.get('as/is')).toBe('as-is-2');
+  });
+
+  it('renders a state named with ? : no errors, real state name on the frame, slugged PNG', async () => {
+    const d = mkDesign(
+      [board('02-state', { states: { 'empty?': { setup: 'no rows', props: { empty: true } } } })],
+      { '02-state.dc.html': fixture('stateful.dc.html') },
+    );
+    const r = await run(d);
+    expect(r.errors).toEqual({});
+    const f = r.frames.find((x) => x.state === 'empty?');
+    expect(f).toBeDefined();
+    expect(path.basename(f.png)).toBe('02-state--empty.png');
+    expect(bytes(f.png).equals(bytes(png(r, '02-state')))).toBe(false);
+  });
+});
+
+describe('copyTree (setgid source folders)', () => {
+  it('copies bytes without carrying a setgid folder mode', () => {
+    const src = tmp('copytree-src-');
+    const sub = path.join(src, 'sub');
+    fs.mkdirSync(sub);
+    fs.writeFileSync(path.join(sub, 'a.txt'), 'bytes');
+    // chmod to setgid is silently dropped when the caller is not in the folder's group, so own the group first.
+    fs.chownSync(sub, process.getuid(), process.getgid());
+    fs.chmodSync(sub, 0o2755);
+    expect(fs.statSync(sub).mode & 0o2000).toBe(0o2000);
+
+    const dest = tmp('copytree-dest-');
+    expect(() => render.copyTree(src, dest)).not.toThrow();
+    expect(fs.readFileSync(path.join(dest, 'sub', 'a.txt'), 'utf8')).toBe('bytes');
+    expect(fs.statSync(path.join(dest, 'sub')).mode & 0o2000).toBe(0);
+  });
+
+  it('follows a file symlink and survives a folder link back to its parent', () => {
+    const src = tmp('copytree-link-');
+    fs.writeFileSync(path.join(src, 'real.txt'), 'x');
+    fs.symlinkSync(path.join(src, 'real.txt'), path.join(src, 'link.txt'));
+    fs.symlinkSync(src, path.join(src, 'loop'));
+    const dest = tmp('copytree-dest-');
+    render.copyTree(src, dest);
+    expect(fs.readFileSync(path.join(dest, 'link.txt'), 'utf8')).toBe('x');
+  });
+
+  it('copies two links to the same folder and skips a dangling link', () => {
+    const src = tmp('copytree-diamond-');
+    fs.mkdirSync(path.join(src, 'shared'));
+    fs.writeFileSync(path.join(src, 'shared', 'a.txt'), 'a');
+    fs.symlinkSync(path.join(src, 'shared'), path.join(src, 'one'));
+    fs.symlinkSync(path.join(src, 'shared'), path.join(src, 'two'));
+    fs.symlinkSync(path.join(src, 'missing'), path.join(src, 'dangling'));
+    const dest = tmp('copytree-dest-');
+    expect(() => render.copyTree(src, dest)).not.toThrow();
+    for (const d of ['shared', 'one', 'two']) expect(fs.readFileSync(path.join(dest, d, 'a.txt'), 'utf8')).toBe('a');
+    expect(fs.existsSync(path.join(dest, 'dangling'))).toBe(false);
+  });
+});
+
 describe('design-render.js source hygiene', () => {
   const src = fs.readFileSync(path.join(__dirname, 'design-render.js'), 'utf8');
 

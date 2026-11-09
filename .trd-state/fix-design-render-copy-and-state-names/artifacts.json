@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/fix-design-render-copy-and-state-names.md",
+    "url": "https://claude.ai/artifact/QRK8pRmB9299GBv6EgUmf9",
+    "updated_at": "2026-11-09T03:22:54.384Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/fix-design-render-copy-and-state-names/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-09T03:36:42.598Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/fix-design-render-copy-and-state-names/verification-report.md",
+    "url": "https://claude.ai/artifact/LqQqYSD7kLU858ifLHBB77",
+    "updated_at": "2026-11-09T03:39:41.043Z",
+    "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/fix-design-render-copy-and-state-names/audit-build-report.md",
+    "url": "https://claude.ai/artifact/JRYwaPrKUCR5GjqR9pfMYk",
+    "updated_at": "2026-11-09T03:44:28.429Z",
+    "command": "/audit-build"
+  }
+}

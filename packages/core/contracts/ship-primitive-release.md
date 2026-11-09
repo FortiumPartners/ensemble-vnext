@@ -27,7 +27,7 @@ no release runs that could not be proven), `work`, `context`.
    - **With no `env=`:** use `command=` when the step sets one; otherwise run the snippet with
      an empty name, which returns the command only when exactly one environment declares one.
    ```bash
-   node -e 'const f=require("./.claude/lib/functional-verification");const e=process.argv[1]||null;console.log(JSON.stringify(f.readFullDeploy(require("fs").readFileSync(".claude/rules/verification.md","utf8"),e)))' "<env or empty>"
+   node -e 'const f=require("./.claude/lib/functional-verification");const e=process.argv[1]||null;console.log(JSON.stringify(f.readFullDeploy(require("fs").readFileSync(process.argv[2],"utf8"),e)))' "<env or empty>" "$(node .claude/lib/owner-rules.js path verification.md)"
    ```
    Neither source gives a command: return `stop` with the snippet's `reason` and say no
    `command=` is set either: no command is guessed. Record which source supplied it
