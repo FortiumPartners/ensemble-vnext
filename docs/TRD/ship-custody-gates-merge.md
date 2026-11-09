@@ -71,7 +71,7 @@ None apply — the change is to libraries and prompt contracts with no UI, no re
 ## Verification Environment
 **Environment**: local
 **Refresh**: none declared — tests read the working tree
-**Cannot be checked there**: a real GitHub PR merge, a Vercel preview, and branch protection (no live repo is listed in `verification.md` §1)
+**Cannot be checked there**: a real GitHub PR merge, a Vercel preview, and branch protection. A real merge is checked instead on `github-live-test` (`verification.md` §1, islayjames/ship-build-live-test, capacity 1 in §1a); no preview environment or protected branch is listed in `verification.md` §1
 
 ## Open Questions
 
@@ -90,6 +90,8 @@ None apply — the change is to libraries and prompt contracts with no UI, no re
 | FIX-003 | Contracts: new `ship-custody-gate.md`. `push` loses reconcile and push-link. `open-pr` loses the push-link check. `merge` runs the gate (`--base origin/<base> --head <PR headRefOid>`) before pr-head, commits nothing before `gh pr merge`, and declares `detach-on: merged`. `release` runs the gate before releasing. `run` and `fix-findings` wording follow; `fix-findings` treats `reverify` from the format reconcile as "go on, the gate re-verifies". Update `ship-primitives.test.js` | O3, O4, O7 | FIX-001, FIX-002 | `packages/core/contracts/ship-primitives.test.js` asserts, failing before and passing after: (1) the push contract runs only `custody.js reconcile --set-only` and no `--link push`; open-pr has no `--link push`. (2) In `merge`, the gate comes before the `gh pr view <pr> --json state` read and before `--link pr-head`, which comes before `gh pr merge`. A gate `stop` is returned before `gh pr merge`. (3) The gate contract runs `/verify-build <work.trd> --criteria <ids> --no-fix --chained` after the head is on the PR, then `--reverified`. (4) The merge contract forbids a commit or push between the gate and `gh pr merge`. (5) `merge`'s front matter carries `detach-on: merged`, and the sequencer loads every contract with no error. (6) `release` runs the gate before its command, with the local HEAD. (7) The gate polls `headRefOid` before reconciling and fetches the base. |
 | FIX-004 | Commands: `verify-build.md` `--criteria` folds the plan's owner rulings and accepted-as-not-verifiable rulings into `notes`. `ship-build.md` Step 5: after a merge, nothing is committed and the readout names the detached record path; the "commit it on the default branch" NEXT line goes. Text tests | O5, O6 | FIX-002, FIX-003 | Assertions in `ship-primitives.test.js` (or a sibling command-text test) fail before and pass after. `verify-build.md`'s `--criteria` section names `## Owner rulings` and `## Accepted as not verifiable` going into `notes`. `ship-build.md` no longer tells the owner to commit the state directory on the default branch after a merge, and names the record under the git directory. |
 | FIX-005 | Mirror every changed `packages/core/` file into `.claude/` (`lib/custody.js`, `lib/ship-sequencer.js`, the contracts including the new gate, `commands/verify-build.md`, `commands/ship-build.md`) and run the battery | O8 | FIX-001, FIX-002, FIX-003, FIX-004 | `bats test/integration/tests/runtime-integrity.test.sh` passes ("every file mirrored into .claude/ matches its packages/ source"). `npx jest packages/core/lib/custody.test.js packages/core/contracts/ship-primitives.test.js packages/core/lib/ship-sequencer.test.js` passes. |
+| AMEND-001 | [test-gap] FIX-003: The merge-contract test meant to prove the gate gets --head <PR headRefOid> uses the regex /--head <PR headRefOid>\|--head/, which any '--head' satisfies. Tighten it to require headRefOid — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/contracts/ship-primitives.test.js:223; packages/core/contracts/ship-primitive-merge.md:22) | amendment — no objective recorded | None | [test-gap] FIX-003: The merge-contract test meant to prove the gate gets --head <PR headRefOid> uses the regex /--head <PR headRefOid>\|--head/, which any '--head' satisfies. Tighten it to require headRefOid no longer holds |
+| AMEND-002 | [test-gap] FIX-002: Acceptance (4): no test asserts that, in a git repo, a contract without the detach-on key writes only the tracked shipped.json (recordPath is the tracked file) — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/lib/ship-sequencer.test.js:529-692: every detach-on case uses the 'mike' contract, which declares detach-on; the alpha step's recordPath is never asserted) | amendment — no objective recorded | None | [test-gap] FIX-002: Acceptance (4): no test asserts that, in a git repo, a contract without the detach-on key writes only the tracked shipped.json (recordPath is the tracked file) no longer holds |
 
 ## Task Grounding
 
@@ -127,8 +129,19 @@ None apply — the change is to libraries and prompt contracts with no UI, no re
 - **Follow:** `test/integration/tests/runtime-integrity.test.sh` is the check [read]
 - **Careful:** the docs in `docs/guides/ship-build.md` describe the push-time reconcile; update its custody paragraph so it does not contradict the contracts [inferred]
 
+### AMEND-001
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
+### AMEND-002
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
 ## Could Not Verify
 
-- No live GitHub merge, Vercel preview or branch protection was exercised; O3, O4 and O7 are proven on contract text and on `custody.js` against a local bare origin.
-- A detached record cannot be seen from a fresh CI runner, which matters only for resuming after the merge (accepted in the owner's call).
-- After the branch and worktree are gone, `custody.json` is gone too, so a `release` resumed then stops with "no anchor" (safe: it stops before releasing).
+*Rewritten by `/audit-build`, 2026-11-08.*
+
+- **No PRD exists for this defect, so the build was not checked against product requirements.** The audit checked the delivered code and tests against this TRD's objectives O1–O8 and tasks FIX-001–FIX-005 only. Whether those objectives fully capture issues #85–#88 and the brief was not re-checked here.
+- **No Vercel preview and no protected branch was exercised.** Neither is listed in `verification.md` §1, so the audit could not check them. A real GitHub merge was exercised by the verification run on `github-live-test` (islayjames/ship-build-live-test; evidence `.trd-state/ship-custody-gates-merge/evidence/fs7-…` through `fs10-live-…`). That run proved O4's re-verify-inside-merge path on a shell criterion, not on a preview. This audit read that evidence and did not re-run it.
+- **A detached record cannot be seen from a fresh CI runner.** This matters only for resuming after the merge. The owner's call accepted it, so it is out of scope for this audit.
+- **Once the branch and worktree are deleted, `custody.json` is deleted with them.** A `release` resumed after that stops with "no anchor", before it releases anything. This is the designed behaviour (Non-Goals: `custody.json` stays in the tree), so the audit did not test it.
