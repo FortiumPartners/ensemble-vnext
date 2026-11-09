@@ -1,0 +1,91 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/fix-design-render-copy-and-state-names.md",
+  "trd_hash": "5560d51b5868714b24fcc80af6d69c94e5c9c8514f3d810ed25236c1d11dece5",
+  "branch": "feature/10-fix-design-render-copy-permissions-and-question-mark-state-names",
+  "strategy": "bug-fix",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "copyTree in buildRoot (setgid EPERM)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/design-render.js",
+        "packages/core/lib/design-render.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-09T03:23:30.710Z",
+      "completed_at": "2026-11-09T03:31:11.062Z",
+      "last_advanced": "2026-11-09T03:26:29.417Z"
+    },
+    "FIX-002": {
+      "description": "stateSlug for state copy and PNG names",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/design-render.js",
+        "packages/core/lib/design-render.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-09T03:23:30.710Z",
+      "completed_at": "2026-11-09T03:31:11.062Z",
+      "last_advanced": "2026-11-09T03:26:29.418Z"
+    },
+    "FIX-003": {
+      "description": "sync vendored .claude/lib/design-render.js",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/lib/design-render.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-09T03:23:30.710Z",
+      "completed_at": "2026-11-09T03:31:11.062Z",
+      "last_advanced": "2026-11-09T03:26:29.418Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/fix-design-render-copy-and-state-names.md § Reproduction",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "declared; not needed by this TRD"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}
