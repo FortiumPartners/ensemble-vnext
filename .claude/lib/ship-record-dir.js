@@ -58,21 +58,28 @@ function readJson(p) {
 }
 
 /** The pointer's contents, or null (no folder, no pointer, or unreadable). */
-function readPointer(stateDir) {
-  const dir = recordDir(stateDir);
+function readPointer(stateDir, dir = recordDir(stateDir)) {
   if (!dir) return null;
   const p = readJson(path.join(dir, POINTER_FILE));
   return p && typeof p.startedAt === 'string' && p.startedAt ? p : null;
 }
 
-/** Writes the pointer. Returns its path, or null outside git or without a startedAt. */
+/**
+ * Writes the pointer. Returns its path, or null outside git, without a startedAt, or when the
+ * folder cannot be written (a git common dir shared between OS users may not be writable by
+ * this one). Never throws: a missing pointer only stops a later read from finding a detached run.
+ */
 function writePointer(stateDir, { startedAt, work } = {}) {
   if (!startedAt) return null;
   const dir = recordDir(stateDir);
   if (!dir) return null;
-  fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, POINTER_FILE);
-  implementState.save(file, { startedAt, work: work || null, at: new Date().toISOString() });
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    implementState.save(file, { startedAt, work: work || null, at: new Date().toISOString() });
+  } catch {
+    return null;
+  }
   return file;
 }
 
@@ -81,10 +88,10 @@ function writePointer(stateDir, { startedAt, work } = {}) {
  * precedence, so a worktree whose tracked record names run B never follows a pointer moved to
  * run A), otherwise the pointer's. Null when neither names one.
  */
-function currentStartedAt(stateDir) {
+function currentStartedAt(stateDir, dir) {
   const tracked = readJson(path.join(stateDir, 'shipped.json'));
   if (tracked && typeof tracked.startedAt === 'string' && tracked.startedAt) return tracked.startedAt;
-  const p = readPointer(stateDir);
+  const p = readPointer(stateDir, dir);
   return p ? p.startedAt : null;
 }
 
@@ -95,9 +102,10 @@ function currentStartedAt(stateDir) {
  */
 function custodyPath(stateDir) {
   const tracked = path.join(stateDir, 'custody.json');
-  const s = currentStartedAt(stateDir);
-  const dir = s ? recordDir(stateDir) : null;
+  const dir = recordDir(stateDir); // one `git rev-parse` per call
   if (!dir) return tracked;
+  const s = currentStartedAt(stateDir, dir);
+  if (!s) return tracked;
   const stem = path.join(dir, safeName(s));
   if (fs.existsSync(`${stem}.custody.json`) || fs.existsSync(`${stem}.json`)) return `${stem}.custody.json`;
   return tracked;

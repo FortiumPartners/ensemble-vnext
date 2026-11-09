@@ -241,8 +241,10 @@ never edits code itself, never probes a service by acting on it, and never calls
 ## Resuming a parked run
 
 `/ship-build --resume` continues a parked or stopped run from `shipped.json`. The step that
-parked or stopped is handed out again, so a step is re-run, not skipped. The run is always
-continued from its state file, never restarted.
+parked or stopped is handed out again, so a step is re-run, not skipped. When the tracked
+`shipped.json` is gone (the branch or worktree was deleted after a merge), the resume continues
+the record kept under the git directory whose kind, id and branch all match the work, the branch
+being the one in `implement.json`; with no such record it begins a fresh run.
 
 ### The resume workflow
 
@@ -296,7 +298,9 @@ excused, not counted as shipped changes.
 The gate commits and pushes nothing before the act it guards: the re-anchor in `custody.json`
 stays uncommitted, so the PR head stays the one CI checked and `--match-head-commit` matches.
 After the merge, `shipped.json` is written under the git directory (see the sequencer's detached
-record), not to the tracked state directory.
+record), not to the tracked state directory, and the custody anchor is copied beside it: every
+later reconcile or check reads and writes that copy (`ship-sequencer.js status` reports it as
+`custodyPath`).
 
 **Check** proves three links against the anchor:
 
