@@ -4,7 +4,7 @@
   "trd_hash": "5560d51b5868714b24fcc80af6d69c94e5c9c8514f3d810ed25236c1d11dece5",
   "branch": "feature/10-fix-design-render-copy-permissions-and-question-mark-state-names",
   "strategy": "bug-fix",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "copyTree in buildRoot (setgid EPERM)",
@@ -54,10 +54,19 @@
       "last_advanced": "2026-11-09T03:26:29.418Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "453494efbe7e484a52307c57944eb0baeeb86f02",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-09T03:31:11.327Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "453494efbe7e484a52307c57944eb0baeeb86f02",
+    "last_checkpoint_timestamp": "2026-11-09T03:31:11.327Z",
     "interrupted": false,
     "interrupt_reason": null
   },
