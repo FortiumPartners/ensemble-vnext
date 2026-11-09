@@ -1268,3 +1268,26 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 
 - [ran] `<base>` for a branch-diff criterion is the commit the dispatch names (`ac12bfe`), not necessarily `git merge-base origin/main HEAD` as the local `origin/main` ref can be ahead of it (here it printed `f836af8`'s sibling `d31c68e` / merge-base `f836af8`); use the dispatch's stated base.
 - [ran] In zsh `echo ======` fails (`= ` expansion); quote separator strings when capturing evidence.
+
+## Exercising owner-rules.js (2026-11-08 run, `owner-rules-from-base`, iteration 1)
+
+- [ran] Every `owner-rules.js` scenario is a local fixture: `git init --bare -b main origin.git`, a seed clone
+  that pushes, a work clone on branch `feature`, all under `.trd-state/owner-rules-from-base/evidence/fixtures/`
+  with `GIT_TERMINAL_PROMPT=0` and `git -c user.name -c user.email`. `read-coverage-floor` only finds the floor
+  under a heading containing "coverage floor" (`## 5a. Coverage floor`); a bare `Coverage floor: 50%` line
+  without that heading reads `{"floor":null,"status":"absent"}` and makes a false negative for FS-3-shaped checks.
+- [ran] The notice wording differs from the success-definition's example locators: base-only reads "is behind
+  origin/main (N lines differ); the origin/main copy is used" (not "is stale"); branch-only reads "was edited on
+  this branch and differs from origin/main"; both-changed reads "changed on both this branch and origin/main"
+  (lower-case "both"). Take locators from the transcript, not the criterion text.
+- [ran] To make the git-path unwritable, `mkdir .git/ensemble && chmod 555 .git/ensemble`; to make the temp
+  fallback unwritable, point `TMPDIR` at a `chmod 555` directory. Restore with `chmod 755` before `rm -rf`.
+- [ran] `ship-primitive-sync-design.md` (lines 27, 33) names `design.md` and `verification.md` section 2 with no
+  `owner-rules.js path` form, and `design-map.js` reads `.claude/rules/design.md` from a hardcoded path
+  (`DESIGN_RULES`, lines 40/425/470) with no `owner-rules` reference. `plan.md`/`sweep.md`
+  (`read-never-unattended .claude/rules/verification.md`) and `refine-verification.md` also read it directly.
+
+## Exercising owner-rules-from-base FS-19 (2026-11-08, iteration 2)
+
+- [ran] FS-19 is a static grep over `packages/core/commands/ship-build.md`, `packages/core/contracts/ship-primitive-*.md` and their `.claude/` mirrors (all 14 pairs `diff -q` identical). The one grep that matters for "no direct read" is `grep -nE "\.claude/rules/(ship|verification|design)\.md"`; it hits only descriptive prose at ship-build.md:18. Copy grep output into a fresh `evidence/FS-19-iter2.txt` rather than reusing a committed file (stale-mtime rule above).
+- [read] `ship-primitive-sync-design.md:38` mentions `verification.md` section 2's refresh without its own `path` command; only ship-build.md Step 2b's general rule covers it. Left for the judge.

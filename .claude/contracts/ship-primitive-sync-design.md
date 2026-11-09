@@ -24,7 +24,12 @@ has already shipped, so this primitive never returns `stop`.
      --merged-head <context.mergedHead>
    ```
    Empty: return `nothing`.
-2. `design.md` unfilled or missing (`design-map.js setup`): return `skipped`, naming `/design-setup`.
+2. `design.md` unfilled or missing: return `skipped`, naming `/design-setup`. Read the base
+   branch's copy, not the feature branch's, since this step runs before the switch to
+   `origin/<base>`:
+   ```bash
+   node .claude/lib/design-map.js setup --file "$(node .claude/lib/owner-rules.js path design.md)"
+   ```
 3. **Set the working tree aside.** After a merge the state directory is uncommitted, and a plain
    switch would abort. If `git status --porcelain` is non-empty:
    `git stash push -u -m "ship-build sync-design <feature> <ts>"`, then take its SHA from

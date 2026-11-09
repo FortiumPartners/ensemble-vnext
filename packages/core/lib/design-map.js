@@ -21,6 +21,7 @@
  *     board serves is listed in `unmatched` with the boards that record it; an empty value is an error.
  *     Without --items, `buildable` prints a board array as before.
  *   node .claude/lib/design-map.js unsynced --all [--trd <path>]   (scans every design under docs/ui)
+ *   node .claude/lib/design-map.js setup [--dir <project>] [--file <design.md path>]   (--file: e.g. owner-rules.js path design.md)
  *   ... unsynced ... --merged-into <ref> [--merged-head <sha>]   (only boards whose feature's audited commit is merged)
  *
  * Example: node .claude/lib/design-map.js transition --dir docs/ui/checkout --ids 01-cart --to approved
@@ -417,12 +418,16 @@ function unsyncedAll(root, { trd, mergedInto, mergedHead } = {}) {
   return out;
 }
 
-/** 'missing' | 'unfilled' | 'filled' for the project's design.md (D9). */
-function setup(projectDir) {
+/**
+ * 'missing' | 'unfilled' | 'filled' for the project's design.md (D9). `file` reads design.md from
+ * another path (resolved against projectDir), such as the base-branch copy that
+ * `owner-rules.js path design.md` prints; the template is still read from projectDir.
+ */
+function setup(projectDir, { file } = {}) {
   const norm = normText;
   let content;
   try {
-    content = fs.readFileSync(path.join(projectDir, DESIGN_RULES), 'utf8');
+    content = fs.readFileSync(file ? path.resolve(projectDir, file) : path.join(projectDir, DESIGN_RULES), 'utf8');
   } catch (e) {
     if (e.code === 'ENOENT') return 'missing';
     throw e;
@@ -611,7 +616,7 @@ function headCommit(repo) {
 
 async function main(argv) {
   const { verb, opts } = parseArgs(argv);
-  if (verb === 'setup') return setup(opts.dir || '.');
+  if (verb === 'setup') return setup(opts.dir || '.', { file: opts.file });
   if (verb === 'direction') return direction(opts.dir || '.', { style: opts.style });
   if (verb === 'unsynced' && opts.all) return unsyncedAll('.', { trd: opts.trd, mergedInto: opts['merged-into'], mergedHead: opts['merged-head'] });
   if (!opts.dir) throw new Error('--dir is required');
