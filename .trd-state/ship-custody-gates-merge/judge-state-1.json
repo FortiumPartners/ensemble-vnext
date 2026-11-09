@@ -75,11 +75,11 @@
     },
     {
       "id": "FS-7",
-      "status": "not_verifiable",
+      "status": "met",
       "tier1": "pass",
-      "artifact": ".trd-state/ship-custody-gates-merge/evidence/fs6-10-contract-text.txt",
-      "reason": "Needs a live /ship-build merge step against a GitHub pull request (transcript with gh pr merge / gh pr view). No GitHub repository environment is declared in verification.md section 1 (only local, fixtures, claude-artifacts, and production, which must not be touched), so it cannot be exercised here. The merge contract text (packages/core/contracts/ship-primitive-merge.md, ship-custody-gate.md) does instruct this behaviour, but contract text is not the transcript this criterion asks for.",
-      "cause": "environment-unreachable",
+      "artifact": ".trd-state/ship-custody-gates-merge/evidence/fs7-live-gate-fails.txt",
+      "reason": "Live /ship-build on islayjames/ship-build-live-test, run A: a post-audit commit (3080208) changed src/greet.sh; the merge step's reconcile asked for re-proof of FS-1, the in-step re-verification found it not met, and the second reconcile returned refused. The full transcript has 0 tool calls running gh pr merge, the step recorded stop, and gh pr view 4 reported state OPEN, mergedAt null.",
+      "cause": null,
       "provenAt": 1,
       "image": null,
       "ui": false,
@@ -87,11 +87,11 @@
     },
     {
       "id": "FS-8",
-      "status": "not_verifiable",
+      "status": "met",
       "tier1": "pass",
-      "artifact": ".trd-state/ship-custody-gates-merge/evidence/fs6-10-contract-text.txt",
-      "reason": "Needs a live /ship-build merge step against a GitHub pull request (transcript with gh pr merge / gh pr view). No GitHub repository environment is declared in verification.md section 1 (only local, fixtures, claude-artifacts, and production, which must not be touched), so it cannot be exercised here. The merge contract text (packages/core/contracts/ship-primitive-merge.md, ship-custody-gate.md) does instruct this behaviour, but contract text is not the transcript this criterion asks for.",
-      "cause": "environment-unreachable",
+      "artifact": ".trd-state/ship-custody-gates-merge/evidence/fs8-live-gate-order.txt",
+      "reason": "Live run B on islayjames/ship-build-live-test: trail steps run in order [11] custody reconcile (reverify), [24] second reconcile (moved, anchor 2dbb032), [25] custody check --link pr-head (ok, PR #5 head matches), [26] gh pr merge 5 --merge; gh pr view 5 then reported MERGED, merge commit 8c580c1.",
+      "cause": null,
       "provenAt": 1,
       "image": null,
       "ui": false,
@@ -99,11 +99,11 @@
     },
     {
       "id": "FS-9",
-      "status": "not_verifiable",
+      "status": "met",
       "tier1": "pass",
-      "artifact": ".trd-state/ship-custody-gates-merge/evidence/fs6-10-contract-text.txt",
-      "reason": "Needs a live /ship-build merge step against a GitHub pull request (transcript with gh pr merge / gh pr view). No GitHub repository environment is declared in verification.md section 1 (only local, fixtures, claude-artifacts, and production, which must not be touched), so it cannot be exercised here. The merge contract text (packages/core/contracts/ship-primitive-merge.md, ship-custody-gate.md) does instruct this behaviour, but contract text is not the transcript this criterion asks for.",
-      "cause": "environment-unreachable",
+      "artifact": ".trd-state/ship-custody-gates-merge/evidence/fs9-live-reverify-in-merge.txt",
+      "reason": "Run B: git ls-remote showed origin feature/custody-live/pass at 2dbb032f (already pushed, equal to local HEAD per the reflog); reconcile --head 2dbb032f returned reverify for FS-1; verify-build --criteria FS-1 --no-fix --chained ran inside the merge step (stdout Bows to Ada. / Bows to world.); the second reconcile with --reverified returned moved, anchor 2dbb032f.",
+      "cause": null,
       "provenAt": 1,
       "image": null,
       "ui": false,
@@ -111,11 +111,11 @@
     },
     {
       "id": "FS-10",
-      "status": "not_verifiable",
+      "status": "met",
       "tier1": "pass",
-      "artifact": ".trd-state/ship-custody-gates-merge/evidence/fs6-10-contract-text.txt",
-      "reason": "Needs a live /ship-build merge step against a GitHub pull request (transcript with gh pr merge / gh pr view). No GitHub repository environment is declared in verification.md section 1 (only local, fixtures, claude-artifacts, and production, which must not be touched), so it cannot be exercised here. The merge contract text (packages/core/contracts/ship-primitive-merge.md, ship-custody-gate.md) does instruct this behaviour, but contract text is not the transcript this criterion asks for.",
-      "cause": "environment-unreachable",
+      "artifact": ".trd-state/ship-custody-gates-merge/evidence/fs10-live-no-commit-match-head.txt",
+      "reason": "Run B steps [24]-[26] (re-anchor, pr-head check, merge) contain no git commit or git push; gh pr merge 5 --match-head-commit 2dbb032f equals gh pr view 5 headRefOid 2dbb032f; the merge succeeded (MERGED, 8c580c1), and afterwards the run record went under .git/ensemble/ship with custody state left untracked.",
+      "cause": null,
       "provenAt": 1,
       "image": null,
       "ui": false,
@@ -159,7 +159,7 @@
     }
   ],
   "gapsClosed": [
-    0
+    4
   ],
-  "outcome": "must-pass-unproven"
+  "outcome": "satisfied"
 }

@@ -127,7 +127,28 @@
       "production": {
         "status": "unusable",
         "reason": "must not be touched"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "declared in verification.md §1 (may write, merges inside islayjames/ship-build-live-test only); gh logged in as islayjames with repo+workflow scopes and admin on the repo"
       }
+    },
+    "fix": {
+      "plan": ".trd-state/ship-custody-gates-merge/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1
+      },
+      "rounds": [
+        {
+          "round": 0,
+          "tasksPromoted": 0,
+          "criteriaClosed": 4,
+          "criteriaOpen": 0,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
     }
   }
 }

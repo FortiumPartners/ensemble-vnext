@@ -9,14 +9,14 @@
   "success-definition": {
     "path": ".trd-state/ship-custody-gates-merge/success-definition.md",
     "url": "",
-    "updated_at": "2026-11-09T03:57:35.289Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-09T05:33:12.230Z",
+    "command": "/verify-build"
   },
   "verification-report": {
     "path": ".trd-state/ship-custody-gates-merge/verification-report.md",
     "url": "https://claude.ai/artifact/Uo8itPN8mFTeJfnyj4UVw5",
-    "updated_at": "2026-11-09T04:03:54.940Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-09T05:33:12.143Z",
+    "command": "/verify-build"
   },
   "verification-plan": {
     "path": ".trd-state/ship-custody-gates-merge/verification-plan.md",
