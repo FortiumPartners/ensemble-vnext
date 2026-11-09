@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "slug": "fix-ship-custody-order",
+  "name": "Fix /ship-build custody ordering (issues 85 to 88)",
+  "source": {
+    "command": "/plan-fix",
+    "artifact": "docs/plans/fix-ship-custody-order/brief.md"
+  },
+  "repo": "/Users/james/dev/fortium/ensemble-vnext",
+  "base_branch": "main",
+  "rigor": "solo",
+  "features": [
+    {
+      "name": "Custody gates the merge, not the push",
+      "description": "Custody gates the merge, not the push - feature F-1 of workplan fix-ship-custody-order.\nFour /ship-build custody problems found on real Storybook runs, treated as one change because they all alter the order of push, re-verify, re-anchor, custody check and merge. GitHub issues FortiumPartners/ensemble-vnext #85, #86, #87, #88.\nAcceptance: (1) a base merge whose files came from the base passes custody, a file the feature or a conflict resolution changed still fails; (2) .claude/verification-notes.md does not count as shipped code; (3) the push contract no longer gates the push on custody, the merge contract runs the custody check before the merge and a failure leaves the PR unmerged; (4) a preview criterion can be proven after the push, then the run re-anchors; (5) the post-merge run record (shipped.json) is written outside the tracked tree and survives the branch being deleted; (6) re-verify after a base merge is handed the PM rulings and reuses evidence whose source files are unchanged between the old anchor and the merge head; (7) the re-anchor never leaves the merge head mismatched; (8) .claude/ vendored copies stay identical to their packages/core sources.\nBuilds on: none.\nDecisions: excuse a path when its content at the head equals the base tip content (owner's call, taken by Forge 2026-11-08, owner may overrule); after the merge the run record goes to a local untracked file under the git dir (owner's call, taken by Forge 2026-11-08); the fix-findings format= parameter is out of scope.\nDesign: packages/core/lib/custody.js (classifyPath, compare, check, reconcile); packages/core/contracts/ship-primitive-push.md and ship-primitive-merge.md; packages/core/lib/ship-sequencer.js (shipped.json, record); packages/core/commands/verify-build.md; PR 82 (4.17.2) already added a pr-head link checked before the merge, read main first.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 0,
+      "dependencies": [],
+      "spawn_user": "islaygold",
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    },
+    {
+      "name": "Read owner-governed rules from the base branch",
+      "description": "Read owner-governed rules from the base branch - feature F-2 of workplan fix-ship-custody-order.\nVerification and ship steps read .claude/rules/verification.md from the feature branch, so a branch cut before the owner changed the rule keeps a stale copy (Storybook 2026-11-08: a later feature hit a port collision reported as setup-failure). GitHub issue FortiumPartners/ensemble-vnext #90.\nAcceptance: (1) owner-governed rule files (verification.md and any other the framework documents as owner-governed) are read from origin/<base> by verification and ship steps; (2) when the branch copy differs from the base copy the step names the difference loudly instead of failing the run; (3) a branch copy equal to the base copy behaves as today; (4) tests with a fixture repo cover both.\nBuilds on: none.\nRelated: Custody gates the merge, not the push: both may touch verify-build.md; neither waits for the other.\nDecisions: read the base copy and report loudly when the branch copy differs, rather than failing the run (owner's call, taken by Forge 2026-11-08, owner may overrule).\nDesign: packages/core/lib/functional-verification.js; packages/core/commands/verify-build.md, implement-trd.md and ship-build.md.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "sequence_order": 10,
+      "dependencies": [
+        {
+          "name": "Custody gates the merge, not the push",
+          "reason": "related"
+        }
+      ],
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "spawn_user": "islaygold",
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    },
+    {
+      "name": "Fix design-render copy permissions and question-mark state names",
+      "description": "Fix design-render copy permissions and question-mark state names - feature F-3 of workplan fix-ship-custody-order.\ndesign-render.js fails with a permission error (EPERM) when its temp folder is under /private/tmp, because fs.cpSync preserves setgid modes the spawn user cannot set; and a board state whose name contains a question mark never renders. GitHub issue FortiumPartners/ensemble-vnext #91.\nAcceptance: (1) copying a fixture folder that has a setgid directory does not throw; (2) a state named with a question mark renders and is found by its slug; (3) existing design-render tests still pass.\nBuilds on: none.\nDesign: packages/core/lib/design-render.js (mkdtemp and cpSync about lines 327 to 334; the static server handler about line 255); tests design-render.test.js.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "sequence_order": 10,
+      "dependencies": [],
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "spawn_user": "islaygold",
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    }
+  ]
+}

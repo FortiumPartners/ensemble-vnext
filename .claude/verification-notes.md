@@ -1268,3 +1268,7 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 
 - [ran] `<base>` for a branch-diff criterion is the commit the dispatch names (`ac12bfe`), not necessarily `git merge-base origin/main HEAD` as the local `origin/main` ref can be ahead of it (here it printed `f836af8`'s sibling `d31c68e` / merge-base `f836af8`); use the dispatch's stated base.
 - [ran] In zsh `echo ======` fails (`= ` expansion); quote separator strings when capturing evidence.
+
+## Exercising design-render copy and state slugs (2026-11-08, `fix-design-render-copy-and-state-names`)
+
+- [ran] `render()` from `packages/core/lib/design-render.js` runs offline with `TMPDIR=/private/tmp` and no browser setup beyond node_modules Playwright; a setgid source is made with `chgrp devteam <dir> && chmod 02755 <dir>` (no chown or sudo needed, the user is in devteam). The render root is deleted when `render()` returns, so list it by wrapping `fs.rmSync` in the driving script (no source edit).
