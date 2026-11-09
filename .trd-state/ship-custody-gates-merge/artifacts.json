@@ -23,5 +23,11 @@
     "url": "",
     "updated_at": "2026-11-09T04:06:38.068Z",
     "command": "/refine-verification"
+  },
+  "audit-build": {
+    "path": ".trd-state/ship-custody-gates-merge/audit-build-report.md",
+    "url": "https://claude.ai/artifact/62F66shnuhs4xS9xbe33d2",
+    "updated_at": "2026-11-09T05:51:09.989Z",
+    "command": "/audit-build"
   }
 }
