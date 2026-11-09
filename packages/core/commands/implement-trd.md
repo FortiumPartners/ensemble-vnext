@@ -637,7 +637,7 @@ artifacts exist on disk and the loop never hears of them:
 <live_evidence>
   <instruction>
     Bring the environment to the CURRENT code before you capture anything: run the fast
-    refresh `.claude/rules/verification.md` §2 declares for the environment you are using
+    refresh §2 of the copy `node .claude/lib/owner-rules.js path verification.md` prints declares for the environment you are using
     (skip this when none is declared). Save each artifact you capture under
     `.trd-state/{feature}/evidence/live/{task_id}/`, then record each one:
 
@@ -874,6 +874,16 @@ the agent never wrote one).
 
 ### 3.6a Preflight the environment BEFORE spending iterations
 
+**First, resolve which copy of each owner-governed rule file to read.** Run
+`node .claude/lib/owner-rules.js resolve` and print each notice it returns. Every later read of
+`verification.md` or `stack.md` in this pass uses the path `node .claude/lib/owner-rules.js path
+<file>` prints, recomputed at the read, never a path remembered from here. Each notice becomes an
+ISSUES line in Step 9 (an "owner-rules notice": who acts is the owner, who pushes or merges the rule
+change, or rebases the branch). A notice never stops the run. **This `resolve` runs even when the
+rest of §3.6a does not:** on the `--verify --resume` path (§3.6 step 0) §8.2 runs it first, before
+it reads the recorded environments, so a resumed verification still fetches the base and still
+reports its notices.
+
 **Moved here from the tail of the run (formerly §8.4a). It classifies POLICY only (preflight
 D17): whether each environment `verification.md` declares may be exercised and has what it
 needs. It never asks whether anything is up — that is the setup check's job, inside the
@@ -886,14 +896,14 @@ background, and its output is not read until Step 8.1a, hundreds of tool calls l
 check that needs a criterion id — which bucket a criterion falls into, which lane it joins,
 `refreshCommand`/`fullRunCommand` for the run — belongs at §8.1a, not here (moved there; see
 that section). What this step CAN do now, and should, is classify the environments
-`.claude/rules/verification.md` declares by what the file and the installed tooling say about
+the copy `node .claude/lib/owner-rules.js path verification.md` prints declares by what the file and the installed tooling say about
 them, so §8.1a can look each one up.
 
-**First, check whether `.claude/rules/verification.md` was ever filled in at all:**
+**Then, check whether `verification.md` was ever filled in at all:**
 
 ```bash
 node .claude/lib/functional-verification.js check-verification-unfilled \
-  .claude/rules/verification.md packages/core/templates/claude-directory/rules/verification.md
+  "$(node .claude/lib/owner-rules.js path verification.md)" packages/core/templates/claude-directory/rules/verification.md
 ```
 
 If this prints `"unfilled": true` — the project's copy is still byte-for-byte (modulo
@@ -902,7 +912,7 @@ environment quietly resolve to unusable as if it had been declared and simply di
 this project. Then continue: an unfilled file is not a reason to skip the loop, it is a
 reason to name the gap.
 
-Read `.claude/rules/verification.md`'s §1 and, **for each environment it declares**, classify
+Read §1 of the copy `node .claude/lib/owner-rules.js path verification.md` prints and, **for each environment it declares**, classify
 it by policy, before the `Workflow` call at §8.3. This reads the file and checks what is
 installed; it runs nothing against the environment. For each declared environment, one of:
 
@@ -1439,7 +1449,7 @@ legitimate empty definition, which Step 8 does NOT report as either `not run` ca
 `environments` and `target` are written by §3.6a, added to the same object the same way — set in memory,
 then persisted, never a bare `writeFileSync` — and read back at §8.1a (and, on the
 `--verify --resume` path, by §8.2 first, to decide whether §3.6a needs to run at all). Its
-keys are the environment names declared in `.claude/rules/verification.md`'s §1; a name
+keys are the environment names declared in `verification.md`'s §1 (the copy the path form prints); a name
 absent from this map is a name §3.6a did not see declared.
 
 **On `cycle_position`:** reduced to `implement-state.js`'s exported `CYCLE_ORDER` —
@@ -1712,8 +1722,10 @@ file, or a terminal one), `resume` is `null`.
 **After resolving `criteria` here, this path also runs §8.1's `must-pass-coverage` call** (the
 resumed run's state file holds no must-pass set, and the TRD and definition are on disk), **and
 runs §8.1a exactly like a fresh run does** — it
-is not exempt from lane resolution merely because it skipped the phase loop. Read
-`.trd-state/<feature>/implement.json`'s `functional_verification.environments` (§3.6a) first;
+is not exempt from lane resolution merely because it skipped the phase loop. First run §3.6a's
+opening `node .claude/lib/owner-rules.js resolve` and keep its notices for Step 9 — always on this
+path, whether or not §3.6a's environment checks also run below. Then read
+`.trd-state/<feature>/implement.json`'s `functional_verification.environments` (§3.6a);
 a resumed run that also skipped Step 3.6a (this composition can only be reached via §3.6
 step 0, which fires before §3.6a ever runs) will find that key absent. In that case, run
 §3.6a's environment checks now, once, before proceeding into §8.1a — there is no other point
@@ -1731,7 +1743,7 @@ nothing to key against). Both the fresh-run path (from §8.1) and the `--resume`
 which runs this section too) reach here with `criteria` resolved and with
 `state.functional_verification.environments` on disk from §3.6a (§8.2 backfills it if absent).
 
-Read `.claude/rules/verification.md` and resolve, per criterion, whether it can be exercised
+Read the copy `node .claude/lib/owner-rules.js path verification.md` prints and resolve, per criterion, whether it can be exercised
 at all, using the per-environment results §3.6a already recorded — this step does not
 re-derive an environment's classification, it looks it up. For each criterion, one of:
 
@@ -1754,7 +1766,7 @@ no environment; every "exercisable" criterion resolves to exactly one.
 
 **Then derive `exerciseLanes`, `refreshCommand` and `fullRunCommand`:**
 
-1. **Read `.claude/rules/verification.md`'s §1a** (`Resource` / `How many may exist at once` /
+1. **Read §1a of the copy `node .claude/lib/owner-rules.js path verification.md` prints** (`Resource` / `How many may exist at once` /
    `Which environments need it` / `How the loop creates and destroys one`). For each declared
    resource:
    - count `N > 1` → a **pool** lane, `concurrency: N`, `createCommand` copied verbatim from
@@ -1802,7 +1814,7 @@ no environment; every "exercisable" criterion resolves to exactly one.
 6. **Read the owner's coverage floor (D7, D9):**
 
    ```bash
-   node .claude/lib/functional-verification.js read-coverage-floor .claude/rules/verification.md
+   node .claude/lib/functional-verification.js read-coverage-floor "$(node .claude/lib/owner-rules.js path verification.md)"
    ```
 
    Set `coverageFloor` from the result's `floor` (a fraction in `[0, 1]`, or `null` when none
@@ -1841,8 +1853,8 @@ ones you cannot are named rather than silently absent.
 
 ### 8.3 Assemble the remaining args and dispatch
 
-Read `.claude/verification-notes.md` (or `""` when it does not exist), `.claude/rules/stack.md`,
-`CLAUDE.md` (repo root) and `.claude/rules/verification.md` (or `""` when it does not exist) as
+Read `.claude/verification-notes.md` (or `""` when it does not exist), the copy `node .claude/lib/owner-rules.js path stack.md` prints,
+`CLAUDE.md` (repo root) and the copy `node .claude/lib/owner-rules.js path verification.md` prints (or `""` when it does not exist) as
 `stackHints`, and `packages/core/contracts/functional-verification.md` as `contract`. Without it,
 the Exercise/Judge/Debug agents inside the loop never see the owner's environment declarations —
 only this command's own preflight (§3.6a for environment classification, §8.1a for the
@@ -2075,6 +2087,7 @@ DECISIONS
 
 ISSUES
   {what is wrong or needs you, each saying who acts}
+  {for each owner-rules notice from §3.6a (or §8.2 on a resumed verification): "owner-rules notice: {notice}. The owner acts: push or merge the rule change, or rebase the branch."}
   {if finalRun.status === 'fail': "The declared full-environment run ({finalRun.command})
     failed — {who acts}. The criteria proven before it are still real evidence; this does not
     retract them."}

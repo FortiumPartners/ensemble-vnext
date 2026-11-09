@@ -102,7 +102,9 @@ describe('Steps 3 and 4: the sequencer', () => {
   test('start passes the push-only fallback and every work flag', () => {
     expect(text).toContain('ship-sequencer.js start --state-dir <state-dir>');
     expect(text).toContain('--fallback "1. push"');
-    expect(text).toContain('--policy .claude/rules/ship.md');
+    // ship.md is owner-governed: the policy is the copy owner-rules.js resolves (issue #90).
+    expect(text).toContain('--policy "$(node .claude/lib/owner-rules.js path ship.md)"');
+    expect(text).not.toContain('--policy .claude/rules/ship.md');
     expect(text).toContain('--kind');
     expect(text).toContain('--branch');
   });

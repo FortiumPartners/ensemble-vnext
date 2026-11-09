@@ -72,9 +72,10 @@ describe('close-issue and file-followups read the declared tracker from stack.md
     });
   }
 
-  test('close-issue instructs reading Tracker: and Project: under the section in .claude/rules/stack.md', () => {
+  test('close-issue instructs reading Tracker: and Project: under the section in stack.md, via owner-rules.js', () => {
+    // stack.md is owner-governed, so it is read through owner-rules.js (issue #90), never raw.
     expect(flat(primitives['close-issue'])).toMatch(
-      /Read `Tracker:` and `Project:` under `## Issue Tracker` in `\.claude\/rules\/stack\.md`/
+      /Read `Tracker:` and `Project:` under `## Issue Tracker` in the file at `\$\(node \.claude\/lib\/owner-rules\.js path stack\.md\)`/
     );
   });
 

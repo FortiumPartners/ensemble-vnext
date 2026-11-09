@@ -326,4 +326,18 @@ describe('the after-shipping primitives', () => {
     expect(t).toMatch(/never returns `stop`/);
     expect(t).toMatch(/Never a bare `git stash`/);
   });
+  test('owner-governed rule files are read through owner-rules.js path, not the branch path', () => {
+    const rel = flat('release');
+    expect(rel).toMatch(/owner-rules\.js path verification\.md/);
+    expect(rel).not.toMatch(/readFileSync\("\.claude\/rules\/verification\.md"/);
+    const close = flat('close-issue');
+    expect(close).toMatch(/owner-rules\.js path stack\.md/);
+    expect(close).not.toMatch(/in `\.claude\/rules\/stack\.md`/);
+  });
+  test('ship-build.md resolves rules before starting and passes the path form to --policy', () => {
+    const t = fs.readFileSync(path.join(DIR, '..', 'commands', 'ship-build.md'), 'utf8');
+    expect(t).toMatch(/owner-rules\.js resolve/);
+    expect(t).toMatch(/--policy "\$\(node \.claude\/lib\/owner-rules\.js path ship\.md\)"/);
+    expect(t).not.toMatch(/--policy \.claude\/rules\/ship\.md/);
+  });
 });

@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/owner-rules-from-base.md",
+    "url": "https://claude.ai/artifact/5PTQch4zGvFXPubUqoHRJ6",
+    "updated_at": "2026-11-09T03:23:48.988Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/owner-rules-from-base/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-09T03:41:54.953Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/owner-rules-from-base/verification-report.md",
+    "url": "https://claude.ai/artifact/4mwENdKmw4YehrgnbM2E7p",
+    "updated_at": "2026-11-09T03:54:45.666Z",
+    "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/owner-rules-from-base/audit-build-report.md",
+    "url": "https://claude.ai/artifact/VQcKqgDwo6HkNHaMuDQ8xP",
+    "updated_at": "2026-11-09T04:11:49.990Z",
+    "command": "/audit-build"
+  }
+}

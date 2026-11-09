@@ -10,6 +10,18 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [Unreleased]
+
+### Fixed
+
+- Verification and ship steps now read the owner-governed rule files (`constitution.md`, `stack.md`,
+  `process.md`, `verification.md`, `design.md`, `ship.md`) from the base branch, not from a feature
+  branch that may be stale (#90). One library, `owner-rules.js`, owns the file list and the git
+  comparison; `/implement-trd`, `/verify-build`, `/ship-build`, the functional-verification contract
+  and the release and close-issue ship contracts read through it. When the branch copy differs from
+  the base it prints a loud notice instead of failing the run, and a file the owner edited on the
+  branch is kept.
+
 ## [4.17.2] - 2026-11-08
 
 The fixes for the defects the first live run of `/ship-build` found (#82), and an

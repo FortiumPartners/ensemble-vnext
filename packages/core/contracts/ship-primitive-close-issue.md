@@ -17,7 +17,8 @@ Closes the one issue the work names, and nothing else (D28, D29).
 
 ## Do
 
-1. **Tracker.** Read `Tracker:` and `Project:` under `## Issue Tracker` in `.claude/rules/stack.md`.
+1. **Tracker.** Read `Tracker:` and `Project:` under `## Issue Tracker` in the file at
+   `$(node .claude/lib/owner-rules.js path stack.md)` (the base branch's copy when the base changed it).
    Absent, unfilled or `none`: return `none` and name that in `data.issues`.
 2. **The source issue.** Read the bold `**Key**: value` header lines above the first `---` of the
    work's PRD and TRD, then the branch's `<issue-id>-<session>` prefix. A reference is GitHub
