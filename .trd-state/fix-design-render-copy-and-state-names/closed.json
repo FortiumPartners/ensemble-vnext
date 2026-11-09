@@ -1,0 +1,12 @@
+{
+  "feature": "fix-design-render-copy-and-state-names",
+  "trd": "docs/TRD/fix-design-render-copy-and-state-names.md",
+  "closedAt": "2026-11-09T03:44:15Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this defect fix has no PRD, so the code was checked only against its TRD, docs/TRD/fix-design-render-copy-and-state-names.md); the exact EPERM error cannot be reproduced on the Linux CI runner, so CI proves only the mechanism behind it (the setgid bit is no longer copied).",
+    "report": ".trd-state/fix-design-render-copy-and-state-names/audit-build-report.md",
+    "auditedCommit": "b669a2997760cfd84770dd5e051478b3359a7dce"
+  }
+}

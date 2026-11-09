@@ -67,17 +67,17 @@ none
 
 ### FIX-001
 - **Touches:** `packages/core/lib/design-render.js`, `packages/core/lib/design-render.test.js`
-- **Reuse:** `buildRoot()` at `design-render.js:326-338` is the only `cpSync` caller (mirror copy at line 329, `ds/<folder>` copies at 332) [read]. The test helper `tmp()` in `design-render.test.js:29` makes real-pathed temp folders [read]
+- **Reuse:** `buildRoot()` (at `design-render.js:326-338` before this change, `401-413` as delivered) was the only `cpSync` caller (mirror copy at line 328, `ds/<folder>` copies at 331 before this change; as delivered, `copyTree` is defined at line 373 and called at 404 and 407) [read]. The test helper `tmp()` in `design-render.test.js:31` makes real-pathed temp folders [read]
 - **Replaces:** the two `fs.cpSync(..., { recursive: true })` calls in `buildRoot()`; `copyFileSync(runtime, …support.js)` stays, because it copies one file into the root and is not affected [read]
 - **Follow:** module style: small top-level `function`s with a one-line `/** */` comment; exported via the `module.exports` object at the end of the file [read]
 - **Careful:** EPERM reproduced [ran] only when the source folder's group (here `devteam`, 501) differs from the temp folder's (`wheel`). The test must make the precondition (setgid set on the source) true on any host, so it chowns the folder to `process.getgid()` before the chmod. Chmod to setgid silently does nothing when the caller is not in the folder's group, which would make the test vacuous [ran]
 
 ### FIX-002
 - **Touches:** `packages/core/lib/design-render.js`, `packages/core/lib/design-render.test.js`
-- **Reuse:** the state loop in `render()` at `design-render.js:758-763` builds `copy` and `png` from the raw state name [read]. Test helpers `mkDesign`, `board`, `fixture('stateful.dc.html')`, `run` and `png(r, id, state)` at `design-render.test.js:33-50` [read]
+- **Reuse:** the state loop in `render()` built `copy` (`design-render.js:756` before this change) and `png` (line 758) from the raw state name; as delivered the loop is at `830-839` and names both by slug [read]. Test helpers `fixture('stateful.dc.html')`, `board`, `mkDesign`, `run` and `png(r, id, state)` at `design-render.test.js:32-50` [read]
 - **Replaces:** the use of the raw `name` in the `copy` file name and the `png` file name; `t.state` stays the raw name [read]
-- **Follow:** "The state comes from the target, never the temp copy's filename" (`design-render.js:774`): keep `state: name` on the target [read]
-- **Careful:** `capture()` encodes the file for `?b=` but `HOST_HTML` (`design-render.js:103`) assigns it to `src` unescaped [read]; FIX-002 encodes each segment there too. The slug must remove `?`, `#`, `%`, `/` and spaces, so the decoded value is a plain relative path [inferred]. A slug collision would silently overwrite a PNG, so the suffix is required [inferred]
+- **Follow:** "The state comes from the target, never the temp copy's filename" (`design-render.js:766` before this change, `846` as delivered): keep `state: name` on the target [read]
+- **Careful:** `capture()` encodes the file for `?b=` but `HOST_HTML` (the `src` assignment, `design-render.js:102`) assigned it to `src` unescaped [read]; FIX-002 encodes each segment there too. The slug must remove `?`, `#`, `%`, `/`, `\` and control characters (spaces are kept, per the Decision), so the decoded value is a plain relative path [inferred]. A slug collision would silently overwrite a PNG, so the suffix is required [inferred]
 
 ### FIX-003
 - **Touches:** `.claude/lib/design-render.js`
@@ -87,4 +87,7 @@ none
 
 ## Could Not Verify
 
-- The exact EPERM cannot be produced on the Linux CI runner: Linux clears the setgid bit silently rather than refusing. There, the FIX-001 test proves that the bit is not carried, which is the mechanism behind the error, not the error itself. The EPERM was reproduced on this macOS host [ran].
+Updated by `/audit-build` on 2026-11-08 (5 of 5 verifiers reported; 6 requirements and 3 tasks checked).
+
+- **No PRD exists for this defect fix**, so the delivered code was checked only against this TRD (traceability and task verification). Whether the TRD itself captures everything issue #91 asks for was not audited against a product source.
+- **The exact EPERM cannot be produced on the Linux CI runner**: Linux clears the setgid bit silently rather than refusing. There, the FIX-001 test proves that the bit is not carried, which is the mechanism behind the error, not the error itself. The EPERM was reproduced on the macOS host during planning [ran]; this audit did not re-run it.
