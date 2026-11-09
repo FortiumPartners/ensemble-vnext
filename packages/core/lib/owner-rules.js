@@ -16,14 +16,16 @@
  *   - Per file, comparing the working-tree copy (uncommitted edits count) with origin/<base>
  *     and with their merge-base:
  *       neither changed       -> branch path ".claude/rules/<file>", no notice
- *       base changed only     -> the base copy (a file written under the git dir), no notice
+ *       base changed only     -> the base copy (a file written under the git dir), a notice
  *       branch changed only   -> branch copy, a notice (the owner edited it here)
  *       both changed, differ  -> base copy, a loud notice
- *     Copies with identical bytes never produce a notice.
+ *     Copies with identical content never produce a notice. Content is compared as git sees it
+ *     (`git hash-object --path`), so a checkout's line-ending conversion is not an edit.
  *   - Base lookup order: --base; `gh pr view` base; `gh repo view` default branch; origin/HEAD.
  *     Never assumes `main`. --no-gh skips both gh steps. A fetching `resolve` records the base it
- *     found beside the base copies, and `path` (no --base) reuses that record before any lookup,
- *     so a PR opened mid-step does not switch the base under later reads. A base that is not a
+ *     found beside the base copies (tagged with the current branch, and cleared when that resolve
+ *     falls back), and `path` (no --base) reuses that record before any lookup, so a PR opened
+ *     mid-step does not switch the base under later reads. A base that is not a
  *     plain branch name (leading `-`, a `:`, or rejected by `git check-ref-format --branch`)
  *     falls back to the branch copies.
  *   - Fallback to the branch copy with ONE notice: no base, no origin/<base>, no merge-base, or
@@ -31,8 +33,9 @@
  *   - Nothing tracked is ever written. Base copies go under `git rev-parse --git-path
  *     ensemble/owner-rules`, else a per-repo dir in the OS temp dir, else the branch copy. They
  *     are replaced by rename, never rewritten in place, so a parallel reader never sees half a file.
- *   - `path` never fetches; `resolve` fetches `origin <base>` (GIT_TERMINAL_PROMPT=0), and a
- *     failed fetch is not an error: it reports fetched:false and works from what is local.
+ *   - `path` never fetches; `resolve` fetches `origin <base>` into `refs/remotes/origin/<base>`
+ *     (GIT_TERMINAL_PROMPT=0, bounded by a timeout), and a failed fetch is not an error: it
+ *     reports fetched:false and works from what is local.
  *   - Every comparison outcome exits 0; 2 is a usage error.
  *
  * CLI
@@ -57,12 +60,16 @@ const OWNER_GOVERNED = ['constitution.md', 'stack.md', 'process.md', 'verificati
 
 const RULES_DIR = '.claude/rules';
 
-function run(cmd, args, cwd, { binary = false } = {}) {
+/** Network calls (gh, fetch) must never hang a read: a timed-out call counts as failed. */
+const NETWORK_TIMEOUT_MS = 30000;
+
+function run(cmd, args, cwd, { binary = false, timeout } = {}) {
   const r = spawnSync(cmd, args, {
     cwd,
     encoding: binary ? 'buffer' : 'utf8',
-    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GH_PROMPT_DISABLED: '1' },
     maxBuffer: 16 * 1024 * 1024,
+    timeout,
   });
   const out = r.stdout == null ? (binary ? Buffer.alloc(0) : '') : r.stdout;
   return { ok: !r.error && r.status === 0, out: binary ? out : out.trim() };
@@ -75,16 +82,17 @@ function realpath(p) {
 }
 
 /** First base found, in the documented order; '' when none. */
-function findBase({ root, base, gh, record }) {
+function findBase({ root, topLevel, base, gh, record }) {
   if (base) return base;
   if (record) {
-    const recorded = recordedBase(root);
+    const recorded = recordedBase(root, topLevel);
     if (recorded) return recorded;
   }
   if (gh) {
-    const pr = run('gh', ['pr', 'view', '--json', 'baseRefName', '--jq', '.baseRefName'], root);
+    const timeout = NETWORK_TIMEOUT_MS;
+    const pr = run('gh', ['pr', 'view', '--json', 'baseRefName', '--jq', '.baseRefName'], root, { timeout });
     if (pr.ok && pr.out) return pr.out;
-    const repo = run('gh', ['repo', 'view', '--json', 'defaultBranchRef', '--jq', '.defaultBranchRef.name'], root);
+    const repo = run('gh', ['repo', 'view', '--json', 'defaultBranchRef', '--jq', '.defaultBranchRef.name'], root, { timeout });
     if (repo.ok && repo.out) return repo.out;
   }
   const sym = git(['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], root);
@@ -100,32 +108,63 @@ function validBranch(name, root) {
   return git(['check-ref-format', '--branch', name], root).ok;
 }
 
-/** Where base copies may live, in order of preference. */
+/**
+ * Where base copies may live, in order of preference. The temp-dir candidate sits in a directory
+ * other users may share (/tmp on Linux), so it is marked `shared` and used only when `trusted`.
+ */
 function copyDirCandidates(root, topLevel) {
   const gp = git(['rev-parse', '--git-path', 'ensemble/owner-rules'], root);
   const candidates = [];
-  if (gp.ok && gp.out) candidates.push(path.resolve(root, gp.out));
+  if (gp.ok && gp.out) candidates.push({ dir: path.resolve(root, gp.out), shared: false });
   const id = crypto.createHash('sha1').update(topLevel).digest('hex').slice(0, 12);
-  candidates.push(path.join(os.tmpdir(), `ensemble-owner-rules-${id}`));
+  candidates.push({ dir: path.join(os.tmpdir(), `ensemble-owner-rules-${id}`), shared: true });
   return candidates;
+}
+
+/**
+ * A directory in a shared temp dir is trusted only when this user owns it and nobody else can
+ * write to it; otherwise another user could plant or swap a rule copy (ship.md and
+ * verification.md name commands that get run). Where uids do not exist, it is trusted.
+ */
+function trusted({ dir, shared }) {
+  if (!shared || typeof process.getuid !== 'function') return true;
+  try {
+    const st = fs.lstatSync(dir);
+    return st.isDirectory() && st.uid === process.getuid() && (st.mode & 0o022) === 0;
+  } catch {
+    return false;
+  }
 }
 
 const BASE_RECORD = 'base';
 
+function currentBranch(root) {
+  const b = git(['symbolic-ref', '--quiet', '--short', 'HEAD'], root);
+  return b.ok ? b.out : '';
+}
+
 /**
  * The base the last `resolve` (with fetch) settled on, so a later `path` reads against the same
- * base instead of re-asking gh, whose answer changes once a PR is opened mid-run. '' when none.
+ * base instead of re-asking gh, whose answer changes once a PR is opened mid-run. A record made
+ * on another branch of this checkout is ignored. '' when none.
  */
-function recordedBase(root) {
-  const top = git(['rev-parse', '--show-toplevel'], root);
-  if (!top.ok) return '';
-  for (const dir of copyDirCandidates(root, top.out)) {
+function recordedBase(root, topLevel) {
+  const branch = currentBranch(root);
+  for (const c of copyDirCandidates(root, topLevel)) {
+    if (!trusted(c)) continue;
     try {
-      const name = fs.readFileSync(path.join(dir, BASE_RECORD), 'utf8').trim();
-      if (name) return name;
+      const [name = '', recordedOn = ''] = fs.readFileSync(path.join(c.dir, BASE_RECORD), 'utf8').split('\n');
+      if (name.trim() && recordedOn.trim() === branch) return name.trim();
     } catch { /* try the next */ }
   }
   return '';
+}
+
+/** Remove every base record, so a fetching resolve that fell back leaves no stale base behind. */
+function clearRecord(root, topLevel) {
+  for (const { dir } of copyDirCandidates(root, topLevel)) {
+    try { fs.rmSync(path.join(dir, BASE_RECORD), { force: true }); } catch { /* nothing to clear */ }
+  }
 }
 
 /**
@@ -148,11 +187,11 @@ function writeCopy(target, buf) {
 
 /** A writable directory for base copies, or '' when none can be had. */
 function copyDir(root, topLevel) {
-  for (const dir of copyDirCandidates(root, topLevel)) {
+  for (const c of copyDirCandidates(root, topLevel)) {
     try {
-      fs.mkdirSync(dir, { recursive: true });
-      fs.accessSync(dir, fs.constants.W_OK);
-      return dir;
+      fs.mkdirSync(c.dir, { recursive: true, mode: 0o700 });
+      fs.accessSync(c.dir, fs.constants.W_OK);
+      if (trusted(c)) return c.dir;
     } catch { /* try the next */ }
   }
   return '';
@@ -175,11 +214,25 @@ function linesDiffer(a, b) {
   return Math.max(onlyA, onlyB);
 }
 
-const same = (a, b) => (a === null || b === null ? a === b : a.equals(b));
-
 function gitShow(rev, file, root) {
   const r = git(['show', `${rev}:${RULES_DIR}/${file}`], root, { binary: true });
   return r.ok ? r.out : null;
+}
+
+/** The blob id of a committed rule file, or null when the revision has none. */
+function blobId(rev, file, root) {
+  const r = git(['rev-parse', '--verify', '--quiet', `${rev}:${RULES_DIR}/${file}`], root);
+  return r.ok && r.out ? r.out : null;
+}
+
+/**
+ * The blob id the working-tree file would get if committed: `--path` applies the checkout's
+ * attributes and line-ending conversion, so a CRLF checkout of an unchanged file matches its blob.
+ */
+function workingId(rel, root) {
+  if (!fs.existsSync(path.join(root, rel))) return null;
+  const r = git(['hash-object', `--path=${rel}`, '--', rel], root);
+  return r.ok && r.out ? r.out : null;
 }
 
 function fallback(root, base, notice) {
@@ -203,41 +256,56 @@ function resolve({ root = process.cwd(), base, fetch = true, gh = true, only } =
     return fallback(root, base, `${root} is not the top level of its git repository (${top.out}), so the branch copies of the owner-governed rules are used.`);
   }
   // A fetching resolve (the start of a step) looks the base up afresh; a non-fetching one (`path`)
-  // reuses the base that lookup recorded, so one step never reads two bases.
-  const baseName = findBase({ root, base, gh, record: !fetch });
-  if (!baseName) return fallback(root, null, 'No base branch could be determined, so the branch copies of the owner-governed rules are used.');
+  // reuses the base that lookup recorded, so one step never reads two bases. A fetching resolve
+  // that falls back clears the record, so later `path` reads fall back with it.
+  const giveUp = (b, notice) => {
+    if (fetch) clearRecord(root, top.out);
+    return fallback(root, b, notice);
+  };
+  const baseName = findBase({ root, topLevel: top.out, base, gh, record: !fetch });
+  if (!baseName) return giveUp(null, 'No base branch could be determined, so the branch copies of the owner-governed rules are used.');
   if (!validBranch(baseName, root)) {
-    return fallback(root, null, `"${baseName}" is not a valid branch name, so the branch copies of the owner-governed rules are used.`);
+    return giveUp(null, `"${baseName}" is not a valid branch name, so the branch copies of the owner-governed rules are used.`);
   }
 
   const ref = `origin/${baseName}`;
   let fetched = false;
-  if (fetch) fetched = git(['fetch', '--quiet', 'origin', baseName], root).ok;
+  if (fetch) {
+    // An explicit refspec, so a remote whose fetch refspec omits this branch still updates it.
+    const refspec = `+refs/heads/${baseName}:refs/remotes/${ref}`;
+    fetched = git(['fetch', '--quiet', 'origin', refspec], root, { timeout: NETWORK_TIMEOUT_MS }).ok;
+  }
   if (!git(['rev-parse', '--verify', '--quiet', `refs/remotes/${ref}`], root).ok) {
-    return fallback(root, baseName, `${ref} does not exist here, so the branch copies of the owner-governed rules are used.`);
+    return giveUp(baseName, `${ref} does not exist here, so the branch copies of the owner-governed rules are used.`);
   }
   const mb = git(['merge-base', 'HEAD', ref], root);
   if (!mb.ok || !mb.out) {
-    return fallback(root, baseName, `No merge-base between HEAD and ${ref}, so the branch copies of the owner-governed rules are used.`);
+    return giveUp(baseName, `No merge-base between HEAD and ${ref}, so the branch copies of the owner-governed rules are used.`);
   }
 
   const notices = [];
   const files = {};
   let dir; // resolved lazily, only when a base copy is needed
   if (fetch) {
-    // Record the base this step settled on, so every later `path` in the step uses it too.
+    // Record the base this step settled on, and the branch it was settled on, so every later
+    // `path` in the step uses it too.
     dir = copyDir(root, top.out);
-    if (dir) writeCopy(path.join(dir, BASE_RECORD), Buffer.from(`${baseName}\n`));
+    if (dir) writeCopy(path.join(dir, BASE_RECORD), Buffer.from(`${baseName}\n${currentBranch(root)}\n`));
   }
   for (const f of only || OWNER_GOVERNED) {
     const rel = `${RULES_DIR}/${f}`;
+    const branchId = workingId(rel, root);
+    const baseId = blobId(ref, f, root);
+    const mbId = blobId(mb.out, f, root);
+    const branchChanged = branchId !== mbId;
+    const baseChanged = baseId !== mbId;
+    const differs = branchId !== baseId;
     let branchBuf = null;
-    try { branchBuf = fs.readFileSync(path.join(root, rel)); } catch { /* absent */ }
-    const baseBuf = gitShow(ref, f, root);
-    const mbBuf = gitShow(mb.out, f, root);
-    const branchChanged = !same(branchBuf, mbBuf);
-    const baseChanged = !same(baseBuf, mbBuf);
-    const differs = !same(branchBuf, baseBuf);
+    let baseBuf = null;
+    if (differs) {
+      try { branchBuf = fs.readFileSync(path.join(root, rel)); } catch { /* absent */ }
+      baseBuf = gitShow(ref, f, root);
+    }
     let use = rel;
     let source = 'branch';
 

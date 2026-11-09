@@ -185,6 +185,41 @@ describe('owner-rules', () => {
     expect(fs.readFileSync(p, 'utf8')).toContain('90%');
   });
 
+  test('a fetching resolve that falls back clears the recorded base', () => {
+    const repo = fixture();
+    g(repo, 'checkout', '-q', '-b', 'develop', 'main');
+    commit(repo, VER, '## 5a. Coverage floor\n\nCoverage floor: 90%\n');
+    g(repo, 'push', '-q', 'origin', 'develop');
+    g(repo, 'checkout', '-q', 'feature');
+    resolve({ root: repo, base: 'develop', gh: false, fetch: true });
+    // the next step's base has no origin ref: its resolve falls back, and so must later reads
+    const r = resolve({ root: repo, base: 'gone', gh: false, fetch: true });
+    expect(r.files['verification.md'].use).toBe(VER);
+    g(repo, 'remote', 'set-head', 'origin', '--delete');
+    expect(pathFor('verification.md', { root: repo, gh: false })).toBe(VER);
+  });
+
+  test('a base recorded on another branch of the checkout is not reused', () => {
+    const repo = fixture();
+    g(repo, 'checkout', '-q', '-b', 'develop', 'main');
+    commit(repo, VER, '## 5a. Coverage floor\n\nCoverage floor: 90%\n');
+    g(repo, 'push', '-q', 'origin', 'develop');
+    g(repo, 'checkout', '-q', 'feature');
+    resolve({ root: repo, base: 'develop', gh: false, fetch: true });
+    g(repo, 'checkout', '-q', '-b', 'other', 'main');
+    // origin/HEAD is main, whose copy equals this branch's: the develop record must not apply
+    expect(pathFor('verification.md', { root: repo, gh: false })).toBe(VER);
+  });
+
+  test('a CRLF checkout of an unchanged file is not a branch edit', () => {
+    const repo = fixture();
+    write(repo, '.gitattributes', '*.md text eol=crlf\n');
+    write(repo, VER, '## 5a. Coverage floor\r\n\r\nCoverage floor: 50%\r\n');
+    const r = resolve(opts(repo));
+    expect(r.files['verification.md']).toMatchObject({ use: VER, branchChanged: false, differs: false });
+    expect(r.notices).toEqual([]);
+  });
+
   test('a base that is not a plain branch name falls back to the branch copies', () => {
     const repo = fixture();
     for (const bad of ['--upload-pack=touch x', 'main:main']) {
