@@ -21,10 +21,18 @@
  * "Examples (not run)" are never parsed.
  *
  * Contract front-matter keys: primitive, params, results, outward, needs, provides, section,
- * rest, stops-on, repeat-until, requires (`trd`: the work's TRD must parse at start).
+ * rest, stops-on, detach-on, repeat-until, requires (`trd`: the work's TRD must parse at start).
+ * `detach-on: <results>`: from the first recorded result in that list onward, the record moves out
+ * of the work tree (see STATE).
  *
  * STATE: `<stateDir>/shipped.json` (TRD 3.4). This module is its only writer. It holds the
  * step snapshot taken at `start`, so a resume never re-reads `ship.md`.
+ * Once a result listed in a contract's `detach-on` is recorded, the record is written to
+ * `<git common dir>/ensemble/ship/<state dir name>/<startedAt>.json` instead (an untracked file
+ * that survives the branch being deleted) and the tracked file is never written again. The file
+ * name carries the run's startedAt, so a later run under the same slug never reads it; loadState
+ * prefers it only when the tracked record (committed before the detach) has the same startedAt.
+ * With no git directory the tracked file is kept. `record` and `status` report `recordPath`.
  *
  * CLI (one JSON line per call; exit 0, except exit 2 on a usage error -- the convention of
  * `pull-request.js`):
@@ -42,6 +50,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const { maskFencedLines, parseTrd } = require('./trd-parser');
 const implementState = require('./implement-state');
 
@@ -194,6 +203,8 @@ function loadPrimitives(dir = DEFAULT_CONTRACTS_DIR) {
       // Results that are failures, not success (`stops-on:` in the contract). Outside a repeat,
       // recording one stops the run on that step (AC-F3.2). Absent means every result continues.
       stopsOn: listOf(fm['stops-on']).filter((w) => results.includes(w)),
+      // Results after which the record moves out of the tree (`detach-on:` in the contract).
+      detachOn: listOf(fm['detach-on']).filter((w) => results.includes(w)),
       repeatUntil: fm['repeat-until'] && fm['repeat-until'] !== 'none' ? fm['repeat-until'] : null,
       path: full,
     });
@@ -421,12 +432,53 @@ function parseFallback(fallback, contracts) {
 const statePath = (stateDir) => path.join(stateDir, STATE_FILE);
 const now = () => new Date().toISOString();
 
-function loadState(stateDir) {
-  let state;
+/**
+ * Where a detached record lives, or null when stateDir is not inside a git directory. The git
+ * common dir is shared by every worktree, so the record outlives the branch and its worktree.
+ */
+function externalPath(stateDir, startedAt) {
+  if (!startedAt) return null;
+  let dir = path.resolve(stateDir);
+  while (!fs.existsSync(dir)) {
+    const up = path.dirname(dir);
+    if (up === dir) return null;
+    dir = up;
+  }
+  const env = { ...process.env };
+  delete env.GIT_DIR;
+  delete env.GIT_WORK_TREE;
+  delete env.GIT_INDEX_FILE;
+  const r = spawnSync('git', ['rev-parse', '--git-common-dir'], { cwd: dir, encoding: 'utf8', env });
+  if (r.status !== 0 || !r.stdout.trim()) return null;
+  const common = path.resolve(dir, r.stdout.trim());
+  const name = String(startedAt).replace(/[^A-Za-z0-9_-]/g, '-');
+  return path.join(common, 'ensemble', 'ship', path.basename(path.resolve(stateDir)), `${name}.json`);
+}
+
+/** The file the record is (or would be) in right now. */
+const recordPathOf = (stateDir, state) =>
+  state && state.detached && state.recordPath ? state.recordPath : statePath(stateDir);
+
+function parseState(file) {
   try {
-    state = JSON.parse(fs.readFileSync(statePath(stateDir), 'utf8'));
+    return { state: JSON.parse(fs.readFileSync(file, 'utf8')) };
   } catch (err) {
+    return { err };
+  }
+}
+
+function loadState(stateDir) {
+  let { state, err } = parseState(statePath(stateDir));
+  if (err) {
     return { error: err.code === 'ENOENT' ? `no ${STATE_FILE} in ${stateDir}; run start first` : `${STATE_FILE} unreadable: ${err.message}` };
+  }
+  if (state.startedAt) {
+    const ext = externalPath(stateDir, state.startedAt);
+    if (ext && fs.existsSync(ext)) {
+      const detached = parseState(ext);
+      if (detached.err) return { error: `${ext} unreadable: ${detached.err.message}` };
+      if (detached.state.startedAt === state.startedAt) state = detached.state;
+    }
   }
   if (state.version !== 2) return { error: `${STATE_FILE} has version ${state.version}, expected 2` };
   return { state };
@@ -434,8 +486,9 @@ function loadState(stateDir) {
 
 function saveState(stateDir, state) {
   state.updatedAt = now();
-  fs.mkdirSync(stateDir, { recursive: true });
-  implementState.save(statePath(stateDir), state);
+  const file = recordPathOf(stateDir, state);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  implementState.save(file, state);
 }
 
 /** Leaf steps in execution order, each with where it sits. */
@@ -699,8 +752,16 @@ function record(stateDir, { step, result, data, reason }, opts = {}) {
   } else {
     moveToTop(state, entry.top + 1);
   }
+  // Detach only on a real result (never wait/stop), and only where a git directory exists.
+  if (!state.detached && result !== 'wait' && result !== 'stop' && contract.detachOn.includes(result)) {
+    const ext = externalPath(stateDir, state.startedAt);
+    if (ext) {
+      state.detached = true;
+      state.recordPath = ext;
+    }
+  }
   saveState(stateDir, state);
-  return { ok: true, status: state.status, shipped: state.shipped, ...(state.reason ? { reason: state.reason } : {}) };
+  return { ok: true, recordPath: recordPathOf(stateDir, state), status: state.status, shipped: state.shipped, ...(state.reason ? { reason: state.reason } : {}) };
 }
 
 function status(stateDir) {
@@ -711,7 +772,7 @@ function status(stateDir) {
     const last = [...state.results].reverse().find((r) => r.step === e.step.id);
     return { id: e.step.id, primitive: e.step.primitive, result: last ? last.result : null, pass: last ? last.pass : null };
   });
-  const out = { status: state.status, shipped: state.shipped, policy: state.policy, cursor: state.cursor, steps };
+  const out = { recordPath: recordPathOf(stateDir, state), status: state.status, shipped: state.shipped, policy: state.policy, cursor: state.cursor, steps };
   if (state.status === 'waiting') out.waiting = state.reason;
   if (state.status === 'stuck') out.stuck = state.reason;
   return out;

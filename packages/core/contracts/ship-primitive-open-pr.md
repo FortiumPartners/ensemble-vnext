@@ -31,12 +31,6 @@ Opens the work's pull request, or reuses the open one (D22, D42).
    reason. An open PR for the branch that targets another base is retargeted by the library and
    comes back `updated`.
 3. The PR number is the digits after `/pull/` in the URL.
-4. `ensure` re-pushes the branch, so prove the push link again:
-   ```bash
-   node .claude/lib/custody.js check --state-dir <work.stateDir> --link push --branch <branch> --trd <work.trd|none>
-   ```
-   A commit made since the last `push` step fails this check; return `stop` with the differing
-   files and say a `push` belongs after the step that committed.
 
 ## Result
 

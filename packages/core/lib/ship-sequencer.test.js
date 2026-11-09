@@ -526,6 +526,140 @@ describe('authorization', () => {
   });
 });
 
+describe('detach-on', () => {
+  const cleanEnv = () => {
+    const e = { ...process.env };
+    delete e.GIT_DIR;
+    delete e.GIT_WORK_TREE;
+    delete e.GIT_INDEX_FILE;
+    return e;
+  };
+  const git = (cwd, ...args) => {
+    const r = spawnSync('git', args, { cwd, encoding: 'utf8', env: cleanEnv() });
+    if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr}`);
+    return r.stdout.trim();
+  };
+  const tracked = () => path.join(stateDir(), 'shipped.json');
+  const POLICY = policy('1. alpha\n2. mike\n3. india');
+  const authOpts = () => authorizeAll();
+
+  beforeEach(() => {
+    writeContract(contractsDir, {
+      primitive: 'mike', params: '', results: 'merged, blocked', 'detach-on': 'merged, bogus', outward: 'no', section: 'ship',
+    });
+  });
+
+  // A repo under tmp, state dir inside it at <repo>/.trd-state/f.
+  function makeRepo() {
+    const root = path.join(tmp, 'repo');
+    fs.mkdirSync(root);
+    git(root, 'init', '-q', '-b', 'main');
+    git(root, 'config', 'user.email', 't@example.com');
+    git(root, 'config', 'user.name', 't');
+    fs.writeFileSync(path.join(root, 'README'), 'x');
+    git(root, 'add', '.');
+    git(root, 'commit', '-q', '-m', 'init');
+    git(root, 'checkout', '-q', '-b', 'feature');
+    return fs.realpathSync(root);
+  }
+  const repoState = (root) => path.join(root, '.trd-state', 'f');
+  function startIn(root) {
+    const p = path.join(tmp, 'ship.md');
+    fs.writeFileSync(p, POLICY);
+    const o = { stateDir: repoState(root), policyPath: p, contractsDir, work: { kind: 'feature', id: 'f', trd: 'docs/TRD/f.md', branch: 'feature' } };
+    expect(seq.start(o).ok).toBe(true);
+    return o;
+  }
+  const handOut = (root, id, opts) => expect(seq.next(repoState(root), opts).step.id).toBe(id);
+  const step = (root, id, result, opts) => {
+    handOut(root, id, opts);
+    return seq.record(repoState(root), { step: id, result }, opts);
+  };
+
+  test('only results listed in detach-on are kept by the loader', () => {
+    expect(seq.loadPrimitives(contractsDir).contracts.get('mike').detachOn).toEqual(['merged']);
+  });
+
+  test('recording a detach-on result writes the external file; the tracked file is never written again', () => {
+    const root = makeRepo();
+    startIn(root);
+    const opts = authOpts();
+    step(root, '1', 'done', opts);
+    const file = path.join(repoState(root), 'shipped.json');
+    handOut(root, '2', opts); // next() still writes the tracked file; only record() detaches
+    const before = fs.readFileSync(file, 'utf8');
+    const r = seq.record(repoState(root), { step: '2', result: 'merged' }, opts);
+    const startedAt = JSON.parse(before).startedAt;
+    const expected = path.join(git(root, 'rev-parse', '--git-common-dir').replace(/^\.git$/, path.join(root, '.git')),
+      'ensemble', 'ship', 'f', `${startedAt.replace(/[:.]/g, '-')}.json`);
+    expect(r.recordPath).toBe(expected);
+    expect(fs.existsSync(expected)).toBe(true);
+    const r3 = step(root, '3', 'gone', opts);
+    expect(r3.recordPath).toBe(expected);
+    expect(fs.readFileSync(file, 'utf8')).toBe(before);
+    const st = seq.status(repoState(root));
+    expect(st).toMatchObject({ status: 'done', shipped: true, recordPath: expected });
+  });
+
+  test('a blocked (non-detach) result keeps the tracked file', () => {
+    const root = makeRepo();
+    startIn(root);
+    const opts = authOpts();
+    step(root, '1', 'done', opts);
+    const r = step(root, '2', 'blocked', opts);
+    expect(r.recordPath).toBe(path.join(repoState(root), 'shipped.json'));
+  });
+
+  test('status still reads the detached record after the branch is merged and deleted', () => {
+    const root = makeRepo();
+    const o = startIn(root);
+    const opts = authOpts();
+    step(root, '1', 'done', opts);
+    handOut(root, '2', opts);
+    git(root, 'add', '-f', '.trd-state');
+    git(root, 'commit', '-q', '-m', 'pre-merge record');
+    seq.record(repoState(root), { step: '2', result: 'merged' }, opts);
+    git(root, 'checkout', '-q', 'main');
+    git(root, 'merge', '-q', '--ff-only', 'feature');
+    git(root, 'branch', '-q', '-D', 'feature');
+    // The tracked file as merged is the pre-merge record; the external one completes it.
+    expect(JSON.parse(fs.readFileSync(path.join(repoState(root), 'shipped.json'), 'utf8')).cursor.step).toBe('2');
+    step(root, '3', 'gone', opts);
+    const st = seq.status(repoState(root));
+    expect(st).toMatchObject({ status: 'done', shipped: true });
+    expect(o.stateDir).toBe(repoState(root));
+  });
+
+  test('outside a git repo the tracked file is used', () => {
+    startOpts(POLICY);
+    expect(seq.start(startOpts(POLICY)).ok).toBe(true);
+    const opts = authOpts();
+    const first = seq.next(stateDir(), opts);
+    seq.record(stateDir(), { step: first.step.id, result: 'done' }, opts);
+    const n = seq.next(stateDir(), opts);
+    const r = seq.record(stateDir(), { step: n.step.id, result: 'merged' }, opts);
+    expect(r.recordPath).toBe(tracked());
+    expect(JSON.parse(fs.readFileSync(tracked(), 'utf8')).detached).toBeUndefined();
+  });
+
+  test('a new run with a different startedAt never reads the old external record', () => {
+    const root = makeRepo();
+    startIn(root);
+    const opts = authOpts();
+    step(root, '1', 'done', opts);
+    step(root, '2', 'merged', opts);
+    const file = path.join(repoState(root), 'shipped.json');
+    const fresh = JSON.parse(fs.readFileSync(file, 'utf8'));
+    fresh.startedAt = '2099-01-01T00:00:00.000Z';
+    fresh.cursor = { step: '1', pass: 1 };
+    fs.writeFileSync(file, JSON.stringify(fresh));
+    const st = seq.status(repoState(root));
+    expect(st.status).not.toBe('done');
+    expect(st.cursor).toEqual({ step: '1', pass: 1 });
+    expect(st.recordPath).toBe(file);
+  });
+});
+
 describe('CLI', () => {
   const cli = (args) => {
     const r = spawnSync('node', [SCRIPT, ...args], { encoding: 'utf8' });

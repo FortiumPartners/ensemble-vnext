@@ -80,6 +80,8 @@ describe('classifyPath (D10)', () => {
     ['.trd-state/f/implement.json', 'ignored'],
     ['.trd-state/f/audit-build-report.md', 'ignored'],
     ['docs/TRD/f.md', 'ignored'],
+    ['.claude/verification-notes.md', 'ignored'],
+    ['.claude/other.md', 'shipped'],
     ['docs/TRD/other.md', 'shipped'],
     ['src/a.test.js', 'test-only'],
     ['src/a.test.sh', 'test-only'],
@@ -509,6 +511,185 @@ describe('check: deploy link', () => {
   test('skips an all-digit token and passes on the real one beside it', () => {
     const { s, head } = anchoredAt();
     expect(deploy(s, `1234567 ${head.slice(0, 8)}`).ok).toBe(true);
+  });
+});
+
+describe('reconcile: base, head and set-only', () => {
+  const origPath = process.env.PATH;
+  beforeAll(() => {
+    const bin = path.join(tmp(), 'bin-base');
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, 'gh'), '#!/bin/sh\necho "$STUB_PR_JSON"\n', { mode: 0o755 });
+    process.env.PATH = `${bin}${path.delimiter}${origPath}`;
+  });
+  afterAll(() => {
+    process.env.PATH = origPath;
+    delete process.env.STUB_PR_JSON;
+  });
+
+  /** Another clone lands a commit on origin/main (the feature checkout never leaves its branch). */
+  function landOnBase(s, files, msg = 'base change') {
+    const other = path.join(tmp(), 'other');
+    git(s.root, 'clone', '-q', '-b', 'main', path.join(s.root, 'origin.git'), other);
+    git(other, 'config', 'user.email', 't@example.com');
+    git(other, 'config', 'user.name', 't');
+    for (const [rel, text] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(other, rel)), { recursive: true });
+      fs.writeFileSync(path.join(other, rel), text);
+    }
+    git(other, 'add', '-A');
+    git(other, 'commit', '-m', msg);
+    git(other, 'push', 'origin', 'main');
+    git(s.repo, 'fetch', 'origin');
+  }
+  /** Merges origin/main into the feature; `resolve` maps conflicted paths to their final text. */
+  function mergeBase(s, resolve = {}) {
+    const r = spawnSync('git', ['merge', '--no-ff', '-m', 'merge main', 'origin/main'], { cwd: s.repo, encoding: 'utf8', env: cleanEnv() });
+    if (r.status !== 0) {
+      for (const [rel, text] of Object.entries(resolve)) fs.writeFileSync(path.join(s.repo, rel), text);
+      git(s.repo, 'add', '-A');
+      git(s.repo, 'commit', '-m', 'merge main (resolved)');
+    }
+    return git(s.repo, 'rev-parse', 'HEAD');
+  }
+  const anchored = () => {
+    const s = setup();
+    s.commit('work', { 'src/b.js': 'b2' });
+    reconcile(s.args());
+    return s;
+  };
+  const withDefinition = (s, covers) => {
+    fs.writeFileSync(path.join(s.stateDir, 'success-definition.md'), DEFINITION);
+    fs.mkdirSync(path.join(s.stateDir, 'evidence'), { recursive: true });
+    const artifact = path.join(s.stateDir, 'evidence', 'FS-1.txt');
+    fs.writeFileSync(artifact, 'proof');
+    fs.writeFileSync(path.join(s.stateDir, 'verification-state.json'), JSON.stringify({ criteria: [{ id: 'FS-1', status: 'met', artifact }] }));
+    if (covers) liveEvidence.record(s.stateDir, { task: 'T', artifact, covers: covers.map((c) => path.join(s.repo, c)) });
+  };
+
+  test('base files only: moves with base-merge, also after the base tip moves on; pr-head then passes', () => {
+    const s = anchored();
+    landOnBase(s, { 'src/c.js': 'c1' });
+    const merged = mergeBase(s);
+    landOnBase(s, { 'src/d.js': 'd1' }, 'later base change');
+    const r = reconcile(s.args({ base: 'origin/main' }));
+    expect(r).toMatchObject({ action: 'moved', anchor: merged, differing: [], excused: ['src/c.js'] });
+    expect(s.readCustody().moves[0]).toMatchObject({ rule: 'base-merge' });
+
+    process.env.STUB_PR_JSON = JSON.stringify({ state: 'OPEN', headRefOid: merged });
+    expect(check(s.args({ link: 'pr-head', pr: 7 })).ok).toBe(true);
+    // An anchor at the head plus a .trd-state/-only commit still passes.
+    process.env.STUB_PR_JSON = JSON.stringify({ state: 'OPEN', headRefOid: s.commit('record', { '.trd-state/x/n.md': 'n' }) });
+    expect(check(s.args({ link: 'pr-head', pr: 7 })).ok).toBe(true);
+  });
+
+  test('without --base the same merge stays differing and re-fails as before', () => {
+    const s = anchored();
+    landOnBase(s, { 'src/c.js': 'c1' });
+    mergeBase(s);
+    expect(reconcile(s.args())).toMatchObject({ action: 'moved', differing: ['src/c.js'] });
+    expect(s.readCustody().moves[0].rule).toBe('no-success-definition');
+  });
+
+  test('a feature edit after the anchor, beside the base merge, is still differing', () => {
+    const s = anchored();
+    s.commit('late feature edit', { 'src/b.js': 'b3' });
+    landOnBase(s, { 'src/c.js': 'c1' });
+    mergeBase(s);
+    const r = reconcile(s.args({ base: 'origin/main' }));
+    expect(r.differing).toEqual(['src/b.js']);
+    expect(r.excused).toEqual(['src/c.js']);
+  });
+
+  test('a conflict-resolved file, and a resolution taking the base wholesale, stay differing', () => {
+    const s = anchored();
+    landOnBase(s, { 'src/b.js': 'b-base' });
+    mergeBase(s, { 'src/b.js': 'b-merged' });
+    expect(reconcile(s.args({ base: 'origin/main' }))).toMatchObject({ differing: ['src/b.js'], excused: [] });
+
+    const w = anchored();
+    landOnBase(w, { 'src/b.js': 'b-base' });
+    mergeBase(w, { 'src/b.js': 'b-base' });
+    const r = reconcile(w.args({ base: 'origin/main' }));
+    expect(r.differing).toEqual(['src/b.js']);
+    expect(r.excused).toEqual([]);
+  });
+
+  test('a base-only change to a covered file reverifies that id; untouched covers are reused', () => {
+    const s = anchored();
+    withDefinition(s, ['src/a.js']);
+    landOnBase(s, { 'src/a.js': 'a-base' });
+    mergeBase(s);
+    const hit = reconcile(s.args({ base: 'origin/main' }));
+    expect(hit).toMatchObject({ action: 'reverify', ids: ['FS-1'], reused: [], differing: [], excused: ['src/a.js'] });
+
+    const t = anchored();
+    withDefinition(t, ['src/b.js']);
+    landOnBase(t, { 'src/a.js': 'a-base' });
+    const merged = mergeBase(t);
+    const miss = reconcile(t.args({ base: 'origin/main' }));
+    expect(miss).toMatchObject({ action: 'moved', anchor: merged, reused: ['FS-1'] });
+    expect(miss.ids).toBeUndefined();
+    expect(t.readCustody().moves[0].rule).toBe('base-merge');
+  });
+
+  test('a must-pass criterion with no covers record is re-verified after a base-only change', () => {
+    const s = anchored();
+    withDefinition(s, null);
+    landOnBase(s, { 'src/c.js': 'c1' });
+    mergeBase(s);
+    expect(reconcile(s.args({ base: 'origin/main' }))).toMatchObject({ action: 'reverify', ids: ['FS-1'], reused: [] });
+  });
+
+  test('a base ref that names no commit is refused', () => {
+    const s = anchored();
+    expect(reconcile(s.args({ base: 'origin/nope' })).action).toBe('refused');
+  });
+
+  test('--head judges that commit, not local HEAD, and a .trd-state/-only local commit is accepted', () => {
+    const s = anchored();
+    const prHead = s.commit('pr head', { 'src/b.js': 'b3' });
+    s.commit('local state', { '.trd-state/x/n.md': 'n' });
+    const r = reconcile(s.args({ head: prHead }));
+    expect(r).toMatchObject({ action: 'moved', anchor: prHead });
+    expect(s.readCustody().anchor.commit).toBe(prHead);
+  });
+
+  test('--head is refused when local HEAD has a shipped change not on it', () => {
+    const s = anchored();
+    const before = s.readCustody().anchor.commit;
+    const prHead = s.commit('pr head', { 'src/b.js': 'b3' });
+    s.commit('unpushed', { 'src/a.js': 'a9' });
+    const r = reconcile(s.args({ head: prHead }));
+    expect(r.action).toBe('refused');
+    expect(r.reason).toContain('local HEAD has shipped changes not on the PR head');
+    expect(s.readCustody().anchor.commit).toBe(before);
+  });
+
+  test('--reason format does not move when an earlier unverified change precedes the formatter commit', () => {
+    const s = anchored();
+    s.commit('unverified change', { 'src/b.js': 'b3' });
+    s.commit('prettier', { 'src/a.js': 'a1 ' });
+    reconcile(s.args({ reason: 'format' }));
+    expect(s.readCustody().moves[0].rule).not.toBe('format');
+  });
+
+  test('--set-only sets an absent anchor and never moves an existing one', () => {
+    const s = setup();
+    const head = s.commit('work', { 'src/a.js': 'a2' });
+    expect(reconcile(s.args({ setOnly: true }))).toMatchObject({ action: 'set', anchor: head });
+    s.commit('more', { 'src/b.js': 'b2' });
+    const again = reconcile(s.args({ setOnly: true }));
+    expect(again).toMatchObject({ action: 'none', anchor: head, reason: 'anchor already set' });
+    expect(s.readCustody().anchor.commit).toBe(head);
+    expect(s.readCustody().moves).toEqual([]);
+  });
+
+  test('the CLI passes --base, --head and --set-only through', () => {
+    const s = setup();
+    const head = s.commit('work', { 'src/a.js': 'a2' });
+    const r = spawnSync('node', [LIB, 'reconcile', '--state-dir', s.stateDir, '--trd', TRD, '--set-only', '--head', head], { cwd: s.repo, encoding: 'utf8', env: cleanEnv() });
+    expect(JSON.parse(r.stdout.trim())).toMatchObject({ action: 'set', anchor: head });
   });
 });
 

@@ -9,12 +9,21 @@
  * (push, pr-head, merge, deploy) are each compared to it.
  *
  * CODE EQUALITY (D9, D10): `git diff --no-renames --name-only -z <a> <b>`, each path classified
- *   ignored   anything under `.trd-state/`, and the work's TRD
+ *   ignored   anything under `.trd-state/`, the work's TRD, and `.claude/verification-notes.md`
+ *             (verifier notes the framework writes itself)
  *   test-only a test file by D10's patterns
  *   shipped   everything else
  * Two commits are equal when no path is `shipped`. `--no-renames` matters: default rename
  * detection reports only a rename's destination, so a shipped file moved under `.trd-state/`
  * would read as an ignored-only change.
+ *
+ * BASE EXCUSE (reconcile only, given `--base <ref>`): merging the base branch into the feature
+ * brings in files nobody verified here. With baseCommit = `git merge-base <head> <ref>` (the base
+ * commit the head actually took in, never the moving tip), a shipped path that differs from the
+ * anchor is EXCUSED when the head's blob equals baseCommit's (absent on both counts) AND the
+ * feature's own diff (merge-base(anchor, baseCommit)..anchor) never touched it. A conflict
+ * resolution, or a resolution that took the base wholesale, therefore stays `differing`. Excused
+ * paths still put must-pass criteria in doubt (see affectedIds); the others are returned as `reused`.
  *
  * CONTRACT
  *   - `reconcile` is the only verb that sets or moves the anchor (D12). `check` never writes.
@@ -27,10 +36,15 @@
  * CLI (run from the project root; each prints ONE JSON line and exits 0, even on `refused`):
  *   node custody.js reconcile --state-dir D --trd <path|none> [--closed P] [--definition P]
  *                             [--reason format] [--reverified <verification-state.json>]
+ *                             [--base <ref>] [--head <sha>] [--set-only]
  *   node custody.js check --state-dir D --link push --branch B --trd <path|none>
  *   node custody.js check --state-dir D --link pr-head --pr N --trd <path|none>
  *   node custody.js check --state-dir D --link merge --pr N --target BASE --trd <path|none>
  *   node custody.js check --state-dir D --link deploy --identity-output <text> --trd <path|none>
+ *
+ * `--head <sha>` judges that commit (the PR head) instead of local HEAD, and refuses when local
+ * HEAD has shipped changes not in it (re-verification runs on the working tree). `--set-only` sets
+ * an absent anchor and never compares or moves one.
  *
  * The pr-head link reads an OPEN PR's own `headRefOid` (the id `gh pr merge --match-head-commit`
  * compares against) and judges it; its `observed` is what the merge step passes to GitHub.
@@ -75,12 +89,15 @@ const TEST_BASENAME = [
   /_spec\.rb$/,
   /_test\.exs$/,
 ];
+// Files the framework itself writes during verification; they are never shipped source.
+const FRAMEWORK_WRITTEN = new Set(['.claude/verification-notes.md']);
 const TEST_SEGMENTS = new Set(['__tests__', '__fixtures__', '__mocks__']);
 
 /** @returns {'ignored'|'test-only'|'shipped'} for a repo-relative, forward-slash path. */
 function classifyPath(p, trdRel) {
   if (p === '.trd-state' || p.startsWith('.trd-state/')) return 'ignored';
   if (trdRel && p === trdRel) return 'ignored';
+  if (FRAMEWORK_WRITTEN.has(p)) return 'ignored';
   const segments = p.split('/');
   const base = segments[segments.length - 1];
   if (TEST_BASENAME.some((re) => re.test(base))) return 'test-only';
@@ -136,16 +153,37 @@ function headSha(cwd) {
   return r.ok ? r.out : null;
 }
 
-/**
- * Code equality of two local commits.
- * @returns {{equal: boolean, differing: string[], shipped: string[], error?: string}}
- *   `differing` lists the shipped paths (what an owner needs to see), in git's order.
- */
-function compare(a, b, trdRel, cwd) {
+/** The paths `git diff --no-renames` reports between two commits, or null on failure. */
+function diffNames(a, b, cwd) {
   const r = run('git', ['diff', '--no-renames', '--name-only', '-z', a, b], cwd);
-  if (!r.ok) return { equal: false, differing: [], error: `git diff failed: ${r.err}` };
-  const shipped = r.raw.split('\0').filter(Boolean).filter((p) => classifyPath(p, trdRel) === 'shipped');
-  return { equal: shipped.length === 0, differing: shipped };
+  return r.ok ? { names: r.raw.split('\0').filter(Boolean) } : { error: `git diff failed: ${r.err}` };
+}
+
+/**
+ * Code equality of two local commits, optionally excusing what came in from the base branch.
+ * @param {string} [baseCommit] the base commit the head took in; enables the excuse (see header)
+ * @returns {{equal: boolean, differing: string[], excused: string[], error?: string}}
+ *   `differing` lists the shipped paths (what an owner needs to see), in git's order; `equal`
+ *   means `differing` is empty. `excused` is empty without a baseCommit.
+ */
+function compare(a, b, trdRel, cwd, baseCommit) {
+  const d = diffNames(a, b, cwd);
+  if (d.error) return { equal: false, differing: [], excused: [], error: d.error };
+  const shipped = d.names.filter((p) => classifyPath(p, trdRel) === 'shipped');
+  if (!baseCommit || shipped.length === 0) return { equal: shipped.length === 0, differing: shipped, excused: [] };
+
+  const mb = run('git', ['merge-base', a, baseCommit], cwd);
+  if (!mb.ok) return { equal: false, differing: [], excused: [], error: `git merge-base failed: ${mb.err}` };
+  const feature = diffNames(mb.out, a, cwd);
+  const vsBase = diffNames(b, baseCommit, cwd);
+  const failed = feature.error || vsBase.error;
+  if (failed) return { equal: false, differing: [], excused: [], error: failed };
+  const touchedByFeature = new Set(feature.names);
+  const differsFromBase = new Set(vsBase.names);
+  const excused = [];
+  const differing = [];
+  for (const p of shipped) (!differsFromBase.has(p) && !touchedByFeature.has(p) ? excused : differing).push(p);
+  return { equal: differing.length === 0, differing, excused };
 }
 
 // ---------------------------------------------------------------------------
@@ -195,12 +233,13 @@ function readJson(p) {
 }
 
 /**
- * The must-pass ids a change to `shippedPaths` puts in doubt. The set comes from the one reader,
+ * The must-pass ids a change to `changedPaths` (shipped differences plus base-excused ones) puts in doubt. The set comes from the one reader,
  * `functional-verification.js must-pass-coverage` (an id is must-pass only when the TRD declares
  * it); every uncovered must-pass objective counts too. An id with no covered-file record counts
- * as affected whenever shipped source changed (OQ-2).
+ * as affected whenever anything changed (OQ-2). `reused` is the rest: their earlier proof stands.
+ * @returns {{ids: string[], reused: string[]}|{error: string}}
  */
-function affectedIds({ stateDir, trdPath, definitionPath, shippedPaths, cwd }) {
+function affectedIds({ stateDir, trdPath, definitionPath, changedPaths, cwd }) {
   const cli = path.join(__dirname, 'functional-verification.js');
   const r = run(process.execPath, [cli, 'must-pass-coverage', '--trd', trdPath, '--definition', definitionPath], cwd);
   if (!r.ok) return { error: `must-pass-coverage failed: ${r.err || r.out}` };
@@ -220,7 +259,7 @@ function affectedIds({ stateDir, trdPath, definitionPath, shippedPaths, cwd }) {
   const coversByArtifact = new Map(
     liveEvidence.read(stateDir).map((e) => [realOrResolved(e.artifact, cwd), e.covers])
   );
-  const changed = new Set(shippedPaths);
+  const changed = new Set(changedPaths);
   const affected = ids.filter((id) => {
     const artifact = artifactById.get(id);
     const covers = artifact ? coversByArtifact.get(realOrResolved(artifact, cwd)) : undefined;
@@ -228,7 +267,7 @@ function affectedIds({ stateDir, trdPath, definitionPath, shippedPaths, cwd }) {
     // covers[].path is absolute; git's paths are repo-relative -- compare in one form.
     return covers.some((c) => changed.has(path.relative(root, realOrResolved(c.path, cwd)).split(path.sep).join('/')));
   });
-  return { ids: affected };
+  return { ids: affected, reused: ids.filter((id) => !affected.includes(id)) };
 }
 
 function realOrResolved(p, cwd) {
@@ -257,22 +296,53 @@ function move(stateDir, custody, to, rule, reverified) {
   return next;
 }
 
+/** Resolves a base ref to {commit} or {error}. A ref that looks like an option is refused. */
+function resolveRef(ref, cwd) {
+  const want = String(ref || '').trim();
+  if (!want || want.startsWith('-')) return { error: `invalid base ref ${ref}` };
+  const r = run('git', ['rev-parse', '--verify', `${want}^{commit}`], cwd);
+  return r.ok ? { commit: r.out } : { error: `base ref ${want} does not name a commit` };
+}
+
 /**
- * Sets the anchor once, then moves it to HEAD only when the change since is proven harmless.
+ * Sets the anchor once, then moves it to the judged commit only when the change since is proven
+ * harmless.
  *
  * @param {{stateDir: string, closedPath?: string, trdPath: string|null, definitionPath?: string|null,
- *          reason?: 'format', reverifiedPath?: string, cwd?: string}} args
+ *          reason?: 'format', reverifiedPath?: string, base?: string, head?: string, setOnly?: boolean,
+ *          cwd?: string}} args
+ *   `base`: ref whose already-merged changes are excused (see header). `head`: the commit judged
+ *   instead of local HEAD. `setOnly`: set an absent anchor, never compare or move.
  * @returns {{action: 'set'|'none'|'moved'|'reverify'|'refused', anchor: string, ids?: string[],
- *            differing?: string[], reason: string}}
+ *            reused?: string[], differing?: string[], excused?: string[], reason: string}}
  */
 function reconcile(args) {
   const { stateDir, trdPath = null, reason, reverifiedPath, cwd = process.cwd() } = args;
   const closedPath = args.closedPath || path.join(stateDir, 'closed.json');
-  const head = headSha(cwd);
-  if (!head) return { action: 'refused', anchor: '', reason: 'cannot read HEAD' };
+  const localHead = headSha(cwd);
+  if (!localHead) return { action: 'refused', anchor: '', reason: 'cannot read HEAD' };
   const trdRel = trdRelative(trdPath, cwd);
 
+  let head = localHead;
+  if (args.head) {
+    const r = resolveCommit(args.head, cwd);
+    if (r.error) return { action: 'refused', anchor: '', reason: `head commit ${args.head} is ${r.error}` };
+    head = r.sha;
+  }
+
   let custody = readCustody(stateDir);
+  if (args.setOnly && custody) {
+    return { action: 'none', anchor: custody.anchor.commit, reason: 'anchor already set' };
+  }
+  if (!args.setOnly && head !== localHead) {
+    // Re-verification runs on the working tree, so it must not differ from the judged head.
+    const local = compare(head, localHead, trdRel, cwd);
+    if (local.error) return { action: 'refused', anchor: '', reason: local.error };
+    if (!local.equal) {
+      return { action: 'refused', anchor: '', differing: local.differing, reason: `local HEAD has shipped changes not on the PR head: ${local.differing.join(', ')}` };
+    }
+  }
+
   let justSet = false;
   if (!custody) {
     const audited = auditedCommitOf(closedPath);
@@ -290,15 +360,32 @@ function reconcile(args) {
     writeCustody(stateDir, custody);
     justSet = true;
   }
+  if (args.setOnly) return { action: 'set', anchor: custody.anchor.commit, reason: `anchor set (${custody.anchor.source})` };
 
   const anchor = custody.anchor.commit;
   if (!hasCommit(anchor, cwd)) run('git', ['fetch', 'origin', anchor], cwd);
   if (!hasCommit(anchor, cwd)) {
     return { action: 'refused', anchor, reason: `anchor commit ${anchor} is not available locally` };
   }
-  const cmp = compare(anchor, head, trdRel, cwd);
+
+  let baseCommit;
+  if (args.base) {
+    const ref = resolveRef(args.base, cwd);
+    if (ref.error) return { action: 'refused', anchor, reason: ref.error };
+    // The base commit the head actually took in, not the moving tip of the base branch.
+    const mb = run('git', ['merge-base', head, ref.commit], cwd);
+    if (!mb.ok) return { action: 'refused', anchor, reason: `no merge base between the head and ${args.base}` };
+    baseCommit = mb.out;
+  }
+
+  const cmp = compare(anchor, head, trdRel, cwd, baseCommit);
   if (cmp.error) return { action: 'refused', anchor, reason: cmp.error };
-  if (cmp.equal) {
+  const shipped = cmp.differing;
+  const excused = cmp.excused;
+  // `excused` appears only when a base was given, so a no-flag run reports exactly what it always did.
+  const out = (o) => (baseCommit ? { ...o, excused } : o);
+
+  if (shipped.length === 0 && excused.length === 0) {
     return {
       action: justSet ? 'set' : 'none',
       anchor,
@@ -306,39 +393,55 @@ function reconcile(args) {
     };
   }
 
-  const shipped = cmp.differing;
-  if (reason === 'format') {
-    const next = move(stateDir, custody, head, 'format', []);
-    return { action: 'moved', anchor: next.anchor.commit, differing: shipped, reason: 'moved: formatter commit' };
+  if (reason === 'format' && shipped.length > 0) {
+    // The formatter commit is the shortcut only when it is the sole un-excused change; an earlier
+    // unverified change would otherwise be waved through with it.
+    const parent = run('git', ['rev-parse', '--verify', `${head}^`], cwd);
+    if (parent.ok) {
+      const before = compare(anchor, parent.out, trdRel, cwd, baseCommit);
+      if (!before.error && before.equal) {
+        const next = move(stateDir, custody, head, 'format', []);
+        return out({ action: 'moved', anchor: next.anchor.commit, differing: shipped, reason: 'moved: formatter commit' });
+      }
+    }
   }
 
+  // With shipped differences the rules keep their old names; base-only changes move as base-merge.
+  const noneAffectedRule = shipped.length > 0 ? 'no-affected-criteria' : 'base-merge';
   const definitionPath = args.definitionPath || path.join(stateDir, 'success-definition.md');
   const trdFile = trdRel && path.resolve(cwd, trdPath);
   if (!trdFile || !fs.existsSync(trdFile) || !fs.existsSync(path.resolve(cwd, definitionPath))) {
-    const next = move(stateDir, custody, head, 'no-success-definition', []);
-    return { action: 'moved', anchor: next.anchor.commit, differing: shipped, reason: 'moved: no success definition to re-verify against' };
+    const rule = shipped.length > 0 ? 'no-success-definition' : 'base-merge';
+    const next = move(stateDir, custody, head, rule, []);
+    return out({
+      action: 'moved', anchor: next.anchor.commit, differing: shipped,
+      reason: shipped.length > 0 ? 'moved: no success definition to re-verify against' : 'moved: only base-branch changes since the anchor',
+    });
   }
 
-  const aff = affectedIds({ stateDir, trdPath: trdFile, definitionPath: path.resolve(cwd, definitionPath), shippedPaths: shipped, cwd });
-  if (aff.error) return { action: 'refused', anchor, differing: shipped, reason: aff.error };
+  const aff = affectedIds({ stateDir, trdPath: trdFile, definitionPath: path.resolve(cwd, definitionPath), changedPaths: [...shipped, ...excused], cwd });
+  if (aff.error) return out({ action: 'refused', anchor, differing: shipped, reason: aff.error });
   if (aff.ids.length === 0) {
-    const next = move(stateDir, custody, head, 'no-affected-criteria', []);
-    return { action: 'moved', anchor: next.anchor.commit, differing: shipped, reason: 'moved: no must-pass criterion is affected' };
+    const next = move(stateDir, custody, head, noneAffectedRule, []);
+    return out({
+      action: 'moved', anchor: next.anchor.commit, differing: shipped, reused: aff.reused,
+      reason: shipped.length > 0 ? 'moved: no must-pass criterion is affected' : 'moved: only base-branch changes, no must-pass criterion is affected',
+    });
   }
   if (!reverifiedPath) {
-    return { action: 'reverify', anchor, ids: aff.ids, differing: shipped, reason: `${aff.ids.length} must-pass criteria need re-verification` };
+    return out({ action: 'reverify', anchor, ids: aff.ids, reused: aff.reused, differing: shipped, reason: `${aff.ids.length} must-pass criteria need re-verification` });
   }
   const re = readJson(reverifiedPath);
   if (!re || !Array.isArray(re.criteria)) {
-    return { action: 'refused', anchor, ids: aff.ids, differing: shipped, reason: `cannot read re-verification state ${reverifiedPath}` };
+    return out({ action: 'refused', anchor, ids: aff.ids, reused: aff.reused, differing: shipped, reason: `cannot read re-verification state ${reverifiedPath}` });
   }
   const statusOf = new Map(re.criteria.map((c) => [c.id, c.status]));
   const notMet = aff.ids.filter((id) => statusOf.get(id) !== 'met');
   if (notMet.length > 0) {
-    return { action: 'refused', anchor, ids: notMet, differing: shipped, reason: `not met after re-verification: ${notMet.join(', ')}` };
+    return out({ action: 'refused', anchor, ids: notMet, reused: aff.reused, differing: shipped, reason: `not met after re-verification: ${notMet.join(', ')}` });
   }
   const next = move(stateDir, custody, head, 'reverified', aff.ids);
-  return { action: 'moved', anchor: next.anchor.commit, ids: aff.ids, differing: shipped, reason: 'moved: affected criteria re-verified' };
+  return out({ action: 'moved', anchor: next.anchor.commit, ids: aff.ids, reused: aff.reused, differing: shipped, reason: 'moved: affected criteria re-verified' });
 }
 
 // ---------------------------------------------------------------------------
@@ -448,6 +551,7 @@ function check(args) {
 
 const USAGE =
   'usage: custody.js reconcile --state-dir D --trd <path|none> [--closed P] [--definition P] [--reason format] [--reverified P]\n' +
+  '                         [--base REF] [--head SHA] [--set-only]\n' +
   '       custody.js check --state-dir D --link push|pr-head|merge|deploy --trd <path|none> [--branch B] [--pr N --target BASE] [--identity-output TEXT]';
 
 function flag(argv, name) {
@@ -474,6 +578,9 @@ function main(argv) {
         definitionPath: flag(argv, '--definition'),
         reason,
         reverifiedPath: flag(argv, '--reverified'),
+        base: flag(argv, '--base'),
+        head: flag(argv, '--head'),
+        setOnly: argv.includes('--set-only'),
       })
     );
   }
