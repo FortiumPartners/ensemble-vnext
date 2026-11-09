@@ -1,0 +1,105 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/fix-ship-run-record-after-merge.md",
+  "trd_hash": "c31ddb1888773f804fb141d79453b56d6dd7a3fed821c34bf2c2e62a6b5acc17",
+  "branch": "feature/0-fix-ship-run-record-after-merge",
+  "strategy": "bug-fix",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "ship-record-dir module; custody detach, pointer-routed custody path, push link removed",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-record-dir.js",
+        "packages/core/lib/custody.js",
+        "packages/core/lib/custody.test.js",
+        "packages/full/lib/ship-record-dir.js",
+        ".claude/lib/ship-record-dir.js",
+        ".claude/lib/custody.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-09T06:58:15.470Z",
+      "completed_at": "2026-11-09T07:30:13.541Z",
+      "last_advanced": "2026-11-09T07:12:48.120Z"
+    },
+    "FIX-002": {
+      "description": "sequencer: detach-on-data, pointer, work-matched resume, custodyPath in status",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-sequencer.js",
+        ".claude/lib/ship-sequencer.js",
+        "packages/core/lib/ship-sequencer.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-09T06:58:15.480Z",
+      "completed_at": "2026-11-09T07:30:13.543Z",
+      "last_advanced": "2026-11-09T07:12:48.121Z"
+    },
+    "FIX-003": {
+      "description": "merge contract detach-on-data + MERGED stop rule; ship-build Step 3/6",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitive-merge.md",
+        ".claude/contracts/ship-primitive-merge.md",
+        "packages/core/commands/ship-build.md",
+        ".claude/commands/ship-build.md",
+        "packages/core/contracts/ship-primitives.test.js",
+        "packages/core/commands/ship-build-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-09T06:58:15.480Z",
+      "completed_at": "2026-11-09T07:30:13.545Z",
+      "last_advanced": "2026-11-09T07:12:48.121Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/fix-ship-run-record-after-merge.md § Reproduction",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, node installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude and scaffold script present; not needed by this fix"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool always available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login islayjames has ADMIN on the repo (pre-flight 2026-11-08)"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "verification.md §1 marks it must not be touched"
+      }
+    }
+  }
+}

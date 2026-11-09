@@ -152,6 +152,13 @@ describe('Step 5: the record', () => {
     expect(s).toContain('no state commit');
   });
 
+  test('Step 3 takes the resume branch from implement.json; Step 6 reads custodyPath', () => {
+    expect(text).toContain('--branch <work branch>');
+    expect(text).toMatch(/`branch` in `\.trd-state\/<feature>\/implement\.json`[^]*falling back to\s+the current branch/);
+    expect(text).toMatch(/kind, id and branch all match/);
+    expect(text).toContain("`status`'s `custodyPath`");
+  });
+
   test('the state directory is pushed only at a wait whose data says remoteResume', () => {
     expect(s).toContain('Push the state directory only at a `wait`');
     expect(s).toContain('remoteResume: true');
