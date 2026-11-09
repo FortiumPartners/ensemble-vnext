@@ -4,7 +4,7 @@
   "trd_hash": "b208d608b4a3124aa8e6e7897387c946334b7cc475c62080fbd5af93ec7a019d",
   "branch": "feature/10-read-owner-governed-rules-from-the-base-branch",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "Add owner-rules.js (resolve and path exports and CLI, three-way merge-base comparison, base lookup order, fallbacks) with Jest tests over a fixture git repo; ship it to packages/full/lib/ (symlink) and .claude/lib/ (copy)",
@@ -85,10 +85,19 @@
       "last_advanced": "2026-11-09T03:29:11.260Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "92dccd8375682054c92fd2656509f1e7d6e6f6db",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-09T03:35:07.260Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "92dccd8375682054c92fd2656509f1e7d6e6f6db",
+    "last_checkpoint_timestamp": "2026-11-09T03:35:07.260Z",
     "interrupted": false,
     "interrupt_reason": null
   },
