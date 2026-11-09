@@ -34,15 +34,18 @@ no release runs that could not be proven), `work`, `context`.
    (`verification.md` or `ship.md`) in `data.source`.
 2. Before anything runs, confirm `identity` is non-empty; an empty one returns `stop` now, because
    the deploy link cannot pass without one and the release below cannot be taken back.
-3. Run the command as written. A non-zero exit returns `stop` with its output; do not fix it,
+3. **Run the custody gate** (`ship-custody-gate.md`) with the local `HEAD` and no `--head`,
+   passing `--base origin/<context.base>` only when a PR step gave a base. A gate stop returns
+   `stop` before the command runs. Commit and push nothing between the gate and the command.
+4. Run the command as written. A non-zero exit returns `stop` with its output; do not fix it,
    retry it or run a different command (AC-F5.2).
-4. Run the `identity=` command and capture its output.
-5. Prove the deploy link:
+5. Run the `identity=` command and capture its output.
+6. Prove the deploy link:
    ```bash
    node .claude/lib/custody.js check --state-dir <work.stateDir> --link deploy \
      --identity-output "<captured output>" --trd <work.trd|none>
    ```
-   `ok: false` returns `stop` with the reason. A `check` with no anchor fails; do not set one.
+   `ok: false` returns `stop` with the reason. The gate has already set or moved the anchor, so a missing one here is a failure, not something to set.
 
 ## Result
 

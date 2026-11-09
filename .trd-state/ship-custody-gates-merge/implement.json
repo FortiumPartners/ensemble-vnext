@@ -1,0 +1,189 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/ship-custody-gates-merge.md",
+  "trd_hash": "73d0fd1aa4fc991ed779f3bfaed71abfa92de50a98ac43737a9d972576ccb402",
+  "branch": "feature/0-custody-gates-the-merge-not-the-push",
+  "strategy": "bug-fix",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "FIX-001",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/custody.js",
+        "packages/core/lib/custody.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-09T03:29:54.313Z",
+      "completed_at": "2026-11-09T03:43:20.343Z",
+      "last_advanced": "2026-11-09T03:35:24.074Z"
+    },
+    "FIX-002": {
+      "description": "FIX-002",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-sequencer.js",
+        "packages/core/lib/ship-sequencer.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-09T03:29:54.314Z",
+      "completed_at": "2026-11-09T03:43:20.344Z",
+      "last_advanced": "2026-11-09T03:35:24.075Z"
+    },
+    "FIX-003": {
+      "description": "FIX-003",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-custody-gate.md",
+        "packages/core/contracts/ship-primitive-merge.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-09T03:29:54.314Z",
+      "completed_at": "2026-11-09T03:43:20.344Z",
+      "last_advanced": "2026-11-09T03:35:24.075Z"
+    },
+    "FIX-004": {
+      "description": "FIX-004",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-build.md",
+        "packages/core/commands/ship-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-09T03:29:54.314Z",
+      "completed_at": "2026-11-09T03:43:20.344Z",
+      "last_advanced": "2026-11-09T03:35:24.075Z"
+    },
+    "FIX-005": {
+      "description": "FIX-005",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/lib/custody.js",
+        "docs/guides/ship-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-09T03:29:54.314Z",
+      "completed_at": "2026-11-09T03:43:20.344Z",
+      "last_advanced": "2026-11-09T03:35:24.075Z"
+    },
+    "AMEND-001": {
+      "description": "AMEND-001 test-gap from /audit-build",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitives.test.js",
+        "packages/core/lib/custody.test.js"
+      ],
+      "last_advanced": "2026-11-09T05:43:49.314Z",
+      "current_problem": null,
+      "completed_at": "2026-11-09T05:44:03.853Z"
+    },
+    "AMEND-002": {
+      "description": "AMEND-002 test-gap from /audit-build",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-sequencer.test.js"
+      ],
+      "last_advanced": "2026-11-09T05:43:49.314Z",
+      "current_problem": null,
+      "completed_at": "2026-11-09T05:44:03.863Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "c8759c63d33fc682e47a4ad8528062c650e59b0b",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-09T03:46:35.265Z"
+    },
+    {
+      "phase": 1,
+      "commit": "6b4e073112694c719513567f583fd715cc17b7e8",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-09T05:50:05.982Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "6b4e073112694c719513567f583fd715cc17b7e8",
+    "last_checkpoint_timestamp": "2026-11-09T05:50:05.982Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/ship-custody-gates-merge.md § Reproduction",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "jest, bats, pytest installed; tests read the working tree"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude installed; not needed by this TRD"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "declared in verification.md §1 (may write, merges inside islayjames/ship-build-live-test only); gh logged in as islayjames with repo+workflow scopes and admin on the repo"
+      }
+    },
+    "fix": {
+      "plan": ".trd-state/ship-custody-gates-merge/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1
+      },
+      "rounds": [
+        {
+          "round": 0,
+          "tasksPromoted": 0,
+          "criteriaClosed": 4,
+          "criteriaOpen": 0,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
+    }
+  }
+}

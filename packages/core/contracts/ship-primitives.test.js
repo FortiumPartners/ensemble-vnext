@@ -133,21 +133,52 @@ describe('the template examples parse against the contracts', () => {
   });
 });
 
+const gateText = fs.readFileSync(path.join(DIR, 'ship-custody-gate.md'), 'utf8');
+const gateFlat = gateText.replace(/\s+/g, ' ');
+
+describe('the custody gate (ship-custody-gate.md)', () => {
+  test('is not a primitive: no primitive front matter, and the sequencer does not load it', () => {
+    expect(gateText).not.toMatch(/^primitive:/m);
+    expect(contracts.has('custody-gate')).toBe(false);
+    expect(names).not.toContain('custody-gate');
+  });
+  test('fetches the base and polls headRefOid before it reconciles', () => {
+    const iFetch = gateFlat.indexOf('git fetch origin <base>');
+    const iPoll = gateFlat.indexOf('headRefOid');
+    const iRec = gateFlat.indexOf('custody.js reconcile');
+    expect(iFetch).toBeGreaterThan(-1);
+    expect(iPoll).toBeGreaterThan(iFetch);
+    expect(iRec).toBeGreaterThan(iPoll);
+    expect(gateFlat).toMatch(/up to 8 times, 15s apart/);
+    expect(gateFlat).toMatch(/--base origin\/<base>/);
+  });
+  test('re-verifies after the head is on the PR, then repeats the reconcile with --reverified', () => {
+    const iVerify = gateFlat.indexOf('/verify-build <work.trd> --criteria <ids> --no-fix --chained');
+    const iRec = gateFlat.indexOf('custody.js reconcile');
+    expect(iVerify).toBeGreaterThan(iRec);
+    expect(gateFlat.indexOf('--reverified', iVerify)).toBeGreaterThan(iVerify);
+    expect(gateFlat).toMatch(/reverify\/verification-state\.json/);
+  });
+  test('refused returns stop, and reused and excused are reported in data.custody', () => {
+    expect(gateFlat).toMatch(/refused[^.]*stop/);
+    // tie both id lists to data.custody; bare /reused/ and /excused/ match any prose that mentions them
+    expect(gateFlat).toMatch(/`reused` ids[^.]*`excused` paths[^.]*`data\.custody`/);
+  });
+  test('forbids a commit or push between the gate and the act it guards', () => {
+    expect(gateFlat).toMatch(/Do not commit or push anything between the gate and the act it guards/);
+  });
+});
+
 describe('push', () => {
   const t = flat('push');
-  test('reconciles custody before it pushes and checks the push link after', () => {
-    const iReconcile = t.indexOf('custody.js reconcile');
+  test('only sets the anchor (--set-only) before pushing, and proves no link', () => {
+    const iSet = t.indexOf('custody.js reconcile --set-only');
     const iPush = t.indexOf('git push -u origin');
-    const iCheck = t.indexOf('custody.js check');
-    expect(iReconcile).toBeGreaterThan(-1);
-    expect(iPush).toBeGreaterThan(iReconcile);
-    expect(iCheck).toBeGreaterThan(iPush);
-    expect(t).toMatch(/--link push/);
-  });
-  test('handles reverify with a no-fix chained verify-build', () => {
-    expect(t).toMatch(/reverify/);
-    expect(t).toMatch(/\/verify-build <work\.trd> --criteria <ids> --no-fix --chained/);
-    expect(t).toMatch(/--reverified/);
+    expect(iSet).toBeGreaterThan(-1);
+    expect(iPush).toBeGreaterThan(iSet);
+    expect(t).not.toMatch(/--link push/);
+    expect(t).not.toMatch(/custody\.js check/);
+    expect(t).not.toMatch(/--reverified/);
   });
   test('carries the sweep branch and pathspec rules', () => {
     expect(t).toMatch(/ship\/<work\.id>/);
@@ -158,26 +189,47 @@ describe('push', () => {
 
 describe('open-pr', () => {
   const t = flat('open-pr');
-  test('calls ensure with --base and --listed, then checks the push link', () => {
+  test('calls ensure with --base and --listed, and has no push-link check', () => {
     expect(t).toMatch(/pull-request\.js ensure --base <base> --listed/);
-    expect(t.indexOf('--link push')).toBeGreaterThan(t.indexOf('pull-request.js ensure'));
+    expect(t).not.toMatch(/--link push/);
   });
 });
 
 describe('merge', () => {
   const t = flat('merge');
-  test('runs gh pr merge then checks the merge link', () => {
-    expect(t).toMatch(/gh pr merge <pr> --<method>/);
-    expect(t.indexOf('--link merge')).toBeGreaterThan(t.indexOf('gh pr merge'));
+  test('runs the custody gate before it reads the PR state', () => {
+    expect(t).toMatch(/ship-custody-gate\.md/);
+    expect(t.indexOf('ship-custody-gate.md')).toBeLessThan(t.indexOf('gh pr view <pr> --json state'));
   });
-  test('checks the open PR head before merging and matches on the observed id', () => {
-    expect(t.indexOf('--link pr-head')).toBeGreaterThan(-1);
-    expect(t.indexOf('--link pr-head')).toBeLessThan(t.indexOf('gh pr merge'));
+  test('orders gate, pr-head check, gh pr merge, merge link; a gate stop leaves the PR unmerged', () => {
+    const iGate = t.indexOf('ship-custody-gate.md');
+    const iHead = t.indexOf('--link pr-head');
+    const iMerge = t.indexOf('gh pr merge <pr> --<method>');
+    const iLink = t.indexOf('--link merge');
+    // indexOf is -1 when a marker is missing, which would satisfy the < comparisons below
+    for (const i of [iGate, iHead, iMerge, iLink]) expect(i).toBeGreaterThan(-1);
+    expect(iGate).toBeLessThan(iHead);
+    expect(iHead).toBeLessThan(iMerge);
+    expect(iMerge).toBeLessThan(iLink);
+    expect(t).toMatch(/A gate stop returns `stop` before `gh pr merge`, so the PR stays unmerged/);
+  });
+  test('matches on the observed id', () => {
     expect(t).toMatch(/--match-head-commit <observed>/);
     expect(t).not.toMatch(/--match-head-commit <head>/);
   });
+  test('commits and pushes nothing between the gate and gh pr merge', () => {
+    expect(t).toMatch(/Commit and push nothing between the gate and `gh pr merge`/);
+  });
+  test('passes --head with the PR headRefOid to the gate', () => {
+    expect(t).toMatch(/`--head` set to the PR's `headRefOid`/);
+  });
   test('an already MERGED PR still skips to the merge proof', () => {
-    expect(t).toMatch(/Already `MERGED`[^]*skip to step 2/);
+    expect(t).toMatch(/Already `MERGED`[^]*skip to step 3/);
+  });
+  test('declares detach-on: merged, and says the record leaves the tracked tree after merged', () => {
+    expect(text('merge')).toMatch(/^detach-on:\s*merged$/m);
+    expect(contracts.get('merge').detachOn).toEqual(['merged']);
+    expect(t).toMatch(/outside the tracked tree/);
   });
 });
 
@@ -196,6 +248,12 @@ describe('release', () => {
     const r = parseShip('release env=production identity="echo abc"');
     expect(r.errors).toEqual([]);
     expect(r.steps).toHaveLength(2);
+  });
+  test('runs the custody gate before its command, with the local HEAD', () => {
+    expect(t).toMatch(/ship-custody-gate\.md/);
+    expect(t.indexOf('ship-custody-gate.md')).toBeLessThan(t.indexOf('Run the command as written'));
+    expect(t).toMatch(/local `?HEAD`?/);
+    expect(t).not.toMatch(/A `check` with no anchor fails; do not set one/);
   });
   test('resolves its command with readFullDeploy and never guesses', () => {
     expect(t).toMatch(/readFullDeploy/);
@@ -295,6 +353,10 @@ describe('collect-findings and fix-findings', () => {
     expect(iFormat).toBeLessThan(iChain);
     expect(t).toMatch(/fixed by reconcile at <sha>/);
     expect(t).toMatch(/not built/);
+    expect(t).toMatch(/custody gate before the merge re-verifies/);
+  });
+  test('run leaves a command\'s commit to the custody gate', () => {
+    expect(flat('run')).toMatch(/reconciled by the custody gate before the next merge or release/);
   });
 });
 
@@ -339,5 +401,35 @@ describe('the after-shipping primitives', () => {
     expect(t).toMatch(/owner-rules\.js resolve/);
     expect(t).toMatch(/--policy "\$\(node \.claude\/lib\/owner-rules\.js path ship\.md\)"/);
     expect(t).not.toMatch(/--policy \.claude\/rules\/ship\.md/);
+  });
+});
+
+describe('verify-build --criteria reads the plan\'s rulings (FIX-004)', () => {
+  const vb = fs.readFileSync(path.join(DIR, '..', 'commands', 'verify-build.md'), 'utf8');
+  const section = vb.slice(vb.indexOf('## `--criteria <ids>`'), vb.indexOf('## `--fix [plan-path]`'));
+  const t = section.replace(/\s+/g, ' ');
+  test('folds both ruling tables into notes, whatever the plan timestamp', () => {
+    expect(section.length).toBeGreaterThan(0);
+    expect(t).toMatch(/`## Owner rulings`/);
+    expect(t).toMatch(/`## Accepted as not verifiable`/);
+    expect(t).toMatch(/into `notes`/);
+    expect(t).toMatch(/whatever (its|the plan's) `?\*{0,2}Written/i);
+  });
+  test('still builds nothing', () => {
+    expect(t).toMatch(/builds nothing/);
+  });
+});
+
+describe('ship-build Step 5 after a merge (FIX-004)', () => {
+  const sb = fs.readFileSync(path.join(DIR, '..', 'commands', 'ship-build.md'), 'utf8');
+  const t = sb.replace(/\s+/g, ' ');
+  test('no longer tells the owner to commit the state directory on the default branch', () => {
+    expect(t).not.toMatch(/commit (it|the state directory) on the default branch/i);
+    expect(t).not.toMatch(/Merged with the state directory uncommitted/);
+  });
+  test('names the record under the git directory via recordPath', () => {
+    expect(t).toMatch(/recordPath/);
+    expect(t).toMatch(/untracked file under the git common directory/);
+    expect(t).toMatch(/data\.custody/);
   });
 });

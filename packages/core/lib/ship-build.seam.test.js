@@ -95,23 +95,33 @@ function setup({ policy } = {}) {
   const status = () => seq('status', '--state-dir', stateDir).json;
   const readCustody = () => JSON.parse(fs.readFileSync(abs(`${stateDir}/custody.json`), 'utf8'));
 
-  /** The push contract's Do, steps 2 to 4: reconcile, push, prove the push link. */
-  function playPush({ reverifiedStatus } = {}) {
-    const common = ['--state-dir', stateDir, '--trd', TRD];
-    const rec = ['reconcile', ...common, '--closed', `${stateDir}/closed.json`, '--definition', `${stateDir}/success-definition.md`];
+  /** The push contract's Do, steps 2 and 3: set the anchor if none exists, then push (ungated). */
+  function playPush() {
+    const r = custody('reconcile', '--set-only', '--state-dir', stateDir, '--trd', TRD, '--closed', `${stateDir}/closed.json`);
+    g(repo, 'push', '-u', 'origin', 'feature/f');
+    const head = g(repo, 'rev-parse', 'HEAD');
+    return { result: 'pushed', data: { branch: 'feature/f', commit: head, head }, reconcile: r };
+  }
+
+  /**
+   * The custody gate (ship-custody-gate.md) as the merge step runs it: the PR head is what
+   * origin holds for the branch (gh is stubbed), reconcile with --head and --base, and on
+   * `reverify` repeat it with --reverified.
+   */
+  function playGate({ reverifiedStatus } = {}) {
+    g(repo, 'fetch', 'origin', 'main');
+    const prHead = g(repo, 'ls-remote', 'origin', 'refs/heads/feature/f').split(/\s+/)[0];
+    const rec = ['reconcile', '--state-dir', stateDir, '--trd', TRD, '--closed', `${stateDir}/closed.json`,
+      '--definition', `${stateDir}/success-definition.md`, '--base', 'origin/main', '--head', prHead];
     let r = custody(...rec);
     if (r.action === 'reverify' && reverifiedStatus) {
       const p = path.join(root, 'reverify-state.json');
       fs.writeFileSync(p, JSON.stringify({ criteria: r.ids.map((id) => ({ id, status: reverifiedStatus })) }));
       r = custody(...rec, '--reverified', p);
     }
-    if (!['set', 'none', 'moved'].includes(r.action)) return { result: 'stop', reconcile: r };
-    g(repo, 'push', '-u', 'origin', 'feature/f');
-    const chk = custody('check', ...common, '--link', 'push', '--branch', 'feature/f');
-    if (!chk.ok) return { result: 'stop', reconcile: r, check: chk };
-    return { result: 'pushed', data: { branch: 'feature/f', commit: g(repo, 'rev-parse', 'HEAD'), head: g(repo, 'rev-parse', 'HEAD') }, reconcile: r, check: chk };
+    return { result: ['set', 'none', 'moved'].includes(r.action) ? 'go' : 'stop', reconcile: r };
   }
-  return { root, repo, g, write, commit, abs, stateDir, seq, custody, start, next, record, status, readCustody, playPush };
+  return { root, repo, g, write, commit, abs, stateDir, seq, custody, start, next, record, status, readCustody, playPush, playGate };
 }
 
 const EXAMPLE_5 = [
@@ -190,7 +200,7 @@ describe('example 5 runs to done on stubbed results', () => {
   });
 });
 
-describe('custody across push', () => {
+describe('custody across push and the merge gate', () => {
   function withDefinition() {
     const s = setup({ policy: '## Ship\n1. push\n' });
     s.commit('work', { 'src/a.js': 'a2' });
@@ -206,45 +216,46 @@ describe('custody across push', () => {
     return s;
   }
 
-  test('a fix commit changing shipped source cannot pass push until re-verification shows its ids met', () => {
+  test('a fix commit changing shipped source is pushed, but the gate stops the merge until its ids are met', () => {
     const s = withDefinition();
     const anchor = s.readCustody().anchor.commit;
     s.commit('fix', { 'src/b.js': 'b2' });
 
-    const refused = s.playPush({ reverifiedStatus: 'unmet' });
+    // The push is not gated and never moves the anchor.
+    const pushed = s.playPush();
+    expect(pushed.result).toBe('pushed');
+    expect(pushed.reconcile.action).toBe('none');
+    expect(s.readCustody().anchor.commit).toBe(anchor);
+
+    const refused = s.playGate({ reverifiedStatus: 'unmet' });
     expect(refused.result).toBe('stop');
     expect(refused.reconcile.action).toBe('refused');
     expect(s.readCustody().anchor.commit).toBe(anchor);
-    // Nothing left the machine: origin still holds the audited code.
-    expect(s.g(s.repo, 'ls-remote', 'origin', 'refs/heads/feature/f')).toContain(anchor);
 
-    const passed = s.playPush({ reverifiedStatus: 'met' });
-    expect(passed.result).toBe('pushed');
+    const passed = s.playGate({ reverifiedStatus: 'met' });
+    expect(passed.result).toBe('go');
     expect(passed.reconcile.action).toBe('moved');
-    expect(s.readCustody().anchor.commit).not.toBe(anchor);
+    expect(s.readCustody().anchor.commit).toBe(s.g(s.repo, 'rev-parse', 'HEAD'));
     expect(s.readCustody().moves[0]).toMatchObject({ rule: 'reverified', reverified: ['FS-1'] });
   });
 
-  test('a custody mismatch at the push link names the differing file', () => {
+  test('a commit made locally and never pushed stops the gate, naming the differing file', () => {
     const s = withDefinition();
-    // A commit made after reconcile and before the push check, as a step that commits would do.
-    const common = ['--state-dir', s.stateDir, '--trd', TRD];
     s.commit('sneaky', { 'src/b.js': 'b9' });
-    s.g(s.repo, 'push', '-u', 'origin', 'feature/f');
-    const chk = s.custody('check', ...common, '--link', 'push', '--branch', 'feature/f');
-    expect(chk.ok).toBe(false);
-    expect(chk.differing).toEqual(['src/b.js']);
-    expect(chk.reason).toMatch(/src\/b\.js/);
+    const r = s.playGate();
+    expect(r.result).toBe('stop');
+    expect(r.reconcile.differing).toEqual(['src/b.js']);
+    expect(r.reconcile.reason).toMatch(/src\/b\.js/);
   });
 
-  test('committing the state directory does not move the anchor', () => {
+  test('a parked record commit that was never pushed neither moves the anchor nor stops the gate', () => {
     const s = withDefinition();
     const before = s.readCustody().anchor.commit;
     s.g(s.repo, 'add', '--', s.stateDir);
     s.g(s.repo, 'commit', '-m', 'chore(f): ship-build record', '--', s.stateDir);
-    const again = s.playPush();
-    expect(again.reconcile.action).toBe('none');
-    expect(again.result).toBe('pushed');
+    const gate = s.playGate();
+    expect(gate.result).toBe('go');
+    expect(gate.reconcile.action).toBe('none');
     expect(s.readCustody().anchor.commit).toBe(before);
   });
 });

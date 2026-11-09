@@ -31,7 +31,8 @@ row stops the step rather than becoming a model edit), `work`, `context`.
    - **`format=` set:** run the command and look at what it changed (`git status --porcelain`).
      It changed files: commit only those files (pathspec), then `node .claude/lib/custody.js
      reconcile --state-dir <work.stateDir> --trd <work.trd|none> --reason format` (a formatter
-     commit needs no re-verification), then `discovered.resolve(<work.stateDir>, row, "formatted
+     commit needs no re-verification; if it prints `reverify` or `refused`, go on: the custody gate
+     before the merge re-verifies), then `discovered.resolve(<work.stateDir>, row, "formatted
      <sha>")` for each `[lint]` row handled, **before** the chained build below: its first act
      promotes open rows into TRD tasks, and only a resolved row is skipped. It changed nothing:
      the lint failure needs a hand edit, so its row stays open and goes to the build below as

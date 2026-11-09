@@ -100,11 +100,13 @@ ISSUES; a notice never stops the run. Every contract's read of an owner-governed
 node .claude/lib/ship-sequencer.js start --state-dir <state-dir> \
   --policy "$(node .claude/lib/owner-rules.js path ship.md)" --fallback "1. push" \
   --kind <feature|plan|sweep> --id <feature or sweep id> \
-  [--trd <trd-path>] --branch <current branch>
+  [--trd <trd-path>] --branch <current branch> [--resume]
 ```
 
-It prints one JSON line `{ok, status, errors, policy}`. With a state file already there it
-loads it (`resumed: true`) and ignores `ship.md`.
+Pass `--resume` when the owner did. It prints one JSON line `{ok, status, errors, policy}`. With
+a state file already there it loads it (`resumed: true`) and ignores `ship.md`. Under `--resume`
+with no tracked `shipped.json` (the branch or worktree is gone after a merge), it continues the
+run's record kept under the git directory instead of starting a fresh run.
 
 - `ok: false`: the errors name the lines of `ship.md` that do not parse. `COMMAND STUCK`,
   reason naming each line, Next `/ship-setup`.
@@ -178,8 +180,9 @@ git commit -m "chore(<work id>): ship-build record" -- <state-dir>
 Skip this when the branch's PR is already merged. Read that from the PR itself —
 `gh pr list --head <branch> --state merged --json number --jq length` — not from whether a
 step called `merge` ran, because a PR merged outside this run counts too. A merged branch gets
-no state commit (it would never reach the default branch); NEXT says to commit the state
-directory on the default branch.
+no state commit, and nothing is committed on the default branch either. After the merge the
+sequencer writes the record to an untracked file under the git common directory, so it needs
+no commit; `ship-sequencer.js status` reports its path as `recordPath`, and STATE names it.
 
 A failed commit is one line in ISSUES, never STUCK.
 
@@ -196,7 +199,10 @@ who was not in the session:
 
 - **STATE** — shipped or not; which steps ran and with what result; the custody anchor and any
   moves (`custody.json`, read-only); the PR number and URL if there is one. Name what proves a
-  claim of "shipped".
+  claim of "shipped". After a merge, name the record's path from `status`'s `recordPath`
+  (a file under the git common directory, untracked, nothing to commit). When the merge step
+  recorded `data.custody`, say which proofs were reused (`reused` ids) and which paths were
+  excused (they came from the base).
   - **Filed follow-ups are listed one by one, with their issue (AC-F5.8).** Each entry of the
     `file-followups` step's `data.filed` (as recorded; on a resumed run, the `data` of that
     step's last result in `<state-dir>/shipped.json`) gets its own line: the row's summary,
@@ -232,8 +238,6 @@ who was not in the session:
   - A `wait`: `/ship-build --resume` (say what it is waiting for, from the recorded reason).
   - A stop: the step that stopped and the single thing that unblocks it, then `/ship-build
     --resume`.
-  - Merged with the state directory uncommitted: a line saying to commit it on the default
-    branch.
   - Boards a `sync-design` step could not capture: `/sync-design <slug> --trd <trd-path>`.
   - Shipped with nothing else: "nothing — this is done".
 

@@ -463,6 +463,11 @@ belong to its full run, so a subset must never overwrite them. Under it:
   `verification-report.md` are not touched.
 - **`cap: 1`**: one iteration, so the loop never reaches its in-place Debug stage; a Debug pass
   would edit code outside the recorded path. `--no-fix` is implied: skip the fix loop.
+- **Rulings stand**: if `.trd-state/<feature>/verification-plan.md` exists, fold its
+  `## Owner rulings` and `## Accepted as not verifiable` tables into `notes` (under a
+  `## Owner rulings (verification-plan.md)` heading), whatever the plan's `**Written**`
+  timestamp: a ruling stands until superseded. Only the rulings are read; the plan's fixes and
+  stop rule are ignored and the run still builds nothing.
 - **Only the named criteria**: read the feature's `success-definition.md` (present, as for any
   run), then filter `criteria` to the named ids. Restrict `mustPassIds` to them,
   `mustPassUncovered: []`, `coverageFloor: null` (no coverage floor).

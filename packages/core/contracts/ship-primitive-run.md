@@ -21,8 +21,8 @@ have no primitive of their own (a version bump, a tag, a store submission) are `
 
 1. Run the command as written, from the project root. Do not edit, extend or repair it.
 2. A non-zero exit returns `stop` with the command's final output lines as the reason.
-3. A commit the command makes is reconciled by the next `push` step; a string that commits
-   writes `push` after the committing step.
+3. A commit the command makes is reconciled by the custody gate before the next merge or
+   release; a string that commits writes `push` after the committing step.
 
 ## Result
 

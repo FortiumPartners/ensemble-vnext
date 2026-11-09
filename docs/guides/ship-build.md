@@ -74,7 +74,7 @@ outward step is subject to the [authorization gate](#the-outward-authorization-g
 
 | Primitive | What it does | Outward | Needs / provides | Results |
 |---|---|---|---|---|
-| `push` | Publishes the work's `HEAD`; the one step that reconciles the custody anchor first. | no | provides `head` | `pushed` |
+| `push` | Publishes the work's `HEAD`; sets the custody anchor if none exists (it never moves one). | no | provides `head` | `pushed` |
 | `open-pr` | Opens the work's pull request, or reuses the open one. Param `base`. | unless `ensemble.openPullRequest=auto` | needs `head`, provides `pr` | `opened`, `reused` |
 | `request-review` | Asks an outside reviewer to review the current head (a PR comment) and waits. Param `tool` (`coderabbit`, `codex`, `claude`, or a GitHub login). | yes | needs `pr` | `reviewed` |
 | `wait-ci` | Waits for CI on the current head; re-runs failed jobs once. | no | needs `head`; `stops-on: failed` | `passed`, `failed`, `no-checks` |
@@ -278,16 +278,25 @@ otherwise `HEAD` at the first push.
 changed path classed as ignored (`.trd-state/` and the work's TRD), test-only, or shipped. The
 commits are equal when no shipped path differs.
 
-**Reconcile** runs in `push` (and for the formatter commit `fix-findings` makes, with
-`--reason format`). It sets or moves the anchor:
+**Reconcile** is the custody gate (`ship-custody-gate.md`). It runs before `merge` and before
+`release`, not in `push`: a push is not gated by custody. `push` only records the anchor when none
+exists yet (`reconcile --set-only`); it never compares or moves one. The gate runs on the pushed
+head (for `merge`, the PR's `headRefOid` after a poll until it matches the branch's commit on `origin`), against
+the base fetched from `origin`. Paths that differ only because they came from the base are
+excused, not counted as shipped changes.
 
 | Shipped source since the anchor | Outcome |
 |---|---|
 | no anchor yet | the anchor is recorded (audited commit, or `HEAD`); `set` when `HEAD` equals it, otherwise the rows below apply |
-| unchanged | `none`: the anchor stays |
+| unchanged (or changed only by files that came from the base) | `none`: the anchor stays |
 | changed by the formatter commit (`--reason format`) | `moved`, with no re-verification |
 | changed, and no success definition or no must-pass criterion is affected | `moved` |
-| changed, and a must-pass criterion is affected | `reverify`: `push` runs `/verify-build --criteria <ids> --no-fix --chained`, then `moved` if all are met; if not, the run stops |
+| changed, and a must-pass criterion is affected | `reverify`: the gate runs `/verify-build --criteria <ids> --no-fix --chained` on the pushed head, then `moved` if all are met (criteria whose files did not change are `reused`); if not, the run stops |
+
+The gate commits and pushes nothing before the act it guards: the re-anchor in `custody.json`
+stays uncommitted, so the PR head stays the one CI checked and `--match-head-commit` matches.
+After the merge, `shipped.json` is written under the git directory (see the sequencer's detached
+record), not to the tracked state directory.
 
 **Check** proves three links against the anchor:
 

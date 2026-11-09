@@ -10,8 +10,8 @@ section: ship
 
 # Primitive: push
 
-Publishes the work's `HEAD` and is the one step that reconciles the custody anchor before it
-does (TRD ship-build D12, D42). `/ship-build` performs it from the sequencer's `next` output;
+Publishes the work's `HEAD` and sets the custody anchor when none exists (TRD ship-build D12,
+D42). `/ship-build` performs it from the sequencer's `next` output;
 this file is the whole instruction set.
 
 ## Input
@@ -30,26 +30,17 @@ still to come) and `context` (every earlier result's `data`). No parameters.
      `repeat` reads it back from `context.paths`.
    - Commit exactly that pathspec (`git add -- <paths>`, never `git add -A`) with a message that
      names the sweep and each path. List each path in the readout line for this step.
-2. **Reconcile custody before anything leaves the machine:**
+2. **Set the anchor if none exists** (never compares or moves one; the custody gate before a
+   merge or release does that):
    ```bash
-   node .claude/lib/custody.js reconcile --state-dir <work.stateDir> --trd <work.trd|none> \
-     --closed <work.stateDir>/closed.json --definition <work.stateDir>/success-definition.md
+   node .claude/lib/custody.js reconcile --set-only --state-dir <work.stateDir> \
+     --trd <work.trd|none> --closed <work.stateDir>/closed.json
    ```
-   Read the one JSON line it prints.
-   - `set`, `none` or `moved`: go on.
-   - `reverify` (shipped source changed since the anchor and the listed must-pass criteria need
-     proof again): run `/verify-build <work.trd> --criteria <ids> --no-fix --chained` (a
-     synchronous Skill call), then repeat the reconcile with `--reverified
-     <work.stateDir>/reverify/verification-state.json` (the subset run writes there; the
-     feature's own `verification-state.json` is the old full run and would pass stale). `moved`: go on. `refused`: return `stop`, naming
-     the criteria that are not `met`.
-   - A `differing` list or any failure: return `stop`, naming the step and the differing files.
-3. `git push -u origin <branch>` (the branch the work is on now).
-4. **Prove the push link:**
-   ```bash
-   node .claude/lib/custody.js check --state-dir <work.stateDir> --link push --branch <branch> --trd <work.trd|none>
-   ```
-   `ok: false` returns `stop` with the reason and the differing files.
+   `set` or `none`: go on. `refused` (for example an audited commit that cannot be found): put
+   the reason in `data.issues` and go on; the push is not gated, and the custody gate before a
+   merge or release refuses on the same reason.
+3. `git push -u origin <branch>` (the branch the work is on now). The push itself is not gated by
+   custody.
 
 Never fix a failure here and never amend or force-push.
 
