@@ -83,11 +83,22 @@ Next:   /audit-build docs/TRD/<feature>.md
 Run `notify-complete.sh` and `PushNotification` as for any STUCK (see "Completion signal"). A
 `/plan` TRD is shipped without the gate.
 
+## Step 2b: Resolve the owner's rule files
+
+```bash
+node .claude/lib/owner-rules.js resolve
+```
+
+It prints one JSON line with `notices`. Print each notice and carry each into the readout's
+ISSUES; a notice never stops the run. Every contract's read of an owner-governed rule file
+(`ship.md`, `verification.md`, `stack.md`, ...) uses the path form
+`$(node .claude/lib/owner-rules.js path <file>)`, never `.claude/rules/<file>`.
+
 ## Step 3: Start the run
 
 ```bash
 node .claude/lib/ship-sequencer.js start --state-dir <state-dir> \
-  --policy .claude/rules/ship.md --fallback "1. push" \
+  --policy "$(node .claude/lib/owner-rules.js path ship.md)" --fallback "1. push" \
   --kind <feature|plan|sweep> --id <feature or sweep id> \
   [--trd <trd-path>] --branch <current branch>
 ```

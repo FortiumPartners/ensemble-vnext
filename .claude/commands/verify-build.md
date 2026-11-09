@@ -84,7 +84,7 @@ sweep file (a sweep has no criteria to name, so nothing re-runs): ignore it ther
 
 **Identical to `/implement-trd` §3.6a — read that section and follow it.** No criteria exist
 yet at this point (that only changes at step 3/3a, below), so this step classifies
-ENVIRONMENTS only, by policy (D17): read `.claude/rules/verification.md`'s §1 and mark each
+ENVIRONMENTS only, by policy (D17): run `node .claude/lib/owner-rules.js resolve` first, as §3.6a does (this step runs it itself, including under `--chained` on a sweep file, which runs its own step 2), then read §1 of the copy `node .claude/lib/owner-rules.js path verification.md` prints and mark each
 declared environment `usable`, `unusable` or `needs-owner`, as §3.6a defines those. It never
 asks whether anything is up; the loop's setup check decides that before every attempt. Persist
 the per-environment result and the `target` exactly as §3.6a documents
@@ -95,7 +95,7 @@ Partial verification with stated gaps beats none.
 
 **Nothing is asked in any mode (D1).** An environment that needs the owner takes the default —
 its criteria resolve `not_verifiable` — and ISSUES names it and the one thing the owner must
-supply. **Under the fix loop (the default whenever a plan is present, unless `--no-fix` was
+supply. Each owner-rules notice `resolve` printed is also an ISSUES line in the readout (the owner acts: push or merge the rule change, or rebase the branch); a notice never stops the run. **Under the fix loop (the default whenever a plan is present, unless `--no-fix` was
 passed) and under `--chained` (a sweep file; see below),** the need is also recorded as a
 `verification.md` discovery exactly as the fix loop's step 2 records one (D13: `kind: 'gap',
 blocksFeature: false, file: '.claude/rules/verification.md'`), named in ISSUES for "the owner,
@@ -116,7 +116,7 @@ the authority on what the fields ARE; §4 is the dispatch, not a competing spec.
 
 - `.trd-state/<feature>/success-definition.md` — **present → use it. Absent → DERIVE it,
   then proceed.** See 3a.
-- `.claude/verification-notes.md`, the stack hints, the contract text, `.claude/rules/verification.md`
+- `.claude/verification-notes.md`, the stack hints, the contract text, the copy `node .claude/lib/owner-rules.js path verification.md` prints
 - `.trd-state/<feature>/verification-state.json` — for `--resume`
 - `since` — resolved per §8.3
 - `checks`, `checkComments`, `pagesDir` — resolved at step 3b, below (identical to

@@ -157,7 +157,7 @@ none exists.
 | CLI | Invoke the command as a user would, assert on its output (stdout, exit code, files it wrote) |
 | Mobile | Simulator harness — drive the simulated app, capture a screenshot or an accessibility-tree assertion |
 
-**Before applying any of these**, read the project's `CLAUDE.md`, `.claude/rules/stack.md`,
+**Before applying any of these**, read the project's `CLAUDE.md`, the copy `node .claude/lib/owner-rules.js path stack.md` prints,
 and its existing test suites — they may already document how this specific project starts up,
 what ports it uses, and what a passing run looks like. The hint table is a starting point for
 an unfamiliar stack, not a substitute for what the project already says about itself.
@@ -447,7 +447,7 @@ iteration is genuinely newer than the freshness floor, so tier 1 PASSES. The evi
 fresh while describing stale code, which is the precise shape of a false negative this
 whole feature exists to prevent.
 
-So: read `.claude/rules/verification.md` §2 and run the refresh command for the environment
+So: read §2 of the copy `node .claude/lib/owner-rules.js path verification.md` prints and run the refresh command for the environment
 you are verifying against. If that file names no refresh command for it, or marks the
 environment as one the loop may not deploy to, then **say so in your return** — the loop
 must report that it cannot correct against this target rather than iterating into a stall.
@@ -510,7 +510,7 @@ optional — a value written once is a value in git history permanently.
 ## S-2 — the authorization rule
 
 The verifier exercises only a target the project authorizes: an environment listed in
-`.claude/rules/verification.md` §1 (an unlisted one is not authorized), or an explicitly
+§1 of the copy `node .claude/lib/owner-rules.js path verification.md` prints (an unlisted one is not authorized), or an explicitly
 local/ephemeral instance (a dev server the exerciser itself
 starts and stops, a local database, a simulator). Where `verification.md` §1 does not list a
 target, the exerciser produces no artifact and states the reason — "target not listed in
