@@ -5,5 +5,11 @@
     "url": "https://claude.ai/artifact/NP7qsBMgSAkZK7eSdkNnx7",
     "updated_at": "2026-11-09T03:29:00.525Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/ship-custody-gates-merge/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-09T03:57:35.289Z",
+    "command": "/implement-trd"
   }
 }
