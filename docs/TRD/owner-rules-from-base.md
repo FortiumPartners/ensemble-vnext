@@ -94,8 +94,10 @@ How:
   `design.md`, `ship.md`. A test keeps the two lists equal.
 - **Discoveries still name the real file** (`file: '.claude/rules/verification.md'`): the owner
   edits that file, never the base copy.
-- **The `sync-design` ship step is already safe**: it switches to a branch cut from
-  `origin/<base>` before reading `design.md`, so it needs no change.
+- **The `sync-design` ship step reads `design.md` through the lib too**: its unfilled check
+  (step 2) runs before the switch to a branch cut from `origin/<base>` (step 4), so it calls
+  `design-map.js setup --file "$(owner-rules.js path design.md)"`; `design-map.js setup` gained
+  the `--file` option for this.
 - **Rejected:** failing the run on a difference (the owner's call); rewriting the branch's
   `.claude/rules/` files in place (an autonomous edit of owner-governed files, which each of them
   forbids, and it puts rule changes into a feature's diff); merging the base into the branch
@@ -141,6 +143,7 @@ flow; Jest tests over a fixture git repo are its proof.
 | FIX-002 | Wire the verification steps: `/implement-trd` (§3.6a runs `resolve` first and puts its notices in ISSUES; `check-verification-unfilled`, `read-coverage-floor`, §8.3's `stackHints` reads and the live-task evidence refresh instruction read via `owner-rules.js path`), `/verify-build` (step 2 and `--chained`), and `contracts/functional-verification.md` (the loop's agents read `verification.md` and `stack.md` via the `path` form) | O1, O2, O3 | FIX-001 | The three files (core and vendored, identical) name `owner-rules.js`; no read of `.claude/rules/verification.md` or `stack.md` in the verification pass is left naming the raw path; a notice is an ISSUES line, never a stop |
 | FIX-003 | Wire the ship steps: `/ship-build` runs `resolve` before Step 3, passes `"$(owner-rules.js path ship.md)"` to `ship-sequencer.js start --policy`, and puts notices in ISSUES; `ship-primitive-release.md` reads `verification.md` and `ship-primitive-close-issue.md` reads `stack.md` via the `path` form | O1, O2, O3 | FIX-001 | `ship-build.md` and both contracts (core and vendored, identical) name `owner-rules.js`; `--policy` no longer takes `.claude/rules/ship.md` |
 | FIX-004 | A wiring test asserting the verification and ship files call `owner-rules.js` and read through it, and that each vendored copy equals its source; CHANGELOG Unreleased entry | O1, O4 | FIX-002, FIX-003 | Test fails if any wired file drops `owner-rules.js` or hands `.claude/rules/ship.md` to `--policy`; CHANGELOG names issue #90 |
+| AMEND-001 | [test-gap] FIX-004: wiring test asserts the functional-verification contract contains `owner-rules.js path verification.md` once, not at each read; reverting either of the two verification.md reads (lines ~450 and ~513) would still pass. Add a test that every verification.md read site in packages/core/contracts/functional-verification.md uses the path form (or that no raw .claude/rules/verificatio — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/commands/owner-rules-wiring.test.js:31-34 (toContain only); packages/core/contracts/functional-verification.md:450,513) | amendment — no objective recorded | None | [test-gap] FIX-004: wiring test asserts the functional-verification contract contains `owner-rules.js path verification.md` once, not at each read; reverting either of the two verification.md reads (lines ~450 and ~513) would still pass. Add a test that every verification.md read site in packages/core/contracts/functional-verification.md uses the path form (or that no raw .claude/rules/verificatio no longer holds |
 
 ## Task Grounding
 
@@ -159,7 +162,7 @@ flow; Jest tests over a fixture git repo are its proof.
 - **Careful:** `runtime-integrity.test.sh` requires `.claude/commands/implement-trd.md` to equal its source — copy after editing [read]
 
 ### FIX-003
-- **Touches:** `packages/core/commands/ship-build.md`, `packages/core/contracts/ship-primitive-release.md`, `packages/core/contracts/ship-primitive-close-issue.md`, `.claude/commands/ship-build.md`, `.claude/contracts/ship-primitive-release.md`, `.claude/contracts/ship-primitive-close-issue.md`
+- **Touches:** `packages/core/commands/ship-build.md`, `packages/core/contracts/ship-primitive-release.md`, `packages/core/contracts/ship-primitive-close-issue.md`, `packages/core/contracts/ship-primitive-sync-design.md`, `packages/core/lib/design-map.js`, `packages/core/lib/design-map.test.js`, `.claude/commands/ship-build.md`, `.claude/contracts/ship-primitive-release.md`, `.claude/contracts/ship-primitive-close-issue.md`, `.claude/contracts/ship-primitive-sync-design.md`, `.claude/lib/design-map.js`
 - **Reuse:** `ship-build.md` Step 3's `start --policy` call; the release contract's `readFullDeploy` snippet; close-issue step 1 [read]
 - **Replaces:** `--policy .claude/rules/ship.md`; `readFileSync(".claude/rules/verification.md")`; the close-issue `stack.md` read [read]
 - **Follow:** no `--base` from `ship-build` (the lib's own lookup finds the open PR's base) [inferred]
@@ -172,9 +175,22 @@ flow; Jest tests over a fixture git repo are its proof.
 - **Follow:** repo root via `path.join(__dirname, '..', '..', '..')` [inferred]
 - **Careful:** assert stable tokens only, so ordinary prose edits do not break the test
 
+### AMEND-001
+
+- **Touches:** `packages/core/commands/owner-rules-wiring.test.js`, `packages/core/lib/owner-rules.wiring.test.js`
+- **Careful:** test-only change; the contracts themselves already read through `owner-rules.js path` [read]
+
 ## Could Not Verify
 
-- That a live `/verify-build` session follows the new prose — Jest proves the instruction is
-  present, not that a model obeys it.
-- The Storybook reproduction itself (another product's `develop` branch) — reproduced in shape
-  by the fixture repo, not on that repository.
+After `/audit-build` (2026-11-08; 5 of 5 verifiers reported; 9 requirements and 4 tasks indexed):
+
+- **Product fidelity and omission.** No PRD exists for this change (it was decided by the
+  owner's delegate from issue #90), so the audit checked the delivered code against this TRD only,
+  never against product requirements.
+- **That a live `/verify-build`, `/implement-trd` or `/ship-build` session follows the new prose.**
+  Out of scope for a code audit: Jest proves each instruction is present, not that a model obeys
+  it. The wiring tests also check presence of the `path` form per file, not every call site (the
+  functional-verification contract has three reads; reverting one of the two `verification.md`
+  reads would still pass).
+- **The Storybook reproduction itself** (another product's `develop` branch). Out of scope:
+  reproduced in shape by the fixture repo in `owner-rules.test.js`, not on that repository.
