@@ -1,0 +1,112 @@
+{
+  "feature": "fix-ship-run-record-after-merge",
+  "prd": "docs/TRD/fix-ship-run-record-after-merge.md § Reproduction",
+  "definitionPath": ".trd-state/fix-ship-run-record-after-merge/success-definition.md",
+  "outcome": "satisfied",
+  "reason": "no gaps remain — every criterion is met or not verifiable here",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "After a merge stop is recorded and the branch and tracked shipped.json are deleted, start --resume continues the same run at step 3",
+      "cites": "§Reproduction line 27; lines 8-13; lines 20, 23",
+      "status": "met",
+      "artifact": ".trd-state/fix-ship-run-record-after-merge/evidence/fs1-5-transcript.txt",
+      "reason": "After branch delete and tracked shipped.json removal, start --resume returned resumed:true and status shows push:pushed open-pr:opened merge:stop with cursor at step \"3\".",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "statement": "Recording merge stop with data.merged true moves the run record to a detached copy independent of the tracked file and branch",
+      "cites": "§Reproduction lines 31-35",
+      "status": "met",
+      "artifact": ".trd-state/fix-ship-run-record-after-merge/evidence/fs1-5-transcript.txt",
+      "reason": "The record call returned a recordPath under .git/ensemble/ship/f/; the detached file lists merge with result stop and data.merged true, outside the tracked state dir, and it survived deleting the branch and the tracked file.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "statement": "A finished run on old-branch is not loaded by start --resume --branch new-branch: no resumed, status running",
+      "cites": "§Reproduction lines 27-28; lines 14-16; line 21",
+      "status": "met",
+      "artifact": ".trd-state/fix-ship-run-record-after-merge/evidence/fs1-5-transcript.txt",
+      "reason": "With old-branch done, start --resume --branch new-branch returned {\"ok\":true,\"status\":\"running\",\"errors\":[],\"policy\":\"ship.md\"} with no resumed key.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "statement": "After FS-3 start, status reports the new running run on new-branch, not old-branch done",
+      "cites": "§Reproduction line 24; lines 36-38",
+      "status": "met",
+      "artifact": ".trd-state/fix-ship-run-record-after-merge/evidence/fs1-5-transcript.txt",
+      "reason": "Status right after shows status running, shipped false, cursor at step 1 with every step result null: a fresh run, not old-branch's done run.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "statement": "A custody anchor move made after merge survives deletion of the branch and tracked state dir",
+      "cites": "§Reproduction lines 39-42",
+      "status": "met",
+      "artifact": ".trd-state/fix-ship-run-record-after-merge/evidence/fs1-5-transcript.txt",
+      "reason": "Anchor moved after merge from 232ecb2 to 719336d in the detached custody file; after .trd-state was deleted, custody reconcile reads anchor 719336da8431a8200b3fc3820e7eeeccc8342751.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "statement": "repro.sh exits 0",
+      "cites": "§Reproduction line 28",
+      "status": "met",
+      "artifact": ".trd-state/fix-ship-run-record-after-merge/evidence/fs6-repro-run.txt",
+      "reason": "repro.sh output: block 1 OK, block 2 OK, EXIT STATUS: 0.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  },
+  "mustPass": [
+    "FS-1",
+    "FS-2",
+    "FS-3",
+    "FS-4",
+    "FS-5",
+    "FS-6"
+  ],
+  "mustPassUncovered": []
+}
