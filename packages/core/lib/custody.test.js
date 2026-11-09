@@ -682,7 +682,8 @@ describe('reconcile: base, head and set-only', () => {
     s.commit('unverified change', { 'src/b.js': 'b3' });
     s.commit('prettier', { 'src/a.js': 'a1 ' });
     reconcile(s.args({ reason: 'format' }));
-    expect(s.readCustody().moves[0].rule).not.toBe('format');
+    // Pin the rule that did apply: a bare .not.toBe('format') would also pass for any other (wrong) rule.
+    expect(s.readCustody().moves.map((m) => m.rule)).toEqual(['no-success-definition']);
   });
 
   test('--set-only sets an absent anchor and never moves an existing one', () => {

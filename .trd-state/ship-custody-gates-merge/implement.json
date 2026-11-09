@@ -85,6 +85,33 @@
       "started_at": "2026-11-09T03:29:54.314Z",
       "completed_at": "2026-11-09T03:43:20.344Z",
       "last_advanced": "2026-11-09T03:35:24.075Z"
+    },
+    "AMEND-001": {
+      "description": "AMEND-001 test-gap from /audit-build",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitives.test.js",
+        "packages/core/lib/custody.test.js"
+      ],
+      "last_advanced": "2026-11-09T05:43:49.314Z",
+      "current_problem": null,
+      "completed_at": "2026-11-09T05:44:03.853Z"
+    },
+    "AMEND-002": {
+      "description": "AMEND-002 test-gap from /audit-build",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-sequencer.test.js"
+      ],
+      "last_advanced": "2026-11-09T05:43:49.314Z",
+      "current_problem": null,
+      "completed_at": "2026-11-09T05:44:03.863Z"
     }
   },
   "checkpoints": [

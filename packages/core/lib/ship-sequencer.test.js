@@ -610,6 +610,26 @@ describe('detach-on', () => {
     expect(r.recordPath).toBe(path.join(repoState(root), 'shipped.json'));
   });
 
+  test('a contract without detach-on in a git repo keeps only the tracked file (FIX-002 acceptance 4)', () => {
+    const root = makeRepo();
+    const p = path.join(tmp, 'ship.md');
+    fs.writeFileSync(p, policy('1. alpha\n2. india'));
+    const o = { stateDir: repoState(root), policyPath: p, contractsDir, work: { kind: 'feature', id: 'f', trd: 'docs/TRD/f.md', branch: 'feature' } };
+    expect(seq.start(o).ok).toBe(true);
+    const opts = authOpts();
+    const r1 = step(root, '1', 'done', opts);
+    const r2 = step(root, '2', 'gone', opts);
+    const file = path.join(repoState(root), 'shipped.json');
+    expect(r1.recordPath).toBe(file);
+    expect(r2.recordPath).toBe(file);
+    const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+    expect(saved.detached).toBeUndefined();
+    expect(saved.cursor).not.toEqual({ step: '1', pass: 1 }); // the tracked file carries the progress
+    expect(seq.status(repoState(root))).toMatchObject({ status: 'done', shipped: true, recordPath: file });
+    // Nothing was written under the git common dir by the sequencer.
+    expect(fs.existsSync(path.join(root, '.git', 'ensemble'))).toBe(false);
+  });
+
   test('status still reads the detached record after the branch is merged and deleted', () => {
     const root = makeRepo();
     const o = startIn(root);

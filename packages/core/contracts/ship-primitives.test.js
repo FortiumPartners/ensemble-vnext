@@ -161,9 +161,8 @@ describe('the custody gate (ship-custody-gate.md)', () => {
   });
   test('refused returns stop, and reused and excused are reported in data.custody', () => {
     expect(gateFlat).toMatch(/refused[^.]*stop/);
-    expect(gateFlat).toMatch(/reused/);
-    expect(gateFlat).toMatch(/excused/);
-    expect(gateFlat).toMatch(/data\.custody/);
+    // tie both id lists to data.custody; bare /reused/ and /excused/ match any prose that mentions them
+    expect(gateFlat).toMatch(/`reused` ids[^.]*`excused` paths[^.]*`data\.custody`/);
   });
   test('forbids a commit or push between the gate and the act it guards', () => {
     expect(gateFlat).toMatch(/Do not commit or push anything between the gate and the act it guards/);
@@ -207,6 +206,8 @@ describe('merge', () => {
     const iHead = t.indexOf('--link pr-head');
     const iMerge = t.indexOf('gh pr merge <pr> --<method>');
     const iLink = t.indexOf('--link merge');
+    // indexOf is -1 when a marker is missing, which would satisfy the < comparisons below
+    for (const i of [iGate, iHead, iMerge, iLink]) expect(i).toBeGreaterThan(-1);
     expect(iGate).toBeLessThan(iHead);
     expect(iHead).toBeLessThan(iMerge);
     expect(iMerge).toBeLessThan(iLink);
@@ -220,7 +221,7 @@ describe('merge', () => {
     expect(t).toMatch(/Commit and push nothing between the gate and `gh pr merge`/);
   });
   test('passes --head with the PR headRefOid to the gate', () => {
-    expect(t).toMatch(/--head <PR headRefOid>|--head/);
+    expect(t).toMatch(/`--head` set to the PR's `headRefOid`/);
   });
   test('an already MERGED PR still skips to the merge proof', () => {
     expect(t).toMatch(/Already `MERGED`[^]*skip to step 3/);
@@ -414,7 +415,7 @@ describe('ship-build Step 5 after a merge (FIX-004)', () => {
   });
   test('names the record under the git directory via recordPath', () => {
     expect(t).toMatch(/recordPath/);
-    expect(t).toMatch(/git common directory|git directory/);
+    expect(t).toMatch(/untracked file under the git common directory/);
     expect(t).toMatch(/data\.custody/);
   });
 });
