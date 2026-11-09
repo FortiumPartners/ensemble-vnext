@@ -92,7 +92,7 @@
         "packages/core/commands/owner-rules-wiring.test.js",
         "packages/core/lib/owner-rules.wiring.test.js"
       ],
-      "commit": null,
+      "commit": "1d088ad4e1a577981b8be1cf7cc22ec601694782",
       "current_problem": null,
       "completed_at": "2026-11-09T04:02:10.479Z",
       "status": "success",
@@ -109,11 +109,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-09T03:35:07.260Z"
+    },
+    {
+      "phase": 1,
+      "commit": "1d088ad4e1a577981b8be1cf7cc22ec601694782",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-09T04:04:20.638Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "92dccd8375682054c92fd2656509f1e7d6e6f6db",
-    "last_checkpoint_timestamp": "2026-11-09T03:35:07.260Z",
+    "last_healthy_checkpoint": "1d088ad4e1a577981b8be1cf7cc22ec601694782",
+    "last_checkpoint_timestamp": "2026-11-09T04:04:20.638Z",
     "interrupted": false,
     "interrupt_reason": null
   },
