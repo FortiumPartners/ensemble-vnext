@@ -4,7 +4,7 @@
   "trd_hash": "4ac8b4304960b503230bc0b87a33921254e74ecbb649491187db362a19b55574",
   "branch": "feature/0-fix-ship-merge-record-clash",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "record-files.js lib + custody uses isRecordFile",
@@ -62,10 +62,19 @@
       "last_advanced": "2026-11-10T21:39:57.941Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "1bfb2d1ba860177af28786dbb39e5dfe22e102a2",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-10T22:00:18.650Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "33cd8c8",
-    "last_checkpoint_timestamp": "2026-11-10T21:35:44.152Z",
+    "last_healthy_checkpoint": "1bfb2d1ba860177af28786dbb39e5dfe22e102a2",
+    "last_checkpoint_timestamp": "2026-11-10T22:00:18.650Z",
     "interrupted": false,
     "interrupt_reason": null
   },
