@@ -226,11 +226,12 @@ describe('merge', () => {
   test('an already MERGED PR still skips to the merge proof', () => {
     expect(t).toMatch(/Already `MERGED`[^]*skip to step 4/);
   });
-  test('step 1 brings the base in before the gate: mergeable read, MERGED skip, UNKNOWN poll, merge-base-in, push, head wait, CI wait', () => {
+  test('step 1 brings the base in before the gate: mergeable read, MERGED skip, UNKNOWN poll, base fetch, merge-base-in, push, head wait, CI wait', () => {
     const marks = [
       '--json mergeable,state',
       '`MERGED`',
       '`UNKNOWN`',
+      'git fetch origin <base>',
       'record-files.js merge-base-in',
       'git push',
       'until it equals the pushed commit',

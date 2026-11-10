@@ -139,6 +139,31 @@ describe('mergeBase', () => {
     expect(text).not.toMatch(/<<<<<<</);
   });
 
+  test('a record file deleted on one side: stopped, names the file, branch unchanged', () => {
+    const s = setup(base);
+    s.commit('f', { [NOTES]: 'one\nfeature\n' });
+    git(s.repo, 'checkout', 'main');
+    git(s.repo, 'rm', '-q', NOTES);
+    git(s.repo, 'commit', '-m', 'rm');
+    git(s.repo, 'checkout', 'feature/x');
+    const head = git(s.repo, 'rev-parse', 'HEAD');
+    const r = mergeBase(s.opts(), s.repo);
+    expect(r).toMatchObject({ ok: false, outcome: 'stopped' });
+    expect(r.reason).toContain(NOTES);
+    expect(git(s.repo, 'rev-parse', 'HEAD')).toBe(head);
+    expect(git(s.repo, 'status', '--porcelain')).toBe('');
+  });
+
+  test('run from a subdirectory: the resolved file is written at the top level', () => {
+    const s = setup({ ...base, 'src/keep.txt': 'k\n' });
+    s.commit('f', { [NOTES]: 'one\nfeature\n' });
+    s.onMain('b', { [NOTES]: 'one\nbase\n' });
+    const r = mergeBase(s.opts(), path.join(s.repo, 'src'));
+    expect(r).toMatchObject({ ok: true, outcome: 'resolved' });
+    expect(fs.readFileSync(path.join(s.repo, NOTES), 'utf8')).toBe('one\nfeature\nbase\n');
+    expect(fs.existsSync(path.join(s.repo, 'src', NOTES))).toBe(false);
+  });
+
   describe('refusals', () => {
     test('wrong current branch', () => {
       const s = setup(base);

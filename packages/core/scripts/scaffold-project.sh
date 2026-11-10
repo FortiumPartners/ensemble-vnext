@@ -1822,16 +1822,17 @@ refresh_project() {
     refresh_rules "$(pwd)"
     echo ""
 
+    # Owner-ruled exception to "never create" above: see ensure_gitattributes().
+    echo "--- Git Attributes ---"
+    ensure_gitattributes
+    echo ""
+
     # Stamped only once every copy step above has completed successfully.
     # `set -euo pipefail` already enforces this — any failure above exits
     # the script before this line is reached — but the ordering is
     # deliberate: docs/TRD/runtime-refresh.md §7 flags "partial copy leaves
     # a mixed runtime" as a risk, and stamping first would make a
     # half-applied refresh look complete.
-    echo "--- Git Attributes ---"
-    ensure_gitattributes
-    echo ""
-
     echo "--- Version Stamp ---"
     stamp_ensemble_version "$(pwd)"
     echo ""

@@ -28,8 +28,10 @@ Merges the pull request and proves that what merged is what was verified (D11, D
      until it reads `MERGEABLE` or `CONFLICTING`. Still `UNKNOWN` after the polls: skip this step.
    - `MERGEABLE`: skip this step.
    - `CONFLICTING`: run, from the project root, with `<branch>` and `<PR head>` read from
-     `gh pr view <pr> --json headRefName,headRefOid`:
+     `gh pr view <pr> --json headRefName,headRefOid`. Fetch the base first, so the merge brings
+     in the base GitHub compared against, not a stale local copy:
      ```bash
+     git fetch origin <base>
      node .claude/lib/record-files.js merge-base-in --base origin/<base> --branch <branch> \
        --pr-head <PR head>
      ```
@@ -37,8 +39,9 @@ Merges the pull request and proves that what merged is what was verified (D11, D
      `.gitattributes` applies, and resolves clashes only in record files (the notes file and
      `.trd-state/`), keeping the feature's lines then the base's. `ok: false` returns `stop`
      naming `notRecord` or `invalidJson` (the files it will not resolve) or its `reason`; the
-     branch is left as it was. `ok: true` carries `head`, the merge commit (or the unchanged
-     head when the merge was clean). Then, in order: `git push origin <branch>`; poll
+     branch is left as it was. `ok: true` carries `head`: the new merge commit, or the
+     unchanged head only when the branch already contained the base. Then, in order:
+     `git push origin <branch>`; poll
      `gh pr view <pr> --json headRefOid` up to 8 times, 15s apart, until it equals the pushed
      commit (still different: `stop`); and wait for the new head's checks as `wait-ci` does
      (`ship-primitive-wait-ci.md`: `gh pr checks <pr>`, `Monitor`, `timeout_ms: 1800000`). A CI

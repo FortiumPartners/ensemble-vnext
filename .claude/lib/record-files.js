@@ -92,8 +92,12 @@ function unionOf(p, cwd, tmpDir) {
  *   `refused` means nothing was attempted; `stopped` means the merge was attempted and aborted.
  *   Either way HEAD and the working tree are as they were.
  */
-function mergeBase({ base, branch, prHead }, cwd = process.cwd()) {
+function mergeBase({ base, branch, prHead }, dir = process.cwd()) {
   if (!base || !branch || !prHead) return refuse('merge-base-in needs --base, --branch and --pr-head');
+  // git reports unmerged paths relative to the top level; work from there so writes land on them.
+  const top = git(['rev-parse', '--show-toplevel'], dir);
+  if (!top.ok) return refuse(`not a git work tree: ${top.err}`);
+  const cwd = top.out;
   const cur = git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd);
   if (!cur.ok || cur.out !== branch) return refuse(`current branch is ${cur.out || 'unknown'}, not ${branch}`);
   if (!git(['merge-base', '--is-ancestor', prHead, 'HEAD'], cwd).ok) {
