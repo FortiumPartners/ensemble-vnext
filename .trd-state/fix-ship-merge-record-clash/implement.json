@@ -1,0 +1,103 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/fix-ship-merge-record-clash.md",
+  "trd_hash": "4ac8b4304960b503230bc0b87a33921254e74ecbb649491187db362a19b55574",
+  "branch": "feature/0-fix-ship-merge-record-clash",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "record-files.js lib + custody uses isRecordFile",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/record-files.js",
+        "packages/core/lib/record-files.test.js",
+        "packages/core/lib/custody.js",
+        "packages/full/lib/record-files.js",
+        ".claude/lib/record-files.js",
+        ".claude/lib/custody.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-10T21:35:44.152Z",
+      "completed_at": "2026-11-10T21:51:58.575Z",
+      "last_advanced": "2026-11-10T21:39:57.941Z"
+    },
+    "FIX-002": {
+      "description": "ship-primitive-merge.md new step 1",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitive-merge.md",
+        ".claude/contracts/ship-primitive-merge.md",
+        "packages/core/contracts/ship-primitives.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-10T21:35:44.152Z",
+      "completed_at": "2026-11-10T21:51:58.576Z",
+      "last_advanced": "2026-11-10T21:39:57.941Z"
+    },
+    "FIX-003": {
+      "description": "ensure_gitattributes in scaffold-project.sh",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/templates/gitattributes-additions.txt",
+        ".gitattributes"
+      ],
+      "commit": null,
+      "started_at": "2026-11-10T21:35:44.152Z",
+      "completed_at": "2026-11-10T21:51:58.576Z",
+      "last_advanced": "2026-11-10T21:39:57.941Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": "33cd8c8",
+    "last_checkpoint_timestamp": "2026-11-10T21:35:44.152Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/fix-ship-merge-record-clash.md § Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, node installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude + scaffold script installed"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool always available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login present; deferred by owner for this TRD"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}

@@ -2768,3 +2768,28 @@ PY
     diff -q "$f" "$REPO_ROOT/.claude/commands/init-project.md"
     diff -q "$f" "$REPO_ROOT/packages/full/commands/plugin-only/init-project.md"
 }
+
+@test "gitattributes: scaffold and --refresh keep the record-file union line, once, without touching other lines" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+    local union='.claude/verification-notes.md merge=union'
+
+    # Fresh scaffold writes the line.
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    grep -qxF "$union" "$TEST_DIR/.gitattributes"
+
+    # A target with only a binary rule and no trailing newline keeps it as line 1.
+    printf '*.png binary' > "$TEST_DIR/.gitattributes"
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ "$(sed -n 1p "$TEST_DIR/.gitattributes")" = "*.png binary" ]
+    [ "$(sed -n 2p "$TEST_DIR/.gitattributes")" = "$union" ]
+
+    # A second refresh adds nothing.
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ "$(grep -cxF "$union" "$TEST_DIR/.gitattributes")" -eq 1 ]
+    [ "$(wc -l < "$TEST_DIR/.gitattributes" | tr -d ' ')" -eq 2 ]
+    [ "${lines[${#lines[@]}-1]%% *}" = "REFRESH_SUMMARY" ]
+}

@@ -20,12 +20,35 @@ Merges the pull request and proves that what merged is what was verified (D11, D
 
 ## Do
 
-1. **Run the custody gate first**, as `ship-custody-gate.md` says, with `--head` set to the PR's
+1. **Bring the base in when the PR has clashed with it**, before the gate. Read
+   `gh pr view <pr> --json mergeable,state`.
+   - `MERGED` (a merge whose proof failed, or one done outside this run): skip this step. This
+     check comes first because a merged PR reads `UNKNOWN` forever.
+   - `UNKNOWN` (GitHub has not computed it yet): poll the same command up to 8 times, 15s apart,
+     until it reads `MERGEABLE` or `CONFLICTING`. Still `UNKNOWN` after the polls: skip this step.
+   - `MERGEABLE`: skip this step.
+   - `CONFLICTING`: run, from the project root, with `<branch>` and `<PR head>` read from
+     `gh pr view <pr> --json headRefName,headRefOid`:
+     ```bash
+     node .claude/lib/record-files.js merge-base-in --base origin/<base> --branch <branch> \
+       --pr-head <PR head>
+     ```
+     It performs a real local `git merge --no-ff --no-commit` of the base, so the project's
+     `.gitattributes` applies, and resolves clashes only in record files (the notes file and
+     `.trd-state/`), keeping the feature's lines then the base's. `ok: false` returns `stop`
+     naming `notRecord` or `invalidJson` (the files it will not resolve) or its `reason`; the
+     branch is left as it was. `ok: true` carries `head`, the merge commit (or the unchanged
+     head when the merge was clean). Then, in order: `git push origin <branch>`; poll
+     `gh pr view <pr> --json headRefOid` up to 8 times, 15s apart, until it equals the pushed
+     commit (still different: `stop`); and wait for the new head's checks as `wait-ci` does
+     (`ship-primitive-wait-ci.md`: `gh pr checks <pr>`, `Monitor`, `timeout_ms: 1800000`). A CI
+     failure on the new head is a `stop`, so the merge never runs on red.
+2. **Run the custody gate**, as `ship-custody-gate.md` says, with `--head` set to the PR's
    `headRefOid`, before reading the PR's state: a PR merged by hand while the run was parked
    still re-anchors before the merge-link proof. A gate stop returns `stop` before `gh pr merge`,
    so the PR stays unmerged. Commit and push nothing between the gate and `gh pr merge`.
-2. Read `gh pr view <pr> --json state`. Already `MERGED` (a merge whose proof failed, or one
-   done outside this run): skip to step 3. Otherwise check the open PR's own head first:
+3. Read `gh pr view <pr> --json state`. Already `MERGED` (a merge whose proof failed, or one
+   done outside this run): skip to step 4. Otherwise check the open PR's own head first:
    ```bash
    node .claude/lib/custody.js check --state-dir <work.stateDir> --link pr-head --pr <pr> \
      --trd <work.trd|none>
@@ -38,16 +61,16 @@ Merges the pull request and proves that what merged is what was verified (D11, D
    A commit pushed to the PR since verification still fails the link or the match, so it is never
    merged unverified. A merge failure, branch protection included, returns `stop` with `gh`'s
    message. Never bypass protection.
-3. Prove the merge link:
+4. Prove the merge link:
    ```bash
    node .claude/lib/custody.js check --state-dir <work.stateDir> --link merge --pr <pr> \
      --target <base> --trd <work.trd|none>
    ```
    `ok: false` returns `stop` with the reason and the differing files.
-4. The merged head is the PR's `headRefOid` read from `gh pr view <pr> --json headRefOid,state`.
+5. The merged head is the PR's `headRefOid` read from `gh pr view <pr> --json headRefOid,state`.
 
-**One rule for every stop.** Before returning any `stop` from this contract (a custody-gate stop,
-a pr-head failure, a `gh pr merge` failure, a merge-link failure), read
+**One rule for every stop.** Before returning any `stop` from this contract (a `merge-base-in` stop, a failed push, a head wait that times out, a CI failure on the new head,
+a custody-gate stop, a pr-head failure, a `gh pr merge` failure, a merge-link failure), read
 `gh pr view <pr> --json state` again. When it reads `MERGED`, that stop carries
 `data: { merged: true, base }`, so the run record can still leave the tracked tree.
 

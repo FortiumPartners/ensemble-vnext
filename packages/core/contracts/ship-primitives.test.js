@@ -224,7 +224,31 @@ describe('merge', () => {
     expect(t).toMatch(/`--head` set to the PR's `headRefOid`/);
   });
   test('an already MERGED PR still skips to the merge proof', () => {
-    expect(t).toMatch(/Already `MERGED`[^]*skip to step 3/);
+    expect(t).toMatch(/Already `MERGED`[^]*skip to step 4/);
+  });
+  test('step 1 brings the base in before the gate: mergeable read, MERGED skip, UNKNOWN poll, merge-base-in, push, head wait, CI wait', () => {
+    const marks = [
+      '--json mergeable,state',
+      '`MERGED`',
+      '`UNKNOWN`',
+      'record-files.js merge-base-in',
+      'git push',
+      'until it equals the pushed commit',
+      'wait-ci',
+    ].map((m) => t.indexOf(m));
+    for (const i of marks) expect(i).toBeGreaterThan(-1);
+    const iGate = t.indexOf('ship-custody-gate.md');
+    for (let k = 1; k < marks.length; k += 1) expect(marks[k - 1]).toBeLessThan(marks[k]);
+    expect(marks[marks.length - 1]).toBeLessThan(iGate);
+    // a merged PR reads UNKNOWN forever, so the MERGED skip must come before the poll
+    expect(t).toMatch(/`MERGED`[^]*skip[^]*`UNKNOWN`[^]*8 times, 15s apart/);
+    expect(t).toMatch(/`CONFLICTING`/);
+  });
+  test('the ok: false stop of merge-base-in names the paths', () => {
+    expect(t).toMatch(/`ok: false` returns `stop` naming `notRecord` or `invalidJson`/);
+  });
+  test('the new stops are listed under "One rule for every stop"', () => {
+    expect(t).toMatch(/One rule for every stop[^]*merge-base-in[^]*push[^]*(head wait|headRefOid)[^]*CI/);
   });
   test('declares detach-on: merged, and says the record leaves the tracked tree after merged', () => {
     expect(text('merge')).toMatch(/^detach-on:\s*merged$/m);
