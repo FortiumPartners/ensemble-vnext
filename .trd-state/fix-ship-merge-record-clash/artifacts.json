@@ -5,5 +5,17 @@
     "url": "https://claude.ai/artifact/6pmNcv5FJV4gJNx6bTUdyY",
     "updated_at": "2026-11-10T01:51:49.569Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/fix-ship-merge-record-clash/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-10T22:00:28.269Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/fix-ship-merge-record-clash/verification-report.md",
+    "url": "https://claude.ai/artifact/6iYgx1PpFPPpxziktynwda",
+    "updated_at": "2026-11-10T22:09:01.202Z",
+    "command": "/implement-trd"
   }
 }
