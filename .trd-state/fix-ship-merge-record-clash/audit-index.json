@@ -1,0 +1,151 @@
+{
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "Add packages/core/lib/record-files.js (isRecordFile, classifyClash, mergeBase, CLI verb merge-base-in); make custody.classifyPath use isRecordFile and delete custody's own list; symlink into packages/full/lib/ and copy both libs to .claude/lib/; add packages/core/lib/record-files.test.js",
+      "touches": [
+        "packages/core/lib/record-files.js",
+        "packages/core/lib/record-files.test.js",
+        "packages/core/lib/custody.js",
+        "packages/full/lib/record-files.js",
+        "packages/full/lib/custody.js (named in grounding as .claude/lib counterpart only; see Touches line)",
+        ".claude/lib/record-files.js",
+        ".claude/lib/custody.js"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "Add the new step 1 to packages/core/contracts/ship-primitive-merge.md (read mergeable/state, MERGED skip, bounded UNKNOWN poll, on CONFLICTING run merge-base-in, push, poll headRefOid, wait CI), renumber the rest, extend One rule for every stop, mirror to .claude/contracts/, and update ship-primitives.test.js",
+      "touches": [
+        "packages/core/contracts/ship-primitive-merge.md",
+        ".claude/contracts/ship-primitive-merge.md",
+        "packages/core/contracts/ship-primitives.test.js"
+      ]
+    },
+    {
+      "id": "FIX-003",
+      "description": "Add ensure_gitattributes() to scaffold-project.sh, reading packages/core/templates/gitattributes-additions.txt, called from scaffold_project() and refresh_project(); add a BATS case; add this repo's root .gitattributes with the line",
+      "touches": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/templates/gitattributes-additions.txt",
+        ".gitattributes"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "A scaffolded project's root .gitattributes carries '.claude/verification-notes.md merge=union', on initial scaffold and on --refresh: created when absent, line appended when missing, no other line changed or reordered, line never duplicated. Must pass: yes.",
+      "source": "TRD Objectives O1 (owner brief 2026-11-09, expected change 1)",
+      "served_by": [
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "When /ship-build's merge step finds the PR unable to merge with its base and the only clashes are in record files (.claude/verification-notes.md, anything under .trd-state/), it merges the base in, keeps both sides of each clashing file, commits, pushes and waits for CI on the new head, then runs the custody gate and merges, instead of stopping. Must pass: yes.",
+      "source": "TRD Objectives O2 (owner brief 2026-11-09, expected change 2)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "When any other path clashes, or a resolved .json record file does not parse, the merge step leaves the branch as it was and stops, naming the offending paths. Must pass: yes.",
+      "source": "TRD Objectives O3 (owner brief 2026-11-09, expected change 2 and decision on JSON)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O4",
+      "statement": "The record-file rule is one exported definition that custody.classifyPath and the clash check both use, so the two cannot disagree. Must pass: not marked.",
+      "source": "TRD Objectives O4 (owner brief 2026-11-09, 'ONE shared definition')",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC-a",
+      "statement": "Temp repos: branch and base both edit .claude/verification-notes.md and .trd-state/current.json -> classifyClash says recordOnly true; a clash in src/app.js -> mergeBase returns ok false, outcome stopped, notRecord [src/app.js], HEAD and git status --porcelain unchanged.",
+      "source": "TRD Master Task List, FIX-001 acceptance criteria (a)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC-b",
+      "statement": "A notes-only clash -> outcome resolved; a new merge commit whose notes file holds the feature line then the base line, with no conflict markers.",
+      "source": "TRD Master Task List, FIX-001 acceptance criteria (b)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC-c",
+      "statement": "A .trd-state/x.json clash whose union is invalid JSON -> ok false naming that file, branch unchanged.",
+      "source": "TRD Master Task List, FIX-001 acceptance criteria (c)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC-d",
+      "statement": "The same notes clash with a .gitattributes union line -> outcome clean, both lines kept.",
+      "source": "TRD Master Task List, FIX-001 acceptance criteria (d)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC-e",
+      "statement": "Wrong current branch, a --pr-head not in HEAD, or an uncommitted change to src/app.js -> refused, HEAD unchanged; an uncommitted change under .trd-state/ that the merge does not touch -> allowed and still uncommitted afterwards.",
+      "source": "TRD Master Task List, FIX-001 acceptance criteria (e)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC-f",
+      "statement": "For .claude/verification-notes.md, .trd-state/x/y.json, .trd-statex/file, .claude/other.md and src/app.js: isRecordFile is true exactly for the first two, and custody.classifyPath (no TRD) returns ignored exactly for those two.",
+      "source": "TRD Master Task List, FIX-001 acceptance criteria (f)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC-g",
+      "statement": "custody.js requires ./record-files and contains no FRAMEWORK_WRITTEN.",
+      "source": "TRD Master Task List, FIX-001 acceptance criteria (g)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-002-AC-a",
+      "statement": "ship-primitives.test.js asserts, in text order and before ship-custody-gate.md: --json mergeable,state, the MERGED skip, the bounded UNKNOWN poll, record-files.js merge-base-in, a push, the wait for headRefOid to equal the pushed commit, and the CI wait. Also asserts the ok false stop names the paths and that new stops appear in 'One rule for every stop'. Each new assertion fails against today's contract; existing ordering assertions still pass; 'already MERGED skips to step 3' updated to step 4.",
+      "source": "TRD Master Task List, FIX-002 acceptance criteria",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-003-AC-a",
+      "statement": "One BATS case: fresh scaffold .gitattributes contains the union line; a target with only '*.png binary' and no trailing newline keeps that line as first line and gains the union line on its own line after --refresh; a second --refresh leaves exactly one union line; the full scaffold-project.test.sh suite passes.",
+      "source": "TRD Master Task List, FIX-003 acceptance criteria",
+      "served_by": [
+        "FIX-003"
+      ]
+    }
+  ],
+  "open_questions": [
+    "none (TRD section '## Open Questions' reads verbatim: 'none')"
+  ],
+  "could_not_verify": [
+    "A real GitHub PR's mergeable value and the push, head-poll, CI and gate sequence on a live PR are not exercised; the owner deferred that live check. FIX-002's tests check the contract's text and order only.",
+    "Whether GitHub honours merge=union when computing mergeable is unknown. The design does not depend on it: a CONFLICTING PR whose local merge is clean is merged locally and pushed."
+  ]
+}

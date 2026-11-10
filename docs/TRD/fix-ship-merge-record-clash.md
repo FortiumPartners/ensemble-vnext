@@ -96,7 +96,7 @@ none
 ### FIX-001
 - **Touches:** `packages/core/lib/record-files.js`, `packages/core/lib/record-files.test.js`, `packages/core/lib/custody.js`, `packages/full/lib/record-files.js`, `.claude/lib/record-files.js`, `.claude/lib/custody.js`
 - **Reuse:** custody.js's `run()` pattern: `spawnSync` with an argument array, never a shell `[read]`. The CLI convention: one JSON line on stdout, exit 0 even on refusal (custody.js header) `[read]`. custody.test.js's `tmp()`/`cleanEnv()` temp-repo pattern `[read]`.
-- **Replaces:** `FRAMEWORK_WRITTEN` (custody.js:95) and the inline `.trd-state` test (custody.js:100); both are deleted. Update custody.js's header classification note to point at record-files.js `[read]`.
+- **Replaces:** `FRAMEWORK_WRITTEN` (custody.js:95 at 5bbd2e8) and the inline `.trd-state` test (custody.js:100 at 5bbd2e8); both are deleted, and `classifyPath` now calls `isRecordFile` (custody.js:99). Update custody.js's header classification note to point at record-files.js `[read]`.
 - **Follow:** `packages/full/lib/*.js` entries are symlinks to `../../core/lib/<file>` `[read]`. `.claude/lib/` copies must match their source byte for byte (runtime-integrity.test.sh "every file mirrored into .claude/ matches its packages/ source") `[read]`. record-files.js must not require custody.js (that would be a cycle).
 - **Careful:** `git merge --abort` keeps uncommitted changes in files the merge did not touch, and git refuses a merge that would overwrite a dirty file, so a refusal there is a stop carrying git's message. Read index stages with `git show :1:<p>`, `:2:<p>` and `:3:<p>`; a missing `:1:` means an empty base, and a missing `:2:` or `:3:` means a stop. Commit with `git commit --no-edit`. Test repos set `user.name`/`user.email` locally and run under a clean env.
 
@@ -116,5 +116,9 @@ none
 
 ## Could Not Verify
 
-- A real GitHub PR's `mergeable` value and the push, head-poll, CI and gate sequence on a live PR are not exercised; the owner deferred that live check. FIX-002's tests check the contract's text and order only.
-- Whether GitHub honours `merge=union` when computing `mergeable` is unknown. The design does not depend on it: a `CONFLICTING` PR whose local merge is clean is merged locally and pushed.
+After /audit-build, 2026-11-10:
+
+- A real GitHub PR's `mergeable` value and the push, head-poll, CI and gate sequence on a live PR are not exercised; the owner deferred that live check (Non-Goals). FIX-002's tests check the contract's text and order only. Out of scope for this audit, which reads code and tests in the local tree.
+- Whether GitHub honours `merge=union` when computing `mergeable` is unknown. The design does not depend on it: a `CONFLICTING` PR whose local merge is clean is merged locally and pushed. Out of scope for the same reason.
+- No PRD exists for this change (the source is the owner's 2026-11-09 brief), so the audit checked the delivered code against this TRD only; whether the TRD faithfully and completely captures the owner's brief was not checked.
+- The external references in the header and Non-Goals (GitHub issue 97 on FortiumPartners/ensemble-vnext, workplan feature F-1, islayjames/forge#265) live outside this repository and were not resolved.
