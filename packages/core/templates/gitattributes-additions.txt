@@ -1,0 +1,1 @@
+.claude/verification-notes.md merge=union

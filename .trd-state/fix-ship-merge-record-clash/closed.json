@@ -1,0 +1,12 @@
+{
+  "feature": "fix-ship-merge-record-clash",
+  "trd": "docs/TRD/fix-ship-merge-record-clash.md",
+  "closedAt": "2026-11-10T22:20:19Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (no PRD exists; the change came from the owner's 2026-11-09 brief, so only TRD-to-code traceability was checked); the live GitHub path is unproven (a real PR's `mergeable` value, the push, the head poll and the CI wait on a live PR were deferred by the owner); the external references (issue 97, workplan feature F-1, islayjames/forge#265) were not resolved because they live outside this repository",
+    "report": ".trd-state/fix-ship-merge-record-clash/audit-build-report.md",
+    "auditedCommit": "059e3760bd9770f7873bddb994d464e60962276c"
+  }
+}

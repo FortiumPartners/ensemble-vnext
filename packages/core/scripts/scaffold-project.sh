@@ -1700,6 +1700,45 @@ refresh_rules() {
     info "Refreshed $count framework rules"
 }
 
+# Owner-ruled exception to refresh's "never creates what is absent" rule: a
+# project's .gitattributes must carry the record-file merge lines (today: a
+# union merge for .claude/verification-notes.md) so two branches appending to
+# the same record file do not clash at merge time. Runs in scaffold AND
+# --refresh, so projects scaffolded before the line existed gain it.
+# Lines come from templates/gitattributes-additions.txt, matched whole; any
+# other line in the target's .gitattributes is left exactly as it was. A write
+# failure warns and returns 0: a missing merge hint must not fail a refresh.
+# Callers have already cd'd into the target.
+ensure_gitattributes() {
+    local template="${TEMPLATES_DIR}/gitattributes-additions.txt"
+    local target=".gitattributes"
+    local line
+
+    if [[ ! -f "$template" ]]; then
+        warn "gitattributes template missing — skipping .gitattributes"
+        return 0
+    fi
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        if [[ -f "$target" ]] && grep -qxF -- "$line" "$target"; then
+            continue
+        fi
+        {
+            # A file without a trailing newline would otherwise glue our line onto its last one.
+            if [[ -s "$target" && -n "$(tail -c1 "$target")" ]]; then
+                printf '\n'
+            fi
+            printf '%s\n' "$line"
+        } >> "$target" 2>/dev/null || {
+            warn "Could not write $target — skipping"
+            return 0
+        }
+        info "Added to $target: $line"
+    done < "$template"
+    return 0
+}
+
 # --refresh entry point (RUNTIME-B007..B010).
 #
 # Replaces only components already present under the target's .claude/,
@@ -1781,6 +1820,11 @@ refresh_project() {
 
     echo "--- Framework-Shipped Rules ---"
     refresh_rules "$(pwd)"
+    echo ""
+
+    # Owner-ruled exception to "never create" above: see ensure_gitattributes().
+    echo "--- Git Attributes ---"
+    ensure_gitattributes
     echo ""
 
     # Stamped only once every copy step above has completed successfully.
@@ -1897,6 +1941,10 @@ scaffold_project() {
     else
         echo "  (no framework rules template directory — skipping)"
     fi
+    echo ""
+
+    echo "--- Git Attributes ---"
+    ensure_gitattributes
     echo ""
 
     # Copy plugin content if plugin directory specified

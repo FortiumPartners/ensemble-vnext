@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/fix-ship-merge-record-clash.md",
+    "url": "https://claude.ai/artifact/6pmNcv5FJV4gJNx6bTUdyY",
+    "updated_at": "2026-11-10T01:51:49.569Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/fix-ship-merge-record-clash/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-10T22:15:58.962Z",
+    "command": "/verify-build"
+  },
+  "verification-report": {
+    "path": ".trd-state/fix-ship-merge-record-clash/verification-report.md",
+    "url": "https://claude.ai/artifact/6iYgx1PpFPPpxziktynwda",
+    "updated_at": "2026-11-10T22:15:58.910Z",
+    "command": "/verify-build"
+  },
+  "verification-plan": {
+    "path": ".trd-state/fix-ship-merge-record-clash/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-11-10T22:10:18.144Z",
+    "command": "/refine-verification"
+  },
+  "audit-build": {
+    "path": ".trd-state/fix-ship-merge-record-clash/audit-build-report.md",
+    "url": "https://claude.ai/artifact/LGJbXhMpNcMKDTtE3fRp3f",
+    "updated_at": "2026-11-10T22:20:32.552Z",
+    "command": "/audit-build"
+  }
+}

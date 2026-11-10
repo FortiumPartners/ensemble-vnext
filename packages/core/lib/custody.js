@@ -10,8 +10,8 @@
  * (pr-head, merge, deploy) are each compared to it.
  *
  * CODE EQUALITY (D9, D10): `git diff --no-renames --name-only -z <a> <b>`, each path classified
- *   ignored   anything under `.trd-state/`, the work's TRD, and `.claude/verification-notes.md`
- *             (verifier notes the framework writes itself)
+ *   ignored   a record file (`isRecordFile` in record-files.js: anything under `.trd-state/` and
+ *             `.claude/verification-notes.md`) or the work's TRD
  *   test-only a test file by D10's patterns
  *   shipped   everything else
  * Two commits are equal when no path is `shipped`. `--no-renames` matters: default rename
@@ -61,6 +61,7 @@ const { BUILD_TOKEN } = require('./functional-verification');
 const liveEvidence = require('./live-evidence');
 const implementState = require('./implement-state');
 const recordDirs = require('./ship-record-dir');
+const { isRecordFile } = require('./record-files');
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
 const COMMIT_ID = /^[0-9a-f]{4,40}$/i;
@@ -91,15 +92,12 @@ const TEST_BASENAME = [
   /_spec\.rb$/,
   /_test\.exs$/,
 ];
-// Files the framework itself writes during verification; they are never shipped source.
-const FRAMEWORK_WRITTEN = new Set(['.claude/verification-notes.md']);
 const TEST_SEGMENTS = new Set(['__tests__', '__fixtures__', '__mocks__']);
 
 /** @returns {'ignored'|'test-only'|'shipped'} for a repo-relative, forward-slash path. */
 function classifyPath(p, trdRel) {
-  if (p === '.trd-state' || p.startsWith('.trd-state/')) return 'ignored';
+  if (isRecordFile(p)) return 'ignored';
   if (trdRel && p === trdRel) return 'ignored';
-  if (FRAMEWORK_WRITTEN.has(p)) return 'ignored';
   const segments = p.split('/');
   const base = segments[segments.length - 1];
   if (TEST_BASENAME.some((re) => re.test(base))) return 'test-only';
