@@ -2,13 +2,12 @@
 
 **Source PRD**: docs/TRD/fix-ship-merge-record-clash.md § Intended Change
 **Success definition**: .trd-state/fix-ship-merge-record-clash/success-definition.md
-**Outcome**: Stalled (no full-environment run declared)
-**Reason**: iteration closed no gaps — remediation is not converging
-**Criteria**: 25 total — 24 met, 1 not met, 0 not verifiable, 0 unbuilt
+**Outcome**: Satisfied (1 of 25 not verifiable) (no full-environment run declared)
+**Reason**: no gaps remain — every criterion is met or not verifiable here
+**Criteria**: 25 total — 24 met, 0 not met, 1 not verifiable, 0 unbuilt
 **Coverage**: 24 of 25 proven — uncovered: FS-25
 **Must pass**: 10 of 10 proven
-**Diagnosis**: 1 open — 1 evidence missing
-**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`
+**Next**: `/audit-build`
 
 ## Met
 
@@ -41,11 +40,22 @@
 
 ## Not Met
 
-| ID | Statement | Tier 1 | Reason | Blocker | Attempts |
-|----|-----------|--------|--------|---------|----------|
-| FS-25 | End to end on a real GitHub PR whose only clashes with its base are record files, `/ship-build`'s merge step merges the base in, pushes, waits for CI on the new head, passes the custody gate and merges the PR instead of stopping | fail | No run log captured again this iteration: the Exercise stage reported no lane reaching the github-live-test environment, so the end-to-end merge step was never run against a PR in islayjames/ship-build-live-test. That environment is declared and authorized in verification.md (section 1, may write/may deploy; section 1a allows 1 PR at a time), so this is missing evidence, not an unreachable environment. | no exercise lane reached the declared github-live-test environment | iter 1: not_met (evidence-missing); iter 2: not_met (evidence-missing) |
+_None._
 
 ## Not Verifiable
 
-_None._
+| ID | Statement | Reason |
+|----|-----------|--------|
+| FS-25 | End to end on a real GitHub PR whose only clashes with its base are record files, `/ship-build`'s merge step merges the base in, pushes, waits for CI on the new head, passes the custody gate and merges the PR instead of stopping | Not exercised: the owner deferred the live GitHub check (TRD Non-Goals, Verification Environment and Could Not Verify; ruling R1 in verification-plan.md accepts FS-25 as not verifiable). No run log exists. The behaviour it would show end to end is covered piecewise by FS-8 to FS-18 (the local merge, run) and FS-20 to FS-24 (the contract's steps and order, read). Not a must-pass criterion. |
+
+
+## Fix run
+
+| Round | Tasks promoted | Criteria closed | Still open |
+|-------|-----------------|------------------|-------------|
+| 1 | 0 | 1 | 0 |
+
+| ID | Statement | Status | Cause | Stop reason |
+|----|-----------|--------|-------|-------------|
+| FS-25 | End to end on a real GitHub PR whose only clashes with its base are record files, /ship-build’s merge step merges the base in, pushes, waits for CI, passes the custody gate and merges | not_verifiable | environment not reachable | not verifiable here: the owner deferred the live GitHub check (ruling R1; TRD Non-Goals) — accepted as not verifiable in verification-plan.md |
 

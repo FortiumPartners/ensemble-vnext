@@ -1,5 +1,5 @@
 {
-  "iteration": 2,
+  "iteration": 1,
   "criteria": [
     {
       "id": "FS-1",
@@ -291,20 +291,19 @@
     },
     {
       "id": "FS-25",
-      "status": "not_met",
+      "status": "not_verifiable",
       "tier1": "fail",
       "artifact": null,
-      "reason": "No run log captured again this iteration: the Exercise stage reported no lane reaching the github-live-test environment, so the end-to-end merge step was never run against a PR in islayjames/ship-build-live-test. That environment is declared and authorized in verification.md (section 1, may write/may deploy; section 1a allows 1 PR at a time), so this is missing evidence, not an unreachable environment.",
-      "cause": "evidence-missing",
-      "provenAt": null,
+      "reason": "Not exercised: the owner deferred the live GitHub check (TRD Non-Goals, Verification Environment and Could Not Verify; ruling R1 in verification-plan.md accepts FS-25 as not verifiable). No run log exists. The behaviour it would show end to end is covered piecewise by FS-8 to FS-18 (the local merge, run) and FS-20 to FS-24 (the contract's steps and order, read). Not a must-pass criterion.",
+      "cause": "environment-unreachable",
+      "provenAt": 1,
       "image": null,
       "ui": false,
       "imageExcluded": null
     }
   ],
   "gapsClosed": [
-    0,
     0
   ],
-  "outcome": "stalled"
+  "outcome": "satisfied"
 }

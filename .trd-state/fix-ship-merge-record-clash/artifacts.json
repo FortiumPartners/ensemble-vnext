@@ -9,14 +9,14 @@
   "success-definition": {
     "path": ".trd-state/fix-ship-merge-record-clash/success-definition.md",
     "url": "",
-    "updated_at": "2026-11-10T22:00:28.269Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-10T22:15:58.962Z",
+    "command": "/verify-build"
   },
   "verification-report": {
     "path": ".trd-state/fix-ship-merge-record-clash/verification-report.md",
     "url": "https://claude.ai/artifact/6iYgx1PpFPPpxziktynwda",
-    "updated_at": "2026-11-10T22:09:01.202Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-10T22:15:58.910Z",
+    "command": "/verify-build"
   },
   "verification-plan": {
     "path": ".trd-state/fix-ship-merge-record-clash/verification-plan.md",
