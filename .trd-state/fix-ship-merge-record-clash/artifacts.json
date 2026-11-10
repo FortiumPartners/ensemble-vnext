@@ -23,5 +23,11 @@
     "url": "",
     "updated_at": "2026-11-10T22:10:18.144Z",
     "command": "/refine-verification"
+  },
+  "audit-build": {
+    "path": ".trd-state/fix-ship-merge-record-clash/audit-build-report.md",
+    "url": "https://claude.ai/artifact/LGJbXhMpNcMKDTtE3fRp3f",
+    "updated_at": "2026-11-10T22:20:32.552Z",
+    "command": "/audit-build"
   }
 }
