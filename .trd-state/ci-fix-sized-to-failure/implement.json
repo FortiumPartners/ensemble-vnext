@@ -1,0 +1,114 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/ci-fix-sized-to-failure.md",
+  "trd_hash": "58e48d0b7c9510a3b599d6b255327d5b0fd91a9e280f45e278f1425d0a4c64c8",
+  "branch": "feature/40-a-ci-fix-sized-to-the-failure",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "FIX-001",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ci-fix-route.js",
+        "packages/core/lib/ci-fix-route.test.js",
+        ".claude/lib/ci-fix-route.js",
+        "packages/full/lib/ci-fix-route.js"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-11T23:30:54.839Z",
+      "last_advanced": "2026-11-11T23:18:40.222Z"
+    },
+    "FIX-002": {
+      "description": "FIX-002",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitive-fix-findings.md",
+        ".claude/contracts/ship-primitive-fix-findings.md"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-11T23:30:54.903Z",
+      "last_advanced": "2026-11-11T23:18:40.222Z"
+    },
+    "FIX-003": {
+      "description": "FIX-003",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitive-collect-findings.md",
+        ".claude/contracts/ship-primitive-collect-findings.md"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-11T23:30:54.901Z",
+      "last_advanced": "2026-11-11T23:18:40.222Z"
+    },
+    "FIX-004": {
+      "description": "FIX-004",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitives.test.js",
+        "docs/guides/ship-build.md"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-11T23:30:54.977Z",
+      "last_advanced": "2026-11-11T23:18:40.222Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/ci-fix-sized-to-failure.md § Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "jest, bats, pytest installed; reads the working tree"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI and scaffold script present"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login with repo scope"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}

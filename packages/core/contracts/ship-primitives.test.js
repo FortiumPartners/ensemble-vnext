@@ -425,6 +425,38 @@ describe('collect-findings and fix-findings', () => {
     expect(t).toMatch(/not built/);
     expect(t).toMatch(/custody gate before the merge re-verifies/);
   });
+  test('collect-findings records the files a CI failure points at, for fix-findings to size the fix by', () => {
+    const t = flat('collect-findings');
+    expect(t).toMatch(/`files`/);
+    expect(t).toMatch(/what `fix-findings` sizes the fix by/);
+  });
+  test('routeRow sends test-only and CI-config rows to the direct path and product code to reconcile', () => {
+    const { routeRow } = require('../lib/ci-fix-route');
+    expect(routeRow({ summary: 'ci: unit', files: ['packages/x/foo.test.js'] }).route).toBe('direct');
+    expect(routeRow({ summary: 'ci: lint workflow', file: '.github/workflows/ci.yml' }).route).toBe('direct');
+    expect(routeRow({ summary: 'ci: unit', files: ['packages/core/lib/custody.js'] }).route).toBe('reconcile');
+  });
+  test('fix-findings contract: direct path avoids implement-trd and /code-review, with its guards', () => {
+    const t = flat('fix-findings');
+    const iRoute = t.indexOf('ci-fix-route.js route');
+    const iDirect = t.indexOf('**Direct path.**');
+    const iReconcile = t.indexOf('**Reconcile path.**');
+    expect(iRoute).toBeGreaterThan(-1);
+    expect(iRoute).toBeLessThan(iDirect);
+    expect(iDirect).toBeLessThan(iReconcile);
+    const direct = t.slice(iDirect, iReconcile);
+    for (const w of ['ci-fix-route.js check-diff', 'needs-product', 'actionlint', 'fixed directly at <sha>', 'git add --']) {
+      expect(direct).toContain(w);
+    }
+    expect(direct).not.toMatch(/implement-trd/);
+    expect(direct).not.toMatch(/\/code-review/);
+  });
+  test('fix-findings contract: product-code rows take the reconcile path, sweep step unchanged', () => {
+    const t = flat('fix-findings');
+    const reconcile = t.slice(t.indexOf('**Reconcile path.**'));
+    expect(reconcile).toContain('--reconcile --chained --shipping');
+    expect(t).toMatch(/\/plan <the findings>/);
+  });
   test('run leaves a command\'s commit to the custody gate', () => {
     expect(flat('run')).toMatch(/reconciled by the custody gate before the next merge or release/);
   });

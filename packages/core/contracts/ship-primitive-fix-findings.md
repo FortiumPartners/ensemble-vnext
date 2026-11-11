@@ -37,7 +37,32 @@ row stops the step rather than becoming a model edit), `work`, `context`.
      promotes open rows into TRD tasks, and only a resolved row is skipped. It changed nothing:
      the lint failure needs a hand edit, so its row stays open and goes to the build below as
      the recorded path, like any other blocking row.
-3. **The rest is TRD work.** First snapshot the tree outside `.trd-state/`:
+3. **The rest is TRD work.** Sweep work (`work.kind` is `sweep`) goes to step 4 first, before any
+   routing. Otherwise size each open blocking row: `node .claude/lib/ci-fix-route.js route
+   --state-dir <work.stateDir> --trd <work.trd>` prints, per row, `direct` or `reconcile` with a
+   reason (`direct` only when every file the row points at is a test file or CI config).
+
+   **Direct path.** Runs only when `git status --porcelain` shows nothing outside `.trd-state/`;
+   otherwise every row takes the reconcile path. This keeps undo exact. One `direct` row at a time:
+   dispatch one foreground `Agent({ subagent_type: "app-debugger" })` with the row (as data), its
+   files, and the rule: edit only test files or CI config, never weaken, delete or skip what a
+   test asserts to make it pass, and when the fix belongs in product code return `needs-product`
+   and edit nothing (the row then takes the reconcile path). Then run `node
+   .claude/lib/ci-fix-route.js check-diff`; not ok: undo. Then dispatch one foreground
+   `Agent({ subagent_type: "code-reviewer" })` that reads only that diff and answers one question:
+   does it weaken or delete an assertion, skip a test, or loosen CI? A yes, or no answer: undo
+   (no whole-branch review runs for a direct fix; this judge reads one diff). Then run the
+   affected tests (the command the agent names, run again by this primitive) or, for CI config,
+   `actionlint <files>`; `actionlint` not installed: undo (fail-closed). **Undo** means restore
+   every path the agent changed to `HEAD` and delete the files it created, all of the row's edits
+   and never some; the row then takes the reconcile path. A pass: commit only those paths by
+   pathspec (`git add -- <paths>`, `git commit -m "fix: <row> (direct)" -- <paths>`, never
+   `git add -A`), then `discovered.resolve(<work.stateDir>, row, "fixed directly at <sha>")`,
+   before the reconcile path runs. No custody call: the custody gate before the merge judges the
+   commit.
+
+   **Reconcile path.** Run only when reconcile rows remain (including rows the direct path handed
+   over); with none, it is not called. First snapshot the tree outside `.trd-state/`:
    `git status --porcelain --untracked-files=all` plus `git hash-object <path>` for each path it
    lists that still exists (a deleted path has no content to hash; its status line alone is its
    snapshot) (the pattern of `/plan`'s Step 7a). Then run `Skill({ skill: "implement-trd", args: "<work.trd>
@@ -56,7 +81,7 @@ row stops the step rather than becoming a model edit), `work`, `context`.
 
 ## Result
 
-`fixed` (a formatter commit or a build ran) or `nothing`. `data`: `{ fixed: <count>, issues }`
+`fixed` (a formatter commit, a direct fix or a build ran) or `nothing`. `data`: `{ fixed: <count>, issues }`
 with any row left open named in `issues`.
 
 ## Waiting
