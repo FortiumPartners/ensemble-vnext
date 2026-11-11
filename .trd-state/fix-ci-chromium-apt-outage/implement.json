@@ -20,6 +20,48 @@
       "started_at": "2026-11-11T16:17:20.609Z",
       "completed_at": "2026-11-11T16:43:03.889Z",
       "last_advanced": "2026-11-11T16:40:50.198Z"
+    },
+    "AMEND-001": {
+      "description": "AMEND-001",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/fix-ci-chromium-apt-outage/evidence/amend-001-d-browser-clean.txt"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T17:14:41.280Z",
+      "completed_at": "2026-11-11T17:35:57.819Z",
+      "last_advanced": "2026-11-11T17:34:47.745Z"
+    },
+    "AMEND-002": {
+      "description": "AMEND-002",
+      "phase": 1,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": "proof is the PR CI run on GitHub Actions; ci.yml runs on pull_request only and the PR is opened by /audit-build on close",
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "AMEND-003": {
+      "description": "AMEND-003",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ci-workflow-jest-job.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T17:14:41.281Z",
+      "completed_at": "2026-11-11T17:35:57.820Z",
+      "last_advanced": "2026-11-11T17:34:47.746Z"
     }
   },
   "checkpoints": [
