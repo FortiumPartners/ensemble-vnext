@@ -62,7 +62,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('child_process');
 const { maskFencedLines, parseTrd } = require('./trd-parser');
 const implementState = require('./implement-state');
 const recordDirs = require('./ship-record-dir');

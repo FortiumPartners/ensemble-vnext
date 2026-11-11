@@ -11,6 +11,7 @@
  *
  * RULES (state is checked first: a merged PR reads mergeable UNKNOWN forever)
  *   MERGED                              -> skip
+ *   CLOSED (not merged)                 -> refused (ok: false; nothing to bring the base into)
  *   mergeable UNKNOWN                   -> poll   (GitHub has not computed it yet)
  *   mergeable CONFLICTING               -> merge-in
  *   mergeable MERGEABLE + BEHIND        -> merge-in (up-to-date requirement)
@@ -50,6 +51,8 @@ function decide(args) {
   const mergeable = pr.mergeable;
   const status = pr.mergeStateStatus;
   if (state === 'MERGED') return { ok: true, action: 'skip', reason: 'PR already merged' };
+  // A closed PR must not be merged into, pushed to, or polled: stop now, not after 8 polls.
+  if (state === 'CLOSED') return { ok: false, action: 'refused', reason: `PR ${prNum} is closed without being merged` };
   if (mergeable === 'CONFLICTING') return { ok: true, action: 'merge-in', reason: 'PR conflicts with the base' };
   if (mergeable === 'MERGEABLE' && status === 'BEHIND') {
     return { ok: true, action: 'merge-in', reason: 'the base requires the head to be up to date and the head is behind' };

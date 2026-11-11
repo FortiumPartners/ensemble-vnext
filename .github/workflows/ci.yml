@@ -69,9 +69,14 @@ jobs:
       # `runs-on` pin, so moving the pin cannot restore a browser built for another image.
       - name: Read Playwright version and runner image
         id: playwright
+        # Assigned first: inside `echo "...$(cmd)"` a failing cmd is swallowed (echo exits 0) and
+        # an empty value would give a cache key shared across Playwright versions or images.
         run: |
-          echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
-          echo "image=$(. /etc/os-release && echo "${ID}-${VERSION_ID}")" >> "$GITHUB_OUTPUT"
+          version=$(node -p "require('playwright/package.json').version")
+          image=$(. /etc/os-release && echo "${ID}-${VERSION_ID}")
+          [ -n "$version" ] && [ -n "$image" ]
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
       # The cache backend is network storage too: bounded and soft like the installs, and
       # actions/cache's own per-segment download timeout (10 minutes by default) cut to 1.
       - name: Cache Playwright browsers

@@ -26,7 +26,7 @@ Merges the pull request and proves that what merged is what was verified (D11, D
    node .claude/lib/merge-up.js decide --pr <pr>
    ```
    It prints one JSON line with `ok`, `action` and `reason`. `ok: false` (it could not read the
-   PR) returns `stop` with the `reason`. Otherwise act on `action`:
+   PR, or the PR is closed without being merged) returns `stop` with the `reason`. Otherwise act on `action`:
    - `skip` (the PR is `MERGED`, or mergeable and not behind): go straight to step 2. A merged
      PR reads `UNKNOWN` forever, so `decide` checks `MERGED` before anything else.
    - `poll` (GitHub has not computed mergeability yet): run the same command up to 8 times,

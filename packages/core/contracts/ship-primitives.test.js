@@ -252,7 +252,7 @@ describe('merge', () => {
     expect(t).not.toMatch(/`MERGEABLE`/);
   });
   test('a decide failure is a stop, and is listed under "One rule for every stop"', () => {
-    expect(t).toMatch(/merge-up\.js decide[^]*`ok: false`[^]*\(it could not read the PR\) returns `stop`/);
+    expect(t).toMatch(/merge-up\.js decide[^]*`ok: false`[^]*\(it could not read the PR, or the PR is closed without being merged\) returns `stop`/);
     expect(t).toMatch(/One rule for every stop[^]*`decide` failure/);
   });
   test('the ok: false stop of merge-base-in names the paths', () => {
