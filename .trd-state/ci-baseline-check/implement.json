@@ -1,0 +1,109 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/ci-baseline-check.md",
+  "trd_hash": "7854fdda1e8d5dedec1eb61251ad07825610334d7b2de6d59af4470a2f608eb7",
+  "branch": "feature/30-ci-baseline-check-in-ship-setup",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "ci-baseline.js library + CLI",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ci-baseline.js",
+        "packages/full/lib/ci-baseline.js",
+        ".claude/lib/ci-baseline.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T12:45:46.066Z",
+      "completed_at": "2026-11-11T13:08:29.319Z",
+      "last_advanced": "2026-11-11T12:51:35.978Z"
+    },
+    "FIX-002": {
+      "description": "Jest suite over fixture workflows",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ci-baseline.test.js",
+        "packages/core/lib/__fixtures__/ci-baseline/passing.yml"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T12:45:46.066Z",
+      "completed_at": "2026-11-11T13:08:29.320Z",
+      "last_advanced": "2026-11-11T12:51:35.978Z"
+    },
+    "FIX-003": {
+      "description": "ship-setup SKILL.md CI-baseline step",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/skills/ship-setup/SKILL.md",
+        "packages/skills/ship-setup/__tests__/skill-md.test.js",
+        ".claude/skills/ship-setup/SKILL.md",
+        ".claude/skills/ship-setup/__tests__/skill-md.test.js",
+        "docs/guides/ship-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T12:45:46.066Z",
+      "completed_at": "2026-11-11T13:08:29.320Z",
+      "last_advanced": "2026-11-11T12:51:35.978Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "205321d412882ad3cbde2d411e328f664612c50f",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-11T13:08:29.404Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "205321d412882ad3cbde2d411e328f664612c50f",
+    "last_checkpoint_timestamp": "2026-11-11T13:08:29.404Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/ci-baseline-check.md § Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude sessions in scaffolded slots; claude CLI logged in"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login with admin on the repo"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}
