@@ -50,11 +50,38 @@ jobs:
       # lockfile pins, so a broken lockfile would pass CI silently. `npm ci`
       # was verified clean against this lockfile on 2026-09-25; no fallback.
       - run: npm ci
-      # design-render.test.js and design-bundle.test.js drive a real headless Chromium. `npm ci`
-      # installs Playwright as a library only, so without this step those suites fail (they do not
-      # skip) with "run `npx playwright install chromium`" (DSGN-B003, D13).
+      # design-render.test.js, design-render-walk.test.js and design-bundle.test.js drive a real
+      # headless Chromium. `npm ci` installs Playwright as a library only, so without a browser
+      # those suites fail (they do not skip) with "run `npx playwright install chromium`"
+      # (DSGN-B003, D13).
+      #
+      # The browser and its system fonts are installed in separate, bounded steps. The old single
+      # `playwright install --with-deps chromium` ran apt-get inside the browser step, so an
+      # Ubuntu mirror outage hung it until the 10-minute job limit and no test ran at all. Now
+      # the browser is cached and downloaded without apt, and the apt-backed font install is
+      # best-effort with a hard cap. Both steps are continue-on-error and emit a ::warning:: (a
+      # soft-failed step otherwise shows green); on an outage the three Chromium suites still
+      # fail loudly and every other suite runs and reports.
+      - name: Read Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-ubuntu-24.04-${{ steps.playwright.outputs.version }}
       - name: Install Chromium for the design render tests
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          npx playwright install chromium || npx playwright install chromium \
+            || echo "::warning::Chromium download failed twice; the design render suites will fail"
+      - name: Install Chromium system fonts (best-effort)
+        timeout-minutes: 2
+        continue-on-error: true
+        run: |
+          timeout 90 npx playwright install-deps chromium \
+            || echo "::warning::Chromium system dependencies did not install (apt outage or timeout); renders may differ"
       # No suite is currently excluded from CI as "known-failing". The three
       # that were (status.test.js, judge.test.js, run-eval.test.js) all
       # actually passed — 67, 60 and 42 tests respectively — verified

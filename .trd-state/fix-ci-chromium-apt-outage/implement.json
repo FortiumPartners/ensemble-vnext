@@ -1,0 +1,63 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/fix-ci-chromium-apt-outage.md",
+  "trd_hash": "bf26ae4c627ec27cc4d8727668ec9bc975dfc2d5d1deda8e3ad32804bbd8228e",
+  "branch": "feature/0-fix-chromium-install-blocking-jest-ci",
+  "strategy": "bug-fix",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "Bound and split the Playwright Chromium install in the jest CI job",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".github/workflows/ci.yml"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T16:17:20.609Z",
+      "completed_at": "2026-11-11T16:43:03.889Z",
+      "last_advanced": "2026-11-11T16:40:50.198Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": "0b38c23",
+    "last_checkpoint_timestamp": "2026-11-11T16:17:20.609Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/fix-ci-chromium-apt-outage.md § Reproduction",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, actionlint installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI installed; not needed by this fix"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login present; not relevant to this fix"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "verification.md §1: must not be touched"
+      }
+    }
+  }
+}
