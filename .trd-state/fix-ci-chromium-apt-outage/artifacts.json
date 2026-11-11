@@ -23,5 +23,11 @@
     "url": "",
     "updated_at": "2026-11-11T16:59:48.738Z",
     "command": "/refine-verification"
+  },
+  "audit-build": {
+    "path": ".trd-state/fix-ci-chromium-apt-outage/audit-build-report.md",
+    "url": "https://claude.ai/artifact/P6tAPXyihgFGDdKehuQode",
+    "updated_at": "2026-11-11T17:43:29.258Z",
+    "command": "/audit-build"
   }
 }
