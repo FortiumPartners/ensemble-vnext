@@ -441,9 +441,8 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
   test('base change touching FS-1\'s covered file: gate reverifies FS-1 only and reuses FS-2', () => {
     const s = twoCriteria();
     landOnBase(s, { 'src/b.js': 'b-from-base' });
-    const bare = path.join(s.root, 'origin.git');
+    // Plays only the merge-in and the gate: decide and gh pr merge are covered by the cases around it.
     const played = (() => {
-      Object.assign(process.env, { STUB_BARE: bare, STUB_MERGEABLE: 'CONFLICTING', STUB_STATUS: 'DIRTY' });
       s.g(s.repo, 'fetch', 'origin', 'main');
       const head = s.g(s.repo, 'ls-remote', 'origin', 'refs/heads/feature/f').split(/\s+/)[0];
       const r = spawnSync(process.execPath, [RECORD_FILES, 'merge-base-in', '--base', 'origin/main', '--branch', 'feature/f', '--pr-head', head], { cwd: s.repo, encoding: 'utf8', env: cleanEnv() });

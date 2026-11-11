@@ -264,14 +264,15 @@ function readJson(p) {
 }
 
 /**
- * The must-pass ids a change to `changedPaths` (shipped differences plus base-excused ones) puts in doubt. The set comes from the one reader,
+ * The must-pass ids a change to `shipped` (shipped differences) plus `excused` (base-excused ones) puts in doubt. The set comes from the one reader,
  * `functional-verification.js must-pass-coverage` (an id is must-pass only when the TRD declares
  * it); every uncovered must-pass objective counts too (it never had a proof). A criterion with no
  * covered-file record counts as affected whenever a SHIPPED path differs (OQ-2), but not for a
- * base-only change (`shipped` empty): then its proof stands. `reused` is the rest.
+ * base-only change (`shipped` empty): then its proof stands, provided verification-state records it
+ * `met` (a criterion never met has no proof to keep). `reused` is the rest.
  * @returns {{ids: string[], reused: string[]}|{error: string}}
  */
-function affectedIds({ stateDir, trdPath, definitionPath, shipped, changedPaths, cwd }) {
+function affectedIds({ stateDir, trdPath, definitionPath, shipped, excused, cwd }) {
   const cli = path.join(__dirname, 'functional-verification.js');
   const r = run(process.execPath, [cli, 'must-pass-coverage', '--trd', trdPath, '--definition', definitionPath], cwd);
   if (!r.ok) return { error: `must-pass-coverage failed: ${r.err || r.out}` };
@@ -289,15 +290,18 @@ function affectedIds({ stateDir, trdPath, definitionPath, shipped, changedPaths,
   // verification-state.json holds the proving artifact per id; the manifest maps artifact -> covers.
   const state = readJson(path.join(stateDir, 'verification-state.json'));
   const artifactById = new Map(((state && state.criteria) || []).map((c) => [c.id, c.artifact]));
+  // Only a criterion verification-state records as met has a proof a base-only change can keep.
+  const proven = new Set(((state && state.criteria) || []).filter((c) => c.status === 'met').map((c) => c.id));
   const coversByArtifact = new Map(
     liveEvidence.read(stateDir).map((e) => [realOrResolved(e.artifact, cwd), e.covers])
   );
-  const changed = new Set(changedPaths);
+  const changed = new Set([...shipped, ...excused]);
   const affected = ids.filter((id) => {
     const artifact = artifactById.get(id);
     const covers = artifact ? coversByArtifact.get(realOrResolved(artifact, cwd)) : undefined;
-    // No covers record: only a base-only change keeps a criterion's proof; an objective no criterion names never had one.
-    if (!covers) return !criterionIds.has(id) || shipped.length > 0;
+    // No covers record: only a base-only change keeps a criterion's proof, and only one it was met
+    // with; an objective no criterion names, or a criterion never met, has no proof to keep.
+    if (!covers) return !criterionIds.has(id) || !proven.has(id) || shipped.length > 0;
     // covers[].path is absolute; git's paths are repo-relative -- compare in one form.
     return covers.some((c) => changed.has(path.relative(root, realOrResolved(c.path, cwd)).split(path.sep).join('/')));
   });
@@ -463,7 +467,7 @@ function reconcile(args) {
     });
   }
 
-  const aff = affectedIds({ stateDir, trdPath: trdFile, definitionPath: path.resolve(cwd, definitionPath), shipped, changedPaths: [...shipped, ...excused], cwd });
+  const aff = affectedIds({ stateDir, trdPath: trdFile, definitionPath: path.resolve(cwd, definitionPath), shipped, excused, cwd });
   if (aff.error) return out({ action: 'refused', anchor, differing: shipped, reason: aff.error });
   if (aff.ids.length === 0) {
     const next = move(stateDir, custody, head, noneAffectedRule, []);

@@ -696,6 +696,15 @@ describe('reconcile: base, head and set-only', () => {
     expect(s.readCustody().moves[0].rule).toBe('base-merge');
   });
 
+  test('a base-only change still re-verifies a no-covers must-pass criterion that was never met', () => {
+    const s = anchored();
+    withDefinition(s, null);
+    fs.writeFileSync(path.join(s.stateDir, 'verification-state.json'), JSON.stringify({ criteria: [{ id: 'FS-1', status: 'not_met', artifact: null }] }));
+    landOnBase(s, { 'src/c.js': 'c1' });
+    mergeBase(s);
+    expect(reconcile(s.args({ base: 'origin/main' }))).toMatchObject({ action: 'reverify', ids: ['FS-1'], reused: [] });
+  });
+
   test('a base-only change still re-verifies a must-pass objective no criterion names', () => {
     const s = anchored();
     withDefinition(s, null);

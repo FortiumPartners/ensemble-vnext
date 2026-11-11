@@ -43,7 +43,7 @@ function decide(args) {
   let pr;
   try {
     pr = JSON.parse(v.out);
-  } catch (e) {
+  } catch {
     return { ok: false, action: 'refused', reason: `could not parse gh output for PR ${prNum}` };
   }
   const state = pr.state;

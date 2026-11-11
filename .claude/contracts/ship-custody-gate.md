@@ -43,8 +43,9 @@ The caller gives the gate `work`, `context`, and which act it guards (`merge` or
 4. **Report.** Put the `reused` ids (proof reused because their files did not change) and the
    `excused` paths (they came from the base) in `data.custody`, one readout line each. When the
    result carries `mergeBases` (`old` and `new`: where the anchor and the base last met, then and
-   now), put it there too: `old` differing from `new` means the base moved since verification,
-   and only what it changed was re-judged. They are not issues, so they stay out of `data.issues`.
+   now), put it there too: `old` differing from `new` means the base moved since verification;
+   when no shipped path differs as well, only the criteria covering what the base changed were
+   re-judged. They are not issues, so they stay out of `data.issues`.
 5. **Do not commit or push anything between the gate and the act it guards.** The re-anchor in
    `custody.json` stays uncommitted, so the PR head stays the one CI checked and
    `--match-head-commit` matches.
