@@ -364,6 +364,39 @@ PY
     diff -q "$RP" "${REPO_ROOT}/packages/full/commands/plugin-only/rebase-project.md"
 }
 
+@test "rebase delivers the framework git files: an always-run step calls --git-files before the version stamp" {
+    # docs/TRD/per-feature-framework-writes.md FIX-002 (gap found by /audit-build,
+    # promoted as AMEND-001). The scaffold half (ensure_gitignore, --git-files) is
+    # tested in scaffold-project.test.sh; this is the command half. Without the call,
+    # an existing project that is only ever rebased never receives the ignore and
+    # union lines, and parallel feature branches keep clashing on current.json.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    SCAFFOLD="${REPO_ROOT}/packages/core/scripts/scaffold-project.sh"
+
+    STEP="$(sed -n '/^#### 4.7a /,/^#### 4.8 /p' "$RP")"
+    [ -n "$STEP" ]
+    # The heading marks the step always-run, and it calls the strict mode on the project.
+    grep -q '^#### 4.7a .*(always)' <<<"$STEP"
+    grep -q 'scaffold-project.sh" --git-files \.' <<<"$STEP"
+    # It must sit before 4.8, the version stamp, and after 4.7.
+    l47="$(grep -n '^#### 4.7 ' "$RP" | cut -d: -f1)"
+    l47a="$(grep -n '^#### 4.7a ' "$RP" | cut -d: -f1)"
+    l48="$(grep -n '^#### 4.8 ' "$RP" | cut -d: -f1)"
+    [ "$l47" -lt "$l47a" ] && [ "$l47a" -lt "$l48" ]
+    # The flag the command calls is a real mode of the script, not a stale name.
+    grep -q '^        --git-files)' "$SCAFFOLD"
+
+    # gitignore-additions.txt no longer tells projects to commit the shared pointer.
+    GA="${REPO_ROOT}/packages/core/templates/gitignore-additions.txt"
+    # (Before this change it listed current.json under ".trd-state/ ... committed".)
+    refute grep -q '^#   current\.json ' "$GA"
+    grep -A2 'current\.json' "$GA" | grep -q 'deliberately untracked'
+
+    # All three copies of the command stay byte-identical.
+    diff -q "$RP" "${REPO_ROOT}/.claude/commands/rebase-project.md"
+    diff -q "$RP" "${REPO_ROOT}/packages/full/commands/plugin-only/rebase-project.md"
+}
+
 @test "rebase-project.md and CLAUDE.md name framework-skills.txt, not a hardcoded skill list" {
     # VFIX-P002 (D14, docs/TRD/verification-fix-loop.md §3.8): the Framework
     # category and guard read the one list rather than naming skills literally --

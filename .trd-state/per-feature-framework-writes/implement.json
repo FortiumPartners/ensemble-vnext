@@ -61,6 +61,18 @@
       "started_at": "2026-11-11T12:44:19.690Z",
       "completed_at": "2026-11-11T12:55:37.961Z",
       "last_advanced": "2026-11-11T12:50:32.088Z"
+    },
+    "AMEND-001": {
+      "description": "rebase-project --git-files step test (audit-build gap)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "test/integration/tests/runtime-integrity.test.sh"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-11T13:32:35.402Z"
     }
   },
   "checkpoints": [
