@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/3tvF77zMgAFux8YWZFQXDs",
     "updated_at": "2026-11-11T13:25:01.913Z",
     "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/merge-up-reproves-only-changed/audit-build-report.md",
+    "url": "https://claude.ai/artifact/5U7V5eTS8GSKC9FKGQCofT",
+    "updated_at": "2026-11-11T13:32:02.894Z",
+    "command": "/audit-build"
   }
 }
