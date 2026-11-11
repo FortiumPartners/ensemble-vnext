@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "roadmap": {
+    "path": "docs/plans/ship-cost-reduction/roadmap.md",
+    "url": "https://claude.ai/artifact/7JuZGJEiu9uLSmwLpV6rQ9",
+    "updated_at": "2026-11-11T22:53:14.604Z",
+    "command": "/plan-feature"
+  },
+  "workplan-input": {
+    "path": "docs/plans/ship-cost-reduction/workplan-input.json",
+    "url": "",
+    "updated_at": "2026-11-11T22:54:41.461Z",
+    "command": "create-workplan"
+  }
+}
