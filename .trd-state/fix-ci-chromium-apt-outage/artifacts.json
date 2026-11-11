@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/2LfcHtBkmAgPue2pPnuxYN",
     "updated_at": "2026-11-11T16:54:25.107Z",
     "command": "/implement-trd"
+  },
+  "verification-plan": {
+    "path": ".trd-state/fix-ci-chromium-apt-outage/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-11-11T16:59:48.738Z",
+    "command": "/refine-verification"
   }
 }
