@@ -14,14 +14,17 @@
  * (no absolute path, no `..` segment). Otherwise `reconcile` with a reason.
  *
  * CHECK-DIFF: after a direct fix, every changed path must still be test or ci-config, and no
- * added/removed line of a ci-config file may touch `permissions`, `secrets`, `pull_request_target`,
- * `uses:` or the `on:` trigger key (a supply-chain surface the owner keeps).
+ * added/removed line of a ci-config file may touch `permissions`, `secrets` (or `github.token`),
+ * `uses:`, the `on:` key or a trigger event key under it (a supply-chain surface the owner
+ * keeps). A ci-config file the fix CREATED is untracked, so `git diff` shows none of it: every
+ * one of its lines is scanned as added.
  *
  * CLI (prints ONE JSON line; exit 0 on success, 1 with {ok:false,error} on bad usage):
  *   node ci-fix-route.js route --state-dir <dir> --trd <path|none>
  *   node ci-fix-route.js check-diff [--base <commit>] [--trd <path|none>]
  */
 
+const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const custody = require('./custody');
@@ -36,8 +39,17 @@ const CI_CONFIG = [
   /^Jenkinsfile$/,
 ];
 
-// Lines of a CI config whose change alters trust, secrets or triggers.
-const SENSITIVE_LINE = /(^|\s|-\s)(permissions|pull_request_target|uses|on)\s*:|secrets[.\s:[]|\bsecrets\b/;
+// Lines of a CI config whose change alters trust, secrets or triggers. A trigger event key
+// (`push:`, `workflow_run:` ...) is listed because adding one under an existing `on:` changes
+// when the workflow runs without touching the `on:` line itself. Keys may be quoted.
+const TRIGGERS = [
+  'on', 'pull_request_target', 'pull_request', 'push', 'workflow_dispatch', 'workflow_run',
+  'workflow_call', 'repository_dispatch', 'schedule', 'release', 'issue_comment', 'issues',
+  'pull_request_review', 'pull_request_review_comment', 'merge_group', 'deployment', 'deployment_status',
+];
+const SENSITIVE_LINE = new RegExp(
+  `(^|\\s)["']?(permissions|uses|${TRIGGERS.join('|')})["']?\\s*:|\\bsecrets\\b|\\bgithub\\.token\\b|\\bGITHUB_TOKEN\\b`,
+);
 
 /** @returns {'test'|'ci-config'|'record'|'other'} for a repo-relative, forward-slash path. */
 function classifyFile(p, trdRel) {
@@ -67,21 +79,33 @@ function routeRow(row, { trdRel = null } = {}) {
   return out('direct', classes, 'test or CI config only');
 }
 
-/** Split a unified diff into {path -> changed lines (without the +/- marker)}. */
+/**
+ * Split a unified diff into {path -> changed lines (without the +/- marker)}. Only lines inside
+ * a hunk (after `@@`) count, so a content line that happens to start `-- ` or `++ ` is still
+ * scanned rather than mistaken for a `---`/`+++` header.
+ */
 function changedLinesByFile(diffText) {
   const byFile = {};
   let cur = null;
+  let inHunk = false;
   for (const line of String(diffText || '').split('\n')) {
     if (line.startsWith('diff --git ')) {
       const m = line.match(/ b\/(.+)$/);
       cur = m ? m[1] : null;
-    } else if (line.startsWith('+++ ') || line.startsWith('--- ')) {
-      continue;
-    } else if (cur && (line[0] === '+' || line[0] === '-')) {
+      inHunk = false;
+    } else if (line.startsWith('@@')) {
+      inHunk = true;
+    } else if (cur && inHunk && (line[0] === '+' || line[0] === '-')) {
       (byFile[cur] = byFile[cur] || []).push(line.slice(1));
     }
   }
   return byFile;
+}
+
+/** A file the fix created, rendered as a diff where every line is added. */
+function addedFileDiff(p, content) {
+  const body = String(content).split('\n').map((l) => `+${l}`).join('\n');
+  return `diff --git a/${p} b/${p}\n--- /dev/null\n+++ b/${p}\n@@ -0,0 +1 @@\n${body}\n`;
 }
 
 function checkDiff({ paths, diffText, trdRel = null }) {
@@ -99,7 +123,7 @@ function checkDiff({ paths, diffText, trdRel = null }) {
 }
 
 function git(args) {
-  const r = spawnSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const r = spawnSync('git', ['-c', 'core.quotePath=false', ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (r.status !== 0) throw new Error(`git ${args[0]} failed: ${(r.stderr || '').trim()}`);
   return r.stdout;
 }
@@ -125,18 +149,29 @@ function main(argv) {
     const rows = discovered
       .readAll(o['state-dir'], { open: true })
       .filter((r) => r.blocksFeature === true)
-      .map((r) => ({ ts: r.ts, summary: r.summary, ...(({ route, classes, files, reason }) => ({ route, classes, files, reason }))(routeRow(r, { trdRel })) }));
+      .map((r) => ({ ts: r.ts, summary: r.summary, ...routeRow(r, { trdRel }) }));
     return { ok: true, rows };
   }
   if (cmd === 'check-diff') {
     const base = o.base || 'HEAD';
-    const diffText = git(['diff', '--no-renames', base]);
+    let diffText = git(['diff', '--no-renames', base]);
     const tracked = git(['diff', '--no-renames', '--name-only', '-z', base]).split('\0').filter(Boolean);
     const untracked = git(['status', '--porcelain', '--untracked-files=all', '-z'])
       .split('\0')
       .filter((e) => e.startsWith('?? '))
       .map((e) => e.slice(3));
     const paths = [...new Set([...tracked, ...untracked])].filter((p) => !p.startsWith('.trd-state/'));
+    // Untracked files are absent from `git diff`; a created CI config must still be scanned.
+    for (const p of untracked) {
+      if (unsafe(p) || classifyFile(p, trdRel) !== 'ci-config') continue;
+      let content = '';
+      try {
+        content = fs.readFileSync(p, 'utf8');
+      } catch {
+        content = 'permissions: unreadable';
+      }
+      diffText += addedFileDiff(p, content);
+    }
     return checkDiff({ paths, diffText, trdRel });
   }
   throw new Error('usage: ci-fix-route.js route|check-diff ...');

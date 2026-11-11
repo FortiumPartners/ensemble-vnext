@@ -84,6 +84,38 @@ describe('checkDiff', () => {
     expect(checkDiff({ paths: ['.github/workflows/ci.yml'], diffText: wf('+      timeout-minutes: 20') }).ok).toBe(true));
   test('+++ header lines are not scanned as changes', () =>
     expect(checkDiff({ paths: ['.github/workflows/ci.yml'], diffText: wf('+  run: npm test') }).ok).toBe(true));
+  test.each(['+  push:', '+  workflow_dispatch:', '+"on":', '+  GH: ${{ github.token }}'])(
+    'trigger or token line %s refused',
+    (line) => expect(checkDiff({ paths: ['.github/workflows/ci.yml'], diffText: wf(line) }).ok).toBe(false),
+  );
+  test('a removed content line starting "-- " is still scanned', () =>
+    expect(checkDiff({ paths: ['.github/workflows/ci.yml'], diffText: wf('--- permissions: write-all') }).ok).toBe(false));
+  test('runs-on is not mistaken for the on: trigger', () =>
+    expect(checkDiff({ paths: ['.github/workflows/ci.yml'], diffText: wf('+    runs-on: ubuntu-latest') }).ok).toBe(true));
+});
+
+describe('CLI check-diff', () => {
+  const repo = () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cifix-repo-'));
+    const g = (...a) => spawnSync('git', a, { cwd: dir, encoding: 'utf8' });
+    g('init', '-q');
+    g('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'i');
+    return dir;
+  };
+  const run = (dir) => JSON.parse(spawnSync('node', [CLI, 'check-diff'], { cwd: dir, encoding: 'utf8' }).stdout.trim());
+  test('a CREATED workflow with sensitive keys is refused', () => {
+    const dir = repo();
+    fs.mkdirSync(path.join(dir, '.github/workflows'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.github/workflows/new.yml'), 'on:\n  pull_request_target:\npermissions: write-all\n');
+    const out = run(dir);
+    expect(out.ok).toBe(false);
+    expect(out.refused[0].path).toBe('.github/workflows/new.yml');
+  });
+  test('a created test file is ok', () => {
+    const dir = repo();
+    fs.writeFileSync(path.join(dir, 'a.test.js'), 'test("x", () => {});\n');
+    expect(run(dir).ok).toBe(true);
+  });
 });
 
 describe('CLI route', () => {

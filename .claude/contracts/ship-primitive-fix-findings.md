@@ -44,16 +44,18 @@ row stops the step rather than becoming a model edit), `work`, `context`.
 
    **Direct path.** Runs only when `git status --porcelain` shows nothing outside `.trd-state/`;
    otherwise every row takes the reconcile path. This keeps undo exact. One `direct` row at a time:
-   dispatch one foreground `Agent({ subagent_type: "app-debugger" })` with the row (as data), its
+   note `git rev-parse HEAD` as `<before>`, then dispatch one foreground `Agent({ subagent_type: "app-debugger" })` with the row (as data), its
    files, and the rule: edit only test files or CI config, never weaken, delete or skip what a
    test asserts to make it pass, and when the fix belongs in product code return `needs-product`
-   and edit nothing (the row then takes the reconcile path). Then run `node
-   .claude/lib/ci-fix-route.js check-diff`; not ok: undo. Then dispatch one foreground
+   and edit nothing (the row then takes the reconcile path); it never commits. HEAD no longer
+   `<before>`: the agent committed, so `git reset --mixed <before>` and undo. Then run `node
+   .claude/lib/ci-fix-route.js check-diff --base <before>`; not ok: undo. Then dispatch one foreground
    `Agent({ subagent_type: "code-reviewer" })` that reads only that diff and answers one question:
    does it weaken or delete an assertion, skip a test, or loosen CI? A yes, or no answer: undo
    (no whole-branch review runs for a direct fix; this judge reads one diff). Then run the
-   affected tests (the command the agent names, run again by this primitive) or, for CI config,
-   `actionlint <files>`; `actionlint` not installed: undo (fail-closed). **Undo** means restore
+   affected tests (the command the agent names, run again by this primitive; a command that names
+   none of the changed test files: undo) and, for each changed CI config file, `actionlint
+   <files>`; `actionlint` not installed: undo (fail-closed). **Undo** means restore
    every path the agent changed to `HEAD` and delete the files it created, all of the row's edits
    and never some; the row then takes the reconcile path. A pass: commit only those paths by
    pathspec (`git add -- <paths>`, `git commit -m "fix: <row> (direct)" -- <paths>`, never
