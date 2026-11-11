@@ -159,6 +159,10 @@ describe('the custody gate (ship-custody-gate.md)', () => {
     expect(gateFlat.indexOf('--reverified', iVerify)).toBeGreaterThan(iVerify);
     expect(gateFlat).toMatch(/reverify\/verification-state\.json/);
   });
+  test('names the merged re-proof file and the retried flag', () => {
+    expect(gateFlat).toMatch(/holds the merged result after the re-proof's one retry/);
+    expect(gateFlat).toMatch(/`retried: true` marks a criterion re-judged on the second try/);
+  });
   test('refused returns stop, and reused and excused are reported in data.custody', () => {
     expect(gateFlat).toMatch(/refused[^.]*stop/);
     // tie both id lists to data.custody; bare /reused/ and /excused/ match any prose that mentions them

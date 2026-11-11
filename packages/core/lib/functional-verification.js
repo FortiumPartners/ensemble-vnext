@@ -1958,6 +1958,59 @@ function readFullDeploy(verificationText, env) {
   return none(`${declared.length} environments declare a full-deploy command (${declared.map((r) => r.name).join(', ')}); name one with env=`);
 }
 
+// ---------------------------------------------------------------------------
+// Re-proof retry -- one re-run of only the criteria that were not met
+// ---------------------------------------------------------------------------
+
+/**
+ * The ids a re-proof retry re-runs: every criterion whose status is anything but `met`
+ * (not_met, not_verifiable, unbuilt). Pure; an unreadable state yields an empty set.
+ *
+ * @example
+ *   reproofRetrySet({ criteria: [{ id: 'A', status: 'met' }, { id: 'B', status: 'unbuilt' }] })
+ *   // { retry: ['B'] }
+ * @param {Object|null|undefined} state - parsed verification state
+ * @returns {{retry: string[]}}
+ */
+function reproofRetrySet(state) {
+  if (!state || !Array.isArray(state.criteria)) return { retry: [] };
+  return { retry: state.criteria.filter((c) => c && c.status !== 'met').map((c) => c.id) };
+}
+
+/**
+ * Merges a retry run into the first run. Only the retried criteria are replaced by their
+ * retry entry (flagged `retried: true`, met or not); the rest keep first-run order and values.
+ * Outcome is `satisfied` when every criterion ends `met`, else the retry's outcome, else the
+ * first's when the retry state is absent or unusable. Keeps the workflow's four keys plus a
+ * top-level `retried` id list.
+ *
+ * @example
+ *   mergeReproofRetry(first, second) // { iteration, criteria, gapsClosed, outcome, retried: ['B'] }
+ * @param {Object} first - parsed first-run state
+ * @param {Object|null|undefined} second - parsed retry state (may be missing)
+ * @returns {Object}
+ */
+function mergeReproofRetry(first, second) {
+  const retried = reproofRetrySet(first).retry;
+  const retryById = new Map();
+  if (second && Array.isArray(second.criteria)) {
+    for (const c of second.criteria) if (c) retryById.set(c.id, c);
+  }
+  const criteria = (first.criteria || []).map((c) => {
+    if (!retried.includes(c.id)) return c;
+    return { ...(retryById.get(c.id) || c), retried: true };
+  });
+  const allMet = criteria.length > 0 && criteria.every((c) => c.status === 'met');
+  const outcome = allMet ? 'satisfied' : (second && second.outcome) || first.outcome;
+  return {
+    iteration: first.iteration,
+    criteria,
+    gapsClosed: first.gapsClosed,
+    outcome,
+    retried,
+  };
+}
+
 module.exports = {
   checkEvidence,
   decideNext,
@@ -1975,6 +2028,8 @@ module.exports = {
   recommendCoverageFloor,
   readNeverUnattended,
   readFullDeploy,
+  reproofRetrySet,
+  mergeReproofRetry,
   // Exported for custody.js's deploy link. Global flag: use String.prototype.match only,
   // never .test()/.exec(), whose lastIndex would carry between calls.
   BUILD_TOKEN,
@@ -2026,6 +2081,11 @@ module.exports = {
 //        returned; prints {batches, remove, rejected})
 //   node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>
 //       (reads both files itself — not a JSON payload; prints {criteria, uncovered, unknown})
+//   node functional-verification.js reproof-retry-set <statePath>
+//       (prints {retry: [ids not met]}; {retry: []} when the file is missing or unparseable)
+//   node functional-verification.js merge-reproof-retry --first <path> --second <path>
+//       (writes the merged state to the --first path via implement-state.save; prints
+//        {outcome, met, total, retried})
 
 if (require.main === module) {
   const usage = () => {
@@ -2041,6 +2101,8 @@ if (require.main === module) {
         '  node functional-verification.js report-publish-plan --report <path> [--published-file <path>]\n' +
         '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
+        '  node functional-verification.js reproof-retry-set <statePath>\n' +
+        '  node functional-verification.js merge-reproof-retry --first <path> --second <path>\n' +
         '  node functional-verification.js recommend-coverage-floor <trdStateDir>\n' +
         '  node functional-verification.js read-never-unattended <verificationPath>\n' +
         '  node functional-verification.js check-never-unattended <trdPath> <verificationPath>\n' +
@@ -2048,6 +2110,15 @@ if (require.main === module) {
     );
     process.exit(1);
   };
+
+  // Reads a JSON file; null when absent or unparseable (callers decide whether that is fatal).
+  function readJsonOrNull(filePath) {
+    try {
+      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch (e) {
+      return null;
+    }
+  }
 
   // Resolves the JSON payload from the head of `rest`, whichever of the three forms it is,
   // and returns [jsonText|undefined, remainingArgs]. `jsonText` is undefined (not thrown) when
@@ -2249,6 +2320,38 @@ if (require.main === module) {
     } else {
       const content = fs.readFileSync(projectPath, 'utf8');
       console.log(JSON.stringify(readCoverageFloor(content)));
+    }
+  } else if (subcommand === 'reproof-retry-set') {
+    const [statePath] = rest;
+    if (!statePath) {
+      usage();
+    } else {
+      console.log(JSON.stringify(reproofRetrySet(readJsonOrNull(statePath))));
+    }
+  } else if (subcommand === 'merge-reproof-retry') {
+    const fi = rest.indexOf('--first');
+    const si = rest.indexOf('--second');
+    const firstPath = fi >= 0 ? rest[fi + 1] : undefined;
+    const secondPath = si >= 0 ? rest[si + 1] : undefined;
+    if (!firstPath) {
+      usage();
+    } else {
+      const first = readJsonOrNull(firstPath);
+      if (!first || !Array.isArray(first.criteria)) {
+        console.error(`merge-reproof-retry: --first state missing or unparseable: ${firstPath}`);
+        process.exit(1);
+      }
+      // A missing/unparseable second state is not an error: first statuses and outcome stand.
+      const merged = mergeReproofRetry(first, secondPath ? readJsonOrNull(secondPath) : null);
+      require('./implement-state').save(firstPath, merged);
+      console.log(
+        JSON.stringify({
+          outcome: merged.outcome,
+          met: merged.criteria.filter((c) => c.status === 'met').length,
+          total: merged.criteria.length,
+          retried: merged.retried,
+        })
+      );
     }
   } else if (subcommand === 'recommend-coverage-floor') {
     const [trdStateDir] = rest;

@@ -1,0 +1,85 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/reproof-retry.md",
+  "trd_hash": "fbe3eb83a69b4649f3f4e607aa20f0ac1088edfad99f0502e17db84e9740935c",
+  "branch": "feature/30-one-retry-for-a-re-proof",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "reproofRetrySet + mergeReproofRetry library and CLI",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js",
+        ".claude/lib/functional-verification.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T23:11:40.180Z",
+      "completed_at": "2026-11-11T23:22:10.097Z",
+      "last_advanced": "2026-11-11T23:18:07.843Z"
+    },
+    "FIX-002": {
+      "description": "verify-build.md criteria-subset retry prose + custody gate sentence",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/verify-build-criteria.test.js",
+        "packages/core/contracts/ship-custody-gate.md",
+        ".claude/contracts/ship-custody-gate.md",
+        "packages/core/contracts/ship-primitives.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T23:11:40.180Z",
+      "completed_at": "2026-11-11T23:22:10.098Z",
+      "last_advanced": "2026-11-11T23:18:07.845Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/reproof-retry.md § Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI headless installed and logged in; scaffold-project.sh present"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool always available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh logged in with ADMIN on islayjames/ship-build-live-test"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "verification.md §1 marks it must not be touched"
+      }
+    }
+  }
+}
