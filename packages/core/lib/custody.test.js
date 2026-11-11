@@ -685,12 +685,69 @@ describe('reconcile: base, head and set-only', () => {
     expect(t.readCustody().moves[0].rule).toBe('base-merge');
   });
 
-  test('a must-pass criterion with no covers record is re-verified after a base-only change', () => {
+  test('a base-only change keeps the proof of a no-covers must-pass criterion (moves as base-merge)', () => {
     const s = anchored();
     withDefinition(s, null);
     landOnBase(s, { 'src/c.js': 'c1' });
+    const merged = mergeBase(s);
+    const r = reconcile(s.args({ base: 'origin/main' }));
+    expect(r).toMatchObject({ action: 'moved', anchor: merged, reused: ['FS-1'], differing: [], excused: ['src/c.js'] });
+    expect(r.ids).toBeUndefined();
+    expect(s.readCustody().moves[0].rule).toBe('base-merge');
+  });
+
+  test('a base-only change still re-verifies a must-pass objective no criterion names', () => {
+    const s = anchored();
+    withDefinition(s, null);
+    fs.writeFileSync(path.join(s.repo, TRD), TRD_TEXT.replace('| O1 | first | yes |', '| O1 | first | yes |\n| O2 | second | yes |'));
+    git(s.repo, 'add', '-A');
+    git(s.repo, 'commit', '-m', 'trd');
+    landOnBase(s, { 'src/c.js': 'c1' });
     mergeBase(s);
-    expect(reconcile(s.args({ base: 'origin/main' }))).toMatchObject({ action: 'reverify', ids: ['FS-1'], reused: [] });
+    const r = reconcile(s.args({ base: 'origin/main' }));
+    expect(r).toMatchObject({ action: 'reverify', ids: ['O2'], reused: ['FS-1'] });
+  });
+
+  test('a base-only change to a file in FS-1 covers but not FS-2 covers re-verifies only FS-1', () => {
+    const s = anchored();
+    fs.writeFileSync(path.join(s.repo, TRD), TRD_TEXT.replace('| O1 | first | yes |', '| O1 | first | yes |\n| O2 | second | yes |'));
+    git(s.repo, 'add', '-A');
+    git(s.repo, 'commit', '-m', 'trd');
+    fs.writeFileSync(path.join(s.stateDir, 'success-definition.md'), DEFINITION.replace(/\n$/, '\n| FS-2 | b | c | e | [read] | locator | | O2 |\n'));
+    fs.mkdirSync(path.join(s.stateDir, 'evidence'), { recursive: true });
+    const criteria = [['FS-1', 'src/a.js'], ['FS-2', 'src/b.js']].map(([id, cover]) => {
+      const artifact = path.join(s.stateDir, 'evidence', `${id}.txt`);
+      fs.writeFileSync(artifact, 'proof');
+      liveEvidence.record(s.stateDir, { task: 'T', artifact, covers: [path.join(s.repo, cover)] });
+      return { id, status: 'met', artifact };
+    });
+    fs.writeFileSync(path.join(s.stateDir, 'verification-state.json'), JSON.stringify({ criteria }));
+    landOnBase(s, { 'src/a.js': 'a-base' });
+    mergeBase(s);
+    const r = reconcile(s.args({ base: 'origin/main' }));
+    expect(r).toMatchObject({ action: 'reverify', ids: ['FS-1'], reused: ['FS-2'] });
+  });
+
+  test('a feature-side shipped change still re-verifies a no-covers criterion (OQ-2 unchanged)', () => {
+    const s = anchored();
+    withDefinition(s, null);
+    s.commit('late feature edit', { 'src/b.js': 'b3' });
+    landOnBase(s, { 'src/c.js': 'c1' });
+    mergeBase(s);
+    const r = reconcile(s.args({ base: 'origin/main' }));
+    expect(r).toMatchObject({ action: 'reverify', ids: ['FS-1'], differing: ['src/b.js'] });
+  });
+
+  test('mergeBases reports the old and new merge bases as full shas, only when --base is given', () => {
+    const s = anchored();
+    const oldBase = git(s.repo, 'rev-parse', 'origin/main');
+    landOnBase(s, { 'src/c.test.js': 'only a test' });
+    mergeBase(s);
+    const newBase = git(s.repo, 'rev-parse', 'origin/main');
+    const r = reconcile(s.args({ base: 'origin/main' }));
+    expect(r.mergeBases).toEqual({ old: oldBase, new: newBase });
+    expect(r.mergeBases.old).toMatch(/^[0-9a-f]{40}$/);
+    expect(reconcile(s.args()).mergeBases).toBeUndefined();
   });
 
   test('a base ref that names no commit is refused', () => {

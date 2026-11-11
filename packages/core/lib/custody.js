@@ -24,7 +24,11 @@
  * anchor is EXCUSED when the head's blob equals baseCommit's (absent on both counts) AND the
  * feature's own diff (merge-base(anchor, baseCommit)..anchor) never touched it. A conflict
  * resolution, or a resolution that took the base wholesale, therefore stays `differing`. Excused
- * paths still put must-pass criteria in doubt (see affectedIds); the others are returned as `reused`.
+ * paths put in doubt only the must-pass criteria whose covers record names them, and any must-pass
+ * objective no criterion names; a criterion with no covers record keeps its proof across a base-only
+ * change (the CI run on the merged head guards base regressions). The others are returned as `reused`.
+ * With `--base`, the result also carries `mergeBases: {old, new}`: merge-base(anchor, baseCommit)
+ * and baseCommit, i.e. which base commits the head had before and now.
  *
  * CONTRACT
  *   - `reconcile` is the only verb that sets or moves the anchor (D12). `check` never writes.
@@ -262,11 +266,12 @@ function readJson(p) {
 /**
  * The must-pass ids a change to `changedPaths` (shipped differences plus base-excused ones) puts in doubt. The set comes from the one reader,
  * `functional-verification.js must-pass-coverage` (an id is must-pass only when the TRD declares
- * it); every uncovered must-pass objective counts too. An id with no covered-file record counts
- * as affected whenever anything changed (OQ-2). `reused` is the rest: their earlier proof stands.
+ * it); every uncovered must-pass objective counts too (it never had a proof). A criterion with no
+ * covered-file record counts as affected whenever a SHIPPED path differs (OQ-2), but not for a
+ * base-only change (`shipped` empty): then its proof stands. `reused` is the rest.
  * @returns {{ids: string[], reused: string[]}|{error: string}}
  */
-function affectedIds({ stateDir, trdPath, definitionPath, changedPaths, cwd }) {
+function affectedIds({ stateDir, trdPath, definitionPath, shipped, changedPaths, cwd }) {
   const cli = path.join(__dirname, 'functional-verification.js');
   const r = run(process.execPath, [cli, 'must-pass-coverage', '--trd', trdPath, '--definition', definitionPath], cwd);
   if (!r.ok) return { error: `must-pass-coverage failed: ${r.err || r.out}` };
@@ -276,6 +281,7 @@ function affectedIds({ stateDir, trdPath, definitionPath, changedPaths, cwd }) {
   } catch {
     return { error: 'must-pass-coverage gave unparseable output' };
   }
+  const criterionIds = new Set(cov.criteria || []);
   const ids = [...new Set([...(cov.criteria || []), ...(cov.uncovered || []).map((u) => u.id)])];
 
   const top = run('git', ['rev-parse', '--show-toplevel'], cwd);
@@ -290,7 +296,8 @@ function affectedIds({ stateDir, trdPath, definitionPath, changedPaths, cwd }) {
   const affected = ids.filter((id) => {
     const artifact = artifactById.get(id);
     const covers = artifact ? coversByArtifact.get(realOrResolved(artifact, cwd)) : undefined;
-    if (!covers) return true;
+    // No covers record: only a base-only change keeps a criterion's proof; an objective no criterion names never had one.
+    if (!covers) return !criterionIds.has(id) || shipped.length > 0;
     // covers[].path is absolute; git's paths are repo-relative -- compare in one form.
     return covers.some((c) => changed.has(path.relative(root, realOrResolved(c.path, cwd)).split(path.sep).join('/')));
   });
@@ -341,7 +348,7 @@ function resolveRef(ref, cwd) {
  *   `base`: ref whose already-merged changes are excused (see header). `head`: the commit judged
  *   instead of local HEAD. `setOnly`: set an absent anchor, never compare or move.
  * @returns {{action: 'set'|'none'|'moved'|'reverify'|'refused', anchor: string, ids?: string[],
- *            reused?: string[], differing?: string[], excused?: string[], reason: string}}
+ *            reused?: string[], differing?: string[], excused?: string[], mergeBases?: {old: string, new: string}, reason: string}}
  */
 function reconcile(args) {
   const { stateDir, trdPath = null, reason, reverifiedPath, cwd = process.cwd() } = args;
@@ -396,6 +403,7 @@ function reconcile(args) {
   }
 
   let baseCommit;
+  let mergeBases;
   if (args.base) {
     const ref = resolveRef(args.base, cwd);
     if (ref.error) return { action: 'refused', anchor, reason: ref.error };
@@ -404,15 +412,21 @@ function reconcile(args) {
     if (!mb.ok) return { action: 'refused', anchor, reason: `no merge base between the head and ${args.base}` };
     // A head the base already contains (a PR merged by hand, a merge-commit merge) took nothing in
     // from the base: every change since the anchor would read as base-only. Excuse nothing then.
-    if (mb.out !== head) baseCommit = mb.out;
+    if (mb.out !== head) {
+      baseCommit = mb.out;
+      // Which base commits the head had before (as of the anchor) and has now, so a caller can tell
+      // that only the base moved. Left out when the old one cannot be read.
+      const old = run('git', ['merge-base', anchor, baseCommit], cwd);
+      if (old.ok) mergeBases = { old: old.out, new: baseCommit };
+    }
   }
 
   const cmp = compare(anchor, head, trdRel, cwd, baseCommit);
   if (cmp.error) return { action: 'refused', anchor, reason: cmp.error };
   const shipped = cmp.differing;
   const excused = cmp.excused;
-  // `excused` appears only when a base was given, so a no-flag run reports exactly what it always did.
-  const out = (o) => (args.base ? { ...o, excused } : o);
+  // `excused` and `mergeBases` appear only when a base was given, so a no-flag run reports exactly what it always did.
+  const out = (o) => (args.base ? { ...o, excused, ...(mergeBases ? { mergeBases } : {}) } : o);
 
   if (shipped.length === 0 && excused.length === 0) {
     return out({
@@ -449,7 +463,7 @@ function reconcile(args) {
     });
   }
 
-  const aff = affectedIds({ stateDir, trdPath: trdFile, definitionPath: path.resolve(cwd, definitionPath), changedPaths: [...shipped, ...excused], cwd });
+  const aff = affectedIds({ stateDir, trdPath: trdFile, definitionPath: path.resolve(cwd, definitionPath), shipped, changedPaths: [...shipped, ...excused], cwd });
   if (aff.error) return out({ action: 'refused', anchor, differing: shipped, reason: aff.error });
   if (aff.ids.length === 0) {
     const next = move(stateDir, custody, head, noneAffectedRule, []);

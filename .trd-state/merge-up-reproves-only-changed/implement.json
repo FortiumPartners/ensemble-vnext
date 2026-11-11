@@ -1,0 +1,113 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/merge-up-reproves-only-changed.md",
+  "trd_hash": "c0022b993db99734701f8505819f321186ea1644336f7ee44770a35f0138362e",
+  "branch": "feature/20-merge-up-re-proves-only-what-changed",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "Narrow affectedIds for base-only changes; report merge bases",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/custody.js",
+        "packages/core/lib/custody.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T12:43:29.039Z",
+      "completed_at": "2026-11-11T13:04:26.409Z",
+      "last_advanced": "2026-11-11T12:48:50.973Z"
+    },
+    "FIX-002": {
+      "description": "merge-up.js decide + CLI + symlink",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/merge-up.js",
+        "packages/core/lib/merge-up.test.js",
+        "packages/full/lib/merge-up.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T12:43:29.039Z",
+      "completed_at": "2026-11-11T13:04:26.409Z",
+      "last_advanced": "2026-11-11T12:48:50.973Z"
+    },
+    "FIX-003": {
+      "description": "Merge contract step 1 + gate report + pins",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitive-merge.md",
+        "packages/core/contracts/ship-custody-gate.md",
+        "packages/core/contracts/ship-primitives.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T12:43:29.039Z",
+      "completed_at": "2026-11-11T13:04:26.409Z",
+      "last_advanced": "2026-11-11T12:48:50.973Z"
+    },
+    "FIX-004": {
+      "description": "Seam test of merge-up through the merge contract",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-build.seam.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T12:43:29.039Z",
+      "completed_at": "2026-11-11T13:04:26.409Z",
+      "last_advanced": "2026-11-11T12:48:50.973Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/merge-up-reproves-only-changed.md §Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude and scaffold available"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login present"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}
