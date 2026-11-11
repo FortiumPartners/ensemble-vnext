@@ -1,0 +1,153 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/flaky-ci-cli-transcript.txt",
+      "reason": "Transcript: record X in A (101, 102) then B (103) returns count 3 on the B call, so the count sums across both feature dirs; A/flaky.jsonl holds 2 lines and B/flaky.jsonl 1.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/flaky-ci-cli-transcript.txt",
+      "reason": "Transcript: recording job Y run 7 twice returns count 1 both times, the repeat with recorded:false.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/flaky-ci-cli-transcript.txt",
+      "reason": "Transcript: third distinct-run flake of X, split across A and B, returns capped:true; first two return capped:false. Jest cap test agrees.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": "packages/core/contracts/ship-primitive-wait-ci.md",
+      "reason": "Tier 1 rejected the artifact as stale: packages/core/contracts/ship-primitive-wait-ci.md was last modified before this run's evidence floor, so it does not prove the current build; re-capture the contract text (e.g. a fresh excerpt under evidence/) this run.",
+      "cause": "evidence-stale",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": "packages/core/contracts/ship-primitive-wait-ci.md",
+      "reason": "Tier 1 rejected the artifact as stale: packages/core/contracts/ship-primitive-wait-ci.md was last modified before this run's evidence floor, so it does not prove the current build; re-capture the contract text (e.g. a fresh excerpt under evidence/) this run.",
+      "cause": "evidence-stale",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": "packages/core/contracts/ship-primitive-wait-ci.md",
+      "reason": "Tier 1 rejected the artifact as stale: packages/core/contracts/ship-primitive-wait-ci.md was last modified before this run's evidence floor, so it does not prove the current build; re-capture the contract text (e.g. a fresh excerpt under evidence/) this run.",
+      "cause": "evidence-stale",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": "packages/core/contracts/ship-primitive-collect-findings.md",
+      "reason": "Tier 1 rejected the artifact as stale: packages/core/contracts/ship-primitive-collect-findings.md was last modified before this run's evidence floor, so it does not prove the current build; re-capture the contract text (e.g. a fresh excerpt under evidence/) this run.",
+      "cause": "evidence-stale",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-8",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": "packages/core/contracts/ship-primitive-collect-findings.md",
+      "reason": "Tier 1 rejected the artifact as stale: packages/core/contracts/ship-primitive-collect-findings.md was last modified before this run's evidence floor, so it does not prove the current build; re-capture the contract text (e.g. a fresh excerpt under evidence/) this run.",
+      "cause": "evidence-stale",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/flaky-ci-cli-transcript.txt",
+      "reason": "Transcript: first import of Z in A leaves A/discovered.jsonl with exactly one row, ref flaky:Z, blocksFeature:false, summary starting [flaky-ci]. Note: in this build import records the flake itself (takes --job/--run-id).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/flaky-ci-cli-transcript.txt",
+      "reason": "Transcript: later Z flakes return filed:false and A/discovered.jsonl still holds one row; the passing Jest test (flaky-ci-jest.txt) covers a later flake in feature b, which gains no flaky:unit row.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-11",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": "packages/core/contracts/ship-primitive-file-followups.md",
+      "reason": "Tier 1 rejected the artifact as stale: packages/core/contracts/ship-primitive-file-followups.md was last modified before this run's evidence floor, so it does not prove the current build; re-capture the contract text (e.g. a fresh excerpt under evidence/) this run.",
+      "cause": "evidence-stale",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/flaky-ci-jest.txt",
+      "reason": "Jest test passes: after import, the feature dir holds only discovered.jsonl and flaky.jsonl and the state root holds only the feature dir; the CLI transcript lists only A/discovered, A/flaky, B/flaky.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": null
+}

@@ -77,7 +77,7 @@ outward step is subject to the [authorization gate](#the-outward-authorization-g
 | `push` | Publishes the work's `HEAD`; sets the custody anchor if none exists (it never moves one). | no | provides `head` | `pushed` |
 | `open-pr` | Opens the work's pull request, or reuses the open one. Param `base`. | unless `ensemble.openPullRequest=auto` | needs `head`, provides `pr` | `opened`, `reused` |
 | `request-review` | Asks an outside reviewer to review the current head (a PR comment) and waits. Param `tool` (`coderabbit`, `codex`, `claude`, or a GitHub login). | yes | needs `pr` | `reviewed` |
-| `wait-ci` | Waits for CI on the current head; re-runs failed jobs once. | no | needs `head`; `stops-on: failed` | `passed`, `failed`, `no-checks` |
+| `wait-ci` | Waits for CI on the current head; re-runs failed jobs once. A job that passes only on rerun is recorded as a flake; once it has flaked 3 times across every feature, the rerun-pass counts as `failed`. | no | needs `head`; `stops-on: failed` | `passed`, `failed`, `no-checks` |
 | `collect-findings` | Gathers what CI and reviewers found, decides which the work must fix, and records it. Never fixes or files. Param `bar` (default `significant`). | no | needs `head`, provides `findings`; `repeat-until: clean` | `clean`, `found` |
 | `fix-findings` | Turns the open blocking findings into code through the recorded path; never pushes. Param `format` (the project's format/lint command). | no | needs `findings` | `fixed`, `nothing` |
 | `await-approval` | Parks the run until a human approves the PR. Param `trigger` (`github-actions` is the one value). | no | needs `pr` | `approved` |
