@@ -319,10 +319,20 @@ They are reported for design, and the feature stays open.
 - `close` true: after the chained run's RETURN line, perform `/close-feature`'s "The close step"
   (`.claude/commands/close-feature.md`) with `"closedBy": "audit"`, `"note": null` and
   `"audit": { "verdict": "<the VERDICT line>", "report": ".trd-state/<feature>/audit-build-report.md", "auditedCommit": "<the header's value>" }`,
-  except that its commit is folded into the one below. Then commit, publish and open the PR as
+  and `"anchorCommit"` (below), except that its commit is folded into the one below. Then commit, publish and open the PR as
   below, and print the run's single banner. Add every caveat `decide` returned, and anything
   the fix run did not finish, to the readout. A feature that is already closed (a re-audit)
   gets its `closed.json` rewritten with this run's audit fields.
+  `anchorCommit` is the commit a later `/ship-build` starts its custody check from, so work this
+  audit's own fix run committed is not re-proved. Set it to the full output of `git rev-parse HEAD`
+  only when this round chained a fix run in step 3, its `[STATUS: /implement-trd] RETURN →` line
+  is not `RETURN → STUCK`, and `decide` returned `close` true. Take the head only once the fix run
+  is completely done: wait for its end-of-run review result (`implement-trd.md` §7.2) and for the
+  `fix(<feature>): end-of-run review edits` commit it makes, because under `--chained` that review
+  can still be running after the RETURN line. If the review's `[review-pending]` row for this fix
+  run is still unresolved when the close is written, write `null`. In every other close (no fix run
+  chained, a STUCK return) write `"anchorCommit": null`. `auditedCommit` stays the report header's
+  value either way.
 - `reaudit` true: the feature stays open and NEXT is `/audit-build` (the next round passes
   `previous` and `trdHash`, below). Commit the report; no close record, no PR.
 - `capReached` true: **the feature stays open. It never closes with a caveat while a defect is

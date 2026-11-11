@@ -874,6 +874,26 @@ describe('audit-build owns the fix run and the round decision', () => {
     expect(flat(section37)).toMatch(/`\/verify-build`'s fix loop, `\/audit-build` and `\/ship-build` pass it/);
   });
 
+  // custody-anchor-after-audit-fixes FIX-002
+  test('the close records anchorCommit from the head after the fix run and its review edits', () => {
+    expect(auditBuild).toMatch(/"anchorCommit"/);
+    expect(auditBuild).toMatch(/`git rev-parse HEAD` only when this round chained a fix run/);
+    expect(auditBuild).toMatch(/not `RETURN → STUCK`/);
+    expect(auditBuild).toMatch(/end-of-run review edits/);
+    expect(auditBuild).toMatch(/`\[review-pending\]` row for this fix run is still unresolved/);
+  });
+
+  test('anchorCommit is null with no fix run, a STUCK return or a pending review; auditedCommit keeps the header value', () => {
+    expect(auditBuild).toMatch(/write `null`/);
+    expect(auditBuild).toMatch(/no fix run chained, a STUCK return\) write `"anchorCommit": null`/);
+    expect(auditBuild).toMatch(/"auditedCommit": "<the header's value>"/);
+    expect(auditBuild).toMatch(/`auditedCommit` stays the report header's value/);
+  });
+
+  test('other-commands.md names anchorCommit as nullable', () => {
+    expect(flat(read(path.join(REPO, 'docs/reference/other-commands.md')))).toMatch(/anchorCommit[^|]*nullable/);
+  });
+
   test('the mirrors are byte-identical', () => {
     expect(read(path.join(REPO, '.claude/commands/audit-build.md'))).toBe(read(path.join(REPO, 'packages/core/commands/audit-build.md')));
     expect(read(CLAUDE_IMPLEMENT)).toBe(read(CORE_IMPLEMENT));

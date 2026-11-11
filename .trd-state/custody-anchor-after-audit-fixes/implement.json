@@ -1,0 +1,83 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/custody-anchor-after-audit-fixes.md",
+  "trd_hash": "38e5b9b0c28e9b26e87c1612692a6d1363c853d953d87ada5836511c826a8da8",
+  "branch": "feature/10-custody-anchor-after-the-audit-s-fixes",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "FIX-001",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/custody.js",
+        "packages/core/lib/custody.test.js",
+        ".claude/lib/custody.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T23:08:05.477Z",
+      "completed_at": "2026-11-11T23:22:05.878Z",
+      "last_advanced": "2026-11-11T23:16:54.629Z"
+    },
+    "FIX-002": {
+      "description": "FIX-002",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        ".claude/commands/audit-build.md",
+        "docs/reference/other-commands.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T23:08:05.477Z",
+      "completed_at": "2026-11-11T23:22:05.884Z",
+      "last_advanced": "2026-11-11T23:16:54.630Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/custody-anchor-after-audit-fixes.md § Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest/bats/pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude installed; not needed by this TRD"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login; deferred for this TRD"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}
