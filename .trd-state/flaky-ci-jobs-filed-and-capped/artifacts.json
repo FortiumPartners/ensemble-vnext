@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/DjxvmLekr2jm8ivGgV2Y6o",
     "updated_at": "2026-11-11T13:01:01.584Z",
     "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/flaky-ci-jobs-filed-and-capped/audit-build-report.md",
+    "url": "https://claude.ai/artifact/WKrgKwHHkF7hJVQdFoYL59",
+    "updated_at": "2026-11-11T13:08:02.633Z",
+    "command": "/audit-build"
   }
 }
