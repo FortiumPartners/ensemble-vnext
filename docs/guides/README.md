@@ -126,7 +126,7 @@ file and section it comes from.
 | [reference/agents.md](../reference/agents.md) | The 13 subagents and where each is used |
 
 What changed in each release is in [CHANGELOG.md](../../CHANGELOG.md). This guide set
-describes 4.17.3.
+describes 4.17.4.
 
 ## License
 
