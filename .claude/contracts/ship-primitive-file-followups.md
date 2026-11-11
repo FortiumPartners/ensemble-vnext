@@ -28,7 +28,7 @@ selected row. Reachability is learned read-only (`gh auth status`, `gh repo view
 from the first real filing call, whose error becomes that row's reason in step 5. A stray issue
 is an outward act nothing authorized.
 
-1. **Import what has no row yet,** once each, as non-blocking rows. Two sources have no ledger
+1. **Import what has no row yet,** once each, as non-blocking rows. Three sources have no ledger
    row of their own:
    - a criterion the verification loop left `not_verifiable`, read from
      `<work.stateDir>/verification-state.json` (its `criteria`, each with `id`, `status` and
@@ -37,7 +37,12 @@ is an outward act nothing authorized.
    - a `/task` follow-up, read from each `.trd-state/<task>/closed.json` with `closedBy: "task"`
      and a `followups` list, into that task's own `.trd-state/<task>/discovered.jsonl` with
      `ref: "followup:<index>"`.
-   Run this from the project root; it skips a ref already imported (filed or not) and prints
+   - a job that flaked (failed, then passed on rerun), read from `<work.stateDir>/flaky.jsonl`
+     (each line has `job` and `runId`): for each distinct job run
+     `node .claude/lib/flaky-ci.js import --state-dir <work.stateDir> --job <job> --run-id <runId>`.
+     It records one non-blocking `[flaky-ci]` row with `ref: "flaky:<job>"` in the work's ledger,
+     unless any feature's ledger already has a `flaky:<job>` row.
+   Run the script below from the project root; it skips a ref already imported (filed or not) and prints
    each task directory that has follow-ups, one per line:
    ```bash
    node -e 'const fs=require("fs"),p=require("path"),d=require("./.claude/lib/discovered");const dir=process.argv[1];const has=(s,ref)=>d.readAll(s).some((r)=>r.ref===ref);let vs={};try{vs=JSON.parse(fs.readFileSync(p.join(dir,"verification-state.json"),"utf8"))}catch{}for(const c of (vs.criteria||[]).filter((c)=>c&&c.status==="not_verifiable")){const ref="criterion:"+c.id;if(!has(dir,ref))d.record(dir,{kind:"gap",foundBy:"file-followups",blocksFeature:false,status:"not_verifiable",ref,summary:"[not-verifiable] "+c.id+": "+(c.reason||"no reason recorded"),evidence:p.join(dir,"verification-state.json")})}let ts=[];try{ts=fs.readdirSync(".trd-state")}catch{}for(const t of ts){const td=p.join(".trd-state",t);let c;try{c=JSON.parse(fs.readFileSync(p.join(td,"closed.json"),"utf8"))}catch{continue}if(c.closedBy!=="task"||!Array.isArray(c.followups)||!c.followups.length)continue;c.followups.forEach((f,i)=>{const ref="followup:"+i;if(!has(td,ref))d.record(td,{kind:"gap",foundBy:"task",blocksFeature:false,ref,summary:"[task-followup] "+String((f&&f.summary)||f),evidence:f&&f.evidence})});console.log(td)}' "<work.stateDir>"
@@ -63,7 +68,7 @@ is an outward act nothing authorized.
    and leave it open. Then put in `data.issues` one line per item, each naming the row by its
    summary and its ledger path, never folded into a count:
    - every row step 3 selected that was not filed, with why (`no tracker declared in stack.md`,
-     or the call's error), the imported `[not-verifiable]` and `[task-followup]` rows included;
+     or the call's error), the imported `[not-verifiable]`, `[task-followup]` and `[flaky-ci]` rows included;
    - every below-bar row step 3 left unfiled (`below the bar; filed only with below-bar=yes`);
    - every `[review-pending]` gap;
    - and one line naming the record of unfixed review findings, `<work.stateDir>/discovered.jsonl`,

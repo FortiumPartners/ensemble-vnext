@@ -322,6 +322,15 @@ describe('the waiting primitives', () => {
     expect(t).toMatch(/gh run rerun <run-id> --failed/);
     expect(t).toMatch(/once/);
   });
+  test('wait-ci records each rerun-pass through flaky-ci.js, caps at 3 and names the job from --json jobs', () => {
+    const t = flat('wait-ci');
+    expect(t).toMatch(/gh run view <run-id> --json jobs/);
+    expect(t).toMatch(/flaky-ci\.js record --state-dir <work\.stateDir> --job <name> --run-id <id>/);
+    expect(t).toMatch(/3 or more times/);
+    expect(t).toMatch(/`capped: true`/);
+    expect(t).toMatch(/never files anything/);
+    expect(t).not.toMatch(/was flaky: list it in `data\.flaky`\. Still failing/);
+  });
   test('request-review arms once and returns wait; claude uses a background Bash', () => {
     const t = flat('request-review');
     expect(t).toMatch(/One arm, no re-arm/);
@@ -372,6 +381,13 @@ describe('collect-findings and fix-findings', () => {
     expect(t).toMatch(/\[below-critical\]/);
     expect(t).toMatch(/\[lint\]/);
   });
+  test('collect-findings treats a capped failure as a known flake: no log, no judge, [flaky-capped], stop', () => {
+    const t = flat('collect-findings');
+    expect(t).toMatch(/`capped: true`/);
+    expect(t).toMatch(/\[flaky-capped\] <job>/);
+    expect(t).toMatch(/flaky-capped:<job>/);
+    expect(t).toMatch(/return `stop`/);
+  });
   test('fix-findings chains the shipping reconcile, stops for sweep work naming /plan, and resolves rows in order', () => {
     const t = flat('fix-findings');
     expect(t).toMatch(/--reconcile --chained --shipping/);
@@ -397,6 +413,12 @@ describe('the after-shipping primitives', () => {
     expect(t).toMatch(/Exactly one distinct reference: close it/);
     expect(t).toMatch(/None: close nothing/);
     expect(t).toMatch(/More than one: close nothing/);
+  });
+  test('file-followups imports flaked jobs through flaky-ci.js as [flaky-ci] rows keyed flaky:<job>', () => {
+    const t = flat('file-followups');
+    expect(t).toMatch(/flaky-ci\.js import --state-dir <work\.stateDir>/);
+    expect(t).toMatch(/flaky:<job>/);
+    expect(t).toMatch(/\[flaky-ci\]/);
   });
   test('file-followups imports then resolves, reads no sweep-ledger row, reports unfiled rows', () => {
     const t = flat('file-followups');

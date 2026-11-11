@@ -33,13 +33,18 @@ what runs on the base branch.
    often still empty, so poll it for up to 120s before returning `no-checks`.
 2. Wait (Waiting, below).
 3. If a check failed, re-run the failed jobs once (`gh run rerun <run-id> --failed`) and wait
-   again. A job that then passes was flaky: list it in `data.flaky`. Still failing: return
-   `failed` with `data.failed` listing each check's name and run id. Never fix anything here;
-   `collect-findings` reads the logs.
+   again. For each job that then passes, take its name from `gh run view <run-id> --json jobs`
+   (never the workflow name `gh run list` returns) and record the flake:
+   `node .claude/lib/flaky-ci.js record --state-dir <work.stateDir> --job <name> --run-id <id>`.
+   It prints one JSON line with `count` and `capped`. Not capped: list the job in `data.flaky`.
+   Capped (the job has flaked 3 or more times across every feature's history, this flake
+   included): put it in `data.failed` with `capped: true` and return `failed`. A job still
+   failing after the rerun goes in `data.failed` too, with its name and run id. `wait-ci` never
+   files anything and never fixes anything; `collect-findings` reads the logs.
 
 ## Result
 
-`passed`, `failed` or `no-checks`, with `data`: `{ failed: [...], flaky: [...] }`.
+`passed`, `failed` or `no-checks`, with `data`: `{ failed: [...], flaky: [...] }`; a `failed` entry carries `capped: true` when the job is capped.
 
 ## Waiting
 
