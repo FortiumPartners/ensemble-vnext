@@ -1,1 +1,3 @@
 .claude/verification-notes.md merge=union
+.trd-state/_session-log.md merge=union
+.trd-state/_sweep/discovered.jsonl merge=union

@@ -1,0 +1,104 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/per-feature-framework-writes.md",
+  "trd_hash": "8e308d601d49c4af2b6905ccb185d7550e4ec00f21722f9535d991d26fc1b223",
+  "branch": "feature/10-per-feature-framework-writes",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "scaffold-project.sh: gitignore-framework template, ensure_gitignore, --git-files, union lines, stamp stops writing refreshed_at",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/templates/gitignore-framework.txt",
+        "packages/core/templates/gitattributes-additions.txt",
+        ".gitattributes"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T12:44:19.690Z",
+      "completed_at": "2026-11-11T12:55:37.958Z",
+      "last_advanced": "2026-11-11T12:50:32.088Z"
+    },
+    "FIX-002": {
+      "description": "rebase-project / init-project / gitignore-additions prose, three copies",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/rebase-project.md",
+        "packages/core/commands/init-project.md",
+        "packages/core/templates/gitignore-additions.txt",
+        ".claude/commands/rebase-project.md",
+        ".claude/commands/init-project.md",
+        "packages/full/commands/plugin-only/rebase-project.md",
+        "packages/full/commands/plugin-only/init-project.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T12:44:19.690Z",
+      "completed_at": "2026-11-11T12:55:37.959Z",
+      "last_advanced": "2026-11-11T12:50:32.088Z"
+    },
+    "FIX-003": {
+      "description": "tests: scaffold BATS, parallel-merge BATS, record-files Jest",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/integration/tests/parallel-feature-merge.test.sh",
+        "packages/core/lib/record-files.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T12:44:19.690Z",
+      "completed_at": "2026-11-11T12:55:37.961Z",
+      "last_advanced": "2026-11-11T12:50:32.088Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/per-feature-framework-writes.md § Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude + scaffold script available"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login present with repo scope"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}

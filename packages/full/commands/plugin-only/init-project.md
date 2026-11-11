@@ -615,7 +615,7 @@ PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-...}}"; "${PLUGIN_PATH
 **Deploy settings.json:**
 
 Step 3's scaffold already created `.claude/settings.json` from this template AND stamped
-`ensemble.version` / `ensemble.refreshed_at` into it. **Do NOT copy the template over it
+`ensemble.version` into it (not `refreshed_at`; only `/rebase-project` writes that). **Do NOT copy the template over it
 again** — the raw template has no version stamp, so re-copying silently wipes the field that
 `/rebase-project`'s version detection and the runtime-refresh gate both read, leaving the
 project permanently at "unknown → full sync".
@@ -709,6 +709,11 @@ this by running `/init-project`; do not ask again mid-run (see `.claude/rules/au
 
 <gitignore-update>
 
+The scaffold script (Step 3) already wrote the framework's own ignore lines (the files it
+writes that differ on every branch: `.trd-state/current.json`, the dispatch logs,
+`.trd-state/_command-runs/`) and merge-union lines into `.gitignore` and `.gitattributes`.
+This step appends the general additions below.
+
 **Append to `.gitignore` if not already present:**
 
 Read content from `@packages/core/templates/gitignore-additions.txt` and append to project's `.gitignore`.
@@ -726,7 +731,7 @@ Ensure these patterns are added:
 .env.*.local
 ```
 
-**Important:** Do NOT add `.claude/` or `.trd-state/` to gitignore - these should be tracked.
+**Important:** Do NOT add `.claude/` or `.trd-state/` to gitignore - these should be tracked (the few framework files the scaffold ignores are the exception).
 
 </gitignore-update>
 

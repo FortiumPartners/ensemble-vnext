@@ -2790,6 +2790,83 @@ PY
     run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
     [ "$status" -eq 0 ]
     [ "$(grep -cxF "$union" "$TEST_DIR/.gitattributes")" -eq 1 ]
-    [ "$(wc -l < "$TEST_DIR/.gitattributes" | tr -d ' ')" -eq 2 ]
+    [ "$(wc -l < "$TEST_DIR/.gitattributes" | tr -d ' ')" -eq 4 ]
     [ "${lines[${#lines[@]}-1]%% *}" = "REFRESH_SUMMARY" ]
+}
+
+@test "git files: scaffold writes four ignore lines and three union lines; second run changes nothing" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    for l in '.trd-state/current.json' '.trd-state/_dispatch.jsonl' '.trd-state/*/dispatch.jsonl' '.trd-state/_command-runs/'; do
+        grep -qxF -- "$l" "$TEST_DIR/.gitignore"
+    done
+    grep -qxF '.trd-state/_session-log.md merge=union' "$TEST_DIR/.gitattributes"
+    grep -qxF '.trd-state/_sweep/discovered.jsonl merge=union' "$TEST_DIR/.gitattributes"
+    local before; before="$(cat "$TEST_DIR/.gitignore" "$TEST_DIR/.gitattributes")"
+    run "$SCAFFOLD_SCRIPT" --git-files "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ "$before" = "$(cat "$TEST_DIR/.gitignore" "$TEST_DIR/.gitattributes")" ]
+}
+
+@test "git files: --refresh adds missing lines once, keeps other lines, never changes the index" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+    cd "$TEST_DIR"
+    git init -q . && git config user.email t@t && git config user.name t
+    mkdir -p .trd-state
+    echo '{"a":1}' > .trd-state/current.json
+    printf 'node_modules/' > .gitignore
+    git add -f .trd-state/current.json .gitignore && git commit -qm init
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ "$(sed -n 1p .gitignore)" = "node_modules/" ]
+    [ "$(grep -cxF '.trd-state/current.json' .gitignore)" -eq 1 ]
+    [ -n "$(git ls-files .trd-state/current.json)" ]
+    [ -z "$(git diff --cached --name-only)" ]
+    [ "${lines[${#lines[@]}-1]%% *}" = "REFRESH_SUMMARY" ]
+}
+
+@test "git files: --git-files untracks a tracked listed path, keeps the file, stages only" {
+    cd "$TEST_DIR"
+    git init -q . && git config user.email t@t && git config user.name t
+    mkdir -p .trd-state
+    echo '{"a":1}' > .trd-state/current.json
+    git add .trd-state/current.json && git commit -qm init
+    run "$SCAFFOLD_SCRIPT" --git-files "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -z "$(git ls-files .trd-state/current.json)" ]
+    [ "$(cat .trd-state/current.json)" = '{"a":1}' ]
+    [ "$(git log --oneline | wc -l | tr -d ' ')" -eq 1 ]
+}
+
+@test "git files: --git-files outside a git repo exits 0; rejects combination" {
+    run "$SCAFFOLD_SCRIPT" --git-files "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -f "$TEST_DIR/.gitignore" ]
+    run "$SCAFFOLD_SCRIPT" --git-files --refresh "$TEST_DIR"
+    [ "$status" -eq 1 ]
+}
+
+@test "stamp: --refresh leaves refreshed_at alone and updates version; --stamp-version writes it" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    python3 - "$TEST_DIR/.claude/settings.json" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p))
+d["ensemble"]["version"]="0.0.1"; d["ensemble"]["refreshed_at"]="2000-01-01T00:00:00Z"
+json.dump(d,open(p,"w"))
+PY
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    run python3 -c "import json,sys;e=json.load(open(sys.argv[1]))['ensemble'];print(e['version'],e['refreshed_at'])" "$TEST_DIR/.claude/settings.json"
+    [[ "$output" == *"2000-01-01T00:00:00Z" ]]
+    [[ "$output" != "0.0.1 "* ]]
+    run "$SCAFFOLD_SCRIPT" --stamp-version --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    run python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['ensemble']['refreshed_at'])" "$TEST_DIR/.claude/settings.json"
+    [[ "$output" != "2000-01-01T00:00:00Z" ]]
 }
