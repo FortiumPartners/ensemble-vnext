@@ -477,7 +477,8 @@ belong to its full run, so a subset must never overwrite them. Under it:
 - **One retry, no Debug**: a re-proof can fail on a flaky first look, so it gets at most once
   more chance, for only the criteria that were not met. After the first dispatch, run
   `node .claude/lib/functional-verification.js reproof-retry-set .trd-state/<feature>/reverify/verification-state.json`.
-  An empty `retry` list means no retry: report as today. Otherwise dispatch the
+  An empty `retry` list means no retry: report as today. Otherwise remove
+  `.trd-state/<feature>/reverify/retry/` left by any earlier re-proof, then dispatch the
   `verify-functional` workflow once more, with the same 26 fields except: `criteria` is the
   retry set, `mustPassIds` is restricted to it, `resume: null`, `statePath`, `reportPath`,
   `evidenceDir` and `pagesDir` all sit under `.trd-state/<feature>/reverify/retry/`, and

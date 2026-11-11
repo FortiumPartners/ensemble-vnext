@@ -4179,6 +4179,25 @@ describe('re-proof retry', () => {
     expect(m.retried).toEqual(['B', 'C', 'D']);
   });
 
+  test('an already-merged state gets no second retry and merges idempotently', () => {
+    const second = { outcome: 'stalled', criteria: [{ id: 'B', status: 'met' }, { id: 'C', status: 'not_met' }, { id: 'D', status: 'unbuilt' }] };
+    const merged = mergeReproofRetry(first(), second);
+    expect(reproofRetrySet(merged)).toEqual({ retry: [] });
+    expect(mergeReproofRetry(merged, null)).toEqual(merged);
+  });
+
+  test('a retry reporting satisfied but missing an id does not make the merge satisfied', () => {
+    const second = { outcome: 'satisfied', criteria: [{ id: 'B', status: 'met' }, { id: 'C', status: 'met' }] };
+    const m = mergeReproofRetry(first(), second);
+    expect(m.criteria.find((c) => c.id === 'D').status).toBe('unbuilt');
+    expect(m.outcome).toBe('stalled');
+  });
+
+  test('a null criterion entry does not throw', () => {
+    const f = { ...first(), criteria: [null, ...first().criteria] };
+    expect(() => mergeReproofRetry(f, null)).not.toThrow();
+  });
+
   describe('CLI', () => {
     let dir;
     beforeEach(() => {
@@ -4208,6 +4227,18 @@ describe('re-proof retry', () => {
       const written = JSON.parse(fs.readFileSync(a, 'utf8'));
       expect(Object.keys(written).sort()).toEqual(['criteria', 'gapsClosed', 'iteration', 'outcome', 'retried']);
       expect(written.criteria[1]).toEqual({ id: 'B', status: 'met', retried: true });
+    });
+
+    test('merge-reproof-retry ignores a --second older than --first (stale earlier re-proof)', () => {
+      const a = path.join(dir, 'a.json');
+      const b = path.join(dir, 'b.json');
+      fs.writeFileSync(b, JSON.stringify({ outcome: 'satisfied', criteria: ['B', 'C', 'D'].map((id) => ({ id, status: 'met' })) }));
+      fs.writeFileSync(a, JSON.stringify(first()));
+      const old = new Date(Date.now() - 60000);
+      fs.utimesSync(b, old, old);
+      const r = run(['merge-reproof-retry', '--first', a, '--second', b]);
+      expect(r.status).toBe(0);
+      expect(JSON.parse(r.stdout)).toEqual({ outcome: 'stalled', met: 1, total: 4, retried: ['B', 'C', 'D'] });
     });
 
     test('merge-reproof-retry tolerates a missing --second and rejects a bad --first', () => {
