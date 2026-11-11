@@ -27,6 +27,7 @@ const REQUIRED_SECTIONS = [
   'Topics',
   'Per-step questions',
   'Writing',
+  'CI baseline',
   'Never',
   'Readout'
 ];
@@ -163,6 +164,41 @@ describe('authorization check', () => {
     expect(body).toMatch(/this skill never edits that file/);
     const never = body.slice(body.indexOf('## Never'), body.indexOf('## Readout'));
     expect(never).toMatch(/Edit any file other than `\.claude\/rules\/ship\.md`/);
+  });
+});
+
+describe('CI baseline step', () => {
+  const body = parseFrontmatter(fs.readFileSync(SKILL_PATH, 'utf8')).body;
+  const section = body.slice(body.indexOf('## CI baseline'), body.indexOf('## Never'));
+
+  test('runs ci-baseline.js check, asks nothing, runs even when topics are skipped', () => {
+    expect(section).toContain('node .claude/lib/ci-baseline.js check');
+    expect(section).toMatch(/asks the owner nothing/);
+    expect(section).toMatch(/even when[\s\S]*skipp/);
+    expect(body).toMatch(/\| CI configuration \|[^\n]*ci-baseline\.js/);
+  });
+
+  test('names all three properties and how to close each gap', () => {
+    for (const t of ['summary', 'docs', 'record']) expect(section.toLowerCase()).toContain(t);
+    for (const t of ['always()', 'needs.*.result', '[skip ci]', 'github.event.before', 'token: \'\'', 'fetch-depth: 0'])
+      expect(section).toContain(t);
+  });
+
+  test('readout puts the result in STATE and each gap or unclear in ISSUES', () => {
+    const readout = body.slice(body.indexOf('## Readout'));
+    expect(readout).toMatch(/CI baseline: N of 3 hold/);
+    expect(readout).toMatch(/gap[\s\S]*unclear[\s\S]*ISSUES|ISSUES[\s\S]*gap/);
+  });
+
+  test('Never still forbids editing anything but ship.md and the workflow, and says closing a gap is the owner\'s edit', () => {
+    const never = body.slice(body.indexOf('## Never'), body.indexOf('## Readout'));
+    expect(never).toMatch(/Edit any file other than `\.claude\/rules\/ship\.md`/);
+    expect(never).toMatch(/owner's own edit/);
+  });
+
+  test('the vendored copy is identical', () => {
+    const vend = path.join(SKILL_DIR, '..', '..', '..', '.claude', 'skills', 'ship-setup', 'SKILL.md');
+    if (fs.existsSync(vend)) expect(fs.readFileSync(vend, 'utf8')).toBe(fs.readFileSync(SKILL_PATH, 'utf8'));
   });
 });
 

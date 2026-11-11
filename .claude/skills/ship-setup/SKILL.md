@@ -40,6 +40,7 @@ Until it has run, `ship.md` lists no step and `/ship-build` only pushes.
 | What a step asks | each contract's front matter `params:`, its `## Input` text and, when present, its `## Setup` section — see Per-step questions |
 | Whether a deploy command exists | `readFullDeploy` in `.claude/lib/functional-verification.js`, run over `.claude/rules/verification.md` section 2 |
 | Whether the project has a design | `docs/ui/*/design-map.json` |
+| CI configuration | `.github/workflows/*.yml\|yaml`, read by `node .claude/lib/ci-baseline.js check` (see CI baseline) |
 | The workflow template | `ensemble-ship-resume.yml` (this skill's own directory) |
 
 ## Topics
@@ -141,13 +142,45 @@ When it prints `"sentence":"absent"` and `refused` is not empty, those steps wou
 and say the owner adds it to `.claude/rules/autonomy.md`; this skill never edits that file. Say
 so in NEXT as well, ahead of `/ship-build`.
 
+## CI baseline
+
+Not a topic: it asks the owner nothing, never stops the skill, never changes `ship.md`, and
+runs even when the owner skipped every topic. Run it once, after Writing:
+
+```
+node .claude/lib/ci-baseline.js check
+```
+
+It prints one JSON line: `noCi`, `checks` (`summary`, `docsRecordSkip`, `recordCommitSkip`,
+each `pass`, `gap` or `unclear` with a `detail`), and the `gaps` and `unclear` lists. With
+`noCi` true, STATE says no GitHub Actions workflow was found and nothing more is said. Otherwise
+turn each `gap` and each `unclear` into one plain-words ISSUES line that names the workflow or
+job and says how to close it:
+
+- **Summary job.** One job, in a workflow with no trigger-level `paths`, with `if: always()`,
+  `needs:` listing every other job, and a step that fails on any `failure` or `cancelled` in
+  `needs.*.result` (for example `re-actors/alls-green`, pinned). Without the `if:` a skipped job
+  counts as success; without the result check the job passes when tests fail. Record commits
+  must never carry `[skip ci]`: it skips every workflow, the summary job too, and leaves the
+  required check pending.
+- **Docs and record skip.** Skip heavy jobs for docs-only and `.trd-state/`-only changes with a
+  job-level `if:` on a change-detection job's output, not a trigger-level `paths` or
+  `paths-ignore` filter (a filtered workflow vanishes and its checks pend).
+- **Record commits on a PR.** Change detection must diff the pushed commits, not the whole PR:
+  `dorny/paths-filter` with `token: ''` and `base: ${{ github.event.before }}` after a
+  `fetch-depth: 0` checkout, treating a PR's first push (no `before`) as changing everything.
+
+An `unclear` is a mechanism the check could not read; say so and name it, never call it a pass
+or a gap. Closing any of these is the owner's own edit to their CI; this skill reports only.
+
 ## Never
 
 - **Write a credential's value.** Name where one lives (a repository secret's name, a vault
   item, an environment variable's name) — never the token, password or key. If an answer looks
   like a value rather than a location, do not write it; ask for the location.
 - **Edit any file other than `.claude/rules/ship.md`** and, on the owner's yes, the workflow
-  file. Never `.claude/settings.json`, never `verification.md`, never a contract.
+  file. Never `.claude/settings.json`, never `verification.md`, never a contract, never a CI
+  workflow: closing a CI gap is the owner's own edit.
 - **Contact or probe anything.** Detection reads files in the repository; it makes no network
   call and runs no deploy, merge or push.
 - **Start a ship.** Running `/ship-build` is the owner's own next invocation.
@@ -156,8 +189,9 @@ so in NEXT as well, ahead of `/ship-build`.
 
 Ends with the framework's standard four-section readout (STATE / DECISIONS / ISSUES / NEXT,
 `.claude/rules/command-status.md`). STATE lists the string written, step by step, whether the
-workflow was installed, and what stayed unchanged. DECISIONS lists every default applied where
-no answer came in. ISSUES lists parse errors from the re-check, a `release` left out for want of
+workflow was installed, what stayed unchanged, and the CI result ("CI baseline: N of 3 hold", or
+"no GitHub Actions workflow found"). DECISIONS lists every default applied where
+no answer came in. ISSUES lists parse errors from the re-check, each CI-baseline gap and unclear with its fix, a `release` left out for want of
 a command, and a workflow written but not yet on the default branch (the owner must merge it,
 and add the secret, before it fires). NEXT gives `/ship-build` when a policy now exists.
 

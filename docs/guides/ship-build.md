@@ -5,6 +5,12 @@ steps your project lists in `.claude/rules/ship.md`, in order. `/ship-setup` is 
 that writes that file. This guide describes both as built; where a prose file (the `ship.md`
 template, the `/ship-setup` skill) disagrees with the code, it follows the code.
 
+`/ship-setup` also checks your GitHub Actions workflows (`node .claude/lib/ci-baseline.js check`)
+for three properties that keep ship runs from churning: a summary job that gates on every other
+job, docs-only and record-only changes skipped by job-level conditions, and record commits on a
+PR not re-running the heavy jobs. It reports each gap in its readout with how to close it and
+never edits a workflow.
+
 ## The policy file, `ship.md`
 
 `.claude/rules/ship.md` is the project's release policy: the list of shipping actions

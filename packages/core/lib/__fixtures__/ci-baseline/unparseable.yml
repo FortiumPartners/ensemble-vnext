@@ -1,0 +1,7 @@
+name: Bad
+on: pull_request
+jobs:
+  test: &anchor
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm test
