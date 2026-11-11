@@ -10,6 +10,82 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.17.4] - 2026-11-11
+
+The ship-churn fixes: less re-work and fewer stalls when `/ship-build` merges several features
+into one base (#99, #101, #102), flaky CI jobs filed and capped (#100), a CI baseline check in
+`ship-setup` (#103), and a CI hang on an apt-mirror outage fixed (#104).
+
+### Fixed
+
+- **The merge step merges through clashes that touch only record files (#99, issue #97).**
+  Record files are the ones the framework writes for itself (`.claude/verification-notes.md`,
+  `.trd-state/`). A merge whose only conflicts were in them used to stop the run; it now merges
+  the base in, keeps both sides, re-runs CI and carries on. Any other conflict still stops. The
+  scaffold also writes a union-merge `.gitattributes` line for the verification notes file.
+- **A merge-up from the base re-proves only what it changed (#101).** After merging the base
+  into a feature branch, the custody check (that what ships is what was verified) re-proved
+  every must-pass criterion without recorded file coverage, so a merge-up re-proved almost
+  everything. When only base-side files changed, those criteria now keep their proof, and a
+  criterion with coverage is re-proved only if one of its files changed. A new library,
+  `merge-up.js`, merges the base in only when GitHub reports the PR conflicting, or behind a base
+  that requires up-to-date branches; before, a PR in the second state went straight to
+  `gh pr merge`, which failed and stopped the run.
+- **Parallel features no longer clash on framework-written files (#102).** Shared working-state
+  files (`.trd-state/current.json`, the dispatch ledgers, `.trd-state/_command-runs/`) are now
+  gitignored, and the two shared append-only logs (`_session-log.md`, `_sweep/discovered.jsonl`)
+  union-merged. `scaffold-project.sh` writes the lines on scaffold and `--refresh`, a new
+  `--git-files` mode is run by `/rebase-project`, and a project that already tracks
+  `current.json` stops tracking it (the file stays on disk). `--refresh` no longer rewrites
+  `ensemble.refreshed_at`, so two branches refreshed to the same version edit `settings.json`
+  identically.
+- **Flaky CI jobs are filed once and capped at three flakes (#100).** A job that fails and then
+  passes on rerun is filed as one follow-up the first time any feature sees it flake, never
+  again. After three flakes across all features a rerun-pass no longer counts and `wait-ci`
+  reports the job failed, so it needs an owner's fix or quarantine. Flake history lives in each
+  feature's own `.trd-state/<feature>/flaky.jsonl`.
+- **The Jest CI job no longer hangs when Ubuntu's apt mirrors are down (#104).** The Playwright
+  browser is cached and downloaded without apt; the apt-backed system-library install is
+  best-effort, time-capped, and emits a warning when it fails instead of running the job into
+  its 10-minute limit.
+
+### Added
+
+- **`ship-setup` checks the project's CI against three properties `/ship-build` relies on
+  (#103).** A new library, `ci-baseline.js`, reads `.github/workflows/` and reports whether
+  there is one always-reporting summary check, whether heavy jobs skip docs-only and
+  record-only pushes, and whether record commits pushed onto a PR skip the full suite. Each gap,
+  and each property it cannot tell from the file, is named in the skill's readout with how to
+  close it; the skill writes no workflow file beyond the resume trigger it already installs.
+  This repository's own `ci.yml` has all three gaps.
+
+### Proven live
+
+- The CI fix (#104) ran on a real GitHub runner with the Ubuntu mirrors blocked (run
+  43071611360): the apt step gave up after 95 s with its warning, Jest ran in full, and the job
+  took about 3 min 20 s against its 10-minute limit; before the fix the same outage hung it until
+  it was cancelled. Not simulated: a browser download during an outage (the browser came from
+  the cache); a committed test covers that path.
+
+### Not yet proven
+
+- None of the four ship-churn fixes has run against live GitHub: the record-only merge (#99;
+  a real `mergeable` value, push, head poll, CI wait), the `BEHIND` path and the "at most one CI
+  run" count (#101), a real Actions rerun of a flaky job (#100), and whether GitHub's
+  server-side PR merge honours `merge=union` (#102).
+- The CI baseline check's recommended record-commit skip recipe, and whether a required check
+  actually sits pending under each gap shape, are not proven on live GitHub (#103).
+- Carried from 4.17.3: an approving review by a second GitHub account, the CodeRabbit and Codex
+  review bots, and a live GitHub merge for the run-record fix (#95).
+
+### Known defects
+
+- A flake seen after a merge is counted only on the machine that saw it, and two parallel
+  branches can each file the same job's first flake (#100).
+- Carried from 4.17.3: a merge step handed out again from `main` after its branch is deleted
+  still stops at the custody check; `custody.test.js` "passes on a later test-only commit" is
+  flaky when the random commit hash it builds is all digits.
+
 ## [4.17.3] - 2026-11-09
 
 The fixes for the `/ship-build` custody problems Forge found on real runs (#94, #95), owner
