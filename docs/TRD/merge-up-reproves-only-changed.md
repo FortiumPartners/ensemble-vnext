@@ -85,7 +85,7 @@ Checkable outcome: `npx jest packages/core/lib/custody.test.js packages/core/lib
 - No change to Forge's own `base_moved` merge-ups or its conflict brief (out-of-scope fence).
 - No bypass of branch protection; `gh pr merge` failures still stop.
 - No live GitHub run: the live "at most one CI run" count is deferred (see Could Not Verify).
-- No edit to `.claude/rules/*.md` owner-governed files, and no `.claude/` refresh (done at release).
+- No edit to `.claude/rules/*.md` owner-governed files. The `.claude/contracts/` and `.claude/lib/` copies of the changed files are synced, because `ship-primitives.test.js` requires them byte-identical (corrected at the phase gate; the plan first said they were refreshed at release).
 
 ## Verification Artifacts
 
@@ -133,7 +133,7 @@ screens, designs, journeys or rendered data for a verification skill to check.
 - **Reuse:** the existing step 1 text (lines 23-48): keep the fetch, `merge-base-in` call, push, head poll and CI wait word for word; only the decision changes [read]. The existing pin test at `ship-primitives.test.js:229` [read]
 - **Replaces:** the inline `mergeable` read and its `MERGEABLE`/`CONFLICTING` bullets in step 1 [read]
 - **Follow:** contract prose style: numbered Do steps, commands in fenced `bash` blocks, `stop` named with its reason; one rule for every stop (line 75) still lists every stop including a `decide` failure
-- **Careful:** the "One rule for every stop" paragraph is pinned by `ship-primitives.test.js:252`; keep its order (merge-base-in, push, head wait, CI). Do not touch `.claude/contracts/` or `packages/full/contracts/` copies (refreshed at release)
+- **Careful:** the "One rule for every stop" paragraph is pinned by `ship-primitives.test.js:252`; keep its order (merge-base-in, push, head wait, CI). Keep `.claude/contracts/` copies byte-identical to the source (`ship-primitives.test.js` checks it)
 
 ### FIX-004
 - **Touches:** `packages/core/lib/ship-build.seam.test.js`
