@@ -33,8 +33,9 @@ After:
   nothing about it to the judge, and returns `stop` naming the row, like a not-this-feature
   failure — the job needs an owner's fix or quarantine, which this work's own fix loop cannot do.
 - `file-followups` step 1 gains a third import source,
-  `node .claude/lib/flaky-ci.js import --state-dir <work.stateDir>`: for each job in this work's
-  flake history it records one non-blocking `[flaky-ci]` row with `ref: "flaky:<job>"` in the
+  for each distinct job in `<work.stateDir>/flaky.jsonl`,
+  `node .claude/lib/flaky-ci.js import --state-dir <work.stateDir> --job <job> --run-id <runId>`,
+  which records one non-blocking `[flaky-ci]` row with `ref: "flaky:<job>"` in the
   work's own ledger, unless a row with that ref already exists in any feature's
   `discovered.jsonl`. Steps 3–5 then file it like any other row.
 
@@ -63,8 +64,8 @@ primitive that files, and wait-ci runs before the merge.
 
 - No change to how many times wait-ci re-runs a failed job (still once).
 - No automatic quarantine, retry tuning or CI configuration edits.
-- No change to `ship-sequencer.js`, `shipped.json`, `custody.js` or `ship.md`.
-- No new `ship.md` step: a project without a `file-followups` step gets the cap but no filing.
+- No change to `packages/core/lib/ship-sequencer.js`, the `.trd-state/<feature>/shipped.json` run record, `packages/core/lib/custody.js` or `.claude/rules/ship.md`.
+- No new `.claude/rules/ship.md` step: a project without a `file-followups` step gets the cap but no filing.
 
 ## Verification Artifacts
 
@@ -105,6 +106,21 @@ none
 
 ## Could Not Verify
 
-- A real GitHub Actions rerun-pass: wait-ci's prose drives `gh`, and no live CI is exercised here; the library is proven by Jest only.
-- A flake recorded by wait-ci after a merge (`context.merged`) is written to the state directory but `/ship-build` does not commit the record of a merged branch, so that flake is counted only on the machine that saw it.
-- Two features that see a job's first flake on parallel branches can each file it before either ledger reaches the other; "once per job" holds across the history each branch can read.
+Rewritten by `/audit-build` on 2026-11-11. The audit confirmed FIX-001 and FIX-002 built and
+tested (`npx jest packages/core/lib/flaky-ci.test.js packages/core/contracts/ship-primitives.test.js`:
+143 of 143 pass; vendored copies identical, `packages/full/lib/flaky-ci.js` a symlink). What it
+did not or could not check:
+
+- **No PRD was supplied.** This TRD's source is roadmap item 4 of `docs/plans/ship-churn-fixes/roadmap.md`
+  (feature F-4 in `docs/plans/ship-churn-fixes/workplan-input.json`), not a PRD, so the delivered
+  code was checked against this TRD only; whether the TRD faithfully and completely carries that
+  request was not checked by this audit.
+- A real GitHub Actions rerun-pass: out of scope here — wait-ci's prose drives `gh`, and no live
+  CI is exercised from this machine (`.claude/rules/verification.md` §5); the library is proven
+  by Jest only.
+- A flake recorded by wait-ci after a merge (`context.merged`) is written to the state directory
+  but `/ship-build` does not commit the record of a merged branch, so that flake is counted only
+  on the machine that saw it. A stated design limit, not exercised by this audit.
+- Two features that see a job's first flake on parallel branches can each file it before either
+  ledger reaches the other; "once per job" holds across the history each branch can read. A
+  stated design limit, not exercised by this audit (it needs two live branches and CI).
