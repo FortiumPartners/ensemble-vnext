@@ -99,6 +99,9 @@ None apply — the deliverable is a CLI library and a prompt edit; no screen, de
 
 ## Could Not Verify
 
-- The (c) recipe the skill recommends (dorny git mode with `base: github.event.before`) on a PR's first push, where `github.event.before` is absent — the skill's text says to treat that push as changing everything.
-- That a required check is actually left pending on GitHub under each gap shape — the check reasons from GitHub's documented trigger and path-filter semantics; no live GitHub run is exercised for this feature.
-- The fixtures-environment run named in the roadmap ("a scaffolded fixture repository whose CI lacks a summary job, whose readout names the gap") needs an interactive skill driven through a session; `ship-setup` is `disable-model-invocation: true` and interviews the owner, so that run is the functional-verification loop's to attempt, not a unit test.
+After `/audit-build` (2026-11-11). Removed: the fixtures-environment `ship-setup` run, which the functional-verification loop ran and proved (FS-21 to FS-24 in `.trd-state/ci-baseline-check/verification-report.md`, transcripts under `evidence/it1-*` and `evidence/fs24-*`).
+
+- **Validation against product requirements.** No PRD exists for this change (its source is roadmap item 3 in `docs/plans/ship-churn-fixes/roadmap.md`), and none was supplied to the audit, so whether the TRD faithfully and completely carries that brief was not checked; only TRD-to-code traceability was.
+- The (c) recipe the skill recommends (dorny git mode with `base: github.event.before`) on a PR's first push, where `github.event.before` is absent. The skill's text says to treat that push as changing everything; nothing exercises it, because it needs a live GitHub run.
+- That a required check is actually left pending on GitHub under each gap shape. The check reasons from GitHub's documented trigger and path-filter semantics; no live GitHub run is exercised for this feature (`verification.md` section 5: GitHub-runner behaviour cannot be reproduced here).
+- FIX-003's criterion "`npx jest packages/skills/ship-setup` passes" on this machine: every CI-baseline test in that suite passes, but the older test "cp -RL dereferences both into real files" (present on `main` before this feature) fails here because `cp` cannot set permissions inside this machine's temp directory. Whether the full suite passes is CI's to show.
