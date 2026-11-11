@@ -1,0 +1,154 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/flaky-ci-cli-transcript.txt",
+      "reason": "record X in A (101,102) then B (103) returns count 3 on the B call, summing across feature dirs; A/flaky.jsonl 2 lines, B/flaky.jsonl 1.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/flaky-ci-cli-transcript.txt",
+      "reason": "Job Y run 7 recorded twice returns count 1 both times, repeat recorded:false.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/flaky-ci-cli-transcript.txt",
+      "reason": "Third distinct-run flake across A and B returns capped:true; first two capped:false.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/FS-4-5-6-wait-ci-iter2.txt",
+      "reason": "wait-ci step 3 records each job that passes on rerun with `node .claude/lib/flaky-ci.js record --state-dir <work.stateDir> --job <name> --run-id <id>`.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/FS-4-5-6-wait-ci-iter2.txt",
+      "reason": "wait-ci step 3 takes the job name from `gh run view <run-id> --json jobs` \"(never the workflow name `gh run list` returns)\".",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/FS-4-5-6-wait-ci-iter2.txt",
+      "reason": "wait-ci step 3 states both branches: capped (3 or more flakes across every feature, this one included) goes in data.failed with capped:true and returns failed; not capped is listed in data.flaky.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/FS-7-8-collect-findings-iter2.txt",
+      "reason": "collect-findings step 1 records one non-blocking `[flaky-capped] <job>` row with ref flaky-capped:<job>, skipped if that ref is already in discovered.jsonl.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/FS-7-8-collect-findings-iter2.txt",
+      "reason": "collect-findings step 1: a capped entry is a known flake, reads no log for it, sends nothing to the judge, and returns stop naming the row once step 4 has recorded everything else.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/flaky-ci-cli-transcript.txt",
+      "reason": "First import of Z in A leaves exactly one discovered.jsonl row, ref flaky:Z, blocksFeature:false, summary [flaky-ci]. In this build import also records the flake (--job/--run-id).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/flaky-ci-cli-transcript.txt",
+      "reason": "Later Z flakes return filed:false, A still one row; passing Jest test covers a later flake in another feature filing nothing.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/FS-11-file-followups-iter2.txt",
+      "reason": "file-followups step 1 lists the flaky job as its third import source via `node .claude/lib/flaky-ci.js import --state-dir <work.stateDir> --job <job> --run-id <runId>`; steps 3-5 carve out only [flaky-capped] rows, and step 5 names [flaky-ci] rows alongside the other imported rows.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/flaky-ci-jobs-filed-and-capped/evidence/flaky-ci-jest.txt",
+      "reason": "Jest test passes: feature dir holds only discovered.jsonl and flaky.jsonl, state root holds only the feature dir.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0,
+    6
+  ],
+  "outcome": "satisfied"
+}

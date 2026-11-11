@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/flaky-ci-jobs-filed-and-capped.md",
+    "url": "https://claude.ai/artifact/Y5YiP5oPTGmEtJEsGccGtr",
+    "updated_at": "2026-11-11T12:41:17.922Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/flaky-ci-jobs-filed-and-capped/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-11T12:52:57.129Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/flaky-ci-jobs-filed-and-capped/verification-report.md",
+    "url": "https://claude.ai/artifact/DjxvmLekr2jm8ivGgV2Y6o",
+    "updated_at": "2026-11-11T13:01:01.584Z",
+    "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/flaky-ci-jobs-filed-and-capped/audit-build-report.md",
+    "url": "https://claude.ai/artifact/WKrgKwHHkF7hJVQdFoYL59",
+    "updated_at": "2026-11-11T13:08:02.633Z",
+    "command": "/audit-build"
+  }
+}

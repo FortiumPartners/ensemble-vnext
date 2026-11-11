@@ -1,0 +1,97 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/flaky-ci-jobs-filed-and-capped.md",
+  "trd_hash": "972a33a0c399a3c47c3f39c4bfa6d220018834ea8d47d577f9eff1f42221b2cc",
+  "branch": "feature/40-flaky-ci-jobs-filed-and-capped",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "flaky-ci.js library + CLI + tests, vendored",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/flaky-ci.js",
+        "packages/core/lib/flaky-ci.test.js",
+        ".claude/lib/flaky-ci.js",
+        "packages/full/lib/flaky-ci.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T12:41:45.495Z",
+      "completed_at": "2026-11-11T12:47:18.398Z",
+      "last_advanced": "2026-11-11T12:45:44.648Z"
+    },
+    "FIX-002": {
+      "description": "wire flaky-ci into wait-ci, file-followups, collect-findings contracts",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitive-wait-ci.md",
+        "packages/core/contracts/ship-primitive-file-followups.md",
+        "packages/core/contracts/ship-primitive-collect-findings.md",
+        ".claude/contracts/ship-primitive-wait-ci.md",
+        ".claude/contracts/ship-primitive-file-followups.md",
+        ".claude/contracts/ship-primitive-collect-findings.md",
+        "packages/core/contracts/ship-primitives.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T12:41:45.495Z",
+      "completed_at": "2026-11-11T12:47:18.398Z",
+      "last_advanced": "2026-11-11T12:45:44.649Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "05e50ae",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-11T12:52:40.039Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "05e50ae",
+    "last_checkpoint_timestamp": "2026-11-11T12:52:40.039Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/flaky-ci-jobs-filed-and-capped.md § Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude + scaffold available"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login present"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    },
+    "outcome": "satisfied"
+  }
+}
