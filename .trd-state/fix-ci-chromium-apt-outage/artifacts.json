@@ -5,5 +5,17 @@
     "url": "https://claude.ai/artifact/4Rf5FXgGuoz9SryCZMPk9x",
     "updated_at": "2026-11-11T16:16:43.745Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/fix-ci-chromium-apt-outage/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-11T16:43:13.946Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/fix-ci-chromium-apt-outage/verification-report.md",
+    "url": "https://claude.ai/artifact/2LfcHtBkmAgPue2pPnuxYN",
+    "updated_at": "2026-11-11T16:54:25.107Z",
+    "command": "/implement-trd"
   }
 }
