@@ -20,14 +20,21 @@ Merges the pull request and proves that what merged is what was verified (D11, D
 
 ## Do
 
-1. **Bring the base in when the PR has clashed with it**, before the gate. Read
-   `gh pr view <pr> --json mergeable,state`.
-   - `MERGED` (a merge whose proof failed, or one done outside this run): skip this step. This
-     check comes first because a merged PR reads `UNKNOWN` forever.
-   - `UNKNOWN` (GitHub has not computed it yet): poll the same command up to 8 times, 15s apart,
-     until it reads `MERGEABLE` or `CONFLICTING`. Still `UNKNOWN` after the polls: skip this step.
-   - `MERGEABLE`: skip this step.
-   - `CONFLICTING`: run, from the project root, with `<branch>` and `<PR head>` read from
+1. **Bring the base in when the PR has clashed with it or the base requires the head to be up
+   to date**, before the gate. Ask GitHub's own verdict:
+   ```bash
+   node .claude/lib/merge-up.js decide --pr <pr>
+   ```
+   It prints one JSON line with `ok`, `action` and `reason`. `ok: false` (it could not read the
+   PR) returns `stop` with the `reason`. Otherwise act on `action`:
+   - `skip` (the PR is `MERGED`, or mergeable and not behind): go straight to step 2. A merged
+     PR reads `UNKNOWN` forever, so `decide` checks `MERGED` before anything else.
+   - `poll` (GitHub has not computed mergeability yet): run the same command up to 8 times,
+     15s apart, until it answers `skip` or `merge-in`. Still `poll` after the 8 runs: treat it
+     as `skip`.
+   - `merge-in` (`mergeable` reads `CONFLICTING`, or `mergeStateStatus` reads `BEHIND`, GitHub's
+     word that a branch rule requires the head to be up to date): run, from the project root,
+     with `<branch>` and `<PR head>` read from
      `gh pr view <pr> --json headRefName,headRefOid`. Fetch the base first, so the merge brings
      in the base GitHub compared against, not a stale local copy:
      ```bash
@@ -72,7 +79,7 @@ Merges the pull request and proves that what merged is what was verified (D11, D
    `ok: false` returns `stop` with the reason and the differing files.
 5. The merged head is the PR's `headRefOid` read from `gh pr view <pr> --json headRefOid,state`.
 
-**One rule for every stop.** Before returning any `stop` from this contract (a `merge-base-in` stop, a failed push, a head wait that times out, a CI failure on the new head,
+**One rule for every stop.** Before returning any `stop` from this contract (a `decide` failure, a `merge-base-in` stop, a failed push, a head wait that times out, a CI failure on the new head,
 a custody-gate stop, a pr-head failure, a `gh pr merge` failure, a merge-link failure), read
 `gh pr view <pr> --json state` again. When it reads `MERGED`, that stop carries
 `data: { merged: true, base }`, so the run record can still leave the tracked tree.

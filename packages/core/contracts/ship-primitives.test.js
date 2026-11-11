@@ -226,11 +226,12 @@ describe('merge', () => {
   test('an already MERGED PR still skips to the merge proof', () => {
     expect(t).toMatch(/Already `MERGED`[^]*skip to step 4/);
   });
-  test('step 1 brings the base in before the gate: mergeable read, MERGED skip, UNKNOWN poll, base fetch, merge-base-in, push, head wait, CI wait', () => {
+  test('step 1 brings the base in before the gate: merge-up.js decide, MERGED skip, UNKNOWN poll, merge-in on CONFLICTING or BEHIND, base fetch, merge-base-in, push, head wait, CI wait', () => {
     const marks = [
-      '--json mergeable,state',
-      '`MERGED`',
-      '`UNKNOWN`',
+      'merge-up.js decide',
+      '`skip`',
+      '`poll`',
+      '`merge-in`',
       'git fetch origin <base>',
       'record-files.js merge-base-in',
       'git push',
@@ -241,9 +242,18 @@ describe('merge', () => {
     const iGate = t.indexOf('ship-custody-gate.md');
     for (let k = 1; k < marks.length; k += 1) expect(marks[k - 1]).toBeLessThan(marks[k]);
     expect(marks[marks.length - 1]).toBeLessThan(iGate);
-    // a merged PR reads UNKNOWN forever, so the MERGED skip must come before the poll
-    expect(t).toMatch(/`MERGED`[^]*skip[^]*`UNKNOWN`[^]*8 times, 15s apart/);
-    expect(t).toMatch(/`CONFLICTING`/);
+    // a merged PR reads UNKNOWN forever, so decide checks MERGED first; poll is 8 times, 15s apart
+    expect(t).toMatch(/`skip`[^]*`poll`[^]*8 times, 15s apart/);
+    expect(t).toMatch(/`merge-in`[^]*`CONFLICTING`[^]*`BEHIND`/);
+  });
+  test('a skip goes straight to the gate, and the inline mergeable read is gone', () => {
+    expect(t).toMatch(/`skip`[^]*go straight to step 2/);
+    expect(t).not.toMatch(/--json mergeable,state/);
+    expect(t).not.toMatch(/`MERGEABLE`/);
+  });
+  test('a decide failure is a stop, and is listed under "One rule for every stop"', () => {
+    expect(t).toMatch(/merge-up\.js decide[^]*`ok: false`[^]*\(it could not read the PR\) returns `stop`/);
+    expect(t).toMatch(/One rule for every stop[^]*`decide` failure/);
   });
   test('the ok: false stop of merge-base-in names the paths', () => {
     expect(t).toMatch(/`ok: false` returns `stop` naming `notRecord` or `invalidJson`/);
@@ -261,6 +271,13 @@ describe('merge', () => {
     expect(t).toMatch(/One rule for every stop/);
     expect(t).toMatch(/Before returning any `stop`[^]*`gh pr view <pr> --json state`[^]*`MERGED`[^]*`data: \{ merged: true, base \}`/);
     expect(t).toMatch(/sequencer keeps the run\s+record outside the tracked tree/);
+  });
+});
+
+describe('custody gate report', () => {
+  test('step 4 names mergeBases', () => {
+    const g = fs.readFileSync(path.join(__dirname, 'ship-custody-gate.md'), 'utf8').replace(/\s+/g, ' ');
+    expect(g).toMatch(/Report\.[^]*`mergeBases`/);
   });
 });
 
