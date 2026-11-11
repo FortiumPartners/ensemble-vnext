@@ -1,0 +1,12 @@
+{
+  "feature": "flaky-ci-jobs-filed-and-capped",
+  "trd": "docs/TRD/flaky-ci-jobs-filed-and-capped.md",
+  "closedAt": "2026-11-11T13:07:42Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no PRD was supplied, so the code was checked against the TRD alone (its source is roadmap item 4 of the ship-churn-fixes plan); a real GitHub Actions rerun of a flaky job was never exercised (Jest only); a flake seen after a merge is counted only on the machine that saw it; two parallel branches can each file the same job's first flake.",
+    "report": ".trd-state/flaky-ci-jobs-filed-and-capped/audit-build-report.md",
+    "auditedCommit": "1221a7a46e55fd1a423cc42b21a7ecfb490ec1d6"
+  }
+}

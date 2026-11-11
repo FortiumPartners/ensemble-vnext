@@ -217,3 +217,19 @@ describe('mergeBase', () => {
     expect(JSON.parse(r.stdout)).toMatchObject({ ok: true });
   });
 });
+
+describe('gitattributes-additions template', () => {
+  // Each union line is only safe if /ship-build's merge-base step treats the same path as a
+  // record file; isRecordFile stays the single definition, so the template must agree with it.
+  test('every path in gitattributes-additions.txt satisfies isRecordFile', () => {
+    const tpl = path.join(__dirname, '..', 'templates', 'gitattributes-additions.txt');
+    const paths = fs
+      .readFileSync(tpl, 'utf8')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'))
+      .map((l) => l.split(/\s+/)[0]);
+    expect(paths.length).toBeGreaterThan(0);
+    for (const p of paths) expect([p, isRecordFile(p)]).toEqual([p, true]);
+  });
+});

@@ -1,0 +1,12 @@
+{
+  "feature": "merge-up-reproves-only-changed",
+  "trd": "docs/TRD/merge-up-reproves-only-changed.md",
+  "closedAt": "2026-11-11T13:31:47Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (the TRD's source is roadmap item 2, not a PRD, so the code was checked against the TRD only); live GitHub behaviour unproven (whether `BEHIND` appears only under an up-to-date rule, and the \"at most one CI run\" count on a real PR, which the owner deferred).",
+    "report": ".trd-state/merge-up-reproves-only-changed/audit-build-report.md",
+    "auditedCommit": "3e5e17b07df34c59e31b3254117c6206591b64db"
+  }
+}

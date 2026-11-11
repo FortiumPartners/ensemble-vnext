@@ -11,6 +11,7 @@
 #   ./scaffold-project.sh --agent-status --plugin-dir DIR [project-directory]
 #   ./scaffold-project.sh --sync-agents [--new-only] --plugin-dir DIR [project-directory]
 #   ./scaffold-project.sh --stamp-version --plugin-dir DIR [project-directory]
+#   ./scaffold-project.sh --git-files [project-directory]
 #
 # Options:
 #   --plugin-dir DIR   Plugin directory containing agents, skills, hooks
@@ -30,6 +31,13 @@
 #                       rebased_at, and previous_version when it changed) into
 #                       .claude/settings.json. Exits 1 if it cannot stamp. Exclusive with
 #                       --refresh, --force, --agent-status, --sync-agents.
+#   --git-files        Strict standalone mode: add the framework's ignore lines
+#                       (templates/gitignore-framework.txt) and merge-union lines
+#                       (templates/gitattributes-additions.txt) to the project's
+#                       .gitignore/.gitattributes, and untrack (index only, staged,
+#                       never committed) any listed path that is tracked. Needs no
+#                       --plugin-dir. Exclusive with --refresh, --force, --agent-status,
+#                       --sync-agents, --stamp-version. --refresh never touches the index.
 #   --new-only         With --sync-agents: copy only new agents (--preserve-all).
 #
 # If project-directory is not provided, uses current directory.
@@ -51,6 +59,7 @@ REFRESH=false
 AGENT_STATUS=false
 SYNC_AGENTS=false
 STAMP_VERSION=false
+GIT_FILES=false
 NEW_ONLY=false
 PROJECT_DIR=""
 
@@ -90,6 +99,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --stamp-version)
             STAMP_VERSION=true
+            shift
+            ;;
+        --git-files)
+            GIT_FILES=true
             shift
             ;;
         --new-only)
@@ -144,6 +157,13 @@ if [[ "$STAMP_VERSION" == "true" ]]; then
     fi
     if [[ -z "$PLUGIN_DIR" ]]; then
         echo "Error: --stamp-version requires --plugin-dir" >&2
+        exit 1
+    fi
+fi
+# --git-files is a strict standalone mode, for the same reason as the above.
+if [[ "$GIT_FILES" == "true" ]]; then
+    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$STAMP_VERSION" == "true" ]]; then
+        echo "Error: --git-files cannot be combined with --refresh, --force, --agent-status, --sync-agents or --stamp-version" >&2
         exit 1
     fi
 fi
@@ -1528,7 +1548,9 @@ sync_agents() {
 # when absent: env.CLAUDE_CODE_STOP_HOOK_BLOCK_CAP (see below). Neither are the other ensemble
 # sub-keys (skills_dir, rules_dir, state_dir, docs_dir, prd_dir, trd_dir shipped
 # by the settings template; rebased_at / previous_version written by
-# /rebase-project). Only version + refreshed_at are (re)written.
+# /rebase-project). Only ensemble.version is (re)written, plus refreshed_at in strict
+# mode: the non-strict stamp must not write a timestamp, so two branches refreshing
+# to the same plugin version make byte-identical edits to settings.json.
 #
 # Second argument "strict" (--stamp-version only): every condition that would
 # otherwise warn-and-skip becomes an error on stderr and return 1, and the
@@ -1581,9 +1603,9 @@ if not isinstance(ensemble, dict):
     ensemble = collections.OrderedDict()
 old_version = ensemble.get("version")
 ensemble["version"] = version
-now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-ensemble["refreshed_at"] = now
 if strict:
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    ensemble["refreshed_at"] = now
     # Rebase fields belong to --stamp-version only; --refresh and the initial
     # scaffold must not claim a rebase happened. Nor does strict mode when no
     # version was stamped before: that is /init-project recovering a missing
@@ -1721,20 +1743,70 @@ ensure_gitattributes() {
 
     while IFS= read -r line || [[ -n "$line" ]]; do
         [[ -z "$line" || "$line" == \#* ]] && continue
-        if [[ -f "$target" ]] && grep -qxF -- "$line" "$target"; then
-            continue
+        append_missing_line "$target" "$line" || return 0
+    done < "$template"
+    return 0
+}
+
+# Append $2 to file $1 unless a whole line already equals it; creates $1 when
+# absent. A file without a trailing newline would otherwise glue our line onto
+# its last one. Returns 1 (after a warning) only when the write fails.
+append_missing_line() {
+    local target="$1" line="$2"
+    if [[ -f "$target" ]] && grep -qxF -- "$line" "$target"; then
+        return 0
+    fi
+    {
+        if [[ -s "$target" && -n "$(tail -c1 "$target")" ]]; then
+            printf '\n'
         fi
-        {
-            # A file without a trailing newline would otherwise glue our line onto its last one.
-            if [[ -s "$target" && -n "$(tail -c1 "$target")" ]]; then
-                printf '\n'
+        printf '%s\n' "$line"
+    } >> "$target" 2>/dev/null || {
+        warn "Could not write $target — skipping"
+        return 1
+    }
+    info "Added to $target: $line"
+}
+
+# Append the framework's ignore lines (templates/gitignore-framework.txt) to
+# .gitignore, whole-line matched, other lines untouched. With "untrack" as $1,
+# also run `git rm --cached` (index only, staged, never committed) on each
+# listed path that is tracked. Only scaffold and --git-files pass "untrack":
+# --refresh runs unattended at session start on whatever branch is checked out,
+# and a staged deletion there would conflict with sibling branches.
+# Errors warn and return 0. Callers have already cd'd into the target.
+ensure_gitignore() {
+    local untrack="${1:-}"
+    local template="${TEMPLATES_DIR}/gitignore-framework.txt"
+    local target=".gitignore"
+    local line
+
+    if [[ ! -f "$template" ]]; then
+        warn "gitignore template missing — skipping .gitignore"
+        return 0
+    fi
+
+    # Untracking needs a work tree; checked once, not per line.
+    if [[ "$untrack" == "untrack" ]] && ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        untrack=""
+    fi
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        append_missing_line "$target" "$line" || return 0
+
+        [[ "$untrack" == "untrack" ]] || continue
+        # :(glob) gives the pathspec .gitignore's semantics (`*` never crosses
+        # `/`), so only paths the line actually ignores are untracked. Quoted:
+        # the glob is git's to expand, never the shell's.
+        local spec=":(glob)$line"
+        if [[ -n "$(git ls-files -- "$spec" 2>/dev/null || true)" ]]; then
+            if git rm --cached -r --quiet --ignore-unmatch -- "$spec" >/dev/null 2>&1; then
+                info "Untracked $line (index only); commit this removal on the base branch"
+            else
+                warn "Could not untrack $line"
             fi
-            printf '%s\n' "$line"
-        } >> "$target" 2>/dev/null || {
-            warn "Could not write $target — skipping"
-            return 0
-        }
-        info "Added to $target: $line"
+        fi
     done < "$template"
     return 0
 }
@@ -1825,6 +1897,8 @@ refresh_project() {
     # Owner-ruled exception to "never create" above: see ensure_gitattributes().
     echo "--- Git Attributes ---"
     ensure_gitattributes
+    # No untracking here: refresh never changes the git index.
+    ensure_gitignore
     echo ""
 
     # Stamped only once every copy step above has completed successfully.
@@ -1945,6 +2019,7 @@ scaffold_project() {
 
     echo "--- Git Attributes ---"
     ensure_gitattributes
+    ensure_gitignore untrack
     echo ""
 
     # Copy plugin content if plugin directory specified
@@ -2035,7 +2110,9 @@ scaffold_project() {
 
 # Run if executed directly (not sourced)
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    if [[ "$STAMP_VERSION" == "true" ]]; then
+    if [[ "$GIT_FILES" == "true" ]]; then
+        (cd "$PROJECT_DIR" && ensure_gitignore untrack && ensure_gitattributes)
+    elif [[ "$STAMP_VERSION" == "true" ]]; then
         stamp_ensemble_version "$PROJECT_DIR" strict
     elif [[ "$AGENT_STATUS" == "true" ]]; then
         agent_status "$PROJECT_DIR"

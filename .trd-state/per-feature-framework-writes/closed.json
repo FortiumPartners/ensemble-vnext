@@ -1,0 +1,12 @@
+{
+  "feature": "per-feature-framework-writes",
+  "trd": "docs/TRD/per-feature-framework-writes.md",
+  "closedAt": "2026-11-11T13:35:28Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; no test checks that /rebase-project actually calls the new `--git-files` step (part of O2); two Could Not Verify rows are still open (whether GitHub's server-side PR merge honours `merge=union`, and projects partway through rollout that still track `current.json`)",
+    "report": ".trd-state/per-feature-framework-writes/audit-build-report.md",
+    "auditedCommit": "4aa5b06848c9a47e9417fc3137e95dbda9969e6e"
+  }
+}

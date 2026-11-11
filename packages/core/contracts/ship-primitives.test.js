@@ -226,11 +226,12 @@ describe('merge', () => {
   test('an already MERGED PR still skips to the merge proof', () => {
     expect(t).toMatch(/Already `MERGED`[^]*skip to step 4/);
   });
-  test('step 1 brings the base in before the gate: mergeable read, MERGED skip, UNKNOWN poll, base fetch, merge-base-in, push, head wait, CI wait', () => {
+  test('step 1 brings the base in before the gate: merge-up.js decide, MERGED skip, UNKNOWN poll, merge-in on CONFLICTING or BEHIND, base fetch, merge-base-in, push, head wait, CI wait', () => {
     const marks = [
-      '--json mergeable,state',
-      '`MERGED`',
-      '`UNKNOWN`',
+      'merge-up.js decide',
+      '`skip`',
+      '`poll`',
+      '`merge-in`',
       'git fetch origin <base>',
       'record-files.js merge-base-in',
       'git push',
@@ -241,9 +242,18 @@ describe('merge', () => {
     const iGate = t.indexOf('ship-custody-gate.md');
     for (let k = 1; k < marks.length; k += 1) expect(marks[k - 1]).toBeLessThan(marks[k]);
     expect(marks[marks.length - 1]).toBeLessThan(iGate);
-    // a merged PR reads UNKNOWN forever, so the MERGED skip must come before the poll
-    expect(t).toMatch(/`MERGED`[^]*skip[^]*`UNKNOWN`[^]*8 times, 15s apart/);
-    expect(t).toMatch(/`CONFLICTING`/);
+    // a merged PR reads UNKNOWN forever, so decide checks MERGED first; poll is 8 times, 15s apart
+    expect(t).toMatch(/`skip`[^]*`poll`[^]*8 times, 15s apart/);
+    expect(t).toMatch(/`merge-in`[^]*`CONFLICTING`[^]*`BEHIND`/);
+  });
+  test('a skip goes straight to the gate, and the inline mergeable read is gone', () => {
+    expect(t).toMatch(/`skip`[^]*go straight to step 2/);
+    expect(t).not.toMatch(/--json mergeable,state/);
+    expect(t).not.toMatch(/`MERGEABLE`/);
+  });
+  test('a decide failure is a stop, and is listed under "One rule for every stop"', () => {
+    expect(t).toMatch(/merge-up\.js decide[^]*`ok: false`[^]*\(it could not read the PR\) returns `stop`/);
+    expect(t).toMatch(/One rule for every stop[^]*`decide` failure/);
   });
   test('the ok: false stop of merge-base-in names the paths', () => {
     expect(t).toMatch(/`ok: false` returns `stop` naming `notRecord` or `invalidJson`/);
@@ -261,6 +271,13 @@ describe('merge', () => {
     expect(t).toMatch(/One rule for every stop/);
     expect(t).toMatch(/Before returning any `stop`[^]*`gh pr view <pr> --json state`[^]*`MERGED`[^]*`data: \{ merged: true, base \}`/);
     expect(t).toMatch(/sequencer keeps the run\s+record outside the tracked tree/);
+  });
+});
+
+describe('custody gate report', () => {
+  test('step 4 names mergeBases', () => {
+    const g = fs.readFileSync(path.join(__dirname, 'ship-custody-gate.md'), 'utf8').replace(/\s+/g, ' ');
+    expect(g).toMatch(/Report\.[^]*`mergeBases`/);
   });
 });
 
@@ -322,6 +339,20 @@ describe('the waiting primitives', () => {
     expect(t).toMatch(/gh run rerun <run-id> --failed/);
     expect(t).toMatch(/once/);
   });
+  test('wait-ci records each rerun-pass through flaky-ci.js, caps at 3 and names the job from --json jobs', () => {
+    const t = flat('wait-ci');
+    expect(t).toMatch(/gh run view <run-id> --json jobs/);
+    expect(t).toMatch(/flaky-ci\.js record --state-dir <work\.stateDir> --job <name> --run-id <id>/);
+    expect(t).toMatch(/3 or more times/);
+    expect(t).toMatch(/`capped: true`/);
+    expect(t).toMatch(/never files anything/);
+    expect(t).not.toMatch(/was flaky: list it in `data\.flaky`\. Still failing/);
+  });
+  test('wait-ci applies the cap to a rerun-pass it did not make, so a resume cannot bypass it', () => {
+    const t = flat('wait-ci');
+    expect(t).toMatch(/--json attempt,jobs/);
+    expect(t).toMatch(/resuming after a capped stop cannot turn the stop into a pass/);
+  });
   test('request-review arms once and returns wait; claude uses a background Bash', () => {
     const t = flat('request-review');
     expect(t).toMatch(/One arm, no re-arm/);
@@ -372,6 +403,14 @@ describe('collect-findings and fix-findings', () => {
     expect(t).toMatch(/\[below-critical\]/);
     expect(t).toMatch(/\[lint\]/);
   });
+  test('collect-findings treats a capped failure as a known flake: no log, no judge, [flaky-capped], stop', () => {
+    const t = flat('collect-findings');
+    expect(t).toMatch(/`capped: true`/);
+    expect(t).toMatch(/\[flaky-capped\] <job>/);
+    expect(t).toMatch(/flaky-capped:<job>/);
+    expect(t).toMatch(/return `stop`/);
+    expect(t).toMatch(/once step 4\s+has recorded everything else, return `stop`/);
+  });
   test('fix-findings chains the shipping reconcile, stops for sweep work naming /plan, and resolves rows in order', () => {
     const t = flat('fix-findings');
     expect(t).toMatch(/--reconcile --chained --shipping/);
@@ -397,6 +436,16 @@ describe('the after-shipping primitives', () => {
     expect(t).toMatch(/Exactly one distinct reference: close it/);
     expect(t).toMatch(/None: close nothing/);
     expect(t).toMatch(/More than one: close nothing/);
+  });
+  test('file-followups imports flaked jobs through flaky-ci.js as [flaky-ci] rows keyed flaky:<job>', () => {
+    const t = flat('file-followups');
+    expect(t).toMatch(/flaky-ci\.js import --state-dir <work\.stateDir>/);
+    expect(t).toMatch(/flaky:<job>/);
+    expect(t).toMatch(/\[flaky-ci\]/);
+  });
+  test('file-followups reports a [flaky-capped] row and never files it', () => {
+    const t = flat('file-followups');
+    expect(t).toMatch(/A `\[flaky-capped\]` row is\s+reported, never filed/);
   });
   test('file-followups imports then resolves, reads no sweep-ledger row, reports unfiled rows', () => {
     const t = flat('file-followups');

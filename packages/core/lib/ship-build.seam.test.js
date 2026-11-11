@@ -21,6 +21,9 @@ const discovered = require('./discovered');
 
 const SEQ = path.join(__dirname, 'ship-sequencer.js');
 const CUSTODY = path.join(__dirname, 'custody.js');
+const MERGE_UP = path.join(__dirname, 'merge-up.js');
+const RECORD_FILES = path.join(__dirname, 'record-files.js');
+const LIVE_EVIDENCE = path.join(__dirname, 'live-evidence.js');
 const AUTH_SENTENCE = 'A step listed in `.claude/rules/ship.md` is the owner\'s standing authorization for that act.';
 
 const TRD = 'docs/TRD/f.md';
@@ -295,5 +298,185 @@ describe('a finding filed once is not filed on a re-run', () => {
     expect(discovered.resolve(dir, open1[0], 'filed https://example.test/issues/1')).toBe(true);
     // The re-run reads the same ledger and finds nothing left to file.
     expect(discovered.readAll(dir, { open: true })).toHaveLength(0);
+  });
+});
+
+describe('merge step: bringing the base in, then the gate, pr-head check and gh pr merge', () => {
+  const TRD2 = TRD_TEXT.replace('| O1 | first | yes |', '| O1 | first | yes |\n| O2 | second | yes |');
+  const DEF2 = DEFINITION + '| FS-2 | b | c | e | [read] | locator | | O2 |\n';
+  const POLICY = '## Ship\n1. push\n2. open-pr\n3. merge\n';
+  const origPath = process.env.PATH;
+  const STUB_VARS = ['STUB_BARE', 'STUB_MERGEABLE', 'STUB_STATUS', 'STUB_MERGE_LOG'];
+  let binDir;
+
+  beforeAll(() => {
+    binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ship-seam-bin-'));
+    roots.push(binDir);
+    // `pr view` answers headRefOid from the bare origin: the merge commit does not exist until
+    // the step runs, so a fixed JSON could not carry it. `pr merge` only logs its arguments.
+    fs.writeFileSync(path.join(binDir, 'gh'), [
+      '#!/bin/sh',
+      'if [ "$1 $2" = "pr view" ]; then',
+      '  oid=$(git ls-remote "$STUB_BARE" refs/heads/feature/f | cut -f1)',
+      '  printf \'{"state":"OPEN","mergeable":"%s","mergeStateStatus":"%s","headRefName":"feature/f","headRefOid":"%s","baseRefName":"main"}\\n\' "$STUB_MERGEABLE" "$STUB_STATUS" "$oid"',
+      '  exit 0',
+      'fi',
+      'if [ "$1 $2" = "pr merge" ]; then shift 2; echo "$@" >> "$STUB_MERGE_LOG"; exit 0; fi',
+      'echo "unstubbed gh $*" >&2; exit 1',
+      '',
+    ].join('\n'), { mode: 0o755 });
+    process.env.PATH = `${binDir}${path.delimiter}${origPath}`;
+  });
+  afterAll(() => {
+    process.env.PATH = origPath;
+    STUB_VARS.forEach((k) => delete process.env[k]);
+  });
+
+  /** A closed feature, pushed, with two must-pass criteria: FS-1 covers src/b.js, FS-2 has no manifest. */
+  function twoCriteria() {
+    const s = setup({ policy: POLICY });
+    s.commit('work', { 'src/a.js': 'a2', [TRD]: TRD2 });
+    s.write(`${s.stateDir}/success-definition.md`, DEF2);
+    const art = (id) => path.join(s.repo, s.stateDir, 'evidence', `${id}.txt`);
+    s.write(`${s.stateDir}/evidence/FS-1.txt`, 'proof 1');
+    s.write(`${s.stateDir}/evidence/FS-2.txt`, 'proof 2');
+    s.write(`${s.stateDir}/verification-state.json`, JSON.stringify({
+      criteria: [{ id: 'FS-1', status: 'met', artifact: art('FS-1') }, { id: 'FS-2', status: 'met', artifact: art('FS-2') }],
+    }));
+    const rec = spawnSync(process.execPath, [LIVE_EVIDENCE, 'record', '--state-dir', s.stateDir, '--task', 'FS-1',
+      '--artifact', art('FS-1'), '--covers', path.join(s.repo, 'src/b.js')], { cwd: s.repo, encoding: 'utf8', env: cleanEnv() });
+    expect(rec.status).toBe(0);
+    s.start();
+    expect(s.playPush().reconcile.action).toBe('set');
+    return s;
+  }
+
+  /** Another clone lands a commit on origin/main (ported from custody.test.js). */
+  function landOnBase(s, files, msg = 'base change') {
+    const other = path.join(s.root, 'other');
+    s.g(s.root, 'clone', '-q', '-b', 'main', path.join(s.root, 'origin.git'), other);
+    s.g(other, 'config', 'user.email', 't@example.com');
+    s.g(other, 'config', 'user.name', 't');
+    for (const [rel, text] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(other, rel)), { recursive: true });
+      fs.writeFileSync(path.join(other, rel), text);
+    }
+    s.g(other, 'add', '-A');
+    s.g(other, 'commit', '-m', msg);
+    s.g(other, 'push', 'origin', 'main');
+    s.g(s.repo, 'fetch', 'origin');
+  }
+
+  /**
+   * The merge contract's Do, as the lead plays it: decide, merge-base-in + push when told to,
+   * the custody gate, the pr-head check, then `gh pr merge --match-head-commit <observed>`.
+   * Counts how many times origin's branch ref moved during the step with an `update` hook.
+   */
+  function playMerge(s, { mergeable, status }) {
+    const bare = path.join(s.root, 'origin.git');
+    const refLog = path.join(s.root, 'ref-moves.log');
+    const mergeLog = path.join(s.root, 'merge-calls.log');
+    fs.writeFileSync(refLog, '');
+    fs.writeFileSync(path.join(bare, 'hooks', 'update'),
+      `#!/bin/sh\n[ "$1" = "refs/heads/feature/f" ] && echo "$3" >> "${refLog}"\nexit 0\n`, { mode: 0o755 });
+    Object.assign(process.env, { STUB_BARE: bare, STUB_MERGEABLE: mergeable, STUB_STATUS: status, STUB_MERGE_LOG: mergeLog });
+    const prHead = () => s.g(s.repo, 'ls-remote', 'origin', 'refs/heads/feature/f').split(/\s+/)[0];
+    const json = (script, args) => {
+      const r = spawnSync(process.execPath, [script, ...args], { cwd: s.repo, encoding: 'utf8', env: cleanEnv() });
+      return JSON.parse(r.stdout.trim().split('\n').pop());
+    };
+    const out = { mergedIn: null };
+    out.decide = json(MERGE_UP, ['decide', '--pr', '7']);
+    if (out.decide.action === 'merge-in') {
+      s.g(s.repo, 'fetch', 'origin', 'main');
+      out.mergedIn = json(RECORD_FILES, ['merge-base-in', '--base', 'origin/main', '--branch', 'feature/f', '--pr-head', prHead()]);
+      expect(out.mergedIn.ok).toBe(true);
+      s.g(s.repo, 'push', 'origin', 'feature/f');
+    }
+    out.gate = s.playGate({ reverifiedStatus: 'met' });
+    out.prHead = json(CUSTODY, ['check', '--state-dir', s.stateDir, '--link', 'pr-head', '--pr', '7', '--trd', TRD]);
+    if (out.prHead.ok) {
+      const m = spawnSync('gh', ['pr', 'merge', '7', '--merge', '--match-head-commit', out.prHead.observed], { encoding: 'utf8', env: cleanEnv() });
+      expect(m.status).toBe(0);
+    }
+    out.refMoves = fs.readFileSync(refLog, 'utf8').split('\n').filter(Boolean);
+    out.mergeCalls = fs.existsSync(mergeLog) ? fs.readFileSync(mergeLog, 'utf8').split('\n').filter(Boolean) : [];
+    out.head = prHead();
+    return out;
+  }
+
+  /** Records the steps before merge, plays it, and records merged the way the lead would. */
+  function runToMerge(s, stub, expectBase) {
+    for (const [word, data] of [['pushed', { head: 'h' }], ['opened', { pr: 7, head: 'h' }]]) s.record(s.next().step.id, word, data);
+    const step = s.next();
+    expect(step.step.primitive).toBe('merge');
+    const played = playMerge(s, stub);
+    const rec = s.record(step.step.id, 'merged', { merged: true, mergedHead: played.head, base: expectBase, method: 'merge' });
+    return { played, rec };
+  }
+
+  test('base change touching no covered file, PR CONFLICTING: one merge commit pushed, one base-merge move, no reverify', () => {
+    const s = twoCriteria();
+    const before = s.g(s.repo, 'ls-remote', 'origin', 'refs/heads/feature/f').split(/\s+/)[0];
+    landOnBase(s, { 'src/c.js': 'c1' });
+    const { played, rec } = runToMerge(s, { mergeable: 'CONFLICTING', status: 'DIRTY' }, 'main');
+
+    expect(played.decide).toMatchObject({ ok: true, action: 'merge-in' });
+    // Exactly one update of origin's branch ref, and it is a merge commit on top of the old head.
+    expect(played.refMoves).toEqual([played.head]);
+    expect(s.g(s.repo, 'rev-list', '--parents', '-n', '1', played.head).split(' ')).toEqual([played.head, before, s.g(s.repo, 'rev-parse', 'origin/main')]);
+    // The gate made one base-merge move and never asked for re-verification.
+    expect(played.gate.reconcile.action).toBe('moved');
+    expect(played.gate.reconcile.action).not.toBe('reverify');
+    expect(s.readCustody().moves.filter((m) => m.rule === 'base-merge')).toHaveLength(1);
+    expect(s.readCustody().moves).toHaveLength(1);
+    expect(s.readCustody().anchor.commit).toBe(played.head);
+    // The pr-head check observed the pushed merge commit; gh pr merge was matched to it, once.
+    expect(played.prHead).toMatchObject({ ok: true, observed: played.head });
+    expect(played.mergeCalls).toEqual([`7 --merge --match-head-commit ${played.head}`]);
+    expect(rec).toMatchObject({ ok: true });
+    expect(rec.status).not.toBe('waiting');
+  });
+
+  test('base change touching FS-1\'s covered file: gate reverifies FS-1 only and reuses FS-2', () => {
+    const s = twoCriteria();
+    landOnBase(s, { 'src/b.js': 'b-from-base' });
+    // Plays only the merge-in and the gate: decide and gh pr merge are covered by the cases around it.
+    const played = (() => {
+      s.g(s.repo, 'fetch', 'origin', 'main');
+      const head = s.g(s.repo, 'ls-remote', 'origin', 'refs/heads/feature/f').split(/\s+/)[0];
+      const r = spawnSync(process.execPath, [RECORD_FILES, 'merge-base-in', '--base', 'origin/main', '--branch', 'feature/f', '--pr-head', head], { cwd: s.repo, encoding: 'utf8', env: cleanEnv() });
+      expect(JSON.parse(r.stdout.trim().split('\n').pop()).ok).toBe(true);
+      s.g(s.repo, 'push', 'origin', 'feature/f');
+      return s.playGate();
+    })();
+    expect(played.reconcile).toMatchObject({ action: 'reverify', ids: ['FS-1'], reused: ['FS-2'] });
+  });
+
+  test('PR MERGEABLE and CLEAN: no merge-in, no push, gate none, gh pr merge called', () => {
+    const s = twoCriteria();
+    landOnBase(s, { 'src/c.js': 'c1' });
+    const before = s.g(s.repo, 'ls-remote', 'origin', 'refs/heads/feature/f').split(/\s+/)[0];
+    const { played, rec } = runToMerge(s, { mergeable: 'MERGEABLE', status: 'CLEAN' }, 'main');
+    expect(played.decide).toMatchObject({ ok: true, action: 'skip' });
+    expect(played.mergedIn).toBeNull();
+    expect(played.refMoves).toEqual([]);
+    expect(played.head).toBe(before);
+    expect(played.gate.reconcile.action).toBe('none');
+    expect(played.prHead).toMatchObject({ ok: true, observed: before });
+    expect(played.mergeCalls).toEqual([`7 --merge --match-head-commit ${before}`]);
+    expect(rec.ok).toBe(true);
+  });
+
+  test('PR MERGEABLE but BEHIND: the base is merged in, pushed once, and the merge matches that commit', () => {
+    const s = twoCriteria();
+    landOnBase(s, { 'src/c.js': 'c1' });
+    const { played } = runToMerge(s, { mergeable: 'MERGEABLE', status: 'BEHIND' }, 'main');
+    expect(played.decide).toMatchObject({ ok: true, action: 'merge-in' });
+    expect(played.mergedIn.ok).toBe(true);
+    expect(played.refMoves).toEqual([played.head]);
+    expect(played.gate.reconcile.action).toBe('moved');
+    expect(played.prHead.observed).toBe(played.head);
+    expect(played.mergeCalls).toEqual([`7 --merge --match-head-commit ${played.head}`]);
   });
 });

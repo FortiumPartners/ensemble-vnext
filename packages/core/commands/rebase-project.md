@@ -148,7 +148,7 @@ Examples:
 
 **This command writes no backups, and that is deliberate.** `.claude/` is committed —
 `constitution.md`'s Architecture Invariants require it ("Runtime is committed to git for
-reproducibility"), and `.gitignore` excludes only `*.local.*`. So git already holds every
+reproducibility"), and `.gitignore` excludes only `*.local.*` plus the few framework-written working files that differ on every branch (`.trd-state/current.json`, the dispatch logs; Step 4.7a). So git already holds every
 byte this command is about to replace, with better tooling than a copied directory: `git
 diff` shows exactly what the rebase changed, which a timestamped parallel tree cannot.
 
@@ -1102,11 +1102,35 @@ Report:
 - "Governance files preserved (not modified by rebase)"
 - "Framework rules: N installed, M updated, K unchanged"
 
+#### 4.7a Framework git files (always)
+
+Runs in every mode that applies changes, just before 4.8. It makes sure the framework's own
+write-clash files are ignored and its merge-union lines are present, so parallel feature
+branches stop conflicting on them:
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-project.sh" --git-files .
+```
+
+It adds the lines from `templates/gitignore-framework.txt` to `.gitignore` and
+`templates/gitattributes-additions.txt` to `.gitattributes` when missing, and untracks (`git rm
+--cached`, staged, never committed) any listed file the project had been committing, such as
+`.trd-state/current.json`. Files stay on disk.
+
+Report:
+- "Git files: N lines added, M files untracked (list them)"
+- If any file was untracked: "Commit this removal on the base branch (`git commit`) so every
+  feature branch stops carrying the file; until it lands on the base, branches still clash."
+
+A non-zero exit goes under ISSUES in the rebase report with the stderr line. The script
+warns rather than failing on a missing template, an unwritable file or a path it could not
+untrack (it still exits 0), so each `[WARN]` line it prints also goes under ISSUES.
+
 #### 4.8 Stamp the version (always)
 
 Runs last in Step 4, in every mode that applies changes (default, `--preserve-all`, `--force`),
 whatever `settings_preserve` says: the stamp is what the next rebase's version detection reads,
-and it is not a settings merge. It writes `ensemble.version`, `refreshed_at`, `rebased_at` and,
+and it is not a settings merge. It writes `ensemble.version`, `refreshed_at` (this strict stamp still does; the scaffold's own stamp no longer does), `rebased_at` and,
 when the version changed, `previous_version`, leaving every other key alone.
 
 ```bash
