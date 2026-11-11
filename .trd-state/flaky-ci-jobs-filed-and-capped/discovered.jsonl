@@ -1,0 +1,2 @@
+{"ts":"2026-11-11T12:52:40.146Z","kind":"bug","foundBy":"implement-trd","phase":null,"summary":"A Watchman cookie file (.watchman-cookie-studio-92073-29) is tracked in git at the repo root; it is a transient tool file and should be removed from the index and ignored","blocksFeature":false,"file":".watchman-cookie-studio-92073-29","evidence":"git ls-files | grep watchman"}
+{"ts":"2026-11-11T12:52:45.026Z","kind":"gap","foundBy":"code-review","phase":null,"summary":"[review-pending] /code-review on 05e50ae63a027c3f3e6fb8a131d926e75bd4f78b","blocksFeature":false}

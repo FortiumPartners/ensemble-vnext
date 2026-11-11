@@ -4,7 +4,7 @@
   "trd_hash": "972a33a0c399a3c47c3f39c4bfa6d220018834ea8d47d577f9eff1f42221b2cc",
   "branch": "feature/40-flaky-ci-jobs-filed-and-capped",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "flaky-ci.js library + CLI + tests, vendored",
@@ -46,10 +46,19 @@
       "last_advanced": "2026-11-11T12:45:44.649Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "05e50ae",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-11T12:52:40.039Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "e57edef",
-    "last_checkpoint_timestamp": "2026-11-11T12:41:45.495Z",
+    "last_healthy_checkpoint": "05e50ae",
+    "last_checkpoint_timestamp": "2026-11-11T12:52:40.039Z",
     "interrupted": false,
     "interrupt_reason": null
   },

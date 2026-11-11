@@ -5,5 +5,17 @@
     "url": "https://claude.ai/artifact/Y5YiP5oPTGmEtJEsGccGtr",
     "updated_at": "2026-11-11T12:41:17.922Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/flaky-ci-jobs-filed-and-capped/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-11T12:52:57.129Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/flaky-ci-jobs-filed-and-capped/verification-report.md",
+    "url": "",
+    "updated_at": "2026-11-11T12:58:02.637Z",
+    "command": "/implement-trd"
   }
 }
