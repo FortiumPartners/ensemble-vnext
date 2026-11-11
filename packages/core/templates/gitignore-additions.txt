@@ -37,7 +37,9 @@ Thumbs.db
 #   router-rules.json - Routing patterns
 #
 # .trd-state/        - Implementation tracking (committed for collaboration)
-#   current.json     - Current feature pointer
+#                      Exception: the framework's shared working files (current.json,
+#                      the dispatch logs, _command-runs/) are deliberately untracked;
+#                      scaffold-project.sh writes those ignore lines, not this file.
 #   <feature>/       - Per-feature implementation status
 #
 # docs/              - Documentation
