@@ -377,19 +377,26 @@ PY
     [ -n "$STEP" ]
     # The heading marks the step always-run, and it calls the strict mode on the project.
     grep -q '^#### 4.7a .*(always)' <<<"$STEP"
-    grep -q 'scaffold-project.sh" --git-files \.' <<<"$STEP"
-    # It must sit before 4.8, the version stamp, and after 4.7.
+    grep -q 'scaffold-project.sh" --git-files \.$' <<<"$STEP"
+    # It must sit before 4.8, the version stamp, and after 4.7. Each heading must
+    # occur exactly once, and the two comparisons stay on separate lines: in an
+    # `a && b` list errexit ignores a failing `a`, so a joined check was dead.
+    [ "$(grep -c '^#### 4.7 ' "$RP")" -eq 1 ]
+    [ "$(grep -c '^#### 4.7a ' "$RP")" -eq 1 ]
+    [ "$(grep -c '^#### 4.8 ' "$RP")" -eq 1 ]
     l47="$(grep -n '^#### 4.7 ' "$RP" | cut -d: -f1)"
     l47a="$(grep -n '^#### 4.7a ' "$RP" | cut -d: -f1)"
     l48="$(grep -n '^#### 4.8 ' "$RP" | cut -d: -f1)"
-    [ "$l47" -lt "$l47a" ] && [ "$l47a" -lt "$l48" ]
+    [ "$l47" -lt "$l47a" ]
+    [ "$l47a" -lt "$l48" ]
     # The flag the command calls is a real mode of the script, not a stale name.
-    grep -q '^        --git-files)' "$SCAFFOLD"
+    grep -qE '^[[:space:]]+--git-files\)' "$SCAFFOLD"
 
     # gitignore-additions.txt no longer tells projects to commit the shared pointer.
     GA="${REPO_ROOT}/packages/core/templates/gitignore-additions.txt"
     # (Before this change it listed current.json under ".trd-state/ ... committed".)
     refute grep -q '^#   current\.json ' "$GA"
+    refute grep -q 'Current feature pointer' "$GA"
     grep -A2 'current\.json' "$GA" | grep -q 'deliberately untracked'
 
     # All three copies of the command stay byte-identical.
