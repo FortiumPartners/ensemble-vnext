@@ -1,6 +1,7 @@
 # Files the framework itself writes: shared per-session working state that
 # differs on every branch and so clashes at merge time. Per-feature state under
-# .trd-state/<feature>/ is deliberately not listed here.
+# .trd-state/<feature>/ is deliberately not listed here, except each feature's
+# dispatch log, which is per-session working state like the shared one.
 .trd-state/current.json
 .trd-state/_dispatch.jsonl
 .trd-state/*/dispatch.jsonl

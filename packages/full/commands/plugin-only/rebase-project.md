@@ -1122,7 +1122,9 @@ Report:
 - If any file was untracked: "Commit this removal on the base branch (`git commit`) so every
   feature branch stops carrying the file; until it lands on the base, branches still clash."
 
-A non-zero exit goes under ISSUES in the rebase report with the stderr line.
+A non-zero exit goes under ISSUES in the rebase report with the stderr line. The script
+warns rather than failing on a missing template, an unwritable file or a path it could not
+untrack (it still exits 0), so each `[WARN]` line it prints also goes under ISSUES.
 
 #### 4.8 Stamp the version (always)
 

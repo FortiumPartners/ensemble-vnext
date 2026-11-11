@@ -714,6 +714,10 @@ writes that differ on every branch: `.trd-state/current.json`, the dispatch logs
 `.trd-state/_command-runs/`) and merge-union lines into `.gitignore` and `.gitattributes`.
 This step appends the general additions below.
 
+If the scaffold printed `Untracked <path> (index only)`, the project had been committing that
+framework file: the removal is staged, not committed. Report it in STATE and tell the owner to
+commit it on the base branch, as `/rebase-project` Step 4.7a does.
+
 **Append to `.gitignore` if not already present:**
 
 Read content from `@packages/core/templates/gitignore-additions.txt` and append to project's `.gitignore`.

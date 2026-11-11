@@ -1603,8 +1603,8 @@ if not isinstance(ensemble, dict):
     ensemble = collections.OrderedDict()
 old_version = ensemble.get("version")
 ensemble["version"] = version
-now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 if strict:
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     ensemble["refreshed_at"] = now
     # Rebase fields belong to --stamp-version only; --refresh and the initial
     # scaffold must not claim a rebase happened. Nor does strict mode when no
@@ -1743,22 +1743,29 @@ ensure_gitattributes() {
 
     while IFS= read -r line || [[ -n "$line" ]]; do
         [[ -z "$line" || "$line" == \#* ]] && continue
-        if [[ -f "$target" ]] && grep -qxF -- "$line" "$target"; then
-            continue
-        fi
-        {
-            # A file without a trailing newline would otherwise glue our line onto its last one.
-            if [[ -s "$target" && -n "$(tail -c1 "$target")" ]]; then
-                printf '\n'
-            fi
-            printf '%s\n' "$line"
-        } >> "$target" 2>/dev/null || {
-            warn "Could not write $target — skipping"
-            return 0
-        }
-        info "Added to $target: $line"
+        append_missing_line "$target" "$line" || return 0
     done < "$template"
     return 0
+}
+
+# Append $2 to file $1 unless a whole line already equals it; creates $1 when
+# absent. A file without a trailing newline would otherwise glue our line onto
+# its last one. Returns 1 (after a warning) only when the write fails.
+append_missing_line() {
+    local target="$1" line="$2"
+    if [[ -f "$target" ]] && grep -qxF -- "$line" "$target"; then
+        return 0
+    fi
+    {
+        if [[ -s "$target" && -n "$(tail -c1 "$target")" ]]; then
+            printf '\n'
+        fi
+        printf '%s\n' "$line"
+    } >> "$target" 2>/dev/null || {
+        warn "Could not write $target — skipping"
+        return 1
+    }
+    info "Added to $target: $line"
 }
 
 # Append the framework's ignore lines (templates/gitignore-framework.txt) to
@@ -1779,26 +1786,22 @@ ensure_gitignore() {
         return 0
     fi
 
+    # Untracking needs a work tree; checked once, not per line.
+    if [[ "$untrack" == "untrack" ]] && ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        untrack=""
+    fi
+
     while IFS= read -r line || [[ -n "$line" ]]; do
         [[ -z "$line" || "$line" == \#* ]] && continue
-        if [[ ! -f "$target" ]] || ! grep -qxF -- "$line" "$target"; then
-            {
-                if [[ -s "$target" && -n "$(tail -c1 "$target")" ]]; then
-                    printf '\n'
-                fi
-                printf '%s\n' "$line"
-            } >> "$target" 2>/dev/null || {
-                warn "Could not write $target — skipping"
-                return 0
-            }
-            info "Added to $target: $line"
-        fi
+        append_missing_line "$target" "$line" || return 0
 
         [[ "$untrack" == "untrack" ]] || continue
-        git rev-parse --is-inside-work-tree >/dev/null 2>&1 || continue
-        # Quoted pathspec: the glob in a line is git's to expand, never the shell's.
-        if [[ -n "$(git ls-files -- "$line" 2>/dev/null || true)" ]]; then
-            if git rm --cached -r --quiet --ignore-unmatch -- "$line" >/dev/null 2>&1; then
+        # :(glob) gives the pathspec .gitignore's semantics (`*` never crosses
+        # `/`), so only paths the line actually ignores are untracked. Quoted:
+        # the glob is git's to expand, never the shell's.
+        local spec=":(glob)$line"
+        if [[ -n "$(git ls-files -- "$spec" 2>/dev/null || true)" ]]; then
+            if git rm --cached -r --quiet --ignore-unmatch -- "$spec" >/dev/null 2>&1; then
                 info "Untracked $line (index only); commit this removal on the base branch"
             else
                 warn "Could not untrack $line"

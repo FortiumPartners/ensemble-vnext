@@ -52,8 +52,9 @@ depend on. Anything that needs a decision belongs to `/rebase-project`.
 
 `.claude/settings.json` carries `ensemble.version`, the plugin version the runtime came from.
 `/init-project` and every `/rebase-project` stamp it (a rebase does so as its last step; a
-project left without one is treated as out of date). A refresh writes it too, with
-`refreshed_at`.
+project left without one is treated as out of date). A refresh writes it too, but not
+`refreshed_at`: only the strict stamp `/rebase-project` runs writes that, so two branches
+refreshing to the same version make identical edits.
 
 The refresh gate is **monotonic**: it acts only when the installed plugin is strictly newer
 than the stamp. That stops two teammates on different plugin versions from flipping committed

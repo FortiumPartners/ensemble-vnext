@@ -2870,3 +2870,16 @@ PY
     run python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['ensemble']['refreshed_at'])" "$TEST_DIR/.claude/settings.json"
     [[ "$output" != "2000-01-01T00:00:00Z" ]]
 }
+
+@test "git files: --git-files untracks only what the ignore line covers, not deeper nested paths" {
+    cd "$TEST_DIR"
+    git init -q . && git config user.email t@t && git config user.name t
+    mkdir -p .trd-state/feat .trd-state/feat/evidence/x
+    echo a > .trd-state/feat/dispatch.jsonl
+    echo b > .trd-state/feat/evidence/x/dispatch.jsonl
+    git add .trd-state && git commit -qm init
+    run "$SCAFFOLD_SCRIPT" --git-files "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -z "$(git ls-files .trd-state/feat/dispatch.jsonl)" ]
+    [ -n "$(git ls-files .trd-state/feat/evidence/x/dispatch.jsonl)" ]
+}
