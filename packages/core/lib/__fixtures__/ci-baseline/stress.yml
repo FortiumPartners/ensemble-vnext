@@ -1,0 +1,53 @@
+# leading comment
+name: "Stress: it's"   # trailing comment
+on:
+  push:
+    branches: [main, 'release/**']   # flow seq
+  pull_request: {}
+env:
+  GREETING: 'it''s fine'
+  REF: ${{ github.ref }}
+  PLAIN: hello ${{ github.actor }} there
+  COUNT: 3
+  FLAG: true
+  NOTHING: null
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.f.outputs.code }}   # output
+    steps:
+      - uses: actions/checkout@v4
+      - id: f
+        uses: dorny/paths-filter@v3
+        with:
+          token: ''
+          base: ${{ github.event.before }}
+          filters: |
+            code:
+              - 'src/**'
+              - '!docs/**'   # nested comment
+            other:
+              - "lib/**"
+      - name: "say: hi"
+        run: |
+          echo a: b
+          echo "# not a comment"
+      - name: folded
+        run: >
+          echo one
+          two
+
+          three
+  test:
+    needs: [changes]
+    if: ${{ needs.changes.outputs.code == 'true' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            node: 20
+    steps:
+      - run: npm test

@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/ci-baseline-check.md",
+    "url": "https://claude.ai/artifact/JSbGdkBMtow9htqYZX3JeS",
+    "updated_at": "2026-11-11T12:43:50.527Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/ci-baseline-check/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-11T13:18:13.403Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/ci-baseline-check/verification-report.md",
+    "url": "https://claude.ai/artifact/MZvdcy1kZxPARfqfzvYMzH",
+    "updated_at": "2026-11-11T13:40:18.962Z",
+    "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/ci-baseline-check/audit-build-report.md",
+    "url": "https://claude.ai/artifact/TtsWqSjNu3piUnUaAUS3Kc",
+    "updated_at": "2026-11-11T13:50:42.220Z",
+    "command": "/audit-build"
+  }
+}
