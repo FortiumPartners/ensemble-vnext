@@ -72,11 +72,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-11T16:43:04.095Z"
+    },
+    {
+      "phase": 1,
+      "commit": "d6cfc79a326031bbc7554aef4f9001dee49f25f9",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-11T17:36:03.407Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "7e3234b5a7b7a0d2abe27d21195fbe7155dd626a",
-    "last_checkpoint_timestamp": "2026-11-11T16:43:04.095Z",
+    "last_healthy_checkpoint": "d6cfc79a326031bbc7554aef4f9001dee49f25f9",
+    "last_checkpoint_timestamp": "2026-11-11T17:36:03.407Z",
     "interrupted": false,
     "interrupt_reason": null
   },
