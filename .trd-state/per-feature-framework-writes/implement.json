@@ -4,7 +4,7 @@
   "trd_hash": "8e308d601d49c4af2b6905ccb185d7550e4ec00f21722f9535d991d26fc1b223",
   "branch": "feature/10-per-feature-framework-writes",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "scaffold-project.sh: gitignore-framework template, ensure_gitignore, --git-files, union lines, stamp stops writing refreshed_at",
@@ -63,10 +63,19 @@
       "last_advanced": "2026-11-11T12:50:32.088Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "15a63ebd6082b2dda7ef9f2c196365f89899eca9",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-11T13:07:49.907Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "15a63ebd6082b2dda7ef9f2c196365f89899eca9",
+    "last_checkpoint_timestamp": "2026-11-11T13:07:49.907Z",
     "interrupted": false,
     "interrupt_reason": null
   },
