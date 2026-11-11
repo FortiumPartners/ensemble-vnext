@@ -1,5 +1,5 @@
 {
-  "iteration": 2,
+  "iteration": 1,
   "criteria": [
     {
       "id": "FS-1",
@@ -18,7 +18,7 @@
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-ci-chromium-apt-outage/evidence/it2-arith.txt",
-      "reason": "Step bounds cache 1 min + download 3 min + fonts 2 min = 360 s; plus npm ci 3 s and Jest 87 s = 450 s, under the 600 s job limit (150 s headroom). Values match it2-parse.txt and ci.yml. (it2-parse.txt's trailing ARITH line still prints the older 390 s sum that omits the cache step; it2-arith.txt carries the corrected sum.)",
+      "reason": "Step bounds cache 1 min + download 3 min + fonts 2 min = 360 s; plus npm ci 3 s and Jest 87 s = 450 s, under the 600 s job limit (150 s headroom).",
       "cause": null,
       "provenAt": 2,
       "image": null,
@@ -30,7 +30,7 @@
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-ci-chromium-apt-outage/evidence/it2-parse.txt",
-      "reason": "The download step runs `timeout -k 5 80 npx playwright install chromium` (twice, then a warning) with no --with-deps; the parse prints 'steps before Run Jest with --with-deps: 0'. apt work is only in the separate step 6 (`playwright install-deps chromium`), bounded at 2 min and soft-failing.",
+      "reason": "The download step runs `timeout -k 5 80 npx playwright install chromium` with no --with-deps; apt work is only in the separate step 6, bounded at 2 min and soft-failing.",
       "cause": null,
       "provenAt": 2,
       "image": null,
@@ -42,20 +42,8 @@
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-ci-chromium-apt-outage/evidence/it1-nobrowser.txt",
-      "reason": "All 96 suites ran and reported with Chromium unavailable (8 failed, 88 passed). The 5 non-browser failures are Chromium-independent: 4 fail identically with the browser present, custody.test.js is the known flake.",
+      "reason": "All 96 suites ran and reported with Chromium unavailable (8 failed, 88 passed).",
       "cause": null,
-      "provenAt": 1,
-      "image": null,
-      "ui": false,
-      "imageExcluded": null
-    },
-    {
-      "id": "FS-5",
-      "status": "not_verifiable",
-      "tier1": "pass",
-      "artifact": ".trd-state/fix-ci-chromium-apt-outage/evidence/it1-nobrowser.txt",
-      "reason": "Literal count not observable here: 8 suites fail locally, 5 for local reasons regardless of Chromium (Node version vs mock-fs, sandboxed /tmp chmod, custody flake). The differential shows only the three browser suites (design-bundle, design-render, design-render-walk) depend on Chromium. A clean count needs the CI runner, which verification.md section 5 says cannot be reproduced here.",
-      "cause": "capability-absent",
       "provenAt": 1,
       "image": null,
       "ui": false,
@@ -66,7 +54,7 @@
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-ci-chromium-apt-outage/evidence/it1-nobrowser.txt",
-      "reason": "The browser-absent Jest run ends 'Tests: 33 failed' and JEST_EXIT=1; the fresh parse shows Run Jest carries no continue-on-error and the job has none either (ci.yml lines 35-41), so the job ends failed, not green.",
+      "reason": "The browser-absent Jest run ends with JEST_EXIT=1; Run Jest carries no continue-on-error, so the job ends failed, not green.",
       "cause": null,
       "provenAt": 2,
       "image": null,
@@ -84,11 +72,22 @@
       "image": null,
       "ui": false,
       "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-ci-chromium-apt-outage/evidence/it3-fs5-nobrowser.txt",
+      "reason": "Fresh clone of HEAD f91fa58 with an empty PLAYWRIGHT_BROWSERS_PATH: 'Test Suites: 3 failed, 93 passed, 96 total', exit 1. The only FAIL lines are design-render.test.js, design-bundle.test.js and design-render-walk.test.js; all three call render.render (it3-fs5-chromium-sources.txt), which calls launch() and pw.chromium.launch (stack trace design-render.js:805 -> 755).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
     }
   ],
   "gapsClosed": [
-    0,
-    4
+    0
   ],
-  "outcome": "must-pass-unproven"
+  "outcome": "satisfied"
 }

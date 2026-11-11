@@ -9,14 +9,14 @@
   "success-definition": {
     "path": ".trd-state/fix-ci-chromium-apt-outage/success-definition.md",
     "url": "",
-    "updated_at": "2026-11-11T16:43:13.946Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-11T17:08:58.416Z",
+    "command": "/verify-build"
   },
   "verification-report": {
     "path": ".trd-state/fix-ci-chromium-apt-outage/verification-report.md",
     "url": "https://claude.ai/artifact/2LfcHtBkmAgPue2pPnuxYN",
-    "updated_at": "2026-11-11T16:54:25.107Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-11T17:08:58.368Z",
+    "command": "/verify-build"
   },
   "verification-plan": {
     "path": ".trd-state/fix-ci-chromium-apt-outage/verification-plan.md",
