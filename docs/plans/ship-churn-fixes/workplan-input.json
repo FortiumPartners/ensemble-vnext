@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "slug": "ship-churn-fixes",
+  "name": "Ship-churn fixes",
+  "source": {
+    "command": "/plan-feature",
+    "artifact": "docs/plans/ship-churn-fixes/roadmap.md"
+  },
+  "repo": "/Users/james/dev/fortium/ensemble-vnext",
+  "base_branch": "main",
+  "rigor": "solo",
+  "features": [
+    {
+      "name": "Per-feature framework writes",
+      "description": "Per-feature framework writes - feature F-1 of workplan ship-churn-fixes.\nMake sure two features built in parallel in a project scaffolded by Ensemble can merge into the base in either order with no conflict on any framework file. Find every file the framework writes that is shared across features and tracked in git, and either move the write under `.trd-state/<feature>/`, keep the file out of git, or (for a log that must stay shared) add a `merge=union` line to the `.gitattributes` template that `ensure_gitattributes()` in `packages/core/scripts/scaffold-project.sh` already writes on both init and refresh. Known cases from a code read: `packages/core/templates/gitignore-additions.txt` tells projects to commit `.trd-state/current.json` and omits `.trd-state/_dispatch.jsonl` and `.trd-state/_command-runs/`, all three of which this repository's own `.gitignore` already ignores; initial scaffolding writes `current.json` from a template (`scaffold-project.sh` line 1869); the compaction hook (`packages/core/hooks/precompact.js` lines 55-59) falls back to one shared `.trd-state/_session-log.md`. The ignore lines must reach both new projects (`/init-project`) and existing ones (`/rebase-project`), and an existing project that already tracks `current.json` must stop tracking it without losing the file. Keep `isRecordFile` in `packages/core/lib/record-files.js` the single definition of a record file.\nAcceptance: two features built in parallel on a scaffolded fixture repository merge into the base in either order with no conflict on any framework file (a new BATS test proves it); new projects and refreshed projects both get the ignore and union lines; an existing project that tracks current.json stops tracking it with the file kept on disk.\nBuilds on: none.\nDecisions: OWNER-CALLS.md has no Ensemble writer; add a merge=union line for it to the .gitattributes template rather than moving it: default taken, owner's call (agent, 2026-11-11). The rebase-project refresh untracks .trd-state/current.json with git rm in cached mode, staged and never committed by the command: default taken, owner's call (agent, 2026-11-11).\nDesign: docs/plans/ship-churn-fixes/roadmap.md item 1; source request in the roadmap's Source spec.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 10,
+      "dependencies": [],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    },
+    {
+      "name": "Merge-up re-proves only what changed",
+      "description": "Merge-up re-proves only what changed - feature F-2 of workplan ship-churn-fixes.\nStop a merge of the base into a PR branch from causing a full re-run of the checks, a full re-proof of the success criteria, a custody re-anchor, a merge refusal because the head moved, and another resume. After a merge-up, re-prove only the criteria whose covered files differ between the old merge base and the new one, re-anchor custody on the new head, and go on to merge in the same pass. The pieces exist: `packages/core/lib/custody.js` already returns `reused` criteria whose covered files did not change, and the evidence checker reuses an artifact while its covered files are byte-identical; today base-excused paths still put every criterion that covers them in doubt, and nothing compares the two merge bases. Also merge the base in only when GitHub reports the PR `CONFLICTING` (main already does this in `packages/core/contracts/ship-primitive-merge.md` step 1) or when branch protection on the base requires an up-to-date branch and the PR is behind (not handled today; `gh pr merge` fails). Done when, on a fixture, a merge-up that touches none of a feature's covered files dispatches no Exercise or Judge agents and costs at most one CI run.\nAcceptance: a merge-up that touches none of a feature's covered files re-proves no criterion, dispatches no Exercise or Judge agents, re-anchors custody once and merges in the same pass with no second resume; one that touches a covered file re-proves exactly the criteria covering it; the base is merged in only when the PR is CONFLICTING or protection requires an up-to-date branch and the PR is behind. Proved by Jest tests with a fixture repository and stubbed gh.\nBuilds on: none.\nRelated: Per-feature framework writes: both touch the record-file definition in packages/core/lib/record-files.js; neither needs the other built.\nDecisions: the live count of at most one CI run on a real GitHub pull request is deferred and proved locally with stubbed gh meanwhile: default taken, owner's call (agent, 2026-11-11).\nDesign: docs/plans/ship-churn-fixes/roadmap.md item 2; source request in the roadmap's Source spec.\nDeferred: the live CI-run count on a real GitHub pull request waits on a GitHub fixture repository being listed in .claude/rules/verification.md (none is today; the owner adds one with the verification-setup skill).\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 20,
+      "dependencies": [
+        {
+          "name": "Per-feature framework writes",
+          "reason": "related"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    },
+    {
+      "name": "CI baseline check in ship-setup",
+      "description": "CI baseline check in ship-setup - feature F-3 of workplan ship-churn-fixes.\nTeach the `ship-setup` skill (`packages/skills/ship-setup/SKILL.md`) to check the project's CI and report each gap: there is one always-reporting summary check (a job that reports on every push, so a required check is never left pending), heavy jobs are skipped on docs-only and record-only pushes (record files as `isRecordFile` in `packages/core/lib/record-files.js` defines them), and custody or ship-record commits do not run the full suite. The check is deterministic, so it lives in a library with a CLI that the skill calls, and it reports rather than edits: the skill names each gap in its readout and writes no workflow file beyond the resume trigger it already installs. Watch the trap that a `[skip ci]` head commit leaves required checks pending forever; the summary check is what prevents it.\nAcceptance: a library with a CLI, unit-tested over fixture workflow files, reports a missing always-reporting summary check, missing skips on docs-only and record-only pushes, and a full suite run on custody or ship-record commits; the ship-setup skill calls it and names each gap in its readout without editing the workflow.\nBuilds on: none.\nDecisions: the check runs in ship-setup only, not init-project: default taken, owner's call (agent, 2026-11-11).\nDesign: docs/plans/ship-churn-fixes/roadmap.md item 3; source request in the roadmap's Source spec.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 30,
+      "dependencies": [],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    },
+    {
+      "name": "Flaky CI jobs filed and capped",
+      "description": "Flaky CI jobs filed and capped - feature F-4 of workplan ship-churn-fixes.\nMake wait-ci's flaky list do something. Today `packages/core/contracts/ship-primitive-wait-ci.md` reruns a failed job once and lists a rerun-pass in `data.flaky`, and nothing reads it. The first time a job is seen flaking, file it as a follow-up through the existing `file-followups` primitive (`packages/core/contracts/ship-primitive-file-followups.md`, which today imports only not-verifiable criteria and `/task` follow-ups), once per job. Count flakes per job name, and once a job has flaked 3 times, stop treating a pass on rerun as passing: wait-ci returns `failed` for it. Keep the flake history per feature under `.trd-state/<feature>/` and count across features by reading all of them, so the history adds no shared mutable file.\nAcceptance: a job that fails then passes on rerun yields one filed follow-up the first time and no duplicate after; a job that has flaked 3 times makes wait-ci return failed instead of passed; flake history is kept per feature and counted across features, adding no shared mutable file. Proved by Jest tests.\nBuilds on: none.\nRelated: Per-feature framework writes: the flake history must follow its rule of no shared mutable file.\nDesign: docs/plans/ship-churn-fixes/roadmap.md item 4; source request in the roadmap's Source spec.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 40,
+      "dependencies": [
+        {
+          "name": "Per-feature framework writes",
+          "reason": "related"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    }
+  ]
+}
