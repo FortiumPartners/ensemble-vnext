@@ -244,7 +244,8 @@ function parseYaml(text) {
 
 function parseYamlUnchecked(text) {
   const L = text.replace(/\r\n?/g, '\n').split('\n').map((raw, i) => {
-    const indent = raw.length - raw.trimStart().length;
+    // Spaces only: a tab after the indentation is content (legal inside a block scalar).
+    const indent = raw.length - raw.replace(/^ +/, '').length;
     const t = stripComment(raw.slice(indent));
     return { n: i + 1, raw, indent, text: t, blank: t === '' };
   });
@@ -255,12 +256,14 @@ function parseYamlUnchecked(text) {
       if (!seenContent && l.text === '---') { l.blank = true; continue; }
       throw unsupported('multi-document YAML');
     }
-    if (/^ *\t/.test(l.raw)) throw perr(l, 'tab used for indentation');
     seenContent = true;
   }
   let pos = 0;
+  // Tab indentation is checked here, on structural lines only: block-scalar lines are consumed
+  // by blockScalar() and never pass through peek(), so a tab inside a `run: |` script is fine.
   const peek = () => {
     while (pos < L.length && L[pos].blank) pos++;
+    if (pos < L.length && /^ *\t/.test(L[pos].raw)) throw perr(L[pos], 'tab used for indentation');
     return pos < L.length ? L[pos] : null;
   };
 
@@ -455,8 +458,32 @@ function normTriggers(on) {
 function scopeTriggers(trg) {
   const names = [];
   for (const t of ['pull_request', 'pull_request_target']) if (trg[t]) names.push(t);
-  if (trg.push && (!('branches' in trg.push) || 'branches-ignore' in trg.push)) names.push('push');
+  // A push trigger that names only tags (tags / tags-ignore, no branches key) never runs on a
+  // branch push, so it is out of scope like `branches: [main]`.
+  // A `branches:` list holding a glob or a negation (`'**'`, `feature/*`, `'!main'`) reaches
+  // work-in-progress branches too, so it is in scope; only a list of literal names is not.
+  const p = trg.push;
+  const wildBranches = p && 'branches' in p && asList(p.branches).some((b) => /[*?[!]/.test(String(b)));
+  if (p && ('branches-ignore' in p || wildBranches || !('branches' in p || 'tags' in p || 'tags-ignore' in p))) names.push('push');
   return names;
+}
+
+/**
+ * True when a job's `if:` plainly keeps it off work-in-progress branches: one `&&` term (and no
+ * `||`) that pins a literal branch or tag ref, names an event that is never a branch push or PR,
+ * or requires `push` where push is out of scope. Any other mention of github.event_name or
+ * github.ref (e.g. `== 'pull_request'`) does not excuse the job.
+ */
+function offWipBranches(cond, scope) {
+  if (cond === null || /\|\|/.test(cond)) return false;
+  const ev = (name) => new RegExp(`github\\.event_name\\s*==\\s*['"]${name}['"]`);
+  return cond.split('&&').map((t) => t.trim().replace(/^\(+|\)+$/g, '')).some((t) =>
+    /^github\.ref\s*==\s*['"]refs\/(heads|tags)\/[^'"*?[]+['"]$/.test(t) ||
+    /^startsWith\(\s*github\.ref\s*,\s*['"]refs\/tags\/['"]\s*\)$/.test(t) ||
+    ['release', 'schedule', 'workflow_dispatch', 'repository_dispatch', 'merge_group'].some((n) => ev(n).test(t)) ||
+    (!scope.includes('push') && ev('push').test(t)) ||
+    (!scope.includes('push') && /github\.event_name\s*!=\s*['"]pull_request['"]/.test(t))
+  );
 }
 
 function ifText(job) {
@@ -485,11 +512,17 @@ function analyse(file, text) {
     const readsNeeds = needs.length > 0 && RE_READS_RESULTS.test(JSON.stringify(jobs[id]));
     const alwaysIf = cond !== null && RE_ALWAYS.test(cond);
     const readsOutputs = ids.some((o) => o !== id && ifText(jobs[o]) !== null && new RegExp(`needs\\.${escRe(id)}\\.outputs`).test(ifText(jobs[o])));
-    if (cond !== null && /github\.event_name|github\.ref/.test(cond)) role[id] = 'event';
+    if (offWipBranches(cond, scope)) role[id] = 'event';
     else if (readsOutputs) role[id] = 'detect';
     else if (needs.length > 0 && (alwaysIf || readsNeeds)) role[id] = 'summary';
     else role[id] = 'heavy';
   }
+  // Only ONE job is the summary: the candidate needing the most jobs. Any other always()/
+  // !cancelled() job with needs (an e2e or report job run after the tests) is a heavy job and
+  // must be gated like one, not waved through as a second summary.
+  const gates = ids.filter((id) => role[id] === 'summary');
+  const gate = gates.reduce((a, id) => (a === null || asList(jobs[id].needs).length > asList(jobs[a].needs).length ? id : a), null);
+  for (const id of gates) if (id !== gate) role[id] = 'heavy';
   return { file, triggers, scope, jobs, role, ids };
 }
 
@@ -549,13 +582,18 @@ function resolveDetector(w, x, y) {
     const pats = filters[m[2]];
     const list = asList(pats);
     if (pats === undefined || list.some((p) => typeof p !== 'string')) return { unclear: `filter "${m[2]}" in step "${m[1]}" is missing or not a plain list of patterns` };
+    for (const p of list) {
+      try { globToRegex(p.startsWith('!') ? p.slice(1) : p); } catch (e) {
+        return { unclear: `filter "${m[2]}" in step "${m[1]}" has a pattern this check cannot read: ${p}` };
+      }
+    }
     return { type: 'dorny', with: wth, patterns: list };
   }
   if (typeof step.run === 'string') return { type: 'run', script: step.run };
   return { unclear: `step "${m[1]}" is neither dorny/paths-filter nor a run: script` };
 }
 
-const TERM_OUTPUT = /^needs\.([\w-]+)\.outputs\.([\w-]+)(?:\s*==\s*(?:'true'|"true"))?$/;
+const TERM_OUTPUT = /^needs\.([\w-]+)\.outputs\.([\w-]+)(\s*==\s*(?:'true'|"true"))?$/;
 const TERM_PLAIN = new Set(['success()', 'always()', '!cancelled()']);
 
 /** Evaluates one heavy job for checks (b) and (c). */
@@ -575,6 +613,11 @@ function evalJob(w, id) {
     if (TERM_PLAIN.has(t)) continue;
     const m = TERM_OUTPUT.exec(t);
     if (!m) return unclear(`its if: contains "${t}", a form this check does not recognise`);
+    if (!m[3]) {
+      // Job outputs are strings and only '' is falsy, so paths-filter's 'false' reads as true.
+      const msg = `${where}: its if: tests needs.${m[1]}.outputs.${m[2]} without == 'true'; a job output is a string and 'false' counts as true, so the job always runs. Compare it to 'true'.`;
+      return { b: { status: 'gap', message: msg }, c: { status: 'gap', message: msg } };
+    }
     const d = resolveDetector(w, m[1], m[2]);
     if (d.unclear) return unclear(d.unclear);
     dets.push(d);
@@ -696,7 +739,7 @@ function checkWorkflows(files) {
     let { status, detail } = p;
     const unclear = [...p.unclear];
     for (const b of bad) unclear.push(`${b.file} could not be read (${b.message}), so this check cannot be sure.`);
-    if (bad.length && status === 'pass') {
+    if (bad.length && status !== 'gap') {
       status = 'unclear';
       detail = unclear.join(' ');
     }

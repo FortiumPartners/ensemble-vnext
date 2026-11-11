@@ -201,3 +201,26 @@ describe('CLI', () => {
     expect(JSON.parse(r.stdout).ok).toBe(false);
   });
 });
+
+describe('review follow-up: scope and event-scoped jobs', () => {
+  const wf = (on, job) => cb.checkWorkflows([{ file: 'w.yml', text: `${on}jobs:\n${job}` }]);
+  const plainJob = (cond) => `  test:\n    runs-on: x\n${cond ? `    if: ${cond}\n` : ''}    steps:\n      - run: echo\n`;
+  test('a job gated on github.event_name == pull_request is NOT excused (it runs on record commits)', () => {
+    const r = wf('on:\n  pull_request:\n', plainJob("github.event_name == 'pull_request'"));
+    expect(status(r).docsRecordSkip).not.toBe('pass');
+    expect(status(r).recordCommitSkip).not.toBe('pass');
+  });
+  test('a job pinned to refs/heads/main is excused as never running on PR work', () => {
+    const r = wf('on:\n  pull_request:\n', plainJob("github.ref == 'refs/heads/main'"));
+    expect(status(r).docsRecordSkip).toBe('pass');
+    expect(status(r).recordCommitSkip).toBe('pass');
+  });
+  test("a push trigger with a wildcard branch list ('**') is in scope", () => {
+    const r = wf("on:\n  push:\n    branches: ['**']\n", plainJob());
+    expect(gapChecks(r)).toEqual(expect.arrayContaining(['docsRecordSkip', 'recordCommitSkip']));
+  });
+  test('a push trigger with a literal branch list ([main]) stays out of scope', () => {
+    const r = wf('on:\n  push:\n    branches: [main]\n', plainJob());
+    expect(status(r).docsRecordSkip).toBe('pass');
+  });
+});

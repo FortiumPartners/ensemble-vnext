@@ -152,7 +152,9 @@ node .claude/lib/ci-baseline.js check
 ```
 
 It prints one JSON line: `noCi`, `checks` (`summary`, `docsRecordSkip`, `recordCommitSkip`,
-each `pass`, `gap` or `unclear` with a `detail`), and the `gaps` and `unclear` lists. With
+each `pass`, `gap` or `unclear` with a `detail`), and the `gaps` and `unclear` lists. If it
+prints an `error` instead, ISSUES says the CI check could not run, quoting the error, and the
+skill carries on. With
 `noCi` true, STATE says no GitHub Actions workflow was found and nothing more is said. Otherwise
 turn each `gap` and each `unclear` into one plain-words ISSUES line that names the workflow or
 job and says how to close it:
@@ -179,8 +181,8 @@ or a gap. Closing any of these is the owner's own edit to their CI; this skill r
   item, an environment variable's name) — never the token, password or key. If an answer looks
   like a value rather than a location, do not write it; ask for the location.
 - **Edit any file other than `.claude/rules/ship.md`** and, on the owner's yes, the workflow
-  file. Never `.claude/settings.json`, never `verification.md`, never a contract, never a CI
-  workflow: closing a CI gap is the owner's own edit.
+  file. Never `.claude/settings.json`, never `verification.md`, never a contract, never any
+  other CI workflow: closing a CI gap is the owner's own edit.
 - **Contact or probe anything.** Detection reads files in the repository; it makes no network
   call and runs no deploy, merge or push.
 - **Start a ship.** Running `/ship-build` is the owner's own next invocation.
