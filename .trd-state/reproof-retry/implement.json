@@ -4,7 +4,7 @@
   "trd_hash": "fbe3eb83a69b4649f3f4e607aa20f0ac1088edfad99f0502e17db84e9740935c",
   "branch": "feature/30-one-retry-for-a-re-proof",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "reproofRetrySet + mergeReproofRetry library and CLI",
@@ -44,10 +44,19 @@
       "last_advanced": "2026-11-11T23:18:07.845Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "0958e2f29c6e642934f71428e9b838fd994d24b3",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-11T23:37:23.031Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "0958e2f29c6e642934f71428e9b838fd994d24b3",
+    "last_checkpoint_timestamp": "2026-11-11T23:37:23.031Z",
     "interrupted": false,
     "interrupt_reason": null
   },
