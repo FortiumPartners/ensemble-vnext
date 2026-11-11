@@ -7,7 +7,7 @@
 | ID | Objective | Source | Must pass |
 |----|-----------|--------|-----------|
 | O1 | After a merge-up whose base changes touch none of a feature's covered files, the custody gate re-proves no criterion (returns no `reverify`), re-anchors custody once (one `base-merge` move) and the merge step goes on to `gh pr merge` in the same pass, with no second resume and one push (one CI run) | roadmap item 2, Brief and "How it will be checked", 2026-11-11 | yes |
-| O2 | After a merge-up whose base changes touch a covered file, the gate re-proves exactly the must-pass criteria covering that file, and reuses the rest | roadmap item 2, Acceptance, 2026-11-11 | yes |
+| O2 | After a merge-up whose base changes touch a covered file, the gate re-proves exactly the must-pass criteria covering that file, and reuses the rest | roadmap item 2, "How it will be checked", 2026-11-11 | yes |
 | O3 | The merge step merges the base in only when GitHub reports the PR `CONFLICTING`, or when the PR is behind a base whose protection requires an up-to-date branch (`mergeStateStatus` `BEHIND`); otherwise it merges the PR as it is | roadmap item 2, Brief, 2026-11-11 | yes |
 
 ## Intended Change
@@ -116,10 +116,10 @@ screens, designs, journeys or rendered data for a verification skill to check.
 
 ### FIX-001
 - **Touches:** `packages/core/lib/custody.js`, `packages/core/lib/custody.test.js`
-- **Reuse:** `affectedIds()` (lines 269-298) is the one place criteria are judged; pass it `shipped` beside the flat `changedPaths` so the no-covers branch can tell a base-only change, and keep `cov.uncovered` ids affected (track which ids came from `cov.criteria`) [read]. In `reconcile`, after `baseCommit` is set (line 407), run `git merge-base <anchor> <baseCommit>` for `mergeBases.old` — not inside `compare()`, whose early return at line 173 would skip it and where a new failure path would add a refusal [read]. The base-test helpers `landOnBase`/`mergeBase` in `custody.test.js` (from line 558) build the merge-up fixtures [read]
-- **Replaces:** the "no covers → affected whenever anything changed" branch (`if (!covers) return true;`, line 293) for the base-only case only; the expectation of the test at `custody.test.js:688` (it encodes the behaviour this feature removes) [read]
-- **Follow:** `out()` (line 415) adds fields only when `--base` was given, so a no-flag run reports exactly what it did before — put `mergeBases` there. Update the header comment (lines 21-27) and the `affectedIds` doc comment to say what a base-only change now does
-- **Careful:** `reason === 'format'` (line 425) and `noneAffectedRule` (line 440) key on `shipped.length`; keep them unchanged. "Base-only" means `shipped.length === 0 && excused.length > 0` after `compare()` — `differing` stays the shipped list. Covers paths are absolute; compare in repo-relative form as line 295 does
+- **Reuse:** `affectedIds()` (lines 275-308, doc comment from 266) is the one place criteria are judged; pass it `shipped` beside the flat `changedPaths` so the no-covers branch can tell a base-only change, and keep `cov.uncovered` ids affected (track which ids came from `cov.criteria`) [read]. In `reconcile`, after `baseCommit` is set (line 420), run `git merge-base <anchor> <baseCommit>` for `mergeBases.old` — not inside `compare()`, whose early return at line 177 would skip it and where a new failure path would add a refusal [read]. The base-test helpers `landOnBase`/`mergeBase` in `custody.test.js` (from line 558) build the merge-up fixtures [read]
+- **Replaces:** the "no covers → affected whenever anything changed" branch (was `if (!covers) return true;`; now line 304) for the base-only case only; the expectation of the test at `custody.test.js:688` (it encodes the behaviour this feature removes) [read]
+- **Follow:** `out()` (line 433) adds fields only when `--base` was given, so a no-flag run reports exactly what it did before — put `mergeBases` there. Update the header comment (lines 21-31) and the `affectedIds` doc comment to say what a base-only change now does
+- **Careful:** `reason === 'format'` (line 443) and `noneAffectedRule` (line 458) key on `shipped.length`; keep them unchanged. "Base-only" means `shipped.length === 0 && excused.length > 0` after `compare()` — `differing` stays the shipped list. Covers paths are absolute; compare in repo-relative form as line 306 does
 
 ### FIX-002
 - **Touches:** `packages/core/lib/merge-up.js`, `packages/core/lib/merge-up.test.js`, `packages/full/lib/merge-up.js`
@@ -130,21 +130,24 @@ screens, designs, journeys or rendered data for a verification skill to check.
 
 ### FIX-003
 - **Touches:** `packages/core/contracts/ship-primitive-merge.md`, `packages/core/contracts/ship-custody-gate.md`, `packages/core/contracts/ship-primitives.test.js`
-- **Reuse:** the existing step 1 text (lines 23-48): keep the fetch, `merge-base-in` call, push, head poll and CI wait word for word; only the decision changes [read]. The existing pin test at `ship-primitives.test.js:229` [read]
+- **Reuse:** the existing step 1 text (lines 23-55): keep the fetch, `merge-base-in` call, push, head poll and CI wait word for word; only the decision changes [read]. The existing pin test at `ship-primitives.test.js:229` [read]
 - **Replaces:** the inline `mergeable` read and its `MERGEABLE`/`CONFLICTING` bullets in step 1 [read]
-- **Follow:** contract prose style: numbered Do steps, commands in fenced `bash` blocks, `stop` named with its reason; one rule for every stop (line 75) still lists every stop including a `decide` failure
-- **Careful:** the "One rule for every stop" paragraph is pinned by `ship-primitives.test.js:252`; keep its order (merge-base-in, push, head wait, CI). Keep `.claude/contracts/` copies byte-identical to the source (`ship-primitives.test.js` checks it)
+- **Follow:** contract prose style: numbered Do steps, commands in fenced `bash` blocks, `stop` named with its reason; one rule for every stop (line 82) still lists every stop including a `decide` failure
+- **Careful:** the "One rule for every stop" paragraph is pinned by `ship-primitives.test.js:261-263` (its order), with `:254-257` and `:269-275` also pinning it; keep its order (merge-base-in, push, head wait, CI). Keep `.claude/contracts/` copies byte-identical to the source (`ship-primitives.test.js` checks it)
 
 ### FIX-004
 - **Touches:** `packages/core/lib/ship-build.seam.test.js`
-- **Reuse:** `setup()`, `playPush()` and `playGate()` (lines 47-124) and `withDefinition()` (line 196) [read]; `landOnBase` from `custody.test.js` (port it; the seam file has none) [read]; `record-files.js merge-base-in` as its CLI [read]; a stubbed `gh` script on PATH whose `pr view` reports `headRefOid` from `git ls-remote` against the bare origin (the merge commit does not exist until the step runs, so a fixed env JSON cannot carry it) and `mergeable`/`mergeStateStatus`/`state` from env, and logs `pr merge` arguments to a file. Put the stub on `process.env.PATH` as `custody.test.js:558-568` does, since `cleanEnv()` copies it
+- **Reuse:** `setup()` (line 50), `playPush()` (line 102) and `playGate()` (line 114) and `withDefinition()` (line 207) [read]; `landOnBase` from `custody.test.js` (ported; the seam file's copy is at line 355) [read]; `record-files.js merge-base-in` as its CLI [read]; a stubbed `gh` script on PATH whose `pr view` reports `headRefOid` from `git ls-remote` against the bare origin (the merge commit does not exist until the step runs, so a fixed env JSON cannot carry it) and `mergeable`/`mergeStateStatus`/`state` from env, and logs `pr merge` arguments to a file. Put the stub on `process.env.PATH` as `custody.test.js:558-568` does, since `cleanEnv()` copies it
 - **Replaces:** nothing
 - **Follow:** the file's own rule: play the lead, stub only `gh` and the model's judgement; real git against a bare origin. Count pushes by reading `git reflog`/`ls-remote` on the bare origin before and after the merge step. The load-bearing assertion for O1 is that the pr-head check's `observed` equals the pushed merge commit and the gate made one `base-merge` move; the logged `gh pr merge` call only shows the test played the step
 - **Careful:** `withDefinition()` defines one criterion with no manifest; the O2 case needs two must-pass criteria (FS-1 with a covers manifest via `live-evidence.js record`, FS-2 without) and a TRD with two must-pass objectives. Clear `GIT_DIR`/`GIT_WORK_TREE` with `cleanEnv()`
 
 ## Could Not Verify
 
-- That GitHub reports `mergeStateStatus: BEHIND` only when a protection rule or ruleset requires an up-to-date branch [inferred from GitHub's GraphQL `MergeStateStatus` documentation, not checked against a live repository]. If GitHub also reports it for unprotected bases, the step merges the base in when not strictly needed — one extra CI run, not a wrong merge.
-- `BEHIND` is read once, in step 1: if the base moves again before `gh pr merge`, or a missing review makes GitHub report `BLOCKED` instead, `gh pr merge` fails and the run stops — accepted under the non-goal that merge failures still stop.
+Updated by `/audit-build` on 2026-11-11. Every task (FIX-001 to FIX-004) and objective (O1 to O3) was checked against the delivered code and its tests and found built and tested (the four suites in the checkable outcome: 241 tests pass). What remains is what this audit could not check:
+
+- **No PRD was supplied.** The TRD's source is roadmap item 2 of `docs/plans/ship-churn-fixes/roadmap.md`, not a PRD, so the audit checked the code against this TRD only (traceability and verification); validation against product requirements, and whether anything the source asks for was left out, was not run.
+- That GitHub reports `mergeStateStatus: BEHIND` only when a protection rule or ruleset requires an up-to-date branch [inferred from GitHub's GraphQL `MergeStateStatus` documentation, not checked against a live repository]. Out of scope: the audit runs locally with stubbed `gh`. If GitHub also reports it for unprotected bases, the step merges the base in when not strictly needed — one extra CI run, not a wrong merge.
+- `BEHIND` is read once, in step 1: if the base moves again before `gh pr merge`, or a missing review makes GitHub report `BLOCKED` instead, `gh pr merge` fails and the run stops — accepted under the non-goal that merge failures still stop. Out of scope: needs a real GitHub pull request.
 - The live "at most one CI run" count on a real pull request — deferred by the owner's recorded decision; proved here only as "one push from the merge step" with stubbed `gh`.
-- That narrowing base-only re-proof is safe for a criterion with no covers record depends on the CI run on the merged head catching base regressions (OQ-1).
+- That narrowing base-only re-proof is safe for a criterion with no covers record depends on the CI run on the merged head catching base regressions (OQ-1, an owner call). A design assumption, not something code or tests can confirm.
