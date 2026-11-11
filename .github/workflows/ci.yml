@@ -88,6 +88,8 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.image }}-${{ steps.playwright.outputs.version }}
+      - name: "TEMP outage simulation: make the Ubuntu mirrors unresolvable"
+        run: echo "0.0.0.0 azure.archive.ubuntu.com security.ubuntu.com" | sudo tee -a /etc/hosts
       - name: Install Chromium for the design render tests
         timeout-minutes: 3
         continue-on-error: true
