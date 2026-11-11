@@ -23,6 +23,8 @@
 
 # OS files
 .DS_Store
+# Watchman sync cookies (Jest's file watcher); transient, and swept up by hand-over auto-commits
+.watchman-cookie-*
 Thumbs.db
 
 # Editor files

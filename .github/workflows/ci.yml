@@ -50,11 +50,57 @@ jobs:
       # lockfile pins, so a broken lockfile would pass CI silently. `npm ci`
       # was verified clean against this lockfile on 2026-09-25; no fallback.
       - run: npm ci
-      # design-render.test.js and design-bundle.test.js drive a real headless Chromium. `npm ci`
-      # installs Playwright as a library only, so without this step those suites fail (they do not
-      # skip) with "run `npx playwright install chromium`" (DSGN-B003, D13).
+      # design-render.test.js, design-render-walk.test.js and design-bundle.test.js drive a real
+      # headless Chromium. `npm ci` installs Playwright as a library only, so without a browser
+      # those suites fail (they do not skip) with "run `npx playwright install chromium`"
+      # (DSGN-B003, D13).
+      #
+      # The browser and its system fonts are installed in separate, bounded steps. The old single
+      # `playwright install --with-deps chromium` ran apt-get inside the browser step, so an
+      # Ubuntu mirror outage hung it until the 10-minute job limit and no test ran at all. Now
+      # the browser is cached and downloaded without apt, and the apt-backed font install is
+      # best-effort with a hard cap. Both steps are continue-on-error and emit a ::warning:: (a
+      # soft-failed step otherwise shows green); on an outage the three Chromium suites still
+      # fail loudly and every other suite runs and reports. Each install attempt carries its own
+      # `timeout` inside the step cap, so a stalled attempt still reaches the retry and the
+      # warning instead of being killed silently by the step limit.
+      #
+      # The cache key takes the runner image from /etc/os-release rather than restating the
+      # `runs-on` pin, so moving the pin cannot restore a browser built for another image.
+      - name: Read Playwright version and runner image
+        id: playwright
+        # Assigned first: inside `echo "...$(cmd)"` a failing cmd is swallowed (echo exits 0) and
+        # an empty value would give a cache key shared across Playwright versions or images.
+        run: |
+          version=$(node -p "require('playwright/package.json').version")
+          image=$(. /etc/os-release && echo "${ID}-${VERSION_ID}")
+          [ -n "$version" ] && [ -n "$image" ]
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+      # The cache backend is network storage too: bounded and soft like the installs, and
+      # actions/cache's own per-segment download timeout (10 minutes by default) cut to 1.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        timeout-minutes: 1
+        continue-on-error: true
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.image }}-${{ steps.playwright.outputs.version }}
       - name: Install Chromium for the design render tests
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          timeout -k 5 80 npx playwright install chromium \
+            || timeout -k 5 80 npx playwright install chromium \
+            || echo "::warning::Chromium download failed twice; the design render suites will fail"
+      - name: Install Chromium system fonts (best-effort)
+        timeout-minutes: 2
+        continue-on-error: true
+        run: |
+          timeout -k 10 90 npx playwright install-deps chromium \
+            || echo "::warning::Chromium system dependencies did not install (apt outage or timeout); renders may differ"
       # No suite is currently excluded from CI as "known-failing". The three
       # that were (status.test.js, judge.test.js, run-eval.test.js) all
       # actually passed — 67, 60 and 42 tests respectively — verified

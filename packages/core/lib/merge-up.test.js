@@ -38,6 +38,13 @@ describe('decide', () => {
     expect(decide({ pr: 7 })).toMatchObject({ ok: true, action: 'skip' });
   });
 
+  test('a closed, unmerged PR is refused, never merged into or polled', () => {
+    pr('CLOSED', 'CONFLICTING', 'DIRTY');
+    expect(decide({ pr: 7 })).toMatchObject({ ok: false, action: 'refused' });
+    pr('CLOSED', 'UNKNOWN', 'UNKNOWN');
+    expect(decide({ pr: 7 }).reason).toMatch(/closed/);
+  });
+
   test('UNKNOWN mergeable on an open PR is poll', () => {
     pr('OPEN', 'UNKNOWN', 'UNKNOWN');
     expect(decide({ pr: 7 })).toMatchObject({ ok: true, action: 'poll' });
