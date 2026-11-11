@@ -14,8 +14,8 @@
   },
   "verification-report": {
     "path": ".trd-state/flaky-ci-jobs-filed-and-capped/verification-report.md",
-    "url": "",
-    "updated_at": "2026-11-11T12:58:02.637Z",
+    "url": "https://claude.ai/artifact/DjxvmLekr2jm8ivGgV2Y6o",
+    "updated_at": "2026-11-11T13:01:01.584Z",
     "command": "/implement-trd"
   }
 }
