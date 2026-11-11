@@ -331,6 +331,11 @@ describe('the waiting primitives', () => {
     expect(t).toMatch(/never files anything/);
     expect(t).not.toMatch(/was flaky: list it in `data\.flaky`\. Still failing/);
   });
+  test('wait-ci applies the cap to a rerun-pass it did not make, so a resume cannot bypass it', () => {
+    const t = flat('wait-ci');
+    expect(t).toMatch(/--json attempt,jobs/);
+    expect(t).toMatch(/resuming after a capped stop cannot turn the stop into a pass/);
+  });
   test('request-review arms once and returns wait; claude uses a background Bash', () => {
     const t = flat('request-review');
     expect(t).toMatch(/One arm, no re-arm/);
@@ -387,6 +392,7 @@ describe('collect-findings and fix-findings', () => {
     expect(t).toMatch(/\[flaky-capped\] <job>/);
     expect(t).toMatch(/flaky-capped:<job>/);
     expect(t).toMatch(/return `stop`/);
+    expect(t).toMatch(/once step 4\s+has recorded everything else, return `stop`/);
   });
   test('fix-findings chains the shipping reconcile, stops for sweep work naming /plan, and resolves rows in order', () => {
     const t = flat('fix-findings');
@@ -419,6 +425,10 @@ describe('the after-shipping primitives', () => {
     expect(t).toMatch(/flaky-ci\.js import --state-dir <work\.stateDir>/);
     expect(t).toMatch(/flaky:<job>/);
     expect(t).toMatch(/\[flaky-ci\]/);
+  });
+  test('file-followups reports a [flaky-capped] row and never files it', () => {
+    const t = flat('file-followups');
+    expect(t).toMatch(/A `\[flaky-capped\]` row is\s+reported, never filed/);
   });
   test('file-followups imports then resolves, reads no sweep-ledger row, reports unfiled rows', () => {
     const t = flat('file-followups');

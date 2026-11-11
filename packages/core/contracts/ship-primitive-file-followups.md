@@ -57,8 +57,9 @@ is an outward act nothing authorized.
    except `[below-bar]` rows and `[review:<label>]` rows whose label D17 puts below the bar
    (`minor`, `low`, `nit`, `nitpick`, `trivial`, `info`); those are filed only with
    `below-bar=yes`, otherwise named with the ledger path. A `[review-pending]` row is a review
-   whose findings never arrived: report it as a gap, never file it. A label D17 does not know is
-   filed, since there is no judge here.
+   whose findings never arrived: report it as a gap, never file it. A `[flaky-capped]` row is
+   reported, never filed: its job's one issue is the `[flaky-ci]` row (`ref: "flaky:<job>"`).
+   A label D17 does not know is filed, since there is no judge here.
 4. **File.** Issue body: the work, TRD, branch, PR URL, ledger path and row key. GitHub through
    `gh issue create`; Linear and Jira through their skills. Then `discovered.resolve(dir, row,
    "filed <url>")`, so a re-run files nothing twice, and add `{ summary, url }` for that row to
@@ -70,7 +71,7 @@ is an outward act nothing authorized.
    - every row step 3 selected that was not filed, with why (`no tracker declared in stack.md`,
      or the call's error), the imported `[not-verifiable]`, `[task-followup]` and `[flaky-ci]` rows included;
    - every below-bar row step 3 left unfiled (`below the bar; filed only with below-bar=yes`);
-   - every `[review-pending]` gap;
+   - every `[review-pending]` gap and every `[flaky-capped]` row;
    - and one line naming the record of unfixed review findings, `<work.stateDir>/discovered.jsonl`,
      whenever any review row in it was left unfiled.
 

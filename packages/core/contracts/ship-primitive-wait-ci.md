@@ -39,7 +39,11 @@ what runs on the base branch.
    It prints one JSON line with `count` and `capped`. Not capped: list the job in `data.flaky`.
    Capped (the job has flaked 3 or more times across every feature's history, this flake
    included): put it in `data.failed` with `capped: true` and return `failed`. A job still
-   failing after the rerun goes in `data.failed` too, with its name and run id. `wait-ci` never
+   failing after the rerun goes in `data.failed` too, with its name and run id. A job that
+   passed only on a later attempt this step did not make (a rerun from before a resume, or a
+   manual one: its `attempt` in `gh run view <run-id> --json attempt,jobs` is above 1) is a
+   rerun-pass too: record it the same way and apply the same cap (`record` counts a run id
+   once), so resuming after a capped stop cannot turn the stop into a pass. `wait-ci` never
    files anything and never fixes anything; `collect-findings` reads the logs.
 
 ## Result

@@ -72,15 +72,19 @@ function readFlakes(dir) {
   return rows;
 }
 
-/** Distinct (job, runId) flakes of `job` across all feature dirs under root, plus extra dirs. */
-function countFlakes(job, { root = DEFAULT_ROOT, extraDirs = [] } = {}) {
-  const j = clean(job, MAX_JOB);
+/** Run ids of every recorded flake of (already-cleaned) job `j`, across root's feature dirs plus extra dirs. */
+function knownRunIds(j, root, extraDirs = []) {
   const seen = new Set();
   const dirs = new Set([...featureDirs(root), ...extraDirs.map((d) => path.resolve(d))]);
   for (const d of dirs) {
     for (const r of readFlakes(d)) if (r.job === j) seen.add(String(r.runId));
   }
-  return seen.size;
+  return seen;
+}
+
+/** Distinct (job, runId) flakes of `job` across all feature dirs under root, plus extra dirs. */
+function countFlakes(job, { root = DEFAULT_ROOT, extraDirs = [] } = {}) {
+  return knownRunIds(clean(job, MAX_JOB), root, extraDirs).size;
 }
 
 /**
@@ -92,12 +96,8 @@ function recordFlake(stateDir, { job, runId } = {}, { root = DEFAULT_ROOT, nowIs
   const id = clean(runId, MAX_RUN_ID);
   if (!stateDir || !j || !id) throw new Error('stateDir, job and runId are required');
   const dir = path.resolve(stateDir);
-  const dup = countFlakes(j, { root, extraDirs: [dir] });
+  const known = knownRunIds(j, root, [dir]);
   let recorded = false;
-  const known = new Set();
-  for (const d of new Set([...featureDirs(root), dir])) {
-    for (const r of readFlakes(d)) if (r.job === j) known.add(String(r.runId));
-  }
   if (!known.has(id)) {
     try {
       fs.mkdirSync(dir, { recursive: true });
@@ -110,7 +110,7 @@ function recordFlake(stateDir, { job, runId } = {}, { root = DEFAULT_ROOT, nowIs
       /* a lost history line costs a count; it must not fail the ship run */
     }
   }
-  const count = recorded ? dup + 1 : dup;
+  const count = known.size + (recorded ? 1 : 0);
   return { job: j, runId: id, count, capped: count >= FLAKE_CAP, recorded };
 }
 
