@@ -152,7 +152,7 @@ node .claude/lib/ci-baseline.js check
 ```
 
 It prints one JSON line: `noCi`, `checks` (`summary`, `docsRecordSkip`, `recordCommitSkip`,
-each `pass`, `gap` or `unclear` with a `detail`), and the `gaps` and `unclear` lists. If it
+each `pass`, `gap` or `unclear` with a `detail`), and the `gaps` and `unclear` lists (at most one entry per check). If it
 prints an `error` instead, ISSUES says the CI check could not run, quoting the error, and the
 skill carries on. With
 `noCi` true, STATE says no GitHub Actions workflow was found and nothing more is said. Otherwise

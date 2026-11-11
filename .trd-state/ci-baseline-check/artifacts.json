@@ -5,5 +5,11 @@
     "url": "https://claude.ai/artifact/JSbGdkBMtow9htqYZX3JeS",
     "updated_at": "2026-11-11T12:43:50.527Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/ci-baseline-check/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-11T13:18:13.403Z",
+    "command": "/implement-trd"
   }
 }

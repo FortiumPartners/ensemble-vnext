@@ -697,7 +697,8 @@ function checkGates(wfs) {
 }
 
 /**
- * Checks a set of workflow files.
+ * Checks a set of workflow files. `gaps` and `unclear` hold at most one `{check, message}` per
+ * check: every message a check raised, joined into one.
  * @param {Array<{file: string, text?: string, error?: string}>} files
  * @returns {{ok: boolean, noCi: boolean, workflows: string[], checks: object, gaps: Array, unclear: Array}}
  */
@@ -744,8 +745,10 @@ function checkWorkflows(files) {
       detail = unclear.join(' ');
     }
     result.checks[n] = { status, detail };
-    for (const m of p.gaps) result.gaps.push({ check: n, message: m });
-    for (const m of unclear) result.unclear.push({ check: n, message: m });
+    // One entry per check, never one per offending job: the per-job list already sits in
+    // checks.<name>.detail, and a reader groups its report by check.
+    if (p.gaps.length) result.gaps.push({ check: n, message: p.gaps.join(' ') });
+    if (unclear.length) result.unclear.push({ check: n, message: unclear.join(' ') });
   }
   result.ok = names.every((n) => result.checks[n].status === 'pass');
   return result;

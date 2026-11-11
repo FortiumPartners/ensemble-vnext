@@ -224,3 +224,28 @@ describe('review follow-up: scope and event-scoped jobs', () => {
     expect(status(r).docsRecordSkip).toBe('pass');
   });
 });
+
+describe('one entry per check in gaps and unclear', () => {
+  const once = (r) => {
+    for (const list of [r.gaps, r.unclear]) {
+      const checks = list.map((e) => e.check);
+      expect(new Set(checks).size).toBe(checks.length);
+    }
+    for (const [n, c] of Object.entries(r.checks)) {
+      if (c.status === 'gap') expect(r.gaps.filter((g) => g.check === n)).toHaveLength(1);
+      if (c.status === 'unclear') expect(r.unclear.filter((u) => u.check === n)).toHaveLength(1);
+    }
+  };
+
+  test("this repository's ci.yml: three gap entries, one per check, naming every job", () => {
+    const r = cb.checkDir(path.join(REPO, '.github', 'workflows'));
+    once(r);
+    const b = r.gaps.find((g) => g.check === 'docsRecordSkip');
+    for (const job of ['jest', 'bats']) expect(b.message).toContain(`"${job}"`);
+  });
+
+  test('every fixture lists each failing check once', () => {
+    const files = fs.readdirSync(FIX).filter((f) => /\.ya?ml$/.test(f));
+    for (const f of files) once(run(f));
+  });
+});
