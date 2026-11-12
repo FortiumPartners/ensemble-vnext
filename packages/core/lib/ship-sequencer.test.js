@@ -585,7 +585,11 @@ describe('detach-on', () => {
     expect(seq.loadPrimitives(contractsDir).contracts.get('mike').detachOn).toEqual(['merged']);
   });
 
-  test('recording a detach-on result writes the external file; the tracked file is never written again', () => {
+  const REF = 'refs/ensemble/records/f';
+  const onRef = (root, file = 'shipped.json') => JSON.parse(git(root, 'show', `${REF}:${file}`));
+  const shipDir = (root) => path.join(root, '.git', 'ensemble', 'ship');
+
+  test('recording a detach-on result writes shipped.json on the records ref; the tracked file is never written again and no folder appears', () => {
     const root = makeRepo();
     startIn(root);
     const opts = authOpts();
@@ -594,16 +598,58 @@ describe('detach-on', () => {
     handOut(root, '2', opts); // next() still writes the tracked file; only record() detaches
     const before = fs.readFileSync(file, 'utf8');
     const r = seq.record(repoState(root), { step: '2', result: 'merged' }, opts);
-    const startedAt = JSON.parse(before).startedAt;
-    const expected = path.join(git(root, 'rev-parse', '--git-common-dir').replace(/^\.git$/, path.join(root, '.git')),
-      'ensemble', 'ship', 'f', `${startedAt.replace(/[:.]/g, '-')}.json`);
+    const expected = `${REF}:shipped.json`;
     expect(r.recordPath).toBe(expected);
-    expect(fs.existsSync(expected)).toBe(true);
+    expect(onRef(root)).toMatchObject({ detached: true, cursor: { step: '3', pass: 1 }, recordRef: REF, work: { branch: 'feature', forge_feature_id: process.env.FORGE_FEATURE_ID || null } });
     const r3 = step(root, '3', 'gone', opts);
     expect(r3.recordPath).toBe(expected);
+    expect(onRef(root)).toMatchObject({ status: 'done', shipped: true });
     expect(fs.readFileSync(file, 'utf8')).toBe(before);
-    const st = seq.status(repoState(root));
-    expect(st).toMatchObject({ status: 'done', shipped: true, recordPath: expected });
+    expect(seq.status(repoState(root))).toMatchObject({ status: 'done', shipped: true, recordPath: expected });
+    expect(fs.existsSync(shipDir(root))).toBe(false);
+  });
+
+  test('a fixture detached folder with no ref is read by status, resumed by start --resume, and its next save lands on the ref', () => {
+    const root = makeRepo();
+    const o = startIn(root);
+    const opts = authOpts();
+    step(root, '1', 'done', opts);
+    // Build what an older run left: a detached record in the folder, its pointer, no ref, no tracked file.
+    const recordDirs = require('./ship-record-dir');
+    const run = JSON.parse(fs.readFileSync(path.join(repoState(root), 'shipped.json'), 'utf8'));
+    const dir = recordDirs.recordDir(repoState(root));
+    const file = path.join(dir, `${recordDirs.safeName(run.startedAt)}.json`);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ ...run, detached: true, recordPath: file }));
+    recordDirs.writePointer(repoState(root), { startedAt: run.startedAt, work: run.work });
+    fs.rmSync(path.join(root, '.trd-state'), { recursive: true, force: true });
+    expect(spawnSync('git', ['show-ref', REF], { cwd: root }).status).not.toBe(0);
+
+    expect(seq.status(repoState(root))).toMatchObject({ status: 'running', recordPath: file, cursor: { step: '2', pass: 1 } });
+    expect(seq.start({ ...o, resume: true })).toMatchObject({ ok: true, resumed: true });
+    const r = step(root, '2', 'merged', opts);
+    expect(r.recordPath).toBe(`${REF}:shipped.json`);
+    expect(onRef(root)).toMatchObject({ detached: true, startedAt: run.startedAt, cursor: { step: '3', pass: 1 } });
+    // The folder copy is now the older one; the ref's wins.
+    expect(seq.status(repoState(root))).toMatchObject({ recordPath: `${REF}:shipped.json`, cursor: { step: '3', pass: 1 } });
+  });
+
+  test('a save that cannot reach the ref falls back to the detached folder and the pointer', () => {
+    // A state dir outside .trd-state/<slug> cannot use the ref; the old file rule holds.
+    const root = makeRepo();
+    const sd = path.join(root, 'elsewhere', 'f');
+    const p = path.join(tmp, 'ship.md');
+    fs.writeFileSync(p, POLICY);
+    const o = { stateDir: sd, policyPath: p, contractsDir, work: { kind: 'feature', id: 'f', trd: 'docs/TRD/f.md', branch: 'feature' } };
+    expect(seq.start(o).ok).toBe(true);
+    const opts = authOpts();
+    seq.next(sd, opts);
+    seq.record(sd, { step: '1', result: 'done' }, opts);
+    seq.next(sd, opts);
+    const r = seq.record(sd, { step: '2', result: 'merged' }, opts);
+    expect(r.recordPath).toBe(path.join(shipDir(root), 'f', `${JSON.parse(fs.readFileSync(path.join(sd, 'shipped.json'), 'utf8')).startedAt.replace(/[:.]/g, '-')}.json`));
+    expect(fs.existsSync(path.join(shipDir(root), 'f', 'current.json'))).toBe(true);
+    expect(spawnSync('git', ['show-ref', REF], { cwd: root }).status).not.toBe(0);
   });
 
   test('a blocked (non-detach) result keeps the tracked file', () => {
@@ -696,11 +742,10 @@ describe('detach-on', () => {
       fs.writeFileSync(path.join(repoState(root), 'custody.json'), JSON.stringify({ anchor: 1 }));
       const r = seq.record(repoState(root), { step: '2', result: 'stop', data: { merged: true }, reason: 'link failed' }, opts);
       const startedAt = JSON.parse(fs.readFileSync(path.join(repoState(root), 'shipped.json'), 'utf8')).startedAt;
-      expect(r.recordPath).toBe(path.join(REC(root), `${startedAt.replace(/[:.]/g, '-')}.json`));
-      expect(fs.existsSync(r.recordPath)).toBe(true);
+      expect(r.recordPath).toBe(`${REF}:shipped.json`);
+      expect(onRef(root)).toMatchObject({ detached: true, startedAt });
       expect(r.custodyDetach).toMatchObject({ ok: true, action: 'detached' });
-      expect(fs.existsSync(path.join(REC(root), `${startedAt.replace(/[:.]/g, '-')}.custody.json`))).toBe(true);
-      expect(JSON.parse(fs.readFileSync(path.join(REC(root), 'current.json'), 'utf8')).startedAt).toBe(startedAt);
+      expect(fs.existsSync(REC(root))).toBe(false);
       expect(seq.status(repoState(root)).custodyPath).toBe(r.custodyDetach.path);
 
       git(root, 'checkout', '-q', 'main');
@@ -713,7 +758,7 @@ describe('detach-on', () => {
       handOut(root, '2', opts); // the stopped step is handed out again
     });
 
-    test('a finished detached run of another branch is not resumed; the new run owns the pointer', () => {
+    test('a finished detached run of another branch is not resumed; the new run is a fresh tracked run', () => {
       const root = makeRepo();
       const o = startIn(root);
       const opts = authOpts();
@@ -725,8 +770,9 @@ describe('detach-on', () => {
       expect(r.resumed).toBeUndefined();
       expect(r.status).toBe('running');
       expect(seq.status(repoState(root))).toMatchObject({ status: 'running', cursor: { step: '1', pass: 1 } });
+      // The ref still holds the finished earlier run; with no tracked file it is what status finds.
       fs.rmSync(path.join(root, '.trd-state'), { recursive: true, force: true });
-      expect(seq.status(repoState(root)).error).toMatch(/run start first/);
+      expect(seq.status(repoState(root))).toMatchObject({ status: 'done', shipped: true });
     });
 
     test('a stop without the data key keeps the tracked file', () => {
@@ -738,8 +784,8 @@ describe('detach-on', () => {
       const r = seq.record(repoState(root), { step: '2', result: 'stop', data: { merged: false } }, opts);
       expect(r.recordPath).toBe(path.join(repoState(root), 'shipped.json'));
       expect(r.custodyDetach).toBeUndefined();
-      expect(fs.existsSync(path.join(REC(root), 'current.json'))).toBe(true); // written by start
-      expect(fs.readdirSync(REC(root)).filter((n) => n !== 'current.json')).toEqual([]);
+      expect(fs.existsSync(REC(root))).toBe(false); // start writes no pointer
+      expect(spawnSync('git', ['show-ref', REF], { cwd: root }).status).not.toBe(0);
     });
 
     test('a resume with a different kind, id or branch than the detached record starts fresh', () => {
@@ -1087,7 +1133,7 @@ describe('reproof', () => {
     expect(fs.readFileSync(shippedFile(), 'utf8')).toBe(done);
   });
 
-  test('a detached record is written in its detached file, not the tracked one', () => {
+  test('a detached record is written on the records ref, not the tracked file', () => {
     const env = { ...process.env };
     delete env.GIT_DIR; delete env.GIT_WORK_TREE; delete env.GIT_INDEX_FILE;
     const root = path.join(tmp, 'repo');
@@ -1117,7 +1163,8 @@ describe('reproof', () => {
     const r = seq.recordReproof(sd, { custody: line({ ids: ['A'], differing: [] }), reverifiedPath: null, startedAt: before() });
     expect(r.ok).toBe(true);
     expect(fs.readFileSync(path.join(sd, 'shipped.json'), 'utf8')).toBe(tracked);
-    expect(JSON.parse(fs.readFileSync(rec.recordPath, 'utf8')).reproof.count).toBe(1);
+    expect(rec.recordPath).toBe('refs/ensemble/records/f:shipped.json');
+    expect(JSON.parse(git('show', rec.recordPath)).reproof.count).toBe(1);
   });
 });
 
@@ -1192,13 +1239,33 @@ describe('records-ref fallback (worktree -> ref -> detached record)', () => {
     expect(r.resumed).toBeUndefined();
   });
 
-  test('(d) start without resume begins a new run and restores nothing', () => {
-    parkOnRef();
+  test('(d) start without resume begins a new run whose startedAt differs, with the ref\'s other files restored', () => {
+    expect(seq.start(opts()).ok).toBe(true);
+    const parked = JSON.parse(fs.readFileSync(path.join(folder(), 'shipped.json'), 'utf8')).startedAt;
+    fs.writeFileSync(path.join(folder(), 'closed.json'), JSON.stringify({ audit: { auditedCommit: 'abc' } }));
+    expect(recordRef.write({ stateDir: REL, cwd: repo, command: 'ship-build', step: 'park' }).ok).toBe(true);
+    fs.rmSync(folder(), { recursive: true, force: true });
     const r = seq.start(opts());
     expect(r.ok).toBe(true);
     expect(r.resumed).toBeUndefined();
-    expect(fs.existsSync(path.join(folder(), 'shipped.json'))).toBe(true);
-    // the new run's own file, not a restored one: no other restored record files
-    expect(fs.existsSync(path.join(folder(), 'record.json'))).toBe(false);
+    const fresh = JSON.parse(fs.readFileSync(path.join(folder(), 'shipped.json'), 'utf8'));
+    expect(fresh.startedAt).not.toBe(parked);
+    expect(fresh.cursor).toEqual({ step: '1', pass: 1 });
+    expect(JSON.parse(fs.readFileSync(path.join(folder(), 'closed.json'), 'utf8')).audit.auditedCommit).toBe('abc');
+  });
+
+  test('(d2) a plain start drops a restored custody.json that carries a startedAt stamp', () => {
+    expect(seq.start(opts()).ok).toBe(true);
+    fs.writeFileSync(path.join(folder(), 'custody.json'), JSON.stringify({ anchor: { commit: 'a' }, startedAt: '2020-01-01T00:00:00.000Z' }));
+    expect(recordRef.write({ stateDir: REL, cwd: repo, command: 'ship-build', step: 'park' }).ok).toBe(true);
+    fs.rmSync(folder(), { recursive: true, force: true });
+    expect(seq.start(opts()).ok).toBe(true);
+    expect(fs.existsSync(path.join(folder(), 'custody.json'))).toBe(false);
+  });
+
+  test('a new run stores work.forge_feature_id from FORGE_FEATURE_ID', () => {
+    process.env.FORGE_FEATURE_ID = 'feat-9';
+    expect(seq.start(opts()).ok).toBe(true);
+    expect(JSON.parse(fs.readFileSync(path.join(folder(), 'shipped.json'), 'utf8')).work.forge_feature_id).toBe('feat-9');
   });
 });

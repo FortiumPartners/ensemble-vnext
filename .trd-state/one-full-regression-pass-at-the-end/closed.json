@@ -1,0 +1,13 @@
+{
+  "feature": "one-full-regression-pass-at-the-end",
+  "trd": "docs/TRD/one-full-regression-pass-at-the-end.md",
+  "closedAt": "2026-11-12T12:30:23Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: safe to proceed — every requirement is implemented and tested",
+    "report": ".trd-state/one-full-regression-pass-at-the-end/audit-build-report.md",
+    "auditedCommit": "221f3529cf5096e8461536d2da13063da5116430",
+    "anchorCommit": null
+  }
+}

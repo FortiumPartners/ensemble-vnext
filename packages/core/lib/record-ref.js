@@ -558,6 +558,10 @@ function reconcile(ctx, ref, localTip) {
     // The same default-branch rule as the first build: never rebuild over another feature's tip.
     const theirs = ctx.guardIdentity ? foreignIdentity(ctx, remoteTip) : null;
     if (theirs) return { state: 'identity', theirs, tip: remoteTip };
+    // writeFiles never replaces another feature's records, on the remote tip either.
+    if (ctx.guardForeign && !sameFeature(identityAt(ctx.top, remoteTip), ctx.identity)) {
+      return { state: 'failed', err: 'remote ref belongs to another feature' };
+    }
     const parents = remoteTip === localTip ? [remoteTip] : [remoteTip, localTip];
     const b = commitOn(ctx, remoteTip, parents, localTip);
     if (b.error) return { state: 'failed', err: b.error };
@@ -844,6 +848,128 @@ function writeInner(opts) {
     // The ref is written locally; with no fallback the records stay there and the lost push is reported.
     if (noFallback) return { ok: true, outcome: 'ref', push: 'failed', folded: [], refError: p.err || 'push refused', fallbackSkipped, ...common() };
     return fallback('push-failed', p.err || 'push refused', { refCommit: commit, push: 'failed' });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Commits the given file contents onto a feature's ref, keeping every other record already on it.
+ * Unlike `write` it reads nothing from the worktree and never touches the worktree, the index or
+ * the branch: after a merge the checked-out branch is the merged one, the one place records must
+ * not land. It never falls back to a branch commit and never replaces another feature's ref.
+ * Never throws.
+ *
+ * `identity` is the run's own `{branch, forge_feature_id}` (not the session's), written to
+ * `record.json`; one of the two must be set. A failed push is not a failure: the local ref holds
+ * the record, and `push` says `failed`.
+ *
+ * @example
+ *   writeFiles({ slug: 'feat', files: [{ rel: 'shipped.json', content: '{}\n' }],
+ *     identity: { branch: 'feature/x', forge_feature_id: null }, command: 'ship-build', step: 'merge' })
+ *   // => { ok: true, outcome: 'ref', push: 'pushed'|'no-remote'|'skipped'|'failed', commit, ... }
+ *
+ * @param {{cwd?: string, slug: string, files: {rel: string, content: string|Buffer}[],
+ *   identity: {branch?: string|null, forge_feature_id?: string|null}, command: string, step: string,
+ *   push?: boolean}} opts
+ */
+function writeFiles(opts = {}) {
+  try {
+    return writeFilesInner(opts);
+  } catch (e) {
+    return { ok: false, outcome: 'failed', reason: `unexpected error: ${e && e.message}` };
+  }
+}
+
+function writeFilesInner(opts) {
+  const top = topLevel(opts.cwd || process.cwd());
+  if (!top) return refused('not a git work tree');
+  const command = cleanText(opts.command);
+  const step = cleanText(opts.step);
+  if (!command || !step) return refused('writeFiles needs command and step');
+  const slug = opts.slug;
+  if (!isSafeSlug(slug) || slug === SHARED_SLUG) return refused(`"${slug}" is not a slug Forge reads`);
+  const ref = refFor(slug);
+  if (!git(['check-ref-format', ref], { cwd: top }).ok) return refused(`"${ref}" is not a valid ref name`);
+  const given = opts.identity || {};
+  const identity = { forge_feature_id: nonEmpty(given.forge_feature_id), branch: nonEmpty(given.branch), slug };
+  // Without either, record.json would match nothing and Forge would never read the ref.
+  if (!identity.forge_feature_id && !identity.branch) return refused('identity has neither a branch nor a feature id');
+  const files = Array.isArray(opts.files) ? opts.files : [];
+  if (!files.length || files.length > MAX_FILES) return refused('writeFiles needs between 1 and 1000 files');
+  const seen = new Set();
+  for (const f of files) {
+    const ok = f && safeTreePath(f.rel) && f.rel !== 'record.json' && (typeof f.content === 'string' || Buffer.isBuffer(f.content));
+    if (!ok) return refused(`bad file entry: ${f && f.rel}`);
+    if (Buffer.byteLength(f.content) > MAX_FILE_BYTES) return refused(`${f.rel} is over the size limit`);
+    if (seen.has(f.rel)) return refused(`duplicate file: ${f.rel}`);
+    seen.add(f.rel);
+  }
+
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'record-ref-'));
+  try {
+    // Contents go to temp files so commitOn's hashFiles works unchanged.
+    const staged = files.map((f, i) => {
+      const abs = path.join(tmp, `content-${i}`);
+      fs.writeFileSync(abs, f.content);
+      return { rel: f.rel, abs };
+    });
+    const ctx = {
+      top,
+      tmp,
+      slug,
+      shared: false,
+      repoPrefix: '',
+      files: staged,
+      evidence: () => null, // images already on the ref are kept by the overlay; none are added
+      reportText: null,
+      hashes: new Map(),
+      counter: 0,
+      identity,
+      guardForeign: true,
+      message: `records(${slug}): ${command} - ${step}`,
+    };
+    let built = null;
+    let refError = null;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const tip = resolveRef(top, ref);
+      // Checked before building: commitOn skips the overlay on a mismatch and would silently
+      // build a tree without the tip's files.
+      const tipIdentity = tip ? identityAt(top, tip) : null;
+      if (tip && !sameFeature(tipIdentity, identity)) return refused(`${ref} belongs to another feature`, { slug, ref });
+      // Same feature: keep what the tip's record.json knew that the run does not (a run started
+      // without FORGE_FEATURE_ID must not strip the feature id Forge matches the ref by).
+      ctx.identity = {
+        forge_feature_id: identity.forge_feature_id || (tipIdentity && tipIdentity.forge_feature_id) || null,
+        branch: identity.branch || (tipIdentity && tipIdentity.branch) || null,
+        slug,
+      };
+      const b = commitOn(ctx, tip, tip ? [tip] : []);
+      if (b.error) return { ok: false, outcome: 'failed', reason: b.error, slug, ref };
+      if (b.unchanged) {
+        built = b;
+        break;
+      }
+      const s = swapRef(top, ref, b.commit, tip);
+      if (s.ok) {
+        built = b;
+        break;
+      }
+      refError = `ref moved under the writer (${attempt} of ${MAX_ATTEMPTS}): ${s.err}`;
+    }
+    if (!built) return { ok: false, outcome: 'failed', reason: refError, slug, ref };
+
+    let commit = built.commit;
+    const result = (push, extra = {}) => ({ ok: true, outcome: 'ref', push, commit, files: files.length, slug, ref, ...extra });
+    if (opts.push === false) return result('skipped');
+    let p = pushOnce(top, ref);
+    if (p.state === 'non-fast-forward') {
+      const rc = reconcile(ctx, ref, built.commit);
+      if (rc.commit) commit = rc.commit;
+      p = rc;
+    }
+    if (p.state === 'pushed' || p.state === 'no-remote') return result(p.state);
+    return result('failed', { pushError: p.err || 'push refused' });
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -1215,4 +1341,4 @@ function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2));
 
-module.exports = { write, read, list, restore, ensure, readRecord, hasRecords, isSafeSlug, referencedImages, sameFeature, refFor, SHARED_SLUG, REF_PREFIX };
+module.exports = { write, writeFiles, read, list, restore, ensure, readRecord, hasRecords, isSafeSlug, referencedImages, sameFeature, refFor, SHARED_SLUG, REF_PREFIX };

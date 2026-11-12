@@ -71,8 +71,10 @@ its records, reach them on the feature's records ref before the gate reads `clos
 node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
 ```
 
-Without `--resume`, never restore it: a restored `shipped.json` would turn a fresh start into a
-resume. Read the close record alone (worktree first, then the ref, after its identity check), and use its `content` as `closed.json` for the gate when `found` is true:
+`ship-sequencer.js start` restores the folder from the records ref itself, a plain start included
+(with `--branch`); a plain start then drops a restored `shipped.json` (and a restored
+`custody.json` stamped with an earlier run) and begins a fresh run, so only `--resume` continues
+an earlier one. This gate still reads the close record before `start`. Read the close record alone (worktree first, then the ref, after its identity check), and use its `content` as `closed.json` for the gate when `found` is true:
 
 ```bash
 node .claude/lib/record-ref.js read-record --state-dir .trd-state/<feature> --file closed.json
@@ -221,8 +223,12 @@ Skip this when the branch's PR is already merged. Read that from the PR itself �
 `gh pr list --head <branch> --state merged --json number --jq length` — not from whether a
 step called `merge` ran, because a PR merged outside this run counts too. A merged branch gets
 no records write, and nothing is committed on the default branch either. After the merge the
-sequencer writes the record to an untracked file under the git common directory, so it needs
-no commit; `ship-sequencer.js status` reports its path as `recordPath`, and STATE names it.
+sequencer writes the record and the custody anchor to the feature's records ref
+(`refs/ensemble/records/<feature>`: `shipped.json`, `custody.json`), pushed with it when there is an
+origin, so there is nothing to commit; `ship-sequencer.js status` reports `recordPath` and
+`custodyPath` as `<ref>:shipped.json` and `<ref>:custody.json`, read with `git show <that value>`.
+Only when a ref write fails does the record land in the old file under the git common directory
+(`<git common dir>/ensemble/ship/<feature>/`), with its pointer, and `recordPath` is then that file.
 
 The write prints one JSON line. `outcome: "failed"` or `"refused"`, `fallback`, or `ref` with
 `push: "failed"` is one line in ISSUES, never STUCK.
@@ -243,9 +249,9 @@ four-section readout from `.claude/rules/command-status.md`, one screen, written
 who was not in the session:
 
 - **STATE** — shipped or not; which steps ran and with what result; the custody anchor and any
-  moves (read from the file at `status`'s `custodyPath`, read-only); the PR number and URL if there is one. Name what proves a
+  moves (read from `status`'s `custodyPath`, read-only: `git show` when it reads `<ref>:custody.json`, else the file); the PR number and URL if there is one. Name what proves a
   claim of "shipped". After a merge, name the record's path from `status`'s `recordPath`
-  (a file under the git common directory, untracked, nothing to commit). When the merge step
+  (`<ref>:shipped.json` on the records ref, nothing to commit; the old git-common-directory file only if a ref write failed). When the merge step
   recorded `data.custody`, say which proofs were reused (`reused` ids) and which paths were
   excused (they came from the base).
   - **Filed follow-ups are listed one by one, with their issue (AC-F5.8).** Each entry of the

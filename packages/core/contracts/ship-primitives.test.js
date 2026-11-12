@@ -644,7 +644,10 @@ describe('ship-build Step 5 after a merge (FIX-004)', () => {
   });
   test('names the record under the git directory via recordPath', () => {
     expect(t).toMatch(/recordPath/);
-    expect(t).toMatch(/untracked file under the git common directory/);
+    expect(t).toMatch(/records ref/);
+    expect(t).toMatch(/<ref>:shipped\.json/);
+    expect(t).toMatch(/git show/);
+    expect(t).not.toMatch(/untracked file under the git common directory/);
     expect(t).toMatch(/data\.custody/);
   });
 });

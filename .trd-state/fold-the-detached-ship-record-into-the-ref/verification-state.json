@@ -1,0 +1,213 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-1.txt",
+      "reason": "Merged record in a fixture repo: the ref holds shipped.json with \"detached\": true and the cursor at step 4 (past the merge step 3); ls of <common>/ensemble/ship fails with no such file or directory.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-2.txt",
+      "reason": "After merged, status prints recordPath refs/ensemble/records/f:shipped.json; the ref record carries recordRef refs/ensemble/records/f; no ship folder exists.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-3.txt",
+      "reason": "Over steps 4-6 the ref commit count rose with every save (next and record, 3 to 9) and the ref record ends status done, shipped true; no ship folder was ever created.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-4.txt",
+      "reason": "At the detach the tracked anchor was written to the ref custody.json stamped with the run startedAt; no ship folder or startedAt.custody.json exists; a later custody reconcile moved the ref anchor (moves entry added, savedAt updated) while the tracked copy stayed on the old anchor.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-5.txt",
+      "reason": "Local ref and git ls-remote origin show the same commit (5779dbf...); the bare origin holds the detached shipped.json.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-6.txt",
+      "reason": "With .git/refs/ensemble blocked by a file, the merged record reports recordRefError and writes <startedAt>.json plus current.json under <common>/ensemble/ship/f; no ref was created.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-7.txt",
+      "reason": "After start only: <common>/ensemble/ship and <common>/ensemble do not exist; only the tracked shipped.json is written.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-8.txt",
+      "reason": "Same run in both places: with the ref copy newer status reads the ref (cursor 4, recordPath on the ref); with the tracked copy made newer it reads the tracked file (cursor 2).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-9.txt",
+      "reason": "Control with a matching ref copy and later updatedAt reads the ref (cursor 6). Ref copies with a different startedAt, detached false, or a work identity that does not match the record.json are ignored: status reads the tracked file (cursor 3) in all three.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-10.txt",
+      "reason": "No tracked shipped.json: with the ref newer status reads the ref (cursor 4); with the pointer-named folder record newer it reads the folder (cursor 6).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-11.txt",
+      "reason": "A run produced by the pre-change code (commit f3be76d9) with nothing on the ref and no tracked file: status loads the folder record at cursor 4, start --resume returns resumed true, and next hands out step 4.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-12.txt",
+      "reason": "record of step 4 on the resumed legacy run wrote refs/ensemble/records/f with the legacy startedAt and the cursor advanced to 5 (recordPath on the ref). The ref first appeared at the next save that preceded the record.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-13.txt",
+      "reason": "Ref anchor (stamped with the run) differs from the tracked anchor; check --link merge with the PR head at the ref anchor exits ok true; with the PR head at the tracked anchor it fails. The gh call is answered by a throwaway stub.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-14.txt",
+      "reason": "Same fixture: check --link deploy with the identity output naming the ref anchor passes; naming the tracked anchor fails.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-15.txt",
+      "reason": "Ref custody.json stamped with another run: with the detached folder file present the anchor is the folder file commit and a check at that head passes; with it removed the anchor is the tracked commit and a check at that head passes; the other-run ref anchor fails.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-16.txt",
+      "reason": "Plain start on a checkout with no state folder restored closed.json from the ref, dropped the stale stamped custody, and custody reconcile --set-only returned anchor X (audited) while HEAD was a later commit. The stale stamped anchor on the ref was not used.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fold-the-detached-ship-record-into-the-ref/evidence/FS-17.txt",
+      "reason": "The ref held a detached shipped.json (startedAt 13:03:47); after the plain start the tracked shipped.json has a new startedAt (13:03:49) at step 1 and status reads it.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": "satisfied"
+}

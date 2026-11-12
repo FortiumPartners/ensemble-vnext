@@ -163,6 +163,8 @@ describe('Step 5: the record', () => {
     expect(text).toMatch(/`branch` in `\.trd-state\/<feature>\/implement\.json`[^]*falling back to\s+the current branch/);
     expect(text).toMatch(/kind, id and branch all match/);
     expect(text).toContain("`status`'s `custodyPath`");
+    expect(text).toContain('<ref>:custody.json');
+    expect(text).not.toContain('Without `--resume`, never restore it');
   });
 
   test('the record is pushed at a wait whose data says remoteResume', () => {

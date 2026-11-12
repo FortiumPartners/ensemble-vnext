@@ -572,6 +572,79 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
     expect(played.mergeCalls).toEqual([`7 --merge --match-head-commit ${played.head}`]);
   });
 
+  describe('the detached run record lives on the records ref', () => {
+    const savedForge = process.env.FORGE_FEATURE_ID;
+    beforeEach(() => { process.env.FORGE_FEATURE_ID = 'forge-f'; });
+    afterEach(() => {
+      if (savedForge === undefined) delete process.env.FORGE_FEATURE_ID;
+      else process.env.FORGE_FEATURE_ID = savedForge;
+      delete process.env.STUB_STATE;
+    });
+    const REF = 'refs/ensemble/records/f';
+    const refJson = (s, file) => JSON.parse(s.g(s.repo, 'show', `${REF}:${file}`));
+    const refRead = (s, file) => JSON.parse(spawnSync(process.execPath, [path.join(__dirname, 'record-ref.js'), 'read-record',
+      '--state-dir', s.stateDir, '--file', file], { cwd: s.repo, encoding: 'utf8', env: cleanEnv() }).stdout.trim().split('\n').pop());
+
+    test('a merge that records merged leaves shipped.json and custody.json on the ref, nothing in the git directory, and the links read the anchor from the ref', () => {
+      const s = twoCriteria();
+      const startedAt = s.status().startedAt || JSON.parse(fs.readFileSync(s.abs(`${s.stateDir}/shipped.json`), 'utf8')).startedAt;
+      const { played, rec } = runToMerge(s, { mergeable: 'MERGEABLE', status: 'CLEAN' }, 'main');
+      expect(rec).toMatchObject({ ok: true });
+
+      const shipped = refJson(s, 'shipped.json');
+      expect(shipped.detached).toBe(true);
+      expect(shipped.startedAt).toBe(startedAt);
+      expect(shipped.work.branch).toBe('feature/f');
+      expect(shipped.work).toHaveProperty('forge_feature_id');
+      expect(shipped.work.forge_feature_id).toBe('forge-f');
+      // The post-merge cursor: every step recorded, the run done.
+      expect(shipped).toMatchObject({ status: 'done', shipped: true, cursor: null, recordRef: REF });
+      expect(shipped.results.map((x) => x.result)).toEqual(['pushed', 'opened', 'merged']);
+
+      const custodyOnRef = refJson(s, 'custody.json');
+      expect(custodyOnRef.startedAt).toBe(startedAt);
+      expect(custodyOnRef.anchor.commit).toBe(played.head);
+
+      const common = path.resolve(s.repo, s.g(s.repo, 'rev-parse', '--git-common-dir'));
+      expect(fs.existsSync(path.join(common, 'ensemble', 'ship'))).toBe(false);
+
+      // The links resolve the anchor from the ref: poison the tracked file with another commit first.
+      const other = s.g(s.repo, 'rev-list', '--max-parents=0', 'HEAD');
+      fs.mkdirSync(path.dirname(s.abs(`${s.stateDir}/custody.json`)), { recursive: true });
+      fs.writeFileSync(s.abs(`${s.stateDir}/custody.json`), JSON.stringify({ anchor: { commit: other }, moves: [] }));
+      process.env.STUB_STATE = 'MERGED';
+      const merge = s.custody('check', '--state-dir', s.stateDir, '--link', 'merge', '--pr', '7', '--target', 'main', '--trd', TRD);
+      expect(merge).toMatchObject({ ok: true, link: 'merge', observed: played.head });
+      const deploy = s.custody('check', '--state-dir', s.stateDir, '--link', 'deploy', '--identity-output', `build ${played.head.slice(0, 12)}`, '--trd', TRD);
+      expect(deploy).toMatchObject({ ok: true, link: 'deploy' });
+    });
+
+    test('a plain start with closed.json only on the ref anchors custody at the audited commit, not HEAD', () => {
+      const s = setup({ policy: POLICY });
+      const audited = s.g(s.repo, 'rev-parse', 'HEAD');
+      s.write(`${s.stateDir}/closed.json`, JSON.stringify({ feature: 'f', closedBy: 'audit', audit: { auditedCommit: audited } }));
+      const w = spawnSync(process.execPath, [path.join(__dirname, 'record-ref.js'), 'write', '--state-dir', s.stateDir, '--command', 'audit-build', '--step', 'close'],
+        { cwd: s.repo, encoding: 'utf8', env: cleanEnv() });
+      expect(JSON.parse(w.stdout.trim().split('\n').pop())).toMatchObject({ ok: true });
+      fs.rmSync(s.abs(s.stateDir), { recursive: true, force: true });
+      // A later commit, so HEAD is not the audited commit.
+      const head = s.commit('later work', { 'src/a.js': 'a2' });
+      expect(head).not.toBe(audited);
+
+      s.start();
+      const r = s.custody('reconcile', '--set-only', '--state-dir', s.stateDir, '--trd', TRD, '--closed', `${s.stateDir}/closed.json`);
+      expect(r.anchor).toBe(audited);
+      expect(r.anchor).not.toBe(head);
+      expect(s.readCustody().anchor).toMatchObject({ commit: audited, source: 'audited' });
+    });
+
+    test('with closed.json in neither the folder nor the ref, read-record reports found:false', () => {
+      const s = setup({ policy: POLICY });
+      fs.rmSync(s.abs(s.stateDir), { recursive: true, force: true });
+      expect(refRead(s, 'closed.json')).toMatchObject({ found: false });
+    });
+  });
+
   describe('a red merge-up head is fixed by the loop, within its bound', () => {
     const LOOP_POLICY = '## Ship\n1. push\n2. open-pr\n3. repeat rounds=1\n   - wait-ci\n   - collect-findings\n   - fix-findings\n4. merge\n';
     const BEFORE_MERGE = {

@@ -296,6 +296,45 @@ describe('criterion covers', () => {
     expect([...readCriterionCovers(state).keys()]).toEqual(['C-1']);
   });
 
+  test('ids: [] returns an empty map, ids: null means every id in the definition', () => {
+    expect(derive([]).size).toBe(0);
+    expect([...derive(null).keys()].sort()).toEqual(['C-1', 'C-2', 'C-3']);
+    expect([...derive(undefined).keys()].sort()).toEqual(['C-1', 'C-2', 'C-3']);
+  });
+
+  describe('derive-criteria CLI', () => {
+    const run = (args) => {
+      const cwd = process.cwd();
+      process.chdir(dir);
+      const chunks = []; const errs = [];
+      let code;
+      try { code = main(args, { write: (c) => chunks.push(c) }, { write: (c) => errs.push(c) }); } finally { process.chdir(cwd); }
+      return { code, out: chunks.join(''), err: errs.join('') };
+    };
+
+    test('prints {id: covers} for every mappable criterion, no source, none for unmapped', () => {
+      const r = run(['derive-criteria', '--state-dir', state, '--trd', trd, '--definition', def]);
+      expect(r.code).toBe(0);
+      expect(JSON.parse(r.out)).toEqual({
+        'C-1': ['lib/a.js', 'lib/a.test.js'],
+        'C-2': ['lib/a.js', 'lib/a.test.js', 'lib/b.js'],
+        'C-3': ['lib/rowonly.js'],
+      });
+    });
+
+    test('a missing --trd or --definition exits 2 with a message', () => {
+      const r = run(['derive-criteria', '--state-dir', state, '--definition', def]);
+      expect(r.code).toBe(2);
+      expect(r.err).toMatch(/derive-criteria needs --trd and --definition/);
+    });
+
+    test('an unreadable TRD exits 2', () => {
+      const r = run(['derive-criteria', '--state-dir', state, '--trd', path.join(dir, 'nope.md'), '--definition', def]);
+      expect(r.code).toBe(2);
+      expect(r.err).toMatch(/live-evidence:/);
+    });
+  });
+
   test('CLI without --trd is a usage error', () => {
     expect(main(['record-criteria', '--state-dir', state], { write: () => {} }, { write: () => {} })).toBe(2);
   });
