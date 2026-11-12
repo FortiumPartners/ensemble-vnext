@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/LfmXkZfqcVBF9mVLjoTNvJ",
     "updated_at": "2026-11-12T07:35:52.828Z",
     "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/stop-run-record-dumps-on-main/audit-build-report.md",
+    "url": "https://claude.ai/artifact/XGV69iQFtX3diP3Qmodg5f",
+    "updated_at": "2026-11-12T07:41:24.394Z",
+    "command": "/audit-build"
   }
 }
