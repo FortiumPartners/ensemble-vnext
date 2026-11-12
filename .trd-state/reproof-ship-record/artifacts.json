@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/Rrr2gMzuyQpnr32BpJ6orU",
     "updated_at": "2026-11-12T01:41:18.690Z",
     "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/reproof-ship-record/audit-build-report.md",
+    "url": "https://claude.ai/artifact/EvZpqnbzB5qhPiqBNAhCeZ",
+    "updated_at": "2026-11-12T01:48:05.785Z",
+    "command": "/audit-build"
   }
 }
