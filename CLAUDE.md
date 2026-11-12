@@ -313,21 +313,21 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released **4.17.4** (2026-11-11). 28 commands, 13 subagents. Test battery: 3233 Jest,
+Released **4.17.5** (2026-11-11). 28 commands, 13 subagents. Test battery: 3233 Jest,
 125 pytest, 641 BATS. **History: `CHANGELOG.md`.**
 
-4.15.0–4.16.1: the design stage (`/create-design` and siblings). 4.17.0: `/ship-build` and
-`/ship-setup` (#74–#77). 4.17.1: their docs (#79), self-authorizing `ship.md` steps (#80).
-4.17.2: `/ship-build` live-test fixes (#82); `/audit-build` closes `/plan` features (#84).
+4.15.0–4.16.1: the design stage (`/create-design` and siblings). 4.17.0–4.17.2: `/ship-build`
+and `/ship-setup` (#74–#77), their docs and live-test fixes (#79–#84).
 4.17.3: custody gates the merge (#94), the run record survives it (#95), base-branch rules (#93).
 4.17.4: parallel-feature ship fixes (#99–#103); CI no longer hangs on an apt outage (#104).
+4.17.5: ship-cost cuts: fewer re-proofs, CI fixes sized to the failure, fewer STUCK (#106–#111).
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first (details, and older ones, in `CHANGELOG.md`):
-- 4.17.3–4.17.4: not live on GitHub: #95, #99–#103, a second-account approval,
+- 4.17.3–4.17.5: not live on GitHub: #95, #99–#103, #106–#111, a second-account approval,
   CodeRabbit/Codex. A merge re-dispatched after its branch is deleted stops at custody.
   `custody.test.js` flakes on all-digit commit hashes.
 - 4.16.1: design-quality live runs and the first critique-calibration replay not run;

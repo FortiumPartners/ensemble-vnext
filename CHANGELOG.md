@@ -10,6 +10,75 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.17.5] - 2026-11-11
+
+The ship-cost reductions: `/ship-build` re-proves less and stops less. A ship starts from the
+commit the audit finished on (#108), re-proves only criteria a change can affect (#109), gives a
+re-proof one retry (#106), fixes a test-only or CI-config CI failure directly (#107), fixes a red
+merge-up head inside the merge step instead of stopping (#111), and records each re-proof in the
+ship record (#110). Plan: `docs/plans/ship-cost-reduction/roadmap.md`.
+
+### Changed
+
+- **A re-proof gets one retry (#106).** The custody gate's re-proof (`/verify-build` on a subset
+  of criteria) ran one iteration, so one unmet or flaky criterion ended the ship STUCK. When the
+  first pass leaves criteria unmet, only those are run once more, with no code edit; a criterion
+  met on the retry is recorded as met with a `retried` flag, so a flake stays visible. There is
+  no debug pass inside a ship.
+- **A CI fix is sized to the failure (#107).** In the fix-findings step, a CI failure whose fix
+  lies only in test files or CI config is now fixed directly and committed by pathspec, skipping
+  the `/implement-trd` reconcile build and the whole-branch review. Product-code failures, and
+  any the new library `ci-fix-route.js` cannot place, keep the reconcile path.
+- **The custody anchor is taken after the audit's own fixes (#108).** `/audit-build` used to
+  hand custody the commit it audited, before its chained fix run edited code, so the first
+  custody check of every ship found changed code and re-proved. The anchor is now the branch
+  head after that fix run, when it ended without STUCK; the report's audited commit stays as
+  its own field. A feature closed with no fix run behaves as before.
+- **Custody re-proves only what a change can affect (#109).** Building on 4.17.4's #101: every
+  success criterion now records the files it covers when proven, custody classifies changes as
+  docs, dependency and CI-config beside the existing classes, `OWNER-CALLS.md` is a record file,
+  and which class re-proves what is a per-product setting, `ensemble.reproof`, with careful defaults
+  (record files and docs re-prove nothing; tests, CI config and lockfiles are left to CI; a
+  shipped change re-proves only criteria whose covered files changed). An invalid setting stops
+  with its name.
+- **Fewer STUCK endings: `merge` takes `rounds=` (#111).** CI failing on the new head after a
+  merge-up was a stop; the merge step now loops it through fix-findings and wait-ci, bounded by
+  `rounds=` (default 2, as `repeat`), and stops only when the bound is spent. The merge
+  contract's other stops were each classed as a wait, a bounded loop or a real stop.
+
+### Added
+
+- **Re-proof results in the ship record (#110).** Each re-proof the custody gate runs (runs,
+  criteria, outcome) is written to a `reproof` block in `shipped.json` by
+  `ship-sequencer.js reproof`, so Forge's ship record can carry it. Documented in
+  `docs/guides/ship-build.md`.
+
+### Not yet proven
+
+- None of the six has run on live GitHub; each one's live check on `github-live-test` is still
+  to be run:
+  - #106: a live re-proof with a deliberately flaky criterion, showing met-on-retry.
+  - #107: a live ship where a failing test is fixed by the direct path.
+  - #108: a live `/audit-build` then `/ship-build` whose first custody check re-proves nothing.
+    The wait for the background review before the close, and the reading of the fix run's
+    STUCK return, are model-followed prose checked only by contract tests.
+  - #109: whether real success definitions name objective ids the covers mapping can read, and
+    what share of criteria get a covers list, are measurable only on a live run.
+  - #110: a re-proof recorded during a real `/ship-build` merge (proven only by contract, unit
+    and seam tests).
+  - #111: a red merge-up head fixed and merged on real GitHub; whether Forge resumes a run
+    parked at a wait without escalating is Forge's side and unchecked here.
+- Carried from 4.17.4: none of its four ship-churn fixes (#99–#102) or the CI baseline check's
+  recipes (#103) has run on live GitHub; from 4.17.3: a second-account approval, the CodeRabbit
+  and Codex bots, and a live merge for the run-record fix (#95).
+
+### Known defects
+
+- Carried from 4.17.4: a flake seen after a merge is counted only on the machine that saw it,
+  and two parallel branches can each file the same job's first flake (#100); a merge step
+  handed out again after its branch is deleted stops at custody; `custody.test.js` flakes when
+  its random commit hash is all digits.
+
 ## [4.17.4] - 2026-11-11
 
 The ship-churn fixes: less re-work and fewer stalls when `/ship-build` merges several features
