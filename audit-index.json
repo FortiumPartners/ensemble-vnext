@@ -1,0 +1,115 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "/rebase-project (and only it, never the scaffold's --refresh, a plain scaffold or --git-files) untracks, after the ignore lines are delivered, every tracked run-record file under .trd-state/ that the project's .gitignore now ignores: index only, staged, never committed, files kept on disk; .trd-state/_docs-audit/ stays tracked. Must pass: yes.",
+      "source": "TRD Objectives O1 (source: roadmap item 5 brief; report Migration step 4)",
+      "served_by": [
+        "FIX-002",
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "/rebase-project seeds refs/ensemble/records/<slug> from each in-flight feature's current state folder, so the ref's implement.json equals the folder's. In flight: the folder has implement.json and no closed.json, or its current ship run (as ship-record-dir.js resolveRun decides) has not finished; AND the folder is in a worktree of this repository whose checked-out branch is the branch the folder's records name. Must pass: yes.",
+      "source": "TRD Objectives O2 (source: roadmap item 5 brief; adversarial review: 21 legacy folders in this repo have implement.json, no closed.json, and merged or deleted branches)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "A finished feature gets no ref, and neither does a folder whose recorded branch is not the branch checked out in its worktree; finished records stay readable in main's history. Must pass: yes.",
+      "source": "TRD Objectives O3 (source: roadmap item 5 brief; Forge N7)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O4",
+      "statement": "Nothing is committed by the cutover, neither the untracking nor the seeding. Must pass: yes.",
+      "source": "TRD Objectives O4 (source: roadmap item 5 brief, 'staged and never committed'; acceptance 'nothing was committed')",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O5",
+      "statement": "The seeded ref has the tree layout and record.json fields (forge_feature_id, branch, slug) of Forge's reader contract, including the evidence images the folder's verification report references; branch is the feature's own branch, and forge_feature_id is the folder's own (never the rebase session's FORGE_FEATURE_ID). Must pass: yes.",
+      "source": "TRD Objectives O5 (forge-vnext docs/TRD/run-records-ref-reader.md D5/O13, as matched by record-ref.js)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "O6",
+      "statement": "A ref that already exists (locally or on origin), or whose existence on origin cannot be checked, is never seeded or overwritten. Must pass: yes.",
+      "source": "TRD Objectives O6 (adversarial review: a stale worktree copy would replace the feature's newer records)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "O7",
+      "statement": "/rebase-project's readout reports which files were untracked, which refs were seeded, and which in-flight features were skipped, with why. Must pass: no (not marked).",
+      "source": "TRD Objectives O7 (roadmap item 5 brief)",
+      "served_by": [
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "O8",
+      "statement": "A BATS test in packages/core/scripts/scaffold-project.test.sh with a fixture repo holding one in-flight and one finished feature proves O1 to O4; a prose test on rebase-project.md pins the new step; mirrors, docs/reference/ and CHANGELOG.md are updated; the battery stays green. Must pass: no (not marked).",
+      "source": "TRD Objectives O8 (roadmap item 5, 'How it will be checked')",
+      "served_by": [
+        "FIX-002",
+        "FIX-003"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "Add the forgeFeatureId option to record-ref.js write, and the new records-cutover.js library (seed, CLI) with Jest tests; vendor to .claude/lib/, symlink in packages/full/lib/. Dependencies: none. Acceptance criteria are in the Master Task List (npx jest packages/core/lib/records-cutover.test.js packages/core/lib/record-ref.test.js green, with throwaway-repo cases).",
+      "touches": [
+        "packages/core/lib/record-ref.js",
+        "packages/core/lib/record-ref.test.js",
+        "packages/core/lib/records-cutover.js",
+        "packages/core/lib/records-cutover.test.js",
+        ".claude/lib/record-ref.js",
+        ".claude/lib/records-cutover.js",
+        "packages/full/lib/records-cutover.js"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "Add --records-cutover strict mode to scaffold-project.sh (deliver ignore lines, untrack tracked-ignored .trd-state/ paths, run seed); BATS acceptance test. Dependencies: FIX-001. Acceptance criteria are in the Master Task List (bats packages/core/scripts/scaffold-project.test.sh green with a new cutover test).",
+      "touches": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh"
+      ]
+    },
+    {
+      "id": "FIX-003",
+      "description": "/rebase-project Step 4.7b, its report lines and Rollback note; prose test; mirror to .claude/commands/ and packages/full/commands/plugin-only/; docs/reference/other-commands.md and CHANGELOG.md. Dependencies: FIX-002. Acceptance criteria are in the Master Task List (prose jest tests green, three rebase-project.md copies identical, bats runtime-integrity green).",
+      "touches": [
+        "packages/core/commands/rebase-project.md",
+        ".claude/commands/rebase-project.md",
+        "packages/full/commands/plugin-only/rebase-project.md",
+        "packages/core/commands/records-cutover-prose.test.js",
+        "docs/reference/other-commands.md",
+        "CHANGELOG.md"
+      ]
+    }
+  ],
+  "open_questions": [
+    "none (the TRD's Open Questions section reads 'none')"
+  ],
+  "could_not_verify": [
+    "Behaviour in a Claude Code Web session (ref push/fetch) — verification.md §5; the seed then reports push: failed and keeps the ref local.",
+    "Whether Forge's N7 needs finished records in main's tree rather than its history: the brief asks for the untracking, which the owner then commits; read here as 'readable in history'."
+  ]
+}

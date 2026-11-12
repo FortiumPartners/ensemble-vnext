@@ -62,6 +62,21 @@
       "started_at": "2026-11-12T14:44:41.228Z",
       "completed_at": "2026-11-12T14:59:40.119Z",
       "last_advanced": "2026-11-12T14:53:13.129Z"
+    },
+    "AMEND-001": {
+      "description": "Prose test for the /rebase-project readout skipped-features line (O7)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/records-cutover-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T15:45:51.003Z",
+      "completed_at": "2026-11-12T15:47:54.876Z",
+      "last_advanced": "2026-11-12T15:46:31.379Z"
     }
   },
   "checkpoints": [
@@ -72,11 +87,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-12T15:06:50.735Z"
+    },
+    {
+      "phase": 1,
+      "commit": "437644ee1b6ef46262929eb7bba7e737bacd9b24",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T15:47:55.055Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "337534b23e7c37ce791b3a04c0af61c019c99fcc",
-    "last_checkpoint_timestamp": "2026-11-12T15:06:50.735Z",
+    "last_healthy_checkpoint": "437644ee1b6ef46262929eb7bba7e737bacd9b24",
+    "last_checkpoint_timestamp": "2026-11-12T15:47:55.055Z",
     "interrupted": false,
     "interrupt_reason": null
   },
