@@ -333,7 +333,9 @@ function formatCoveragePercent(fraction) {
  * @returns {{action: 'exit-satisfied'|'exit-unbuilt'|'exit-stalled'|'exit-stuck'|
  *   'exit-insufficient-coverage'|'exit-must-pass-unproven'|'exit-setup-failure'|'remediate',
  *   reason: string, closed: string[], closedCauses: string[], nonBlocking?: string[]}}
- *   `nonBlocking` is present only when the 'must-pass' conversion fired: the open gap ids let through.
+ *   `nonBlocking` is present only when the 'must-pass' conversion fired AND the result is still
+ *   `exit-satisfied` after steps 4 and 5: a converted exit the coverage re-label or the must-pass
+ *   step turns into something else carries no `nonBlocking` (nothing is filed as a follow-up).
  */
 function decideNext(input) {
   const { iteration, gaps, unbuilt, previousGaps: inputPreviousGaps, met, total } = input;
@@ -1574,17 +1576,16 @@ function classifyImages(criteria) {
  * @param {string} stateDir
  * @param {Array<string|{id: string, reason?: string}>} nonBlocking  the result's `nonBlocking`
  * @param {string} [nowIso]
- * @returns {{recorded: string[], skipped: string[]}}
+ * @returns {{recorded: string[], skipped: string[], failed: string[]}}  `skipped` is an id already
+ *   recorded as a follow-up; `failed` is one whose row could not be written.
  */
 function recordNonBlockingFollowups(stateDir, nonBlocking, nowIso) {
-  const out = { recorded: [], skipped: [] };
+  const out = { recorded: [], skipped: [], failed: [] };
   if (!stateDir || !Array.isArray(nonBlocking) || nonBlocking.length === 0) return out;
-  // The latest open row per ref, as discovered.latestPerRef orders them (by `ts`, later wins).
+  // The latest open row per ref, in the ledger's own ordering (by `ts`, later wins).
   const latest = new Map();
-  for (const r of discovered.readAll(stateDir, { open: true })) {
-    if (!r.ref) continue;
-    const cur = latest.get(r.ref);
-    if (!cur || String(r.ts ?? '') >= String(cur.ts ?? '')) latest.set(r.ref, r);
+  for (const r of discovered.latestPerRef(discovered.readAll(stateDir, { open: true }))) {
+    if (r && r.ref) latest.set(r.ref, r);
   }
   for (const e of nonBlocking) {
     const id = e && typeof e === 'object' ? e.id : e;
@@ -1613,7 +1614,9 @@ function recordNonBlockingFollowups(stateDir, nonBlocking, nowIso) {
       nowIso
     );
     if (ok) latest.set(id, { ref: id, summary: `[non-blocking] ${id}` }); // a repeated id in one list writes once
-    (ok ? out.recorded : out.skipped).push(id);
+    // A write that did not land is `failed`, never `skipped`: a skip means "already recorded", and
+    // folding a lost write into it would hide a follow-up the command must report.
+    (ok ? out.recorded : out.failed).push(id);
   }
   return out;
 }
@@ -1769,12 +1772,14 @@ function renderReport(input) {
   // non-empty list so every other report stays byte-identical; a header line, not a section,
   // because `## Evidence` must stay last. Entries are ids or {id, reason}; ids are Judge-free
   // criterion ids but still escaped since the input is hand-composed.
-  const nonBlockingIds = (Array.isArray(input.nonBlocking) ? input.nonBlocking : [])
-    .map((e) => (e && typeof e === 'object' ? e.id : e))
-    .filter((id) => typeof id === 'string' && id);
-  if (nonBlockingIds.length > 0) {
+  // Each one is named by its failure first, then its id (an id alone is a lookup key, not a description).
+  const nonBlockingItems = (Array.isArray(input.nonBlocking) ? input.nonBlocking : [])
+    .map((e) => (e && typeof e === 'object' ? { id: e.id, reason: e.reason } : { id: e, reason: null }))
+    .filter((e) => typeof e.id === 'string' && e.id)
+    .map((e) => (e.reason ? `${escapeCell(e.reason)} (${escapeCell(e.id)})` : escapeCell(e.id)));
+  if (nonBlockingItems.length > 0) {
     lines.push(
-      `**Not blocking**: ${nonBlockingIds.length} failure(s) on criteria not marked must-pass, filed as product follow-ups: ${nonBlockingIds.map(escapeCell).join(', ')} (verification.md: Blocking: must-pass only)`
+      `**Not blocking**: ${nonBlockingItems.length} failure(s) on criteria not marked must-pass, filed as product follow-ups: ${nonBlockingItems.join(', ')} (verification.md: Blocking: must-pass only)`
     );
   }
   // One line per setup problem (preflight §3.3), only under `setup-failure`, so every other
@@ -3027,6 +3032,12 @@ if (require.main === module) {
         list = JSON.parse(payloadFile !== undefined ? fs.readFileSync(payloadFile, 'utf8') : payload);
       } catch (err) {
         console.error(`record-nonblocking: ${payloadFile !== undefined ? `--file ${payloadFile}` : '--payload'} is not readable JSON: ${err.message}`);
+        process.exit(1);
+      }
+      // An object (say, the whole workflow result instead of its `nonBlocking`) would otherwise
+      // read as an empty list and print a clean `{"recorded":[]}` with every follow-up lost.
+      if (!Array.isArray(list)) {
+        console.error('record-nonblocking: the payload must be a JSON array of ids or {id, reason} entries (the result\'s `nonBlocking`)');
         process.exit(1);
       }
       console.log(JSON.stringify(recordNonBlockingFollowups(stateDir, list)));

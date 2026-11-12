@@ -2114,7 +2114,8 @@ node .claude/lib/functional-verification.js record-nonblocking --state-dir <stat
 
 It writes one non-blocking discovery row per entry (skipping one already recorded, so a resume
 writes no duplicate) and never promotes it to a task. Written only when `outcome` is
-`satisfied`. A failure is one ISSUES line, never STUCK.
+`satisfied`. A failure (the command exits non-zero, or its printed `failed` list is non-empty) is
+one ISSUES line naming the ids, never STUCK.
 
 ---
 

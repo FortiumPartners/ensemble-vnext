@@ -5307,7 +5307,7 @@ describe('recordNonBlockingFollowups and the Not blocking report line (FIX-003)'
 
   test('writes one product follow-up row per entry', () => {
     const out = recordNonBlockingFollowups(dir, entries, '2026-11-12T00:00:00.000Z');
-    expect(out).toEqual({ recorded: ['FS-2', 'FS-3'], skipped: [] });
+    expect(out).toEqual({ recorded: ['FS-2', 'FS-3'], skipped: [], failed: [] });
     const rows = discovered.readAll(dir);
     expect(rows).toHaveLength(2);
     for (const [i, r] of rows.entries()) {
@@ -5327,13 +5327,13 @@ describe('recordNonBlockingFollowups and the Not blocking report line (FIX-003)'
   test('a second call writes nothing (dedupe)', () => {
     recordNonBlockingFollowups(dir, entries);
     const again = recordNonBlockingFollowups(dir, entries);
-    expect(again).toEqual({ recorded: [], skipped: ['FS-2', 'FS-3'] });
+    expect(again).toEqual({ recorded: [], skipped: ['FS-2', 'FS-3'], failed: [] });
     expect(discovered.readAll(dir)).toHaveLength(2);
   });
 
   test('an empty list writes nothing and creates no file', () => {
-    expect(recordNonBlockingFollowups(dir, [])).toEqual({ recorded: [], skipped: [] });
-    expect(recordNonBlockingFollowups(dir, undefined)).toEqual({ recorded: [], skipped: [] });
+    expect(recordNonBlockingFollowups(dir, [])).toEqual({ recorded: [], skipped: [], failed: [] });
+    expect(recordNonBlockingFollowups(dir, undefined)).toEqual({ recorded: [], skipped: [], failed: [] });
     expect(fs.existsSync(path.join(dir, 'discovered.jsonl'))).toBe(false);
   });
 
@@ -5349,15 +5349,15 @@ describe('recordNonBlockingFollowups and the Not blocking report line (FIX-003)'
           encoding: 'utf8',
         })
       );
-    expect(run()).toEqual({ recorded: ['FS-2', 'FS-3'], skipped: [] });
-    expect(run()).toEqual({ recorded: [], skipped: ['FS-2', 'FS-3'] });
+    expect(run()).toEqual({ recorded: ['FS-2', 'FS-3'], skipped: [], failed: [] });
+    expect(run()).toEqual({ recorded: [], skipped: ['FS-2', 'FS-3'], failed: [] });
   });
 
   test('CLI record-nonblocking --file reads the payload from a file (reasons with quotes)', () => {
     const file = path.join(dir, 'payload.json');
     fs.writeFileSync(file, JSON.stringify([{ id: 'FS-4', reason: "the button doesn't render" }]));
     const out = JSON.parse(execFileSync('node', [MODULE_PATH, 'record-nonblocking', '--state-dir', dir, '--file', file], { encoding: 'utf8' }));
-    expect(out).toEqual({ recorded: ['FS-4'], skipped: [] });
+    expect(out).toEqual({ recorded: ['FS-4'], skipped: [], failed: [] });
     expect(discovered.readAll(dir)[0].summary).toContain("doesn't render");
   });
 
@@ -5365,11 +5365,31 @@ describe('recordNonBlockingFollowups and the Not blocking report line (FIX-003)'
     recordNonBlockingFollowups(dir, [entries[0]], '2026-11-12T00:00:00.000Z');
     discovered.record(dir, { kind: 'gap', foundBy: 'verify-build --fix', status: 'met', ref: 'FS-2', summary: 'FS-2 met' }, '2026-11-12T01:00:00.000Z');
     const again = recordNonBlockingFollowups(dir, [entries[0]], '2026-11-12T02:00:00.000Z');
-    expect(again).toEqual({ recorded: ['FS-2'], skipped: [] });
+    expect(again).toEqual({ recorded: ['FS-2'], skipped: [], failed: [] });
   });
 
   test('a repeated id in one list writes once', () => {
-    expect(recordNonBlockingFollowups(dir, ['FS-5', 'FS-5'])).toEqual({ recorded: ['FS-5'], skipped: ['FS-5'] });
+    expect(recordNonBlockingFollowups(dir, ['FS-5', 'FS-5'])).toEqual({ recorded: ['FS-5'], skipped: ['FS-5'], failed: [] });
+  });
+
+  test('a row that cannot be written is failed, never skipped', () => {
+    // A state dir under a regular file cannot be created, so record() returns false.
+    const blocker = path.join(dir, 'not-a-dir');
+    fs.writeFileSync(blocker, '');
+    expect(recordNonBlockingFollowups(path.join(blocker, 'state'), ['FS-6'])).toEqual({ recorded: [], skipped: [], failed: ['FS-6'] });
+  });
+
+  test('CLI record-nonblocking rejects a payload that is not an array', () => {
+    let err;
+    try {
+      execFileSync('node', [MODULE_PATH, 'record-nonblocking', '--state-dir', dir, '--payload', JSON.stringify({ nonBlocking: entries })], { encoding: 'utf8', stdio: 'pipe' });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(err.status).toBe(1);
+    expect(String(err.stderr)).toMatch(/must be a JSON array/);
+    expect(fs.existsSync(path.join(dir, 'discovered.jsonl'))).toBe(false);
   });
 
   describe('renderReport', () => {
@@ -5385,8 +5405,11 @@ describe('recordNonBlockingFollowups and the Not blocking report line (FIX-003)'
       const lines = renderReport({ ...base, nonBlocking: entries }).split('\n');
       const i = lines.findIndex((l) => l.startsWith('**Reason**'));
       expect(lines[i + 1]).toBe(
-        '**Not blocking**: 2 failure(s) on criteria not marked must-pass, filed as product follow-ups: FS-2, FS-3 (verification.md: Blocking: must-pass only)'
+        '**Not blocking**: 2 failure(s) on criteria not marked must-pass, filed as product follow-ups: the export button is missing (FS-2), the footer wraps (FS-3) (verification.md: Blocking: must-pass only)'
       );
+    });
+    test('a bare id (no reason) is printed as the id alone', () => {
+      expect(renderReport({ ...base, nonBlocking: ['FS-9'] })).toContain('filed as product follow-ups: FS-9 (verification.md');
     });
     test('is byte-identical without nonBlocking', () => {
       expect(renderReport({ ...base, nonBlocking: [] })).toBe(renderReport(base));

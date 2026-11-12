@@ -665,6 +665,6 @@ function render(stateDir, { phase = null } = {}) {
 }
 
 module.exports = {
-  promotable,
+  promotable, latestPerRef,
   promoteToTrd, record, resolve, readAll, render, ledgerPath, KINDS, MAX_LINE_BYTES,
   VERIFICATION_STATUSES, PROMOTABLE_STATUSES, RANK_CLASSES };

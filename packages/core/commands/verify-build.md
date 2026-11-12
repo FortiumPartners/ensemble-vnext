@@ -288,7 +288,8 @@ ISSUES with the same D9 wording. Also `verificationDigest` and `preclassified`, 
 calls §8.1a step 8 documents (the design-map paths come from step 3b here, as §8.1b step 3
 records them).
 
-**Blocking policy — identical to `/implement-trd` §8.1a; read that step and follow it.** Run
+**Blocking policy — read as `/implement-trd` §8.1a reads it, except that an invalid line ends
+this command STUCK (below) rather than rendering a `not run` report.** Run
 `node .claude/lib/functional-verification.js read-blocking-policy "$(node .claude/lib/owner-rules.js path verification.md)"`
 and hold its `policy` as `blocking` (`'all'` when none is declared). On `status: 'invalid'` the
 run ends `═══ COMMAND STUCK: /verify-build ═══`, with `Reason:` naming the raw line
@@ -426,7 +427,8 @@ node .claude/lib/functional-verification.js record-nonblocking --state-dir <stat
 ```
 
 It writes one non-blocking discovery row per entry and skips one already recorded, so repeated
-rounds write no duplicate. A failure is one ISSUES line, never STUCK.
+rounds write no duplicate. A failure (the command exits non-zero, or its printed `failed` list is
+non-empty) is one ISSUES line naming the ids, never STUCK.
 
 **§8.5 applies here in full: while the loop is in flight, its gaps are not yours to fix.**
 Record them and let it finish.
