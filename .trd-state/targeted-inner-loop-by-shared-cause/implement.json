@@ -121,14 +121,19 @@
     "CAUSE-T001": {
       "description": "Add test/smoke/scenarios/verify-inner-loop-causes.sh (D23); register it in test/smoke/run-smoke.sh (the LLM_OPT_IN_SCENARIOS line and a SCENARIO_TIMEOUT entry) and in test/smoke/README.md (the scenari",
       "phase": 4,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "test/smoke/scenarios/verify-inner-loop-causes.sh",
+        "test/smoke/run-smoke.sh",
+        "test/smoke/README.md"
+      ],
       "commit": null,
       "started_at": "2026-11-12T08:33:04.888Z",
-      "completed_at": null
+      "completed_at": "2026-11-12T08:41:55.180Z",
+      "last_advanced": "2026-11-12T08:35:19.624Z"
     }
   },
   "checkpoints": [
