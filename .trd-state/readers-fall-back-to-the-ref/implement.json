@@ -169,6 +169,26 @@
       "started_at": "2026-11-12T10:50:17.460Z",
       "completed_at": "2026-11-12T11:03:32.843Z",
       "last_advanced": "2026-11-12T10:53:26.001Z"
+    },
+    "AMEND-001": {
+      "description": "identity refusal tests through each JS reader",
+      "phase": 1,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/implement-state.test.js",
+        "packages/core/lib/artifacts.test.js",
+        "packages/core/lib/custody.test.js",
+        "packages/core/lib/ship-sequencer.test.js",
+        "packages/core/hooks/session-context.test.js",
+        "packages/core/hooks/precompact.test.js"
+      ],
+      "commit": "ee58d90247506ea6cd0df6ac9f7a37c74465384e",
+      "completed_at": "2026-11-12T11:46:37.633Z",
+      "current_problem": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-12T11:37:15.933Z",
+      "last_advanced": "2026-11-12T11:44:51.637Z"
     }
   },
   "checkpoints": [
@@ -179,12 +199,20 @@
         "findings": 0
       },
       "timestamp": "2026-11-12T11:05:25.127Z"
+    },
+    {
+      "phase": 1,
+      "commit": "ee58d90247506ea6cd0df6ac9f7a37c74465384e",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T11:46:37.851Z"
     }
   ],
   "recovery": {
     "interrupted": false,
-    "last_healthy_checkpoint": "0a0fb5ede79f0257907611e9482067c1c7208250",
-    "last_checkpoint_timestamp": "2026-11-12T11:05:25.127Z",
+    "last_healthy_checkpoint": "ee58d90247506ea6cd0df6ac9f7a37c74465384e",
+    "last_checkpoint_timestamp": "2026-11-12T11:46:37.851Z",
     "interrupt_reason": null
   },
   "functional_verification": {
