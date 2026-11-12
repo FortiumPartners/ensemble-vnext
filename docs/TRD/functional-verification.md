@@ -608,6 +608,13 @@ interface VerifyFunctionalArgs {
   }>;                             //   exerciser-sent `covers` are discarded). Each entry needs a
                                   //   non-empty artifact and covers, or the workflow throws
                                   //   naming the index, before any agent is dispatched
+  criterionCovers?: Record<string, string[]>;  // NEW (`docs/TRD/one-full-regression-pass-at-the-end.md`
+                                  //   D3). Criterion id -> repo-relative covered paths (files,
+                                  //   directories or globs), from `live-evidence.js derive-criteria`;
+                                  //   absent/`{}` = none. The end-of-run regression pass re-checks a
+                                  //   `met` criterion whose covers a Debug pass changed. An id not in
+                                  //   `criteria` is ignored; a value that is not an array of non-empty
+                                  //   strings throws naming the id, before any agent is dispatched
   mustPassIds?: string[];         // NEW (verification-must-pass D11). The `criteria` of
                                   //   `must-pass-coverage`: ids of the criteria that carry a
                                   //   must-pass mark. Absent = []. An array of non-empty strings,
@@ -693,6 +700,19 @@ interface VerifyFunctionalResult {
                              //   'missing' when the id is absent from `criteria`
     overridden: boolean;     // true when the workflow's re-check changed the Judge's action
   };
+  regression: {              // NEW (`docs/TRD/one-full-regression-pass-at-the-end.md` D13, §3.2).
+                             //   `null` on EVERY return path where no end-of-run regression pass ran
+    rounds: Array<{          //   (an unbuilt or setup-failure exit, an empty scope, the early exits)
+      round: 1 | 2;
+      iteration: number;     //   the exit iteration; both rounds keep it
+      scope: Array<{ id: string; reason: 'covers-changed' | 'changes-unknown' | 'cause-member' | 'no-covers' | 'sent-to-debug'; files?: string[] }>;
+      caught: string[];      //   in-scope ids ruled not_met build-defect in this round
+      debug?: { causes: string[]; filesChanged: string[] | null };  // round 1, when the repair round ran
+    }>;
+    notRewalked: string[];   //   settled-met ids no round re-checked
+    unclaimedChanges: string[];  // changed files no criterion's covers match
+    gateBeforeEdits: boolean;    // a gate command is declared and the repair round ran after it
+  } | null;
 }
 ```
 

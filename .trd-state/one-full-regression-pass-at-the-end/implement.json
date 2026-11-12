@@ -60,26 +60,39 @@
     "REGR-B004": {
       "description": "Inputs, scope and round 1. criterionCovers read and validated (D3); filesChanged in DEBUG_SCHEMA and buildDebugPrompt, and debugChanges recorded per in-loop Debug pass with the D2 normalisation; inlin",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        "docs/TRD/functional-verification.md",
+        "packages/core/workflows/verify-functional-trd-sync.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-12T10:35:59.118Z",
+      "completed_at": "2026-11-12T11:07:01.807Z",
+      "last_advanced": "2026-11-12T11:06:56.873Z"
     },
     "REGR-B005": {
       "description": "Repair round, round 2, record. The D9 Debug round and round 2 (-regression-2 suffix, previousGaps = round 1's gaps, final action); the regression record (§3.2) with notRewalked, unclaimedChanges and g",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        "docs/TRD/functional-verification.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-12T10:35:59.119Z",
+      "completed_at": "2026-11-12T11:07:01.807Z",
+      "last_advanced": "2026-11-12T11:06:56.874Z"
     },
     "REGR-B006": {
       "description": "Commands: implement-trd.md §8.3 and verify-build.md §4 add criterionCovers after liveEvidence with its derive step (derive-criteria; {} for a sweep file; {} plus an ISSUES line on a non-zero exit) — 2",
