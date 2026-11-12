@@ -156,6 +156,14 @@ describe('write: basic landing and record.json', () => {
     expect(rec).toEqual({ forge_feature_id: null, branch: null, slug: SLUG });
   });
 
+  test('(O3) a tag named like the branch still writes the plain branch name', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    sh(repo, ['tag', 'main']);
+    expect(doWrite(repo).outcome).toBe('ref');
+    expect(JSON.parse(showBlob(repo, REF, 'record.json')).branch).toBe('main');
+  });
+
   test('(O3) an empty FORGE_FEATURE_ID is written as forge_feature_id: null', () => {
     const repo = initRepo();
     put(repo, `${STATE}/implement.json`, '{}\n');
@@ -583,6 +591,25 @@ describe('write: push, fold and fallback', () => {
     expect(sh(origin, ['rev-parse', REF])).toBe(sh(a, ['rev-parse', REF]));
     // the reconcile's temporary ref is cleaned up
     expect(sh(a, ['for-each-ref', 'refs/ensemble/records-tmp/'])).toBe('');
+  });
+
+  test('(n) a reconcile keeps a file only the local tip holds (an earlier unpushed write)', () => {
+    const origin = initBare();
+    const a = cloneOf(origin, 'cloneA');
+    const b = cloneOf(origin, 'cloneB');
+    process.env.FORGE_FEATURE_ID = 'shared-feature';
+
+    put(b, `${STATE}/from-b.md`, 'B\n');
+    expect(doWrite(b).push).toBe('pushed');
+
+    put(a, `${STATE}/local-only.md`, 'L\n');
+    expect(doWrite(a, { push: false }).outcome).toBe('ref');
+    fs.rmSync(path.join(a, STATE, 'local-only.md'));
+    put(a, `${STATE}/from-a.md`, 'A\n');
+    const r = doWrite(a);
+    expect(r.outcome).toBe('ref');
+    expect(r.push).toBe('pushed');
+    expect(treeFiles(origin, REF)).toEqual(expect.arrayContaining(['from-a.md', 'from-b.md', 'local-only.md', 'record.json']));
   });
 });
 

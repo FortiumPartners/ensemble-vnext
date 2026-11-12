@@ -127,8 +127,10 @@ function resolveRef(top, ref) {
 }
 
 function currentBranch(top) {
-  const r = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: top });
-  return r.ok && r.out ? r.out : null;
+  // Not `--short`: it answers `heads/<name>` when a tag shares the branch's name, and Forge
+  // compares the plain branch name.
+  const r = git(['symbolic-ref', '-q', 'HEAD'], { cwd: top });
+  return r.ok && r.out.startsWith('refs/heads/') ? r.out.slice('refs/heads/'.length) || null : null;
 }
 
 /** A blob from a commit's tree as a Buffer, or null when absent. */
@@ -379,9 +381,11 @@ function hashBuffer(ctx, buf) {
  * @param {object} ctx write context
  * @param {string|null} overlayTip the commit whose tree may be overlaid (and compared for identity)
  * @param {string[]} parents commit parents
+ * @param {string|null} [alsoTip] a second tip (the local one, on a reconcile) whose files are kept
+ *   too: a path only it holds is added, and a shared log both tips hold is unioned
  * @returns {{commit, tree, written: {rel, repo}[], missingImages: string[], unchanged: boolean}|{error: string}}
  */
-function commitOn(ctx, overlayTip, parents) {
+function commitOn(ctx, overlayTip, parents, alsoTip = null) {
   const idx = path.join(ctx.tmp, `index-${ctx.counter++}`);
   const env = { GIT_INDEX_FILE: idx };
   const run = (args, o = {}) => git(args, { cwd: ctx.top, env, ...o });
@@ -390,13 +394,32 @@ function commitOn(ctx, overlayTip, parents) {
     const rt = run(['read-tree', overlayTip]);
     if (!rt.ok) return { error: `git read-tree failed: ${rt.err}` };
   }
+  const also =
+    alsoTip && alsoTip !== overlayTip && (ctx.shared || sameFeature(identityAt(ctx.top, alsoTip), ctx.identity)) ? alsoTip : null;
+  if (also) {
+    // Files only the local tip holds (an earlier unpushed write) must survive the rebuild.
+    const have = new Set(run(['ls-files', '-z']).raw.split('\0').filter(Boolean));
+    const ls = git(['ls-tree', '-r', '-z', '--full-tree', also], { cwd: ctx.top });
+    if (!ls.ok) return { error: `git ls-tree failed: ${ls.err}` };
+    const add = ls.raw
+      .split('\0')
+      .filter(Boolean)
+      .filter((ent) => {
+        const p = ent.slice(ent.indexOf('\t') + 1);
+        return p !== 'record.json' && !have.has(p) && ent.split(' ')[1] === 'blob';
+      });
+    if (add.length) {
+      const ui = run(['update-index', '--add', '-z', '--index-info'], { input: add.join('\0') + '\0' });
+      if (!ui.ok) return { error: `git update-index failed: ${ui.err}` };
+    }
+  }
 
   const toWrite = [...ctx.files];
   let keep = [];
   if (!ctx.shared) {
     let reportText = ctx.reportText;
-    if (reportText == null && overlay) {
-      const b = blobAt(ctx.top, overlayTip, 'verification-report.md');
+    if (reportText == null && (overlay || also)) {
+      const b = (overlay && blobAt(ctx.top, overlayTip, 'verification-report.md')) || (also && blobAt(ctx.top, also, 'verification-report.md'));
       reportText = b ? b.toString('utf8') : null;
     }
     keep = referencedImages(reportText, ctx.slug);
@@ -411,8 +434,13 @@ function commitOn(ctx, overlayTip, parents) {
   const entries = [];
   for (const f of toWrite) {
     let sha = ctx.hashes.get(f.abs);
-    if (ctx.shared && overlay) {
-      const tipBuf = blobAt(ctx.top, overlayTip, f.rel);
+    if (ctx.shared && (overlay || also)) {
+      let tipBuf = overlay ? blobAt(ctx.top, overlayTip, f.rel) : null;
+      const alsoBuf = also ? blobAt(ctx.top, also, f.rel) : null;
+      if (alsoBuf && (!tipBuf || !tipBuf.equals(alsoBuf))) {
+        tipBuf = tipBuf ? unionLog(ctx, tipBuf, alsoBuf) : alsoBuf;
+        if (!tipBuf) return { error: `could not merge ${f.rel} with the local ref's copy` };
+      }
       if (tipBuf) {
         const mine = fs.readFileSync(f.abs);
         if (!tipBuf.equals(mine)) {
@@ -443,7 +471,7 @@ function commitOn(ctx, overlayTip, parents) {
       if (!rm.ok) return { error: `git update-index failed: ${rm.err}` };
     }
     const haveSet = new Set(have);
-    missingImages = keep.filter((k) => !haveSet.has(k) && !ctx.evidence(k));
+    missingImages = keep.filter((k) => !haveSet.has(k));
   }
 
   const wt = run(['write-tree']);
@@ -488,7 +516,8 @@ function pushOnce(top, ref) {
 
 /** One reconcile: rebuild this write on the remote tip, swap the local ref, push once more. */
 function reconcile(ctx, ref, localTip) {
-  const tmpRef = TMP_REF_PREFIX + ctx.slug;
+  // Per process: two worktrees reconciling one slug must not delete each other's temporary ref.
+  const tmpRef = `${TMP_REF_PREFIX}${ctx.slug}-${process.pid}`;
   try {
     const f = git(['fetch', '--no-tags', '--no-write-fetch-head', 'origin', `+${ref}:${tmpRef}`], {
       cwd: ctx.top,
@@ -499,7 +528,7 @@ function reconcile(ctx, ref, localTip) {
     const remoteTip = resolveRef(ctx.top, tmpRef);
     if (!remoteTip) return { state: 'failed', err: 'remote ref did not arrive' };
     const parents = remoteTip === localTip ? [remoteTip] : [remoteTip, localTip];
-    const b = commitOn(ctx, remoteTip, parents);
+    const b = commitOn(ctx, remoteTip, parents, localTip);
     if (b.error) return { state: 'failed', err: b.error };
     if (!swapRef(ctx.top, ref, b.commit, localTip).ok) return { state: 'failed', err: 'local ref moved during reconcile' };
     const p = pushOnce(ctx.top, ref);
@@ -803,19 +832,28 @@ function restore({ stateDir, cwd } = {}) {
     const commit = resolveRef(top, ref);
     const ls = git(['ls-tree', '-r', '-z', '--full-tree', commit], { cwd: top });
     if (!ls.ok) return { ok: false, outcome: 'failed', reason: ls.err };
+    // dest was absent or empty: a failure part-way empties it again, so a retry is not refused
+    // as "already holds files" over a half-restored folder.
+    const existed = fs.existsSync(dest);
     let count = 0;
-    for (const ent of ls.raw.split('\0').filter(Boolean)) {
-      const tab = ent.indexOf('\t');
-      const [mode, type, sha] = ent.slice(0, tab).split(' ');
-      const p = ent.slice(tab + 1);
-      if (type !== 'blob' || mode === '120000' || p === 'record.json' || !safeTreePath(p)) continue;
-      const target = path.join(dest, ...p.split('/'));
-      if (path.relative(dest, target).startsWith('..')) continue;
-      const blob = git(['cat-file', 'blob', sha], { cwd: top, buffer: true });
-      if (!blob.ok) return { ok: false, outcome: 'failed', reason: `could not read ${p}: ${blob.err}`, files: count };
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      fs.writeFileSync(target, blob.raw);
-      count++;
+    try {
+      for (const ent of ls.raw.split('\0').filter(Boolean)) {
+        const tab = ent.indexOf('\t');
+        const [mode, type, sha] = ent.slice(0, tab).split(' ');
+        const p = ent.slice(tab + 1);
+        if (type !== 'blob' || mode === '120000' || p === 'record.json' || !safeTreePath(p)) continue;
+        const target = path.join(dest, ...p.split('/'));
+        if (path.relative(dest, target).startsWith('..')) continue;
+        const blob = git(['cat-file', 'blob', sha], { cwd: top, buffer: true });
+        if (!blob.ok) throw new Error(`could not read ${p}: ${blob.err}`);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, blob.raw);
+        count++;
+      }
+    } catch (e) {
+      fs.rmSync(dest, { recursive: true, force: true });
+      if (existed) fs.mkdirSync(dest);
+      return { ok: false, outcome: 'failed', reason: e && e.message, files: 0 };
     }
     return { ok: true, outcome: 'restored', ref, commit, identity: identityAt(top, commit), files: count };
   } catch (e) {
