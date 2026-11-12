@@ -1,0 +1,125 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/fewer-stuck-ship-endings.md",
+  "trd_hash": "b1d93152663bfc853fa52dc7208e84f040ed998d4de8e62185c9857fe5e28069",
+  "branch": "feature/50-fewer-stuck-endings-in-a-ship-run",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "Sequencer step-level recovery loop",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-sequencer.js",
+        "packages/core/lib/ship-sequencer.test.js",
+        ".claude/lib/ship-sequencer.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T00:41:54.623Z",
+      "completed_at": "2026-11-12T01:00:32.707Z",
+      "last_advanced": "2026-11-12T00:54:01.377Z"
+    },
+    "FIX-002": {
+      "description": "Merge contract: rounds=, red, stop reclassification",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitive-merge.md",
+        ".claude/contracts/ship-primitive-merge.md",
+        "packages/core/contracts/ship-primitives.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T00:41:54.623Z",
+      "completed_at": "2026-11-12T01:00:32.806Z",
+      "last_advanced": "2026-11-12T00:54:01.379Z"
+    },
+    "FIX-003": {
+      "description": "Seam test: red merge-up head loops and merges; bound spent stops",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-build.seam.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T00:41:54.623Z",
+      "completed_at": "2026-11-12T01:00:32.815Z",
+      "last_advanced": "2026-11-12T00:54:01.379Z"
+    },
+    "FIX-004": {
+      "description": "Docs: command, guide, ship-setup skill",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/ship-build.md",
+        ".claude/commands/ship-build.md",
+        "docs/guides/ship-build.md",
+        "packages/skills/ship-setup/SKILL.md",
+        ".claude/skills/ship-setup/SKILL.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T00:41:54.623Z",
+      "completed_at": "2026-11-12T01:00:32.843Z",
+      "last_advanced": "2026-11-12T00:54:01.379Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "6dd3ed06366201f524812c78a10b44d6dd79f4b9",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T01:10:16.270Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "6dd3ed06366201f524812c78a10b44d6dd79f4b9",
+    "last_checkpoint_timestamp": "2026-11-12T01:10:16.270Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/fewer-stuck-ship-endings.md § Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest/bats installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude installed; not needed by this work"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login; capacity 1; deferred live check only"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}

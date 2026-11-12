@@ -33,6 +33,11 @@ const CONTRACTS = {
   hotel: { primitive: 'hotel', params: 'below-bar=no', results: 'filed, none', outward: 'yes', section: 'after' },
   'wait-ci': { primitive: 'wait-ci', params: '', results: 'passed, failed, no-checks', 'stops-on': 'failed', outward: 'no', section: 'ship' },
   india: { primitive: 'india', params: '', results: 'gone', outward: 'no', section: 'ship' },
+  // A step with a recovery loop: `red` runs delta, echo, alpha, wait-ci, up to `rounds` times.
+  kilo: {
+    primitive: 'kilo', params: 'rounds=2', results: 'ok, red', 'stops-on': 'red', outward: 'no', section: 'ship',
+    'loop-on': 'red', 'loop-via': 'delta, echo, alpha, wait-ci', 'loop-rounds': 'rounds',
+  },
 };
 
 function writeContract(dir, fields) {
@@ -817,6 +822,139 @@ describe('CLI', () => {
     const r = cli(['bogus']);
     expect(r.code).toBe(2);
     expect(r.err).toMatch(/usage/);
+  });
+});
+
+describe('step-level recovery loop (loop-on / loop-via / loop-rounds)', () => {
+  const LISTED = '1. alpha\n2. delta\n3. echo format=md\n4. wait-ci\n5. kilo\n6. india';
+  const idsOf = (r) => r.handed.map((h) => h.id);
+  const run = (text, results, extra = {}) => {
+    seq.start(startOpts(policy(text), extra));
+    return drive(noAuth(), results);
+  };
+  const base = { 1: 'done', 2: 'clean', 3: 'fixed', 4: 'passed' };
+
+  test('rounds=2 pass sequence: owner, round 1, owner, round 2 (final), owner, stuck', () => {
+    const r = run(LISTED, { ...base, 5: 'red', '5.1': 'found', '5.2': 'fixed', '5.3': 'done', '5.4': 'passed' });
+    expect(idsOf(r)).toEqual(['1', '2', '3', '4', '5', '5.1', '5.2', '5.3', '5.4', '5', '5.1', '5.2', '5.3', '5.4', '5']);
+    expect(r.handed.filter((h) => h.final).map((h) => h.id)).toEqual(['5.1', '5.2', '5.3', '5.4']);
+    expect(r.last).toMatchObject({ status: 'stuck', reason: 'step 5 (kilo) loop ended after 2 rounds: step 5 (kilo) recorded red' });
+    expect(seq.next(stateDir(), noAuth()).step.id).toBe('5');
+  });
+
+  test('the owner succeeding on pass 2 advances to the next top-level step', () => {
+    const r = run(LISTED, { ...base, 5: ['red', 'ok'], '5.1': 'found', '5.2': 'fixed', '5.3': 'done', '5.4': 'passed', 6: 'gone' });
+    expect(idsOf(r)).toEqual(['1', '2', '3', '4', '5', '5.1', '5.2', '5.3', '5.4', '5', '6']);
+    expect(seq.status(stateDir()).status).toBe('done');
+  });
+
+  test('a body stops-on result starts the next round, and on the last round stops', () => {
+    const r = run(LISTED, { ...base, 5: 'red', '5.1': 'found', '5.2': 'fixed', '5.3': 'done', '5.4': 'failed' });
+    expect(idsOf(r)).toEqual(['1', '2', '3', '4', '5', '5.1', '5.2', '5.3', '5.4', '5.1', '5.2', '5.3', '5.4']);
+    expect(r.last).toMatchObject({ status: 'stuck', reason: 'step 5 (kilo) loop ended after 2 rounds: step 5.4 (wait-ci) recorded failed' });
+  });
+
+  test('a body repeat-until result hands the owner out again', () => {
+    const r = run(LISTED, { ...base, 5: ['red', 'ok'], '5.1': 'clean', 6: 'gone' });
+    expect(idsOf(r)).toEqual(['1', '2', '3', '4', '5', '5.1', '5', '6']);
+  });
+
+  test('loop body params equal the earlier listed step\'s', () => {
+    const { steps } = seq.parse(policy(LISTED), contracts);
+    const owner = steps[4];
+    expect(owner.loop).toMatchObject({ on: 'red', rounds: 2 });
+    expect(owner.loop.body.map((b) => [b.id, b.primitive])).toEqual([['5.1', 'delta'], ['5.2', 'echo'], ['5.3', 'alpha'], ['5.4', 'wait-ci']]);
+    expect(owner.loop.body[1].params).toEqual({ format: 'md' });
+    expect(owner.loop.body[1].params).not.toBe(steps[2].params);
+    seq.start(startOpts(policy('1. alpha\n2. delta bar=low\n3. echo\n4. wait-ci\n5. kilo')));
+    const state = JSON.parse(fs.readFileSync(path.join(stateDir(), 'shipped.json'), 'utf8'));
+    expect(state.steps[4].loop.body[0].params).toEqual({ bar: 'low' });
+  });
+
+  test('a repeat body counts as listed, and the nearest earlier step wins', () => {
+    const { steps, errors } = seq.parse(policy('1. alpha\n2. repeat rounds=1\n   - delta bar=low\n   - echo\n   - wait-ci\n3. kilo rounds=1'), contracts);
+    expect(errors).toEqual([]);
+    expect(steps[2].loop.rounds).toBe(1);
+    expect(steps[2].loop.body[0].params).toEqual({ bar: 'low' });
+  });
+
+  test.each([
+    ['a loop-via primitive is not listed before the owner', '1. alpha\n2. delta\n3. kilo\n4. echo\n5. wait-ci', { 1: 'done', 2: 'clean', 3: 'red' }, 'step 3'],
+    ['rounds=0', '1. alpha\n2. delta\n3. echo\n4. wait-ci\n5. kilo rounds=0', { 1: 'done', 2: 'clean', 3: 'fixed', 4: 'passed', 5: 'red' }, 'step 5'],
+  ])('no loop when %s: red stops as today', (_n, text, results, owner) => {
+    expect(errorsOf(policy(text))).toEqual([]);
+    expect(seq.parse(policy(text), contracts).steps.some((s) => s.loop)).toBe(false);
+    seq.start(startOpts(policy(text)));
+    const r = drive(noAuth(), results);
+    expect(r.last).toMatchObject({ status: 'stuck', reason: `${owner} (kilo) recorded red; the run stops here` });
+  });
+
+  test('no loop inside a repeat: the repeat already loops', () => {
+    const { steps, errors } = seq.parse(policy('1. alpha\n2. repeat until=ok\n   - delta\n   - echo\n   - wait-ci\n   - kilo'), contracts);
+    expect(errors).toEqual([]);
+    expect(steps[1].body.every((b) => !b.loop)).toBe(true);
+  });
+
+  test('a rounds that is not a whole number is a parse error', () => {
+    expect(errorsOf(policy('1. alpha\n2. delta\n3. echo\n4. wait-ci\n5. kilo rounds=two'))[0]).toMatch(/^line \d+: rounds must be a whole number/);
+  });
+
+  test('a snapshot step without loop stops on the loop-on result as today', () => {
+    seq.start(startOpts(policy(LISTED)));
+    const file = path.join(stateDir(), 'shipped.json');
+    const state = JSON.parse(fs.readFileSync(file, 'utf8'));
+    delete state.steps[4].loop;
+    fs.writeFileSync(file, JSON.stringify(state));
+    const r = drive(noAuth(), { ...base, 5: 'red' });
+    expect(r.last).toMatchObject({ status: 'stuck', reason: 'step 5 (kilo) recorded red; the run stops here' });
+  });
+
+  test('the bound comes from the snapshot, not the contract', () => {
+    seq.start(startOpts(policy(LISTED)));
+    writeContract(contractsDir, { ...CONTRACTS.kilo, params: 'rounds=9' });
+    const r = drive(noAuth(), { ...base, 5: 'red', '5.1': 'found', '5.2': 'fixed', '5.3': 'done', '5.4': 'passed' });
+    expect(r.last.reason).toMatch(/loop ended after 2 rounds/);
+  });
+
+  test('status flags loop steps', () => {
+    seq.start(startOpts(policy(LISTED)));
+    const flagged = seq.status(stateDir()).steps.filter((s) => s.loop).map((s) => s.id);
+    expect(flagged).toEqual(['5.1', '5.2', '5.3', '5.4']);
+  });
+
+  test('authorization walks loop bodies (outward: no, so they never add a refusal)', () => {
+    expect(seq.authorization(policy(LISTED + '\n7. charlie tool=x'), contracts, noAuth())).toEqual({ sentence: 'absent', refused: ['charlie'] });
+  });
+
+  test('laterNeeds counts the loop body only while a round is left', () => {
+    seq.start(startOpts(policy('1. alpha\n2. delta\n3. echo\n4. wait-ci\n5. kilo rounds=1')));
+    const step = (id, result) => {
+      const n = seq.next(stateDir(), noAuth());
+      expect(n.step.id).toBe(id);
+      const needs = n.step.input.laterNeeds.slice().sort();
+      seq.record(stateDir(), { step: id, result }, noAuth());
+      return needs;
+    };
+    step('1', 'done'); step('2', 'clean'); step('3', 'fixed'); step('4', 'passed');
+    expect(step('5', 'red')).toEqual(['findings', 'head']); // a round is left: delta and echo come next
+    expect(step('5.1', 'found')).toEqual(['findings']); // echo is still to come
+    step('5.2', 'fixed'); step('5.3', 'done'); step('5.4', 'passed');
+    expect(step('5', 'ok')).toEqual([]); // the last attempt: no round left, nothing later
+  });
+
+  describe('loader errors', () => {
+    const errs = (fields) => {
+      writeContract(contractsDir, { primitive: 'papa', params: 'rounds=2', results: 'ok, red', 'stops-on': 'red', outward: 'no', section: 'ship', ...fields });
+      return seq.loadPrimitives(contractsDir).errors.join('\n');
+    };
+    test('loop-on not in stops-on', () => expect(errs({ 'loop-on': 'ok', 'loop-via': 'echo', 'loop-rounds': 'rounds' })).toMatch(/loop-on "ok" must also be listed in stops-on/));
+    test('unknown loop-via primitive', () => expect(errs({ 'loop-on': 'red', 'loop-via': 'nope', 'loop-rounds': 'rounds' })).toMatch(/unknown primitive "nope"/));
+    test('outward loop-via primitive', () => expect(errs({ 'loop-on': 'red', 'loop-via': 'charlie', 'loop-rounds': 'rounds' })).toMatch(/"charlie" must be outward: no/));
+    test('loop-declaring loop-via primitive', () => expect(errs({ 'loop-on': 'red', 'loop-via': 'kilo', 'loop-rounds': 'rounds' })).toMatch(/"kilo" declares a loop of its own/));
+    test('loop-rounds naming no param', () => expect(errs({ 'loop-on': 'red', 'loop-via': 'echo', 'loop-rounds': 'nope' })).toMatch(/loop-rounds names "nope"/));
+    test('a partial set of keys', () => expect(errs({ 'loop-on': 'red' })).toMatch(/go together/));
+    test('loop-rounds whose default is not a whole number', () => expect(errs({ params: 'rounds=two', 'loop-on': 'red', 'loop-via': 'echo', 'loop-rounds': 'rounds' })).toMatch(/loop-rounds parameter "rounds" must default to a whole number, not "two"/));
+    test('loop-rounds with a whole-number default loads cleanly', () => expect(errs({ params: 'rounds=3', 'loop-on': 'red', 'loop-via': 'echo', 'loop-rounds': 'rounds' })).not.toMatch(/papa/));
   });
 });
 

@@ -69,6 +69,35 @@ step provides (`merge` needs `pr` from `open-pr`), a primitive sits under the wr
 (The `/ship-setup` skill calls `rounds` "the most passes the block makes"; the code's count is
 `rounds` + 1.)
 
+### The merge loop
+
+A contract may declare a bounded recovery loop for one of its own results: `loop-on: <result>`
+(it must also be in `stops-on`), `loop-via: <primitives, in order>` (each `outward: no`) and
+`loop-rounds: <param>` (the parameter holding the bound). `merge` declares `loop-on: red`,
+`loop-via: collect-findings, fix-findings, push, wait-ci` and `loop-rounds: rounds`.
+
+When `merge` records `red` (CI failed on a head nothing judged, so no merge ran), the sequencer
+runs those four steps, with the params of the same primitives you listed earlier, then hands
+`merge` out again. The loop exists only if `ship.md` lists all four primitives before the merge
+(a `repeat` body counts) and `rounds` is above 0; the sequencer never adds a step you did not
+list. With no loop, `red` stops the run as before.
+
+How this differs from `repeat`: a `repeat` re-runs its whole body, and `rounds` is the number of
+extra passes (rounds + 1 passes in all). The merge loop runs its body only after a `red`, and
+`rounds=N` is N body rounds and at most N + 1 attempts of `merge`. Spent without a merge, the run
+stops with `step <id> (merge) loop ended after <N> rounds`.
+
+### What stops a run, and what does not
+
+Stops are sorted by who clears them. A **wait** clears itself on a later check, with no decision:
+`merge` re-reads an unreadable PR up to 8 times (15s apart), polls mergeability up to 8 times,
+and polls for the PR head to catch up to the push up to 40 times (10 minutes). A **loop** is
+bounded mechanical retry: a red head under `merge` (above). A **real** stop needs a person: a PR
+closed unmerged, a clash `merge-base-in` cannot resolve, a failed push, a custody-gate stop, a
+pr-head mismatch, a `gh pr merge` refusal (branch protection, a required review, the base moved:
+`--resume` merges the base in again), a failed merge-link proof, an unauthorized step, an
+unreadable record, and a `repeat` or loop spent without its exit.
+
 ## The 13 primitives
 
 Each primitive is one contract file, `packages/core/contracts/ship-primitive-<name>.md`, copied
@@ -87,7 +116,7 @@ outward step is subject to the [authorization gate](#the-outward-authorization-g
 | `collect-findings` | Gathers what CI and reviewers found, decides which the work must fix, and records it. Never fixes or files. Param `bar` (default `significant`). | no | needs `head`, provides `findings`; `repeat-until: clean` | `clean`, `found` |
 | `fix-findings` | Turns the open blocking findings into code through the recorded path; never pushes. A CI failure whose fix lies only in test files or CI config is fixed directly, without the reconcile build or a whole-branch review. Param `format` (the project's format/lint command). | no | needs `findings` | `fixed`, `nothing` |
 | `await-approval` | Parks the run until a human approves the PR. Param `trigger` (`github-actions` is the one value). | no | needs `pr` | `approved` |
-| `merge` | Merges the PR at the verified head and proves what merged is what was verified. Param `method` (`merge`, `squash`, `rebase`; default `merge`). | yes | needs `pr`, provides `merged` | `merged` |
+| `merge` | Merges the PR at the verified head and proves what merged is what was verified. Params `method` (`merge`, `squash`, `rebase`; default `merge`) and `rounds` (default 2; `0` turns the merge loop off). Waits for CI on a head nothing judged (for example after merging the base in); `red` there runs the merge loop. | yes | needs `pr`, provides `merged`; `stops-on: red`, `loop-on: red` | `merged`, `red` |
 | `release` | Runs the release or deploy command and proves the environment now runs the verified commit. Params `env`, `command`, `identity` (required). | yes | needs `head` | `released` |
 | `run` | Runs one command exactly as written in `ship.md` (a version bump, a tag, a store submission). Takes the rest of the line. | yes | none | `ran` |
 | `sync-design` | After a merge, brings each design's boards in step with the merged build. Never stops the run. | yes | needs `merged` | `synced`, `nothing`, `skipped` |
@@ -98,6 +127,7 @@ Sections: `run` is allowed under either heading; `sync-design`, `close-issue` an
 `file-followups` belong under `## After shipping`; the other nine under `## Ship`.
 
 Notes: outside a `repeat`, `wait-ci` recording `failed` stops the run on that step.
+`merge` recording `red` runs its loop instead (see [The merge loop](#the-merge-loop)).
 `await-approval` returns `wait` without an approval and never polls in-session. `fix-findings`
 never edits a lint finding by model: with no `format=` set, a lint row stops the step and says
 to set one with `/ship-setup`. `release` resolves its command in a fixed order and never
@@ -115,7 +145,8 @@ sequencer change. There are two routes.
 1. Add `packages/core/contracts/ship-primitive-<name>.md`. The front matter holds
    `primitive` (must match the filename), `params`, `results`, `outward` (`no`, `yes`, or
    `unless <key>=<value>`), `needs`, `provides`, `section` (`ship`, `after` or `any`), and
-   optionally `rest`, `repeat-until` and `stops-on`. A param may not be named `work`, `final`,
+   optionally `rest`, `repeat-until`, `stops-on` and the three loop keys (`loop-on`, `loop-via`,
+   `loop-rounds`; see [The merge loop](#the-merge-loop)). A param may not be named `work`, `final`,
    `laterNeeds` or `context`: the sequencer adds those to every step's input. The body has four
    sections: `## Input`, `## Do`, `## Result`, `## Waiting`.
 2. Copy the file byte-identical to `.claude/contracts/`. A test enforces the match.

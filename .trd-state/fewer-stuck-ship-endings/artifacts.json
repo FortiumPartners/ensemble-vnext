@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/fewer-stuck-ship-endings.md",
+    "url": "https://claude.ai/artifact/KFtbhZDFLPUy3oM1TNDMD7",
+    "updated_at": "2026-11-12T00:40:38.122Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/fewer-stuck-ship-endings/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-12T01:10:37.908Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/fewer-stuck-ship-endings/verification-report.md",
+    "url": "https://claude.ai/artifact/UD7pg2gH3MQ2wVfoR11QCb",
+    "updated_at": "2026-11-12T01:44:07.004Z",
+    "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/fewer-stuck-ship-endings/audit-build-report.md",
+    "url": "https://claude.ai/artifact/9iM5QEcMfr9iCGqcBtubZB",
+    "updated_at": "2026-11-12T01:51:08.937Z",
+    "command": "/audit-build"
+  }
+}

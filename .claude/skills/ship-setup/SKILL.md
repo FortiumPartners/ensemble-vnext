@@ -94,6 +94,10 @@ authority, not this list):
 
 - **`repeat`** — `rounds` (default 2), the most passes the block makes. `until` is left out: a
   `repeat` with no `until=` takes the one its body's contract declares.
+- **`merge`** — `method` (default `merge`) and `rounds` (default 2): how many times a red head may
+  be fixed and the merge retried. The fix uses the `collect-findings`, `fix-findings`, `push` and
+  `wait-ci` steps already listed before the merge, so a string without them has no merge loop;
+  `rounds=0` turns it off.
 - **`collect-findings`** — `bar` (default `significant`), the level of finding the work must
   fix before it ships; below it, findings are recorded and filed, not fixed.
 - **`release`** — `env`, `command`, `identity`:
