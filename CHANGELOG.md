@@ -12,6 +12,36 @@ the work is actually released.
 
 ## [Unreleased]
 
+## [4.17.7] - 2026-11-12
+
+**Every failure verification waives is now filed as a defect issue (#130).** Under `Blocking:
+must-pass only`, a failure on a criterion not marked must-pass that survives the fix loop no longer
+ends as a ledger row: `/audit-build` and `/close-feature` file it as a defect in the project's
+tracker (`stack.md` `## Issue Tracker`) and refuse to close the feature until every waived failure
+has an issue. This lifts 4.17.6's warning: `Blocking: must-pass only` may now be enabled. Also a
+test-only fix for the flaky custody tests (#128).
+
+### Changed
+
+- **Waived failures become defect issues (#130).** New library `waived-defects.js` (`gate`,
+  `tracker`, `record-filed`). The issue names the criterion, the failure and its evidence, the
+  feature, TRD, branch and ledger row, and says it stays open until someone decides not to fix it;
+  no framework step closes it. A criterion a later verification run proves met is retired instead
+  of filed. GitHub issues are filed directly; Linear and Jira through their skills. A row that
+  cannot be filed stops the close (COMMAND STUCK naming it). With no reachable tracker declared,
+  `must-pass only` waives nothing and the run behaves as `all criteria`, saying why.
+  `file-followups` never files a row twice. Every `gh` call has a 30s timeout and prompts disabled.
+- **Custody tests no longer flake on all-digit hash prefixes (#128).** Three deploy-link tests built
+  a build-identity token from a random commit hash, which `custody.js` rightly skips when it is all
+  digits (about 1 run in 7 failed). The tests now use a token with a letter; 40 runs in a row pass.
+
+### Not yet proven
+
+- No real GitHub issue has been filed by #130 and no Linear or Jira tracker exercised; tests stub
+  `gh`. Audit caveats are filed as issue #131.
+- `ship-build.seam.test.js:618` has the same all-digit flake at a 12-character prefix (about 0.4%
+  of runs), filed as issue #129.
+
 ## [4.17.6] - 2026-11-12
 
 Two pieces of work. **Run records leave the feature branch:** each feature's `.trd-state/<slug>/`
@@ -26,7 +56,7 @@ plan `docs/plans/verification-targeted-loop/roadmap.md`, issue #113).
 - Run `/rebase-project`. Its records cutover (Step 4.7b) untracks the run records already
   committed in the project (staged, not committed) and seeds a records ref for each in-flight
   feature. Commit the removal on the base branch.
-- **Do not set `Blocking: must-pass only` in `verification.md` yet.** Under the owner's rule of
+- **Do not set `Blocking: must-pass only` in `verification.md` yet** (lifted in 4.17.7). Under the owner's rule of
   2026-11-12, every failure it lets through must be filed as a defect issue, and that guarantee is
   not built yet (it is the next feature of the verification-loop plan). Until then a waived failure
   reaches the tracker only if `ship.md` lists `file-followups`. The default, `Blocking: all

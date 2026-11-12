@@ -313,20 +313,21 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released **4.17.6** (2026-11-12). 28 commands, 13 subagents. Test battery: 3233 Jest,
+Released **4.17.7** (2026-11-12). 28 commands, 13 subagents. Test battery: 3233 Jest,
 125 pytest, 641 BATS. **History: `CHANGELOG.md`.**
 
 4.15.0–4.16.1: the design stage (`/create-design` and siblings). 4.17.0–4.17.2: `/ship-build`
 and `/ship-setup` (#74–#77), their docs and live-test fixes (#79–#84).
 4.17.3–4.17.5: custody gates the merge (#93–#95), parallel-ship fixes (#99–#104), ship-cost cuts (#106–#111).
 4.17.6: run records on a git ref (#116–#124); targeted verification loop (#114–#125).
+4.17.7: waived verification failures filed as defect issues (#130); custody test flake fixed (#128).
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first (details, and older ones, in `CHANGELOG.md`):
-- 4.17.6: `Blocking: must-pass only` waits on waived failures being filed as issues.
+- 4.17.7: waived-failure filing unproven against a real tracker (#131).
 - 4.17.3–4.17.5: not live on GitHub: #95, #99–#103, #106–#111, a second-account approval,
   CodeRabbit/Codex. A merge re-dispatched after its branch is deleted stops at custody.
 - 4.16.1: design-quality live runs and the first critique-calibration replay not run;
