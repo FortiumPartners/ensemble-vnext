@@ -2918,7 +2918,9 @@ _seed_paths() {
     [ "$status" -eq 0 ]
     local f
     while IFS= read -r f; do
-        run git check-ignore -q -- "$f"
+        # --no-index: without it check-ignore never reports a tracked file, so the
+        # assertion would pass whatever the ignore lines say.
+        run git check-ignore --no-index -q -- "$f"
         [ "$status" -eq 1 ]
         [ -n "$(git ls-files -- "$f")" ]
     done < <(_durable_paths)
