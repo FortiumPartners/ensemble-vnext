@@ -536,11 +536,17 @@ an API or store: it changes the verification loop's own workflow, library and co
 
 ## Could Not Verify
 
-State after `/audit-trd` of 2026-11-12 (v1.2.0): all five verifiers reported, checked against
-the source `docs/plan/accepted-gaps-for-not-checkable-must-pass-criteria.investigation.md`.
-Two claims remain unchecked; both can only be settled at run time.
+State after `/audit-build` of 2026-11-12, against the delivered code: all five verifiers
+reported; 12 objectives and 8 tasks were checked. Seven tasks are built; the live fixture
+scenario (OHP-T002) is deferred by design and not built. The audit was given no product
+source, so whether the delivered behaviour matches the investigation
+(`docs/plan/accepted-gaps-for-not-checkable-must-pass-criteria.investigation.md`) was not
+checked, only whether the code matches this TRD.
 
 | Claim | Where | Why it was not checked |
 |-------|-------|------------------------|
+| The delivered behaviour matches the source's requirements and leaves none out | Whole TRD, against the investigation | No source was supplied to the audit's validation check, so fidelity to the investigation and omissions from it were not checked; only TRD-to-code traceability was |
 | `gh run list --commit=<HEAD>` finds a run only once `HEAD` is pushed and CI has run, so at the end of `/implement-trd` the entry usually reads `missing` | OHP-B003 grounding, Careful (marked [inferred]) | Needs a real GitHub Actions run; the audit reads documents and code and does not call GitHub (`verification.md` §5 lists runner-only behaviour as not reproducible here) |
-| The headless session's Bash keeps the fixture's `PATH`, so the stub `gh` is the one the lookup runs | TR1, OHP-T002 Careful (5) | Only a live fixture session can show it; OHP-T002 is that check and fails by name ("stub never called") if it does not hold |
+| The headless session's Bash keeps the fixture's `PATH`, so the stub `gh` is the one the lookup runs | TR1, OHP-T002 Careful (5) | Shown once, by hand: the verification run's fixture evidence (`.trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/it3/FS-32-state.json`) has the stub's run id on commit `2c70bef`, a different sha from the pre-run lookup's `bfe4165` (`it3/run.log`), so the session made its own call and reached the stub. No repeatable check exists until OHP-T002 is built |
+| Unit coverage of the changed code in `packages/core/workflows/verify-functional.js` is at or above 60% (O11) | §6.1, O11 | Jest cannot instrument the file (it has a top-level `return`, line 2515; the harness evaluates it), so no figure exists. Measured on 2026-11-12 for the other changed files, whole-file lines: `functional-verification.js` 73%, `spec-scope.js` 86%, `custody.js` 94% (1117 tests, 6 suites passing). The off-host lookup itself (`functional-verification.js` lines 932-1026) is tested only through a spawned CLI process, which the in-process figure does not count |
+| Integration coverage of the fixture run is at or above 50% (O11) | §6.1, O11 | Its scope is the OHP-T002 scenario, which is deferred and not built |
