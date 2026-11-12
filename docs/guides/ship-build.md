@@ -121,7 +121,7 @@ outward step is subject to the [authorization gate](#the-outward-authorization-g
 | `run` | Runs one command exactly as written in `ship.md` (a version bump, a tag, a store submission). Takes the rest of the line. | yes | none | `ran` |
 | `sync-design` | After a merge, brings each design's boards in step with the merged build. Never stops the run. | yes | needs `merged` | `synced`, `nothing`, `skipped` |
 | `close-issue` | Closes the one issue the work names, and nothing else. | yes | none | `closed`, `none` |
-| `file-followups` | Files what the work left over as tracker issues, once. The only primitive that files. Param `below-bar` (default `no`). | yes | none | `filed` |
+| `file-followups` | Files what the work left over as tracker issues, once, product rows first (then host, tooling, paperwork, not-verifiable). The only primitive that files. Param `below-bar` (default `no`). | yes | none | `filed` |
 
 Sections: `run` is allowed under either heading; `sync-design`, `close-issue` and
 `file-followups` belong under `## After shipping`; the other nine under `## Ship`.

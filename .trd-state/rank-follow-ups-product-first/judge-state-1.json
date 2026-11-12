@@ -1,0 +1,153 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rank-follow-ups-product-first/evidence/fs1-6-classof.txt",
+      "reason": "Captured classOf output: rankClass host with [flaky-ci] summary => host; rankClass paperwork with [not-verifiable] summary and not_verifiable status => paperwork.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rank-follow-ups-product-first/evidence/fs1-6-classof.txt",
+      "reason": "All seven product prefixes => product, [flaky-ci]/[flaky-capped] => tooling, [not-verifiable] => not-verifiable, unprefixed => product; no prefix yields host.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rank-follow-ups-product-first/evidence/fs1-6-classof.txt",
+      "reason": "[review:blocker] z with status not_verifiable => not-verifiable.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rank-follow-ups-product-first/evidence/fs1-6-classof.txt",
+      "reason": "stale-grounding unprefixed => paperwork; stale-grounding [flaky-ci] => tooling (prefix wins).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rank-follow-ups-product-first/evidence/fs1-6-classof.txt",
+      "reason": "rankClass urgent with [flaky-ci] summary => tooling (invalid class ignored).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rank-follow-ups-product-first/evidence/fs1-6-classof.txt",
+      "reason": "rank() over interleaved input returns product p1,p2, host h1, tooling t1,t2, paperwork pw1, not-verifiable n1, each with class; same-class rows keep input order (p1 before p2, t1 before t2).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rank-follow-ups-product-first/evidence/fs7-8-cli-summary.txt",
+      "reason": "CLI open over two fixture ledgers prints 5 open rows merged in rank order with class and dir; resolved rows A-resolved-product and B-resolved absent (re-run by judge matched).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rank-follow-ups-product-first/evidence/fx/a/discovered.jsonl",
+      "reason": "Row recorded via discovered.record with rankClass host reads back with the field; CLI lists A-host-recorded as host.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rank-follow-ups-product-first/evidence/fs9-10-run-record.json",
+      "reason": "Contract steps 3-4 name followup-rank.js open and record {summary,url,class} in rank order (product first); the run record (a scripted replay of steps 3-5 over the library output, tracker stubbed) shows filed entries product, product, host, tooling each carrying class.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rank-follow-ups-product-first/evidence/fs9-10-run-record.json",
+      "reason": "Contract step 5 requires one rank order with each line starting with the class; run record issues line starts \"not-verifiable · \" and unfiled lists [not-verifiable] B-nv in rank order.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-11",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": "packages/core/commands/ship-build.md",
+      "reason": "Tier 1 rejected the artifact as stale: its mtime predates this run evidence floor, so it was not captured this run (content not read).",
+      "cause": "evidence-stale",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-12",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": "docs/guides/ship-build.md",
+      "reason": "Tier 1 rejected the artifact as stale: its mtime predates this run evidence floor, so it was not captured this run (content not read).",
+      "cause": "evidence-stale",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": null
+}

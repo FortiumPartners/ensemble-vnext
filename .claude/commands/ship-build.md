@@ -216,8 +216,9 @@ who was not in the session:
   excused (they came from the base).
   - **Filed follow-ups are listed one by one, with their issue (AC-F5.8).** Each entry of the
     `file-followups` step's `data.filed` (as recorded; on a resumed run, the `data` of that
-    step's last result in `<state-dir>/shipped.json`) gets its own line: the row's summary,
-    e.g. `[below-critical] <finding>`, and its issue URL. A count ("7 of 9 filed") may precede
+    step's last result in `<state-dir>/shipped.json`) gets its own line, in the order product, host, tooling, paperwork, not-verifiable
+    (the order `data.filed` is recorded in): the row's class, its summary, e.g. `product ·
+    [below-critical] <finding>`, and its issue URL. A count ("7 of 9 filed") may precede
     them, never replace them.
 - **DECISIONS** — a default applied (the push-only fallback when there is no policy, a branch
   created for a sweep), one line each with the reason; otherwise none.
@@ -229,15 +230,17 @@ who was not in the session:
   `git status --porcelain` (a late review's edits stay uncommitted and are named here).
   Otherwise none.
   - **Unfiled follow-ups are listed one by one, never as a count.** Each `file-followups`
-    `data.issues` line keeps its own line: the row's summary, its ledger path and why it was
-    not filed. A summary line ("five could not be filed") may precede them, never replace them.
+    `data.issues` line keeps its own line, in the order product, host, tooling, paperwork,
+    not-verifiable: the row's class, its summary, its ledger path and why it was not filed. A summary line ("five could not be filed") may precede them, never replace them.
   - **Recorded, not yet filed (D27, AC-F5.8).** When no `file-followups` step has the result
     `filed` in `status`'s `steps` (the run parked or stopped before it, or `ship.md` lists
     none), list every finding a `collect-findings` step recorded and nothing has filed yet, one
-    line each as "recorded, not yet filed", with the ledger path:
+    line each as "recorded, not yet filed", with the ledger path; each line shows its class.
+    These rows are all `product` (the pattern below matches only product-class prefixes), so
+    they need no re-ordering through `followup-rank.js`:
 
     ```bash
-    node -e 'const d=require("./.claude/lib/discovered");for(const r of d.readAll(process.argv[1],{open:true}))if(!r.blocksFeature&&/^\[(below-critical|not-this-feature|below-bar)\]/.test(r.summary))console.log(r.summary)' "<state-dir>"
+    node -e 'const d=require("./.claude/lib/discovered");for(const r of d.readAll(process.argv[1],{open:true}))if(!r.blocksFeature&&/^\[(below-critical|not-this-feature|below-bar)\]/.test(r.summary))console.log("product · "+r.summary)' "<state-dir>"
     ```
 
     Say the next run that reaches `file-followups` files them (a `[below-bar]` one only with
