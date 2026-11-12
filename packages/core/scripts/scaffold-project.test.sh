@@ -2943,7 +2943,7 @@ _seed_paths() {
 @test "git files: the record-ignore lines are written once (the marker stays template-only) and a second run adds no line" {
     run "$SCAFFOLD_SCRIPT" --plugin-dir "$(_get_plugin_dir)" "$TEST_DIR"
     [ "$status" -eq 0 ]
-    ! grep -qF '@ignore-only' "$TEST_DIR/.gitignore"
+    ! grep -qF '@ignore-only' "$TEST_DIR/.gitignore" || false
     [ "$(grep -cxF '.trd-state/*' "$TEST_DIR/.gitignore")" -eq 1 ]
     [ "$(grep -cxF '!.trd-state/_docs-audit/' "$TEST_DIR/.gitignore")" -eq 1 ]
     local before; before="$(cat "$TEST_DIR/.gitignore")"

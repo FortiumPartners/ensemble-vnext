@@ -507,6 +507,18 @@ function commitOn(ctx, overlayTip, parents, alsoTip = null) {
   return { commit: ct.out, tree, written, missingImages, unchanged: false };
 }
 
+/**
+ * The identity at `tip` when it names a feature other than this write's, else null. Two detached
+ * writes with no Forge id on either side cannot be told apart, so they count as the same feature.
+ */
+function foreignIdentity(ctx, tip) {
+  const theirs = identityAt(ctx.top, tip);
+  if (!theirs || sameFeature(theirs, ctx.identity)) return null;
+  const detachedBoth =
+    theirs.branch === null && ctx.identity.branch === null && !theirs.forge_feature_id && !ctx.identity.forge_feature_id;
+  return detachedBoth ? null : theirs;
+}
+
 /** Compare-and-swap: creating is itself a swap (no all-zeros value to size to the hash). */
 function swapRef(top, ref, next, old) {
   const input = old ? `update ${ref} ${next} ${old}\n` : `create ${ref} ${next}\n`;
@@ -543,6 +555,9 @@ function reconcile(ctx, ref, localTip) {
     if (!f.ok) return { state: 'failed', err: f.err };
     const remoteTip = resolveRef(ctx.top, tmpRef);
     if (!remoteTip) return { state: 'failed', err: 'remote ref did not arrive' };
+    // The same default-branch rule as the first build: never rebuild over another feature's tip.
+    const theirs = ctx.guardIdentity ? foreignIdentity(ctx, remoteTip) : null;
+    if (theirs) return { state: 'identity', theirs, tip: remoteTip };
     const parents = remoteTip === localTip ? [remoteTip] : [remoteTip, localTip];
     const b = commitOn(ctx, remoteTip, parents, localTip);
     if (b.error) return { state: 'failed', err: b.error };
@@ -571,7 +586,8 @@ function defaultBranches(top) {
 
 /**
  * True when `branch` is the repository's default branch, or there is no branch (detached HEAD).
- * An unknown default errs toward "not a feature branch": no record commit lands on it.
+ * Without `origin/HEAD` every usual default name (main, master, init.defaultBranch) counts, so
+ * none of them receives a record commit; a default named anything else is not recognised then.
  */
 function isDefaultBranch(top, branch) {
   return branch === null || defaultBranches(top).includes(branch);
@@ -599,7 +615,8 @@ function fold(top, repoPaths, message) {
   if (!rm.ok) return { folded: [], foldError: rm.err };
   if (!message) return { folded: list };
   const c = commitRemoval(top, list, message);
-  return c.ok ? { folded: list, foldCommit: c.commit } : { folded: list, foldError: c.err };
+  if (!c.ok) return { folded: list, foldError: c.err };
+  return c.commit ? { folded: list, foldCommit: c.commit } : { folded: list };
 }
 
 /** Commits the removal of `paths` from HEAD's tree only (through a temporary index). */
@@ -617,6 +634,9 @@ function commitRemoval(top, paths, message) {
     }
     const tree = git(['write-tree'], { cwd: top, env });
     if (!tree.ok) return { ok: false, err: tree.err };
+    // Paths that were only staged (never in HEAD) leave HEAD's tree as it was: no empty commit.
+    const headTree = git(['rev-parse', 'HEAD^{tree}'], { cwd: top });
+    if (headTree.ok && headTree.out === tree.out) return { ok: true, commit: null };
     const c = git(['commit-tree', tree.out, '-p', parent.out, '-m', message], { cwd: top, env });
     if (!c.ok) return { ok: false, err: c.err };
     const u = git(['update-ref', '-m', message, 'HEAD', c.out, parent.out], { cwd: top });
@@ -709,6 +729,7 @@ function writeInner(opts) {
     }
   }
   const repoPrefix = toPosix(path.relative(top, folderAbs)) + '/';
+  const branch = currentBranch(top);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'record-ref-'));
   const ctx = {
     top,
@@ -721,8 +742,9 @@ function writeInner(opts) {
     reportText,
     hashes: new Map(),
     counter: 0,
-    identity: shared ? null : { forge_feature_id: nonEmpty(process.env.FORGE_FEATURE_ID), branch: currentBranch(top), slug },
+    identity: shared ? null : { forge_feature_id: nonEmpty(process.env.FORGE_FEATURE_ID), branch, slug },
     message: `records(${slug}): ${command} - ${step}`,
+    guardIdentity: false,
   };
   // Paths the fallback commits: every selected file plus the report's images that exist here.
   const fallbackPaths = [
@@ -733,25 +755,24 @@ function writeInner(opts) {
   // A default branch (or a detached HEAD) never receives a record commit and never has records
   // untracked from it: a commit there is a push to the product's trunk. `--no-fallback` and the
   // shared logs get the same rule on any branch.
-  const branch = currentBranch(top);
   const onDefault = isDefaultBranch(top, branch);
   const noFallback = onDefault || shared || opts.fallback === false;
   const fallbackSkipped = onDefault ? 'default-branch' : shared ? 'shared' : 'no-fallback';
+  ctx.guardIdentity = onDefault && !shared;
 
   try {
     let built = null;
     let refError = null;
+    let priorTip = null;
+    const identityRefusal = (theirs, tip) =>
+      refused('identity', { ref, detail: `${ref} belongs to another feature (branch ${theirs.branch || 'unknown'})`, tip });
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const tip = resolveRef(top, ref);
+      priorTip = tip;
       // On the default branch the slug may be another feature's ref; writing over it would replace
       // that feature's records with ours.
-      if (onDefault && !shared && tip) {
-        const theirs = identityAt(top, tip);
-        const detachedBoth = theirs && theirs.branch === null && ctx.identity.branch === null && !(theirs.forge_feature_id && ctx.identity.forge_feature_id);
-        if (theirs && !sameFeature(theirs, ctx.identity) && !detachedBoth) {
-          return refused('identity', { ref, detail: `${ref} belongs to another feature (branch ${theirs.branch || 'unknown'})`, tip });
-        }
-      }
+      const theirs = ctx.guardIdentity && tip ? foreignIdentity(ctx, tip) : null;
+      if (theirs) return identityRefusal(theirs, tip);
       const b = commitOn(ctx, tip, tip ? [tip] : []);
       if (b.error) {
         refError = b.error;
@@ -800,6 +821,12 @@ function writeInner(opts) {
         missingImages = rc.missingImages;
       }
       p = rc;
+    }
+    if (p.state === 'identity') {
+      // origin's tip belongs to another feature: put the local ref back where it was and refuse.
+      const undo = priorTip ? ['update-ref', ref, priorTip, built.commit] : ['update-ref', '-d', ref, built.commit];
+      if (built.commit !== priorTip) git(undo, { cwd: top });
+      return identityRefusal(p.theirs, p.tip);
     }
     if (p.state === 'pushed' || p.state === 'no-remote') {
       if (noFallback) return { ok: true, outcome: 'ref', push: p.state, folded: [], ...common() };

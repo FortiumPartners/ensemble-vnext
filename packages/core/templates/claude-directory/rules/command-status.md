@@ -192,7 +192,7 @@ entering the pull request. This is the one place the rule is stated.
 - **Never `git add`/`git commit` a `.trd-state/` path.** The library's fallback is the only
   branch commit of a record.
 - **Report, never STUCK.** `ref` with `push` `pushed`/`no-remote`/`skipped` is silent; `ref`
-  with `push: "failed"`, `fallback`, `failed` and `refused` are each one ISSUES line.
+  with `push: "failed"` or a `foldError`, `fallback`, `failed` and `refused` are each one ISSUES line.
 - `ensemble.records` in settings is informational; no command branches on it.
 
 ## Artifact links

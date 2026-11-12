@@ -705,6 +705,40 @@ describe('write: default branch, no-fallback and shared never commit', () => {
     expect(sh(repo, ['rev-parse', REF])).toBe(tip);
   });
 
+  test('a feature ref on origin only is refused from main on the reconcile too: origin and the local ref unchanged', () => {
+    const origin = initBare();
+    const feature = initRepo('feature');
+    withOrigin(feature, origin);
+    sh(feature, ['push', '-q', 'origin', 'main']);
+    onFeature(feature);
+    put(feature, `${STATE}/implement.json`, '{}\n');
+    put(feature, `${STATE}/report.md`, 'r\n');
+    expect(doWrite(feature).push).toBe('pushed');
+    const remoteTip = sh(feature, ['rev-parse', REF]);
+
+    const main = cloneOf(origin, 'main');
+    put(main, `${STATE}/closed.json`, '{}\n');
+    const r = doWrite(main);
+    expect(r.outcome).toBe('refused');
+    expect(r.reason).toBe('identity');
+    expect(sh(main, ['rev-parse', '-q', '--verify', REF], { __allowFail: true })).toBe('');
+    expect(sh(origin, ['rev-parse', REF])).toBe(remoteTip);
+  });
+
+  test('a fold of a record that was only staged (never in HEAD) makes no empty commit', () => {
+    const repo = initRepo();
+    onFeature(repo);
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    sh(repo, ['add', '-f', STATE]);
+    const head = sh(repo, ['rev-parse', 'HEAD']);
+    const r = doWrite(repo);
+    expect(r.outcome).toBe('ref');
+    expect(r.folded).toEqual([`${STATE}/implement.json`]);
+    expect(r.foldCommit).toBeUndefined();
+    expect(sh(repo, ['rev-parse', 'HEAD'])).toBe(head);
+    expect(sh(repo, ['ls-files', STATE])).toBe('');
+  });
+
   test('a fresh task-x ref from main is written, and a second write from main is the same feature', () => {
     const repo = initRepo();
     put(repo, '.trd-state/task-x/report.md', 'r\n');

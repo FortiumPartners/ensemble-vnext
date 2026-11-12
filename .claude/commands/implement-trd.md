@@ -1305,14 +1305,15 @@ After a phase's `Workflow` call returns `status: "complete"` and the resolved ba
 
 ```bash
 git add -A
-git commit -m "chore(phase {N}): checkpoint (battery {green|red|skipped}; verify-app {status})" || true
+git diff --cached --quiet || git commit -m "chore(phase {N}): checkpoint (battery {green|red|skipped}; verify-app {status})"
 COMMIT_SHA=$(git rev-parse HEAD)
 ```
 
 `.trd-state/` is git-ignored: this commit carries product code only, and no staging or
 commit step in this command names a run-record path. A phase that changed nothing has
-nothing to commit; the `|| true` keeps that from aborting, and `COMMIT_SHA` is then the
-previous commit. Read `COMMIT_SHA` after the commit, never before.
+nothing staged, so the commit is skipped and `COMMIT_SHA` is the previous commit. A commit
+that fails for any other reason (a hook, signing) is a real failure: never record the
+previous commit as this phase's checkpoint. Read `COMMIT_SHA` after the commit, never before.
 
 Commit only — no branch push here. Pushing the branch after every phase buys nothing but network
 round-trips: nobody reads a phase-N branch mid-run, and the branch is pushed once, at Step 9,

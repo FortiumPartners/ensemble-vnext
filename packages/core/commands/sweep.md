@@ -167,11 +167,12 @@ non-commits on the branch, so "nothing is committed" stays true:
 
 ```bash
 node .claude/lib/record-ref.js write --shared --command /sweep --step "sweep discovered findings"
-node .claude/lib/record-ref.js write --state-dir .trd-state/<slug>-sweep --command /sweep --step "sweep result"
+node .claude/lib/record-ref.js write --state-dir .trd-state/<slug>-sweep --command /sweep --step "sweep result" --no-fallback
 ```
 
 The first writes `_sweep/discovered.jsonl` (skip it when step 4 recorded nothing); the second
-writes the `.trd-state/<slug>-sweep/` folder (skip it when no sweep file named a `<slug>`).
+writes the `.trd-state/<slug>-sweep/` folder (skip it when no sweep file named a `<slug>`);
+`--no-fallback` keeps a lost push from becoming a branch commit (`--shared` never commits).
 Report a non-silent outcome as one ISSUES line; it never makes the sweep STUCK.
 
 ## Completion signal

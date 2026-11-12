@@ -99,8 +99,8 @@ of the feature, and closing it does not rewrite history.
 
 The four-section readout from `.claude/rules/command-status.md`, one screen:
 
-- **STATE** — the record's path and what it says (closed by you, the note), whether it was
-  committed and on which branch, and whether `current.json` was cleared.
+- **STATE** — the record's path and what it says (closed by you, the note), the records
+  write's outcome and the branch, and whether `current.json` was cleared.
 - **DECISIONS** — none.
 - **ISSUES** — a record that would not parse, or a records write that failed. Otherwise none.
 - **NEXT** — on a feature branch with a PR open: a line saying to merge the PR once you
