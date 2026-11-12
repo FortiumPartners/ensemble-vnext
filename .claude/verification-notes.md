@@ -1351,3 +1351,7 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] `verification-digest` prints `{"digest":"<hex>"}` (not a bare hash) and hashes whitespace/CRLF-normalised content: a file `hello\n` gives the sha256 of `hello`, not of the raw bytes; an absent path prints `{"digest":""}`.
 - [ran] A design-structure criterion id is `ST-<board id>` (the board is `id` minus `ST-`); a payload with other ids is silently skipped by `preclassify`. The parts-board reason reads "parts board <id>: the structure check does not run".
 - [ran] Mirror check: `cmp packages/core/<p> .claude/<p>` is empty for the workflow, lib and verify-build/implement-trd/refine-verification commands.
+## Exercising follow-up ranking (2026-11-12 run, `rank-follow-ups-product-first`)
+
+- [ran] `classOf`/`rank`/`openRanked` from `.claude/lib/followup-rank.js` are exercised with a plain `node` script; build fixture ledgers with `discovered.record(dir, {ref, summary, blocking:false, rankClass?})` (rows carry `blocksFeature:false`) and close one with `discovered.resolve(dir, row, "filed <stub url>")`, then run `node .claude/lib/followup-rank.js open --state-dir a --state-dir b`.
+- [inferred] A "file-followups run record" is played from contract steps 3-5 over `openRanked` output with a stub URL (see `.trd-state/rank-follow-ups-product-first/evidence/fs910.js`); no real filing happens.

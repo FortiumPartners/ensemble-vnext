@@ -570,6 +570,30 @@ describe('the after-shipping primitives', () => {
     expect(t).toMatch(/`data\.issues`/);
     expect(t).toMatch(/below-bar=yes/);
   });
+  test('file-followups reads rows through followup-rank.js in rank order and files in that order', () => {
+    const t = flat('file-followups');
+    expect(t).toMatch(/node \.claude\/lib\/followup-rank\.js open --state-dir <dir>/);
+    expect(t).toMatch(/repeated `--state-dir`/);
+    expect(t).toMatch(/product, host, tooling, paperwork, not-verifiable/);
+    expect(t).toMatch(/each carrying `class` and `dir`/);
+    expect(t).not.toMatch(/discovered\.readAll\(dir, \{ open: true \}\)/);
+    expect(t).toMatch(/in that order/);
+    expect(t).toMatch(/against its own `dir`/);
+    expect(t).toMatch(/\{ summary, url, class \}/);
+  });
+  test('file-followups writes class-led data.issues lines in rank order, the no-row line last', () => {
+    const t = flat('file-followups');
+    expect(t).toMatch(/starting with the row's class/);
+    expect(t).toMatch(/product · <summary> — <ledger path> — <why>/);
+    expect(t).toMatch(/the line naming the record of unfixed review findings[^.]*goes last/);
+    expect(t).toMatch(/\{ filed: \[\{ summary, url, class \}\], unfiled: \[row summaries, in rank order\], issues \}/);
+  });
+  test('ship-build.md Step 6 orders filed and unfiled follow-ups by class and shows the class', () => {
+    const t = fs.readFileSync(path.join(DIR, '..', 'commands', 'ship-build.md'), 'utf8').replace(/\s+/g, ' ');
+    expect(t).toMatch(/in the order product, host, tooling, paperwork, not-verifiable/);
+    expect(t).toMatch(/the row's class, its summary/);
+    expect(t).toMatch(/Recorded, not yet filed[^]*each line shows its class[^]*all `product`/);
+  });
   test('sync-design sets the tree aside with a tagged stash, restores with apply, and never stops', () => {
     const t = flat('sync-design');
     expect(t).toMatch(/git stash push -u -m "ship-build sync-design/);
