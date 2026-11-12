@@ -2,8 +2,8 @@
   "requirements": [
     {
       "id": "O1",
-      "statement": "With `Blocking: must-pass only` in `verification.md` and at least one criterion marked must-pass, a verification run whose open failures, once the inner fix loop and the closing regression pass are done, are all on criteria not marked must-pass ends `satisfied`; the result, state file and report list those failures, and each is written to the follow-up ledger (`discovered.jsonl`) as one product follow-up row (`rankClass: \"product\"`, `blocksFeature: false`).",
-      "source": "TRD Objectives O1 (your instruction, 2026-11-12)",
+      "source": "TRD Objectives table, row O1 (must pass: yes)",
+      "statement": "With `Blocking: must-pass only` in verification.md and at least one must-pass criterion, a run whose open failures are all on non-must-pass criteria ends `satisfied`; the result, state file and report list those failures, and each is written to discovered.jsonl as a product follow-up row (rankClass product, blocksFeature false).",
       "served_by": [
         "FIX-002",
         "FIX-003",
@@ -14,20 +14,19 @@
     },
     {
       "id": "O2",
-      "statement": "With no blocking setting (section absent, line absent, or `verification.md` missing or unreadable), with `Blocking: all criteria`, or with no criterion marked must-pass (any TRD with none marked, and every sweep file), a failure on any criterion still prevents `satisfied`, exactly as today; and `/verify-build`'s fix rounds never build a failure the run listed as non-blocking.",
-      "source": "TRD Objectives O2 (your instruction, 2026-11-12)",
+      "source": "TRD Objectives table, row O2 (must pass: yes)",
+      "statement": "With no blocking setting (section absent, line absent, or verification.md missing or unreadable), with `Blocking: all criteria`, or with no must-pass criterion marked, a failure on any criterion still prevents `satisfied`; /verify-build fix rounds never build a failure the run listed as non-blocking.",
       "served_by": [
         "FIX-001",
         "FIX-002",
         "FIX-004",
-        "FIX-005",
         "FIX-009"
       ]
     },
     {
       "id": "O3",
-      "statement": "A failure on a must-pass criterion prevents `satisfied` under either setting, including when the Judge's own exit wrongly says `satisfied`; the must-pass recheck (`applyMustPassRecheck`) and custody behave as today for must-pass criteria.",
-      "source": "TRD Objectives O3 (your instruction, 2026-11-12)",
+      "source": "TRD Objectives table, row O3 (must pass: yes)",
+      "statement": "A failure on a must-pass criterion prevents `satisfied` under either setting, including when the Judge's exit wrongly says `satisfied`; applyMustPassRecheck and custody behave as today for must-pass criteria.",
       "served_by": [
         "FIX-002",
         "FIX-004",
@@ -37,8 +36,8 @@
     },
     {
       "id": "O4",
-      "statement": "An invalid `Blocking:` value (anything but `all criteria` or `must-pass only`, or two `Blocking:` lines) is refused: verification is not run and the stop reason names the offending line.",
-      "source": "TRD Objectives O4",
+      "source": "TRD Objectives table, row O4",
+      "statement": "An invalid Blocking value (anything other than `all criteria` or `must-pass only`, or two Blocking lines) is refused: verification is not run and the stop reason names the offending line.",
       "served_by": [
         "FIX-001",
         "FIX-005"
@@ -46,8 +45,8 @@
     },
     {
       "id": "O5",
-      "statement": "The Judge never judges materiality and never applies the blocking policy: the policy is applied only by the workflow script, from the must-pass marks and the owner's setting.",
-      "source": "TRD Objectives O5 (your instruction, 2026-11-12; PM decision 2026-11-11)",
+      "source": "TRD Objectives table, row O5",
+      "statement": "The Judge never judges materiality and never applies the blocking policy; the policy is applied only by the workflow script, from the must-pass marks and the owner's setting.",
       "served_by": [
         "FIX-004",
         "FIX-007"
@@ -55,32 +54,32 @@
     },
     {
       "id": "O6",
-      "statement": "The four-part definition from issue #113 (a main user flow broken; data lost or corrupted; private data exposed; money or AI spend charged wrongly) is stated in the TRD and success-definition authoring guidance as the test for which objectives to mark must-pass, with the note that verification-check rows (design comparison, data fidelity…) never carry a must-pass mark and so never block under `must-pass only`.",
-      "source": "TRD Objectives O6 (your instruction, 2026-11-12)",
+      "source": "TRD Objectives table, row O6",
+      "statement": "The four-part definition from issue #113 (main user flow broken; data lost or corrupted; private data exposed; money or AI spend charged wrongly) is stated in TRD and success-definition authoring guidance as the test for must-pass marks, noting that verification-check rows never carry a must-pass mark and so never block under must-pass only.",
       "served_by": [
         "FIX-007"
       ]
     },
     {
       "id": "O7",
-      "statement": "`/verification-setup` asks for the blocking policy, offering `all criteria` as the default, and writes it in a form the parser reads.",
-      "source": "TRD Objectives O7 (your instruction, 2026-11-12)",
+      "source": "TRD Objectives table, row O7",
+      "statement": "/verification-setup asks for the blocking policy, offering `all criteria` as the default, and writes it in a form the parser reads.",
       "served_by": [
         "FIX-008"
       ]
     },
     {
       "id": "O8",
-      "statement": "The shipped `verification.md` template carries the new short section with `Blocking: all criteria`, and a project still holding the current unfilled template is still recognised as unfilled after the template changes.",
-      "source": "TRD Objectives O8 (your instruction, 2026-11-12; `KNOWN_UNFILLED_DIGESTS` convention)",
+      "source": "TRD Objectives table, row O8",
+      "statement": "The shipped verification.md template carries the new short section with `Blocking: all criteria`, and a project still holding the current unfilled template is still recognised as unfilled after the template changes.",
       "served_by": [
         "FIX-001"
       ]
     },
     {
       "id": "O9",
-      "statement": "A headless fixture run (the `fixtures` environment in `verification.md`) with the policy set to `must-pass only`, one must-pass and one non-must-pass seeded defect, shows the non-must-pass failure listed as non-blocking, filed as a follow-up row, and the outcome `satisfied` only once the must-pass defect is met.",
-      "source": "TRD Objectives O9 (your instruction, 2026-11-12, acceptance)",
+      "source": "TRD Objectives table, row O9",
+      "statement": "A headless fixture run with the policy set to must-pass only, one must-pass and one non-must-pass seeded defect, shows the non-must-pass failure listed as non-blocking, filed as a follow-up, and the outcome satisfied only once the must-pass defect is met.",
       "served_by": [
         "FIX-010"
       ]
@@ -89,7 +88,7 @@
   "tasks": [
     {
       "id": "FIX-001",
-      "description": "Add `## 5c. Blocking policy` to the shipped verification.md template and `readBlockingPolicy(content)` beside `readCoverageFloor`, plus CLI `read-blocking-policy <path>`; freeze the current template as a fixture and add its digest to `KNOWN_UNFILLED_DIGESTS`. Serves O2, O4, O8. Depends on: none.",
+      "description": "Add `## 5c. Blocking policy` to the shipped verification.md template with the Blocking line (default all criteria); add readBlockingPolicy beside readCoverageFloor and its read-blocking-policy CLI subcommand; freeze the current template as a fixture and add its digest to KNOWN_UNFILLED_DIGESTS.",
       "touches": [
         "packages/core/templates/claude-directory/rules/verification.md",
         "packages/core/lib/functional-verification.js",
@@ -99,7 +98,7 @@
     },
     {
       "id": "FIX-002",
-      "description": "decideNext gains optional `blocking` ('all' default; 'must-pass'; anything else throws a TypeError). Under 'must-pass' with a non-empty mustPass, a base exit-stalled or exit-stuck with no unbuilt and every open gap outside mustPass becomes exit-satisfied, with nonBlocking ids in the return. Serves O1, O2, O3. Depends on: none.",
+      "description": "decideNext gains an optional blocking input; under must-pass with a non-empty mustPass, a base exit-stalled or exit-stuck whose open gaps are all non-must-pass (and no unbuilt) becomes exit-satisfied with a nonBlocking key added only when the conversion fires.",
       "touches": [
         "packages/core/lib/functional-verification.js",
         "packages/core/lib/functional-verification.test.js"
@@ -107,7 +106,7 @@
     },
     {
       "id": "FIX-003",
-      "description": "Add recordNonBlockingFollowups(stateDir, nonBlocking, nowIso) and CLI record-nonblocking; renderReport prints a **Not blocking** line after the **Reason** line when nonBlocking is non-empty. Serves O1. Depends on: none.",
+      "description": "Add recordNonBlockingFollowups and the record-nonblocking CLI that writes deduplicated product follow-up rows to discovered.jsonl; renderReport prints a Not blocking line only when nonBlocking is non-empty.",
       "touches": [
         "packages/core/lib/functional-verification.js",
         "packages/core/lib/functional-verification.test.js"
@@ -115,7 +114,7 @@
     },
     {
       "id": "FIX-004",
-      "description": "Workflow verify-functional.js: read and validate args.blocking (absent is 'all'); add applyBlockingPolicy(judgeResult, settled) called inside runRegressionPass before its syncState; make mustPassCheckState ignore non-must-pass not_met under 'must-pass'; compute and carry nonBlocking into buildFinalResult and state/report input; update docs/TRD/functional-verification.md section 3.3. Serves O1, O2, O3, O5. Depends on: FIX-002, FIX-003.",
+      "description": "Workflow verify-functional.js validates args.blocking, adds applyBlockingPolicy called inside runRegressionPass before its syncState (demotes unsafe satisfied exits, converts non-must-pass-only stalls/stucks under must-pass), makes mustPassCheckState ignore non-must-pass not_met under must-pass, and returns nonBlocking on every result path; updates docs/TRD/functional-verification.md section 3.3.",
       "touches": [
         "packages/core/workflows/verify-functional.js",
         "packages/core/workflows/verify-functional.test.js",
@@ -125,7 +124,7 @@
     },
     {
       "id": "FIX-005",
-      "description": "Commands: implement-trd.md section 8.1a reads the policy and sets blocking (invalid stops with a not-run reason naming the raw line); section 8.3 args block gains blocking as the 31st field; section 8.4 carries nonBlocking and runs record-nonblocking. verify-build.md step 3c reads the same policy, section 4 lists the 31 fields, fix-round step 2 skips nonBlocking ids; field-count assertions updated in two test files. Serves O1, O4. Depends on: FIX-001, FIX-004.",
+      "description": "implement-trd.md and verify-build.md read the blocking policy via read-blocking-policy, pass it as the 31st args field, stop on invalid, carry nonBlocking into readouts and run record-nonblocking, and skip non-blocking ids in verify-build fix rounds; update field-count assertions in the two command test files.",
       "touches": [
         "packages/core/commands/implement-trd.md",
         "packages/core/commands/verify-build.md",
@@ -135,14 +134,14 @@
     },
     {
       "id": "FIX-006",
-      "description": "Custody regression guard only: a feature whose state records a non-must-pass criterion not_met and outcome satisfied does not put that id in reconcile's reverify ids or affectedIds. No change to custody.js. Serves O3. Depends on: none.",
+      "description": "Custody regression guard test only: a non-must-pass not_met criterion in a satisfied state does not appear in reconcile reverify or affectedIds. No change to custody.js.",
       "touches": [
         "packages/core/lib/custody.test.js"
       ]
     },
     {
       "id": "FIX-007",
-      "description": "Authoring guidance: add the four-part must-pass test and the note that the mark decides blocking under 'must-pass only' to trd-authoring.md section 1a, the three plan.md Objectives templates and create-trd.md; add the four parts and 'the Judge never applies them' to the contract's Must pass section; add an outcomes paragraph on non-blocking failures. Serves O5, O6. Depends on: none.",
+      "description": "Additive authoring guidance: the four-part must-pass test in trd-authoring.md, plan.md Objectives templates, create-trd.md and the functional-verification contract, stating no stage applies it to a failure and that check rows never block under must-pass only.",
       "touches": [
         "packages/core/contracts/trd-authoring.md",
         "packages/core/commands/plan.md",
@@ -153,7 +152,7 @@
     },
     {
       "id": "FIX-008",
-      "description": "/verification-setup SKILL.md: new topic section 5c Blocking policy with the question, 'all criteria' offered first as default, both written forms, and read-blocking-policy added to the post-write re-check. Serves O7. Depends on: FIX-001.",
+      "description": "verification-setup SKILL.md gains a Blocking policy topic and section (all criteria offered first, both written forms, read-blocking-policy re-check after writing), with test assertions.",
       "touches": [
         "packages/skills/verification-setup/SKILL.md",
         "packages/skills/verification-setup/__tests__/skill-md.test.js"
@@ -161,7 +160,7 @@
     },
     {
       "id": "FIX-009",
-      "description": "Mirror every changed file under packages/core/{lib,workflows,commands,contracts} and the verification-setup skill into the vendored .claude/ copies (byte-identical today); full Jest battery passes. Serves O1, O2, O3. Depends on: FIX-001, FIX-002, FIX-003, FIX-004, FIX-005, FIX-007, FIX-008.",
+      "description": "Mirror every changed packages/core lib, workflows, commands and contracts file, and the verification-setup skill, into the vendored .claude/ copies; full Jest battery must pass.",
       "touches": [
         ".claude/lib/functional-verification.js",
         ".claude/workflows/verify-functional.js",
@@ -176,20 +175,31 @@
     },
     {
       "id": "FIX-010",
-      "description": "[LIVE] Headless fixture scenario test/smoke/scenarios/verify-blocking-policy.sh in the fixtures environment: one must-pass and one non-must-pass seeded defect under Blocking: must-pass only; one live /verify-build; asserted from verification-state.json, report and discovered.jsonl; registered in run-smoke.sh and test/smoke/README.md. Serves O9. Depends on: FIX-009.",
+      "description": "[LIVE] Headless fixture scenario test/smoke/scenarios/verify-blocking-policy.sh in the fixtures environment, with one must-pass and one non-must-pass seeded defect under must-pass only; register it in run-smoke.sh and the smoke README.",
       "touches": [
         "test/smoke/scenarios/verify-blocking-policy.sh",
         "test/smoke/run-smoke.sh",
         "test/smoke/README.md"
       ]
+    },
+    {
+      "id": "AMEND-001",
+      "description": "[defect, amendment] read-blocking-policy throws EISDIR or a permission error on an existing but unreadable verification.md instead of returning the all-criteria default (O2); fix every instance of this weakness in the feature's touched files and add a test.",
+      "touches": []
+    },
+    {
+      "id": "AMEND-002",
+      "description": "[test-gap, amendment] The FIX-010 fixture scenario has never been run live, so there is no evidence for O9; run it and fix every instance of the same gap across touched files.",
+      "touches": []
     }
   ],
-  "open_questions": [
-    "OQ-1 | Should a non-must-pass `unbuilt` criterion also stop blocking under `must-pass only`? | Assumed: No: `unbuilt` still blocks (see Decision); recorded as an OWNER-CALL | Owner-only: (blank in the TRD)"
-  ],
   "could_not_verify": [
-    "FIX-010 depends on a live Debug leaving the non-must-pass defect open; a Debug that fixes it gives INCONCLUSIVE, not proof.",
-    "`recommendCoverageFloor` (~:1132) learns from runs that ended `satisfied`; a converted run that still carries `not_met` criteria lowers the share it learns from, so `/verification-setup` may recommend a lower floor in a project that sets `must-pass only`. Reported, not changed here.",
-    "Scope note for the index: the TRD's Decision (line 58), Non-Goals (line 136) and Intended Change (line 24) sections were not read in this mapping pass, so any checkable promise stated only in their prose is not indexed as a requirement. Task Grounding and the Master Task List, Objectives, Open Questions and Could Not Verify were read in full."
+    "Validation against product requirements was not checked: the TRD has no PRD, its source is the PM's instruction of 2026-11-12 (issue #113), which was not supplied to the audit, so whether the TRD omits or distorts that instruction is unchecked.",
+    "Promises stated only in prose were not traced: a checkable promise stated only in Intended Change, Decision or Non-Goals was not traced to code or tests.",
+    "FIX-010 (the live fixture scenario) can come back inconclusive: it relies on a live Debug leaving the non-must-pass defect open, and a Debug that fixes it gives INCONCLUSIVE, not proof. The scenario has not been run.",
+    "The coverage-floor recommendation may drift lower under must-pass only: recommendCoverageFloor (packages/core/lib/functional-verification.js ~:1196) learns from satisfied runs, so converted runs with not_met criteria can lower the recommended floor. Reported, not changed."
+  ],
+  "open_questions": [
+    "OQ-1: Should a non-must-pass unbuilt criterion also stop blocking under must-pass only? Assumed no (unbuilt still blocks); recorded as an OWNER-CALL in the TRD Decision section. Owner-only: no."
   ]
 }

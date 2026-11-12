@@ -1,0 +1,13 @@
+{
+  "feature": "block-only-on-material-failures",
+  "trd": "docs/TRD/block-only-on-material-failures.md",
+  "closedAt": "2026-11-12T17:28:19Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (the TRD has no PRD; the PM's instruction of 2026-11-12, issue #113, was not given to the audit); this was a scoped re-audit, so objectives O1–O8 were only re-checked where their files changed after commit 46d03934; the O9 live fixture scenario has passed on one recorded run only; the coverage-floor recommendation may drift lower under `must-pass only` (no objective covers it; reported, not changed)",
+    "report": ".trd-state/block-only-on-material-failures/audit-build-report.md",
+    "auditedCommit": "fd92a9f26271b7dd128877ef779be8c153d47c8c",
+    "anchorCommit": null
+  }
+}
