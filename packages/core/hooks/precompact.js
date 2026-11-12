@@ -28,6 +28,15 @@ const fs = require('fs');
 const path = require('path');
 const { resolveProjectRoot } = require('./lib/resolve-project-root');
 
+// Lets a compaction checkpoint restore the feature's folder from refs/ensemble/records/<slug> when
+// the worktree lacks it. A missing lib means no fallback, never a crash.
+let recordRef = null;
+try {
+  recordRef = require('../lib/record-ref');
+} catch {
+  recordRef = null;
+}
+
 function debug(msg) {
   if (process.env.PRECOMPACT_DEBUG === '1') {
     const ts = new Date().toISOString();
@@ -204,6 +213,20 @@ function main() {
     return emit();
   }
 
+  // Materialise the feature's folder from the local records ref when the worktree lacks it
+  // (local only: a hook never fetches). The reads below then run unchanged.
+  const feature = current.trd && typeof current.trd === 'string'
+    ? path.basename(current.trd, path.extname(current.trd))
+    : null;
+  if (feature && recordRef) {
+    try {
+      const r = recordRef.ensure({ stateDir: path.join('.trd-state', feature), cwd: projectRoot, local: true });
+      debug(`ensure ${feature}: ${r.outcome}`);
+    } catch (err) {
+      debug(`ensure failed: ${err.message}`);
+    }
+  }
+
   // Find implement.json. Two layouts in the wild:
   //   .trd-state/<feature>/implement.json   (per-feature directory)
   //   <current.status>                       (explicit path field, when set)
@@ -221,7 +244,10 @@ function main() {
   }
 
   const summary = summarizeImplement(implementState);
-  const logPath = sessionLogPath(projectRoot, current.trd);
+  // A hook that could not restore the folder must not create it: a one-file folder would block
+  // every later restore. Fall back to the no-feature log instead.
+  const folderExists = feature && fs.existsSync(path.join(projectRoot, '.trd-state', feature));
+  const logPath = sessionLogPath(projectRoot, folderExists ? current.trd : null);
   const entry = formatCheckpoint({
     timestamp: new Date().toISOString(),
     trigger: hookData.trigger || (hookData.compaction_trigger) || 'compact',

@@ -63,7 +63,15 @@ Stop at the first hit. `<feature>` is the TRD's basename without its extension.
    Next:   /ship-build docs/TRD/<feature>.md
    ```
 
-For work with a TRD, the state directory is `.trd-state/<feature>/`.
+For work with a TRD, the state directory is `.trd-state/<feature>/`. Restore its records if this
+worktree lacks them, before the gate reads `closed.json` (`--resume` restores the run record
+itself, in `ship-sequencer.js`):
+
+```bash
+node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
+```
+
+Any outcome but `present` or `restored` means no record: carry on as today. A `failed` outcome is one ISSUES line, "records ref could not be fetched".
 
 ## Step 2: The gate
 

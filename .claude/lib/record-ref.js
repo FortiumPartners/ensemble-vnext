@@ -20,9 +20,13 @@
  * CLI (run from the project root; prints ONE JSON line and exits 0 always, even on refusal):
  *   node record-ref.js write   --state-dir <dir> --command <name> --step <text> [--no-push]
  *   node record-ref.js write   --shared --command <name> --step <text> [--no-push]
- *   node record-ref.js read    --slug <slug> --file <path-in-tree>
+ *   node record-ref.js read    --slug <slug> --file <path-in-tree> [--local]
  *   node record-ref.js list    [--remote]
- *   node record-ref.js restore --state-dir <dir>
+ *   node record-ref.js restore --state-dir <dir> [--local]
+ *   node record-ref.js ensure  --state-dir <dir> [--local] [--branch <b>]
+ *
+ * `--local` never fetches (hooks). `ensure` prints {ok, outcome: present|restored|no-record|mismatch|
+ * refused|failed}.
  *
  * `write` outcomes: "ref" (on the ref; `push` is "pushed" | "no-remote" | "skipped"),
  * "fallback" (committed on the branch; `fallbackReason` "push-failed" | "ref-write-failed";
@@ -49,6 +53,7 @@ const MAX_ATTEMPTS = 5;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_FILES = 1000;
 const NET_TIMEOUT_MS = 60 * 1000;
+const READ_NET_TIMEOUT_MS = 15 * 1000; // a reader's fetch: shorter than a writer's
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg)$/i;
 const TMP_FILE_RE = /\.tmp\.\d+\.\d+$/; // implement-state.js atomic-save temp files
 const CHUNK = 200;
@@ -727,15 +732,26 @@ function writeInner(opts) {
 // read, list, restore
 // ---------------------------------------------------------------------------------------------
 
-/** Makes the local ref exist, fetching it from origin only when it is missing. */
-function ensureLocal(top, ref) {
-  if (resolveRef(top, ref)) return true;
+/**
+ * Makes the local ref exist, fetching it from origin only when it is missing and `local` is not
+ * set. Tells "there is no such ref" (`no-record`: no origin, or origin lacks it) apart from "could
+ * not ask" (`failed`: offline, auth, timeout), because a caller that goes on to create the folder
+ * would otherwise hide a ref it merely failed to reach.
+ * @returns {{ok: true}|{ok: false, reason: 'no-record'|'failed', err?: string}}
+ */
+function ensureLocal(top, ref, { local = false, timeout = NET_TIMEOUT_MS } = {}) {
+  if (resolveRef(top, ref)) return { ok: true };
+  if (local) return { ok: false, reason: 'no-record' };
+  if (!git(['remote', 'get-url', 'origin'], { cwd: top }).ok) return { ok: false, reason: 'no-record' };
   const f = git(['fetch', '--no-tags', '--no-write-fetch-head', 'origin', `+${ref}:${ref}`], {
     cwd: top,
-    env: { GIT_TERMINAL_PROMPT: '0' },
-    timeout: NET_TIMEOUT_MS,
+    // LC_ALL=C: the "remote ref does not exist" test below reads git's English message.
+    env: { GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' },
+    timeout,
   });
-  return f.ok && Boolean(resolveRef(top, ref));
+  if (f.ok) return resolveRef(top, ref) ? { ok: true } : { ok: false, reason: 'no-record' };
+  if (/couldn't find remote ref/i.test(f.err)) return { ok: false, reason: 'no-record' };
+  return { ok: false, reason: 'failed', err: f.err };
 }
 
 function safeTreePath(p) {
@@ -743,17 +759,17 @@ function safeTreePath(p) {
 }
 
 /**
- * One file at a ref (local, else fetched). Returns the ref's record.json identity beside it so a
+ * One file at a ref (local, else fetched unless `local`). Returns the ref's record.json identity beside it so a
  * caller can apply the same-feature rule before trusting the content.
  */
-function read({ slug, file, cwd } = {}) {
+function read({ slug, file, cwd, local } = {}) {
   try {
     const top = topLevel(cwd || process.cwd());
     if (!top) return refused('not a git work tree');
     if (!isSafeSlug(slug) && slug !== SHARED_SLUG) return refused('read needs a valid --slug');
     if (!safeTreePath(file)) return refused('read needs a --file path inside the tree');
     const ref = refFor(slug);
-    if (!ensureLocal(top, ref)) return { ok: false, outcome: 'no-record', ref };
+    if (!ensureLocal(top, ref, { local }).ok) return { ok: false, outcome: 'no-record', ref };
     const commit = resolveRef(top, ref);
     const buf = blobAt(top, commit, file);
     if (!buf) return { ok: false, outcome: 'no-file', ref, commit, identity: identityAt(top, commit) };
@@ -807,10 +823,61 @@ function list({ remote, cwd } = {}) {
 }
 
 /**
- * Materialises a missing state folder from its ref (every file except record.json). Refuses a
- * folder that already holds files; never overwrites.
+ * True when the folder holds at least one record file, by `selectFolder`'s one definition (so
+ * `dispatch.jsonl`, `evidence/`, `findings/` and atomic-save temp files do not count). Never throws.
  */
-function restore({ stateDir, cwd } = {}) {
+function hasRecords(folderAbs) {
+  try {
+    return selectFolder(folderAbs).files.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** The identity this session answers to: the Forge feature id env, and the (given or current) branch. */
+function myIdentity(top, branch) {
+  return { forge_feature_id: nonEmpty(process.env.FORGE_FEATURE_ID), branch: nonEmpty(branch) || currentBranch(top) };
+}
+
+/**
+ * Reads blobs by sha with ONE `git cat-file --batch`. Returns Buffers in order, or throws when a
+ * blob is missing or the stream is malformed.
+ */
+function readBlobs(top, shas) {
+  if (!shas.length) return [];
+  const r = git(['cat-file', '--batch'], { cwd: top, buffer: true, input: shas.join('\n') + '\n' });
+  if (!r.ok) throw new Error(`git cat-file failed: ${r.err}`);
+  const out = [];
+  let pos = 0;
+  const buf = r.raw;
+  for (const sha of shas) {
+    const nl = buf.indexOf(0x0a, pos);
+    if (nl < 0) throw new Error(`could not read blob ${sha}`);
+    const header = buf.slice(pos, nl).toString('utf8').split(' ');
+    if (header[1] !== 'blob') throw new Error(`could not read blob ${sha}: ${header[1] || 'bad header'}`);
+    const size = Number(header[2]);
+    out.push(buf.slice(nl + 1, nl + 1 + size));
+    pos = nl + 1 + size + 1; // trailing newline after the content
+  }
+  return out;
+}
+
+/**
+ * Materialises a state folder from its ref (every file except record.json). Refuses a folder that
+ * already holds a record file; a folder holding only non-record files (`dispatch.jsonl`,
+ * `evidence/`, ...) is restored into, and those files are never touched. The tree is first written
+ * to a temporary sibling folder and then moved into place, so a failure part-way leaves the
+ * destination exactly as it was.
+ * @param {{stateDir: string, cwd?: string, local?: boolean, match?: boolean, branch?: string}} opts
+ *   `local` skips the fetch; `match` checks the ref's record.json against this session
+ *   (`mismatch` writes nothing), using `branch` in place of the current branch when given.
+ */
+function restore(opts = {}) {
+  return restoreInner(opts, NET_TIMEOUT_MS);
+}
+
+function restoreInner({ stateDir, cwd, local, match, branch } = {}, netTimeout) {
+  let tmpRoot = null;
   try {
     const wd = cwd || process.cwd();
     const top = topLevel(wd);
@@ -826,38 +893,141 @@ function restore({ stateDir, cwd } = {}) {
     if (isSymlink(dest)) return refused('state folder is a symlink; restore never writes through one');
     const slug = path.basename(dest);
     if (!isSafeSlug(slug)) return refused(`"${slug}" is not a slug Forge reads`);
-    if (fs.existsSync(dest) && fs.readdirSync(dest).length) return refused('state folder already holds files; restore never overwrites');
+    if (fs.existsSync(dest) && !fs.statSync(dest).isDirectory()) return refused('state folder is not a directory');
+    if (hasRecords(dest)) return refused('state folder already holds records; restore never overwrites');
     const ref = refFor(slug);
-    if (!ensureLocal(top, ref)) return { ok: false, outcome: 'no-record', ref };
+    const have = ensureLocal(top, ref, { local, timeout: netTimeout });
+    if (!have.ok) return { ok: false, outcome: have.reason, ref, ...(have.err ? { reason: have.err } : {}) };
     const commit = resolveRef(top, ref);
+    const identity = identityAt(top, commit);
+    if (match && !sameFeature(identity, myIdentity(top, branch))) return { ok: false, outcome: 'mismatch', ref, identity };
     const ls = git(['ls-tree', '-r', '-z', '--full-tree', commit], { cwd: top });
     if (!ls.ok) return { ok: false, outcome: 'failed', reason: ls.err };
-    // dest was absent or empty: a failure part-way empties it again, so a retry is not refused
-    // as "already holds files" over a half-restored folder.
-    const existed = fs.existsSync(dest);
-    let count = 0;
+
+    const items = [];
+    for (const ent of ls.raw.split('\0').filter(Boolean)) {
+      const tab = ent.indexOf('\t');
+      const [mode, type, sha] = ent.slice(0, tab).split(' ');
+      const p = ent.slice(tab + 1);
+      if (type !== 'blob' || mode === '120000' || p === 'record.json' || !safeTreePath(p)) continue;
+      items.push({ p, sha });
+    }
+    // Everything is read and staged before the destination is touched.
+    const blobs = readBlobs(top, items.map((i) => i.sha));
+    tmpRoot = path.join(top, STATE_ROOT, `.restore-${slug}-${process.pid}`);
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+    items.forEach((it, i) => {
+      const t = path.join(tmpRoot, ...it.p.split('/'));
+      fs.mkdirSync(path.dirname(t), { recursive: true });
+      fs.writeFileSync(t, blobs[i]);
+    });
+
+    // Move into place, skipping any path that already exists (a newer worktree copy wins). A
+    // failure undoes exactly what this call created.
+    const movedFiles = [];
+    const madeDirs = [];
+    const destExisted = fs.existsSync(dest);
     try {
-      for (const ent of ls.raw.split('\0').filter(Boolean)) {
-        const tab = ent.indexOf('\t');
-        const [mode, type, sha] = ent.slice(0, tab).split(' ');
-        const p = ent.slice(tab + 1);
-        if (type !== 'blob' || mode === '120000' || p === 'record.json' || !safeTreePath(p)) continue;
-        const target = path.join(dest, ...p.split('/'));
+      if (!destExisted) {
+        fs.mkdirSync(dest, { recursive: true });
+        madeDirs.push(dest);
+      }
+      const destReal = realOr(dest);
+      for (const it of items) {
+        const target = path.join(dest, ...it.p.split('/'));
         if (path.relative(dest, target).startsWith('..')) continue;
-        const blob = git(['cat-file', 'blob', sha], { cwd: top, buffer: true });
-        if (!blob.ok) throw new Error(`could not read ${p}: ${blob.err}`);
-        fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.writeFileSync(target, blob.raw);
-        count++;
+        // Create parents one level at a time so each new directory is recorded for the undo.
+        const parts = path.relative(dest, path.dirname(target)).split(path.sep).filter(Boolean);
+        let cur = dest;
+        for (const part of parts) {
+          cur = path.join(cur, part);
+          if (!fs.existsSync(cur)) {
+            fs.mkdirSync(cur);
+            madeDirs.push(cur);
+          }
+        }
+        if (path.relative(destReal, realOr(path.dirname(target))).startsWith('..')) continue; // a symlinked parent
+        if (fs.existsSync(target) || isSymlink(target)) continue;
+        fs.renameSync(path.join(tmpRoot, ...it.p.split('/')), target);
+        movedFiles.push(target);
       }
     } catch (e) {
-      fs.rmSync(dest, { recursive: true, force: true });
-      if (existed) fs.mkdirSync(dest);
+      for (const f of movedFiles) fs.rmSync(f, { force: true });
+      for (const d of madeDirs.reverse()) {
+        try {
+          fs.rmdirSync(d);
+        } catch {
+          /* not empty: something else lives there */
+        }
+      }
       return { ok: false, outcome: 'failed', reason: e && e.message, files: 0 };
     }
-    return { ok: true, outcome: 'restored', ref, commit, identity: identityAt(top, commit), files: count };
+    return { ok: true, outcome: 'restored', ref, commit, identity, files: movedFiles.length };
   } catch (e) {
     return { ok: false, outcome: 'failed', reason: e && e.message };
+  } finally {
+    if (tmpRoot) fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Makes sure a state folder holds its records before a reader looks: `present` (it already does;
+ * no git call), `restored` (filled from the feature's ref after the identity check), `no-record`
+ * (no ref locally or on origin, or no origin), `mismatch` (the ref belongs to another feature),
+ * `refused` (not a `.trd-state/<slug>` folder in a work tree) or `failed` (git or the fetch failed,
+ * so "no record" is a guess). Never throws.
+ * @param {{stateDir: string, cwd?: string, local?: boolean, branch?: string}} opts
+ *   `local` skips the fetch (hooks); `branch` is the work's own branch where the caller knows it.
+ * @returns {{ok: boolean, outcome: string}}
+ */
+function ensure({ stateDir, cwd, local, branch } = {}) {
+  try {
+    if (typeof stateDir !== 'string' || !stateDir) return refused('ensure needs a state dir');
+    const wd = cwd || process.cwd();
+    if (hasRecords(path.resolve(wd, stateDir))) return { ok: true, outcome: 'present' };
+    const r = restoreInner({ stateDir, cwd: wd, local, match: true, branch }, READ_NET_TIMEOUT_MS);
+    const { ok, outcome, reason, files } = r;
+    return { ok, outcome, ...(reason ? { reason } : {}), ...(files != null ? { files } : {}) };
+  } catch (e) {
+    return { ok: false, outcome: 'failed', reason: e && e.message };
+  }
+}
+
+/**
+ * One file of a state folder, by the per-folder rule: a folder that holds records is
+ * authoritative (a file missing there is missing); otherwise the feature's ref stands in, after
+ * the identity check. Reads in memory; creates nothing. Never throws.
+ * @param {{stateDir: string, file: string, cwd?: string, local?: boolean, branch?: string}} opts
+ * @returns {{found: boolean, content: string|null, source: 'worktree'|'ref'|null}}
+ */
+function readRecord({ stateDir, file, cwd, local, branch } = {}) {
+  const none = { found: false, content: null, source: null };
+  try {
+    if (typeof stateDir !== 'string' || !stateDir || !safeTreePath(file)) return none;
+    const wd = cwd || process.cwd();
+    const folder = path.resolve(wd, stateDir);
+    if (hasRecords(folder)) {
+      try {
+        return { found: true, content: fs.readFileSync(path.join(folder, ...file.split('/')), 'utf8'), source: 'worktree' };
+      } catch {
+        return none;
+      }
+    }
+    const top = topLevel(wd);
+    if (!top) return none;
+    const dest = path.join(realOr(path.dirname(folder)), path.basename(folder));
+    const rel = path.relative(top, dest);
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel) || path.posix.dirname(toPosix(rel)) !== STATE_ROOT) return none;
+    const slug = path.basename(dest);
+    if (!isSafeSlug(slug)) return none;
+    const ref = refFor(slug);
+    if (!ensureLocal(top, ref, { local, timeout: READ_NET_TIMEOUT_MS }).ok) return none;
+    const commit = resolveRef(top, ref);
+    if (!commit || !sameFeature(identityAt(top, commit), myIdentity(top, branch))) return none;
+    const buf = blobAt(top, commit, file);
+    return buf ? { found: true, content: buf.toString('utf8'), source: 'ref' } : none;
+  } catch {
+    return none;
   }
 }
 
@@ -871,7 +1041,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (!a.startsWith('--')) continue;
     const key = a.slice(2);
-    if (key === 'shared' || key === 'no-push' || key === 'remote') o[key] = true;
+    if (key === 'shared' || key === 'no-push' || key === 'remote' || key === 'local') o[key] = true;
     else o[key] = argv[++i];
   }
   return o;
@@ -882,14 +1052,15 @@ function main(argv) {
   const a = parseArgs(argv.slice(1));
   let result;
   if (cmd === 'write') result = write({ stateDir: a['state-dir'], shared: a.shared, command: a.command, step: a.step, push: !a['no-push'] });
-  else if (cmd === 'read') result = read({ slug: a.slug, file: a.file });
+  else if (cmd === 'read') result = read({ slug: a.slug, file: a.file, local: a.local });
   else if (cmd === 'list') result = list({ remote: a.remote });
-  else if (cmd === 'restore') result = restore({ stateDir: a['state-dir'] });
-  else result = refused('usage: record-ref.js write|read|list|restore ...');
+  else if (cmd === 'restore') result = restore({ stateDir: a['state-dir'], local: a.local });
+  else if (cmd === 'ensure') result = ensure({ stateDir: a['state-dir'], local: a.local, branch: a.branch });
+  else result = refused('usage: record-ref.js write|read|list|restore|ensure ...');
   process.stdout.write(JSON.stringify(result) + '\n');
   process.exitCode = 0;
 }
 
 if (require.main === module) main(process.argv.slice(2));
 
-module.exports = { write, read, list, restore, isSafeSlug, referencedImages, sameFeature, refFor, SHARED_SLUG, REF_PREFIX };
+module.exports = { write, read, list, restore, ensure, readRecord, hasRecords, isSafeSlug, referencedImages, sameFeature, refFor, SHARED_SLUG, REF_PREFIX };

@@ -52,7 +52,14 @@ document to amend — that is `/plan`. Say so and stop.
 
 Right after the feature-in-flight check above, and before Step 1: `<feature>` is the basename
 of `.trd-state/current.json`'s `trd`, without its extension (the same rule `/close-feature`'s
-§3.2 and `router.py`'s `derive_feature()` use). If `.trd-state/<feature>/closed.json` exists,
+§3.2 and `router.py`'s `derive_feature()` use). First restore the feature's records if this
+worktree lacks them:
+
+```bash
+node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
+```
+
+Any outcome but `present` or `restored` means no record: carry on as today. A `failed` outcome is one ISSUES line, "records ref could not be fetched". Then, if `.trd-state/<feature>/closed.json` exists,
 stop here — an abandoned closed feature must not be re-seeded by Step 5's missing-`implement.json`
 fallback:
 

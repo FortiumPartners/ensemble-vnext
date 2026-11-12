@@ -28,6 +28,15 @@ const fs = require('fs');
 const path = require('path');
 const { resolveProjectRoot } = require('./lib/resolve-project-root');
 
+// The records-ref library lets a banner read a feature's records from refs/ensemble/records/<slug>
+// when the worktree has no .trd-state/<slug>/ folder. A missing lib means no fallback, never a crash.
+let recordRef = null;
+try {
+  recordRef = require('../lib/record-ref');
+} catch {
+  recordRef = null;
+}
+
 function debug(msg) {
   if (process.env.SESSION_CONTEXT_DEBUG === '1') {
     const ts = new Date().toISOString();
@@ -53,6 +62,45 @@ function safeReadJson(p) {
     debug(`could not read/parse ${p}: ${err.message}`);
     return null;
   }
+}
+
+/**
+ * Read `.trd-state/<slug>/<file>` as text: the worktree when that folder holds records, otherwise the
+ * feature's local records ref (`local: true` — a hook never fetches). Returns null when absent.
+ */
+function readStateText(root, slug, file) {
+  if (recordRef) {
+    try {
+      const r = recordRef.readRecord({ stateDir: path.posix.join('.trd-state', slug), file, cwd: root, local: true });
+      return r.found ? r.content : null;
+    } catch (err) {
+      debug(`readRecord failed for ${slug}/${file}: ${err.message}`);
+    }
+    return null;
+  }
+  try {
+    return fs.readFileSync(path.join(root, '.trd-state', slug, file), 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+function parseJson(text, label) {
+  if (text === null) return null;
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    debug(`could not parse ${label}: ${err.message}`);
+    return null;
+  }
+}
+
+/** `.trd-state/<slug>/<file>` (relative, no traversal) -> { slug, file }, else null. */
+function stateRecordParts(statusRel) {
+  if (typeof statusRel !== 'string' || path.isAbsolute(statusRel)) return null;
+  const parts = path.posix.normalize(statusRel.replace(/\\/g, '/')).split('/');
+  if (parts.length !== 3 || parts[0] !== '.trd-state' || !parts[1] || !parts[2] || parts[1] === '..' || parts[2] === '..') return null;
+  return { slug: parts[1], file: parts[2] };
 }
 
 function summarizeImplementState(state) {
@@ -109,11 +157,11 @@ function summarizeVerifyState(state) {
  * @returns {string|null} the line to push onto the banner, or null if not closed.
  */
 function closedFeatureLine(root, feature) {
-  const closedPath = path.join(root, '.trd-state', feature, 'closed.json');
-  if (!fs.existsSync(closedPath)) return null;
+  const closedText = readStateText(root, feature, 'closed.json');
+  if (closedText === null) return null;
 
   const unreadable = `  Closed: record unreadable (.trd-state/${feature}/closed.json)`;
-  const record = safeReadJson(closedPath);
+  const record = parseJson(closedText, `${feature}/closed.json`);
   if (!record || typeof record !== 'object') return unreadable;
 
   const date = typeof record.closedAt === 'string' ? record.closedAt.slice(0, 10) : null;
@@ -206,7 +254,10 @@ async function main(hookData) {
     // If the pointer references a state file (implement.json; verify/harden are legacy
     // shapes from the retired team commands), summarize it
     const statusPath = path.join(root, current.status);
-    const state = safeReadJson(statusPath);
+    const parts = stateRecordParts(current.status);
+    const state = parts
+      ? parseJson(readStateText(root, parts.slug, parts.file), current.status)
+      : safeReadJson(statusPath);
     if (state) {
       const fileName = path.basename(statusPath);
       const mode = state.mode || '';

@@ -32,6 +32,7 @@ Exit Codes:
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import time
@@ -593,6 +594,107 @@ def derive_feature(cwd: str) -> str:
         return ""
 
 
+# --- local records ref fallback (readers-fall-back-to-the-ref) -------------------------
+# `.trd-state/<slug>/` may be absent in a fresh checkout while the feature's records live
+# on the local ref `refs/ensemble/records/<slug>` (see packages/core/lib/record-ref.js).
+# This hook reads that ref in memory, local only: it never fetches and never fails.
+
+_RECORDS_REF_PREFIX = "refs/ensemble/records/"
+_SAFE_SLUG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")  # Forge's slug rule
+_GIT_TIMEOUT_SECONDS = 2
+_NON_RECORD_NAMES = ("dispatch.jsonl", "implement.lock", ".DS_Store", "record.json")
+_TMP_FILE_RE = re.compile(r"\.tmp\.\d+\.\d+$")  # implement-state.js atomic-save temps
+
+
+def _git_out(root: str, args: list) -> "bytes | None":
+    """stdout of `git <args>` run in `root`, or None on any failure (missing git, timeout, non-zero)."""
+    try:
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")
+        }
+        r = subprocess.run(
+            ["git", *args],
+            cwd=root,
+            env=env,
+            capture_output=True,
+            timeout=_GIT_TIMEOUT_SECONDS,
+        )
+        return r.stdout if r.returncode == 0 else None
+    except Exception:
+        return None
+
+
+def _folder_has_records(folder: str) -> bool:
+    """True when `folder` holds a record file -- record-ref.js `selectFolder`'s definition:
+    not dispatch.jsonl, implement.lock, .DS_Store, record.json, findings/, evidence/ or temp files."""
+    try:
+        for dirpath, dirnames, filenames in os.walk(folder):
+            if os.path.abspath(dirpath) == os.path.abspath(folder):
+                dirnames[:] = [d for d in dirnames if d not in ("findings", "evidence")]
+            for name in filenames:
+                if name in _NON_RECORD_NAMES or _TMP_FILE_RE.search(name):
+                    continue
+                if os.path.isfile(os.path.join(dirpath, name)):
+                    return True
+    except Exception:
+        return False
+    return False
+
+
+def _non_empty(v: object) -> "str | None":
+    return v if isinstance(v, str) and v != "" else None
+
+
+def _ref_json(root: str, ref: str, name: str) -> "dict | None":
+    """A JSON object blob `name` from the local ref, or None."""
+    raw = _git_out(root, ["cat-file", "blob", f"{ref}:{name}"])
+    if raw is None:
+        return None
+    try:
+        j = json.loads(raw.decode("utf-8"))
+    except Exception:
+        return None
+    return j if isinstance(j, dict) else None
+
+
+def _ref_matches_session(root: str, ref: str) -> bool:
+    """record-ref.js `sameFeature`: same non-null forge_feature_id, or -- when either id is
+    null -- the same non-null branch. A ref with no readable record.json matches nothing."""
+    tip = _ref_json(root, ref, "record.json")
+    if tip is None:
+        return False
+    ti = _non_empty(tip.get("forge_feature_id"))
+    mi = _non_empty(os.environ.get("FORGE_FEATURE_ID"))
+    if ti and mi:
+        return ti == mi
+    tb = _non_empty(tip.get("branch"))
+    out = _git_out(root, ["symbolic-ref", "-q", "HEAD"])
+    head = out.decode("utf-8", "replace").strip() if out else ""
+    mb = head[len("refs/heads/"):] if head.startswith("refs/heads/") else None
+    return bool(tb and mb and tb == mb)
+
+
+def _in_flight_from_ref(root: str, feature: str) -> str:
+    """`feature_in_flight`'s answer from the local records ref; `feature` when there is no
+    usable ref (a ref read error is "no record", never "closed")."""
+    if not _SAFE_SLUG_RE.match(feature) or ".." in feature:
+        return feature
+    ref = _RECORDS_REF_PREFIX + feature
+    if not _ref_matches_session(root, ref):
+        return feature
+    if _git_out(root, ["cat-file", "-e", f"{ref}:closed.json"]) is not None:
+        return ""
+    impl = _ref_json(root, ref, "implement.json")
+    if impl is None:
+        return feature
+    tasks = impl.get("tasks", {}) or {}
+    if tasks and all(isinstance(t, dict) and t.get("status") == "success" for t in tasks.values()):
+        return ""
+    return feature
+
+
 def feature_in_flight(cwd: str) -> str:
     """Return the feature name ONLY while its work is genuinely unfinished, else "".
 
@@ -623,6 +725,9 @@ def feature_in_flight(cwd: str) -> str:
         return ""
     try:
         root = os.path.abspath(cwd) if cwd else os.getcwd()
+        # Per-folder fallback: only a folder with no record file defers to the local ref.
+        if not _folder_has_records(os.path.join(root, ".trd-state", feature)):
+            return _in_flight_from_ref(root, feature)
         if os.path.exists(os.path.join(root, ".trd-state", feature, "closed.json")):
             return ""
         impl = os.path.join(root, ".trd-state", feature, "implement.json")

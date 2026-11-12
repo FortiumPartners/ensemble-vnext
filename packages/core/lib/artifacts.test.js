@@ -253,3 +253,61 @@ describe('record: path normalisation and prototype-named kinds', () => {
     expect(artifacts.get(stateDir, 'tostring')).toBe('');
   });
 });
+
+describe('records-ref fallback', () => {
+  const recordRef = require('./record-ref');
+  const STATE = '.trd-state/feat';
+  const git = (cwd, args) => {
+    const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
+    if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr}`);
+  };
+  let repo;
+  let savedCwd;
+  let savedId;
+  beforeEach(() => {
+    savedCwd = process.cwd();
+    savedId = process.env.FORGE_FEATURE_ID;
+    delete process.env.FORGE_FEATURE_ID;
+    repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'artifacts-ref-')));
+    git(repo, ['init', '-q', '-b', 'main']);
+    git(repo, ['config', 'user.name', 'T']);
+    git(repo, ['config', 'user.email', 't@example.com']);
+    git(repo, ['config', 'commit.gpgsign', 'false']);
+    fs.writeFileSync(path.join(repo, 'README.md'), 'x\n');
+    git(repo, ['add', '.']);
+    git(repo, ['commit', '-q', '-m', 'init']);
+    process.chdir(repo);
+  });
+  afterEach(() => {
+    process.chdir(savedCwd);
+    if (savedId === undefined) delete process.env.FORGE_FEATURE_ID;
+    else process.env.FORGE_FEATURE_ID = savedId;
+    fs.rmSync(repo, { recursive: true, force: true });
+  });
+  const entry = (url) => ({ command: '/create-prd', url, path: 'docs/a.md' });
+
+  it('(a) folder deleted, ref holds trd and prd: get reads the ref; record keeps prd and updates trd', () => {
+    fs.mkdirSync(path.join(repo, 'docs'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'docs', 'a.md'), '# a\n');
+    artifacts.record(STATE, 'prd', entry('https://x/prd'), { root: repo, now: NOW });
+    artifacts.record(STATE, 'trd', entry('https://x/trd-old'), { root: repo, now: NOW });
+    expect(recordRef.write({ stateDir: STATE, command: 'c', step: 's', cwd: repo, push: false }).ok).toBe(true);
+    fs.rmSync(path.join(repo, STATE), { recursive: true, force: true });
+
+    expect(artifacts.get(STATE, 'trd')).toBe('https://x/trd-old');
+    fs.rmSync(path.join(repo, STATE), { recursive: true, force: true });
+    artifacts.record(STATE, 'trd', entry('https://x/trd-new'), { root: repo, now: NOW });
+    const m = JSON.parse(fs.readFileSync(path.join(repo, STATE, 'artifacts.json'), 'utf8'));
+    expect(m.prd.url).toBe('https://x/prd');
+    expect(m.trd.url).toBe('https://x/trd-new');
+  });
+
+  it('(b) no ref: get is empty and record creates a one-entry manifest', () => {
+    fs.mkdirSync(path.join(repo, 'docs'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'docs', 'a.md'), '# a\n');
+    expect(artifacts.get(STATE, 'trd')).toBe('');
+    artifacts.record(STATE, 'trd', entry('https://x/t'), { root: repo, now: NOW });
+    const m = JSON.parse(fs.readFileSync(path.join(repo, STATE, 'artifacts.json'), 'utf8'));
+    expect(Object.keys(m).filter((k) => k !== 'version')).toEqual(['trd']);
+  });
+});

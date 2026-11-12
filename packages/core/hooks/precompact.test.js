@@ -225,3 +225,105 @@ describe('precompact.js still archives to session-log.md (must not regress the d
     expect(occurrences).toBe(2);
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Ref fallback: ensure the folder from the local records ref; never create a one-file folder.
+// ---------------------------------------------------------------------------------------------
+
+describe('precompact.js and the records ref', () => {
+  const { spawnSync: sp } = require('child_process');
+  const recordRef = require('../lib/record-ref');
+  const SLUG = 'ref-feature';
+  const REF = `refs/ensemble/records/${SLUG}`;
+
+  const gitEnv = () => {
+    const env = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' };
+    for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'FORGE_FEATURE_ID']) delete env[k];
+    return env;
+  };
+  const git = (cwd, args) => sp('git', args, { cwd, encoding: 'utf8', env: gitEnv() });
+
+  // tmpDir becomes a repo; optionally its records ref holds implement.json; folder removed.
+  function setup({ withRef }) {
+    git(tmpDir, ['init', '-q', '-b', 'main']);
+    git(tmpDir, ['config', 'user.name', 'T']);
+    git(tmpDir, ['config', 'user.email', 't@example.com']);
+    git(tmpDir, ['config', 'commit.gpgsign', 'false']);
+    fs.writeFileSync(path.join(tmpDir, 'README.md'), 'x\n');
+    git(tmpDir, ['add', 'README.md']);
+    git(tmpDir, ['commit', '-q', '-m', 'init']);
+    const folder = path.join(tmpDir, '.trd-state', SLUG);
+    if (withRef) {
+      fs.mkdirSync(folder, { recursive: true });
+      fs.writeFileSync(
+        path.join(folder, 'implement.json'),
+        JSON.stringify({ phase_cursor: 1, tasks: { 'TRD-001': { status: 'in_progress', description: 'Ref task' } } })
+      );
+      const saved = process.env.FORGE_FEATURE_ID;
+      delete process.env.FORGE_FEATURE_ID;
+      const w = recordRef.write({ stateDir: `.trd-state/${SLUG}`, command: 't', step: 'x', push: false, cwd: tmpDir });
+      if (saved !== undefined) process.env.FORGE_FEATURE_ID = saved;
+      expect(w.ok).toBe(true);
+      fs.rmSync(folder, { recursive: true, force: true });
+    }
+    fs.mkdirSync(path.join(tmpDir, '.trd-state'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, '.trd-state', 'current.json'),
+      JSON.stringify({ trd: `docs/TRD/${SLUG}.md`, status: `.trd-state/${SLUG}/implement.json` })
+    );
+    return folder;
+  }
+
+  test('(d) ref and no folder: the folder is restored and the checkpoint summarises the ref', () => {
+    const folder = setup({ withRef: true });
+    const r = runHook({ cwd: tmpDir, payload: {}, env: { FORGE_FEATURE_ID: '' } });
+    expect(r.status).toBe(0);
+    expect(fs.existsSync(path.join(folder, 'implement.json'))).toBe(true);
+    const log = fs.readFileSync(path.join(folder, 'session-log.md'), 'utf-8');
+    expect(log).toContain('TRD-001');
+    expect(log).toContain('Ref task');
+  });
+
+  test('(d2) neither folder nor ref: the checkpoint lands in _session-log.md and no folder appears', () => {
+    const folder = setup({ withRef: false });
+    const r = runHook({ cwd: tmpDir, payload: {} });
+    expect(r.status).toBe(0);
+    expect(fs.existsSync(folder)).toBe(false);
+    expect(fs.readFileSync(path.join(tmpDir, '.trd-state', '_session-log.md'), 'utf-8')).toContain(
+      '## Compaction checkpoint'
+    );
+  });
+
+  test('(d2) with the folder present the checkpoint stays in the feature session-log.md', () => {
+    setup({ withRef: false });
+    const folder = path.join(tmpDir, '.trd-state', SLUG);
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, 'implement.json'), '{"tasks":{}}');
+    runHook({ cwd: tmpDir, payload: {} });
+    expect(fs.existsSync(path.join(folder, 'session-log.md'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.trd-state', '_session-log.md'))).toBe(false);
+  });
+
+  test('(c) local ref absent, origin holds it: no fetch', () => {
+    setup({ withRef: true });
+    const origin = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-origin-'));
+    try {
+      git(origin, ['init', '-q', '--bare', '-b', 'main']);
+      git(tmpDir, ['remote', 'add', 'origin', origin]);
+      git(tmpDir, ['push', '-q', 'origin', `${REF}:${REF}`]);
+      git(tmpDir, ['update-ref', '-d', REF]);
+      runHook({ cwd: tmpDir, payload: {} });
+      expect(git(tmpDir, ['rev-parse', '--verify', '-q', REF]).status).not.toBe(0);
+      expect(fs.existsSync(path.join(tmpDir, '.trd-state', SLUG))).toBe(false);
+    } finally {
+      fs.rmSync(origin, { recursive: true, force: true });
+    }
+  });
+
+  test('(e) exits 0 when git is not on PATH', () => {
+    setup({ withRef: true });
+    const r = runHook({ cwd: tmpDir, payload: {}, env: { PATH: '/nonexistent' } });
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe('{}');
+  });
+});
