@@ -200,6 +200,21 @@ describe('push', () => {
     expect(t).toMatch(/laterNeeds/);
     expect(t).toMatch(/never `git add -A`/);
   });
+  test('writes the records ref, with --no-fallback, before it pushes the branch', () => {
+    const iWrite = t.indexOf('record-ref.js write');
+    const iPush = t.indexOf('git push -u origin');
+    expect(iWrite).toBeGreaterThan(-1);
+    expect(iPush).toBeGreaterThan(iWrite);
+    // The write command ends where the next sentence begins; --no-fallback must sit inside it.
+    const writeCmd = t.slice(iWrite, iPush);
+    expect(writeCmd).toMatch(/--no-fallback/);
+  });
+  test('keeps every .trd-state/ path out of the first-push pathspec and out of any git add', () => {
+    expect(t).toMatch(/except every `\.trd-state\/` path/);
+    const gitAddLines = text('push').split('\n').filter((l) => /git add/.test(l));
+    expect(gitAddLines.length).toBeGreaterThan(0);
+    for (const l of gitAddLines) expect(l).not.toMatch(/\.trd-state/);
+  });
 });
 
 describe('open-pr', () => {
@@ -649,5 +664,16 @@ describe('ship-build Step 5 after a merge (FIX-004)', () => {
     expect(t).toMatch(/git show/);
     expect(t).not.toMatch(/untracked file under the git common directory/);
     expect(t).toMatch(/data\.custody/);
+  });
+});
+
+describe('ship-build Step 4 writes the records ref per step (AMEND-003)', () => {
+  const t = fs.readFileSync(path.join(DIR, '..', 'commands', 'ship-build.md'), 'utf8').replace(/\s+/g, ' ');
+  test('writes the ref with --no-fallback after each step result, until the merge step has run', () => {
+    const m = t.match(/write the records ref, until the merge step has run:\*\*\s*```bash node \.claude\/lib\/record-ref\.js write ([^`]*)```/);
+    expect(m).not.toBeNull();
+    expect(m[1]).toMatch(/--no-fallback/);
+    expect(m[1]).toMatch(/--step "<step\.id> <result>"/);
+    expect(t).toMatch(/Once the merge step has run, stop these per-step writes/);
   });
 });

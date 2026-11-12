@@ -52,12 +52,32 @@ describe('no hand-written commit of a records path', () => {
   });
 });
 
-describe('touched writers name record-ref.js write', () => {
-  test.each(TOUCHED)('%s', (f) => {
-    expect(read(path.join(CMD_DIR, f))).toContain(WRITE);
+// Pinned count of `record-ref.js write` occurrences per touched file, as they stand today.
+// WHY an exact count and not toContain: removing one of several write lines must fail.
+// A change that adds or removes a write line must update this map on purpose.
+const WRITE_COUNTS = {
+  'commands/implement-trd.md': 3,
+  'commands/audit-build.md': 1,
+  'commands/close-feature.md': 1,
+  'commands/ship-build.md': 2,
+  'commands/verify-build.md': 2,
+  'commands/plan.md': 2,
+  'commands/amend.md': 1,
+  'commands/refine-verification.md': 1,
+  'commands/task.md': 1,
+  'commands/sweep.md': 2,
+  'contracts/ship-primitive-push.md': 1,
+};
+const countWrites = (text) => text.split(WRITE).length - 1;
+
+describe('touched writers name record-ref.js write the pinned number of times', () => {
+  test('the map covers every TOUCHED command and the push contract', () => {
+    expect(Object.keys(WRITE_COUNTS).sort()).toEqual(
+      [...TOUCHED.map((f) => `commands/${f}`), 'contracts/ship-primitive-push.md'].sort(),
+    );
   });
-  test('ship-primitive-push.md', () => {
-    expect(read(path.join(CONTRACT_DIR, 'ship-primitive-push.md'))).toContain(WRITE);
+  test.each(Object.entries(WRITE_COUNTS))('%s has %i', (rel, n) => {
+    expect(countWrites(read(path.join(ROOT, 'packages/core', rel)))).toBe(n);
   });
 });
 
@@ -93,5 +113,46 @@ describe('command-status.md carries the rule', () => {
 describe('.claude/commands copies', () => {
   test.each(TOUCHED)('%s is byte-identical', (f) => {
     expect(read(path.join(ROOT, '.claude/commands', f))).toBe(read(path.join(CMD_DIR, f)));
+  });
+});
+
+// Step 5 order of /implement-trd. WHY: the checkpoint must record the commit this phase produced,
+// and the records-ref write must carry the checkpoint that names it. Reading COMMIT_SHA before the
+// commit records the previous phase's commit; writing before the checkpoint ships a stale record.
+describe('implement-trd.md Step 5 order', () => {
+  const step5 = (file) => {
+    const text = read(file);
+    const from = text.indexOf('## Step 5');
+    const to = text.indexOf('## Step 6');
+    expect(from).toBeGreaterThanOrEqual(0);
+    expect(to).toBeGreaterThan(from);
+    return text.slice(from, to);
+  };
+  const idx = (section, needle) => {
+    const i = section.indexOf(needle);
+    expect(i).toBeGreaterThanOrEqual(0); // a missing anchor must fail, not compare as -1
+    return i;
+  };
+
+  test.each([
+    ['template', path.join(CMD_DIR, 'implement-trd.md')],
+    ['.claude copy', path.join(ROOT, '.claude/commands/implement-trd.md')],
+  ])('%s: add -> commit -> COMMIT_SHA -> checkpoint -> records write', (_label, file) => {
+    const s = step5(file);
+    const add = idx(s, 'git add -A');
+    const commit = idx(s, 'git commit');
+    const sha = idx(s, 'COMMIT_SHA=$(git rev-parse HEAD)');
+    const checkpoint = idx(s, 'checkpoint(state');
+    const write = idx(s, 'record-ref.js write');
+    const step = idx(s, '--step "phase N checkpoint"');
+    expect(add).toBeLessThan(commit);
+    expect(commit).toBeLessThan(sha);
+    expect(sha).toBeLessThan(checkpoint);
+    expect(checkpoint).toBeLessThan(write);
+    expect(write).toBeLessThan(step);
+  });
+
+  test('template and .claude copy are identical', () => {
+    expect(read(path.join(ROOT, '.claude/commands/implement-trd.md'))).toBe(read(path.join(CMD_DIR, 'implement-trd.md')));
   });
 });

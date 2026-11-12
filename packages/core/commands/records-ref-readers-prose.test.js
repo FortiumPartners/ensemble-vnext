@@ -22,6 +22,10 @@ const FIRST_READ = {
   'verify-build.md': '- `.trd-state/<feature>/success-definition.md`',
   'refine-verification.md': '| Latest verification report',
   'ship-build.md': 'A full feature with no `.trd-state/<feature>/closed.json`',
+  // close-feature: the "Already closed" check is its first closed.json read.
+  'close-feature.md': '**Already closed** (`.trd-state/<feature>/closed.json` exists)',
+  // audit-build: trd-snapshot is its first call that reads the feature's state folder.
+  'audit-build.md': 'node .claude/lib/audit-rounds.js trd-snapshot',
 };
 
 describe('records-ref readers: ensure before the first state read', () => {
