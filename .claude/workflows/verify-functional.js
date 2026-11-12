@@ -1146,7 +1146,8 @@ function buildDebugPrompt(causeGaps) {
     `As your LAST act, after the refresh and any pre-check, do the same with a new temp path (copied ` +
     `from the real index again) and keep ` +
     `the id as AFTER. Return, as "filesChanged", the paths printed by  git -c core.quotePath=false ` +
-    `diff --name-only <BEFORE> <AFTER>  (one repo-relative path per entry, as git prints it), leaving ` +
+    `diff --no-renames --name-only <BEFORE> <AFTER>  (one repo-relative path per entry, as git prints it; ` +
+    `--no-renames makes a moved file list both its old and its new path), leaving ` +
     `out every path under ${excluded.map((d) => JSON.stringify(d)).join(' or ')} -- other agents write ` +
     `there while you work. An empty array means you changed nothing. Return null if either git step ` +
     `fails: null tells the workflow it cannot tell, which widens the check rather than narrowing it. ` +
@@ -2040,8 +2041,12 @@ async function syncState(judgeResult, iteration, exiting, reportFix = null, regr
     model: 'sonnet',
     schema: STATE_SYNC_SCHEMA,
   })
-  if (!result) log(`iteration ${iteration}: the state-sync agent returned nothing -- the state${exiting ? ' and report files' : ' file'} still show the Judge's kinds`)
-  else if (!result.synced) log(`iteration ${iteration}: the state-sync agent could not write the corrected state${result.reason ? `: ${result.reason}` : ''}`)
+  // On an exit after a Debug pass (regression pass D18b) the exit Judge wrote `outcome: null`, so a sync
+  // that did not land leaves a finished run reading as unfinished: say so, it is the one consequence a
+  // later `--resume` would act on.
+  const outcomeNote = exiting && debugChanges.length > 0 ? ', and the state file may still read outcome null (a later --resume would re-enter this finished run)' : ''
+  if (!result) log(`iteration ${iteration}: the state-sync agent returned nothing -- the state${exiting ? ' and report files' : ' file'} still show the Judge's kinds${outcomeNote}`)
+  else if (!result.synced) log(`iteration ${iteration}: the state-sync agent could not write the corrected state${result.reason ? `: ${result.reason}` : ''}${outcomeNote}`)
 }
 
 const RECONCILE_SCHEMA = {
@@ -2878,6 +2883,15 @@ function coverMatches(cover, file) {
 // path, a path climbing out with `..`, or one that begins with a double quote (git still quotes a path
 // holding a control character, a backslash or a quote, and a quoted string matches no cover). A leading
 // `./` is stripped; an empty array means Debug changed nothing.
+// Paths under the state and pages folders are other agents' writes, not Debug's. The prompt asks Debug
+// to leave them out; the script drops them as well rather than trusting that it did, so a stray ledger
+// or render write cannot put every no-covers criterion in scope. Only a relative folder can be compared
+// with git's repo-relative paths.
+const CHANGE_EXCLUDED_DIRS = [STATE_DIR, PAGES_DIR]
+  .filter((d) => typeof d === 'string')
+  .map((d) => d.replace(/^(\.\/)+/, '').replace(/\/+$/, ''))
+  .filter((d) => d !== '' && !d.startsWith('/'))
+
 function normaliseChangedFiles(raw) {
   if (!Array.isArray(raw)) return null
   const files = []
@@ -2885,6 +2899,7 @@ function normaliseChangedFiles(raw) {
     if (typeof item !== 'string') return null
     const file = item.trim().replace(/^(\.\/)+/, '')
     if (file === '' || file.startsWith('/') || file.startsWith('"') || file.split('/').includes('..')) return null
+    if (CHANGE_EXCLUDED_DIRS.some((d) => file === d || file.startsWith(`${d}/`))) continue
     if (!files.includes(file)) files.push(file)
   }
   return files

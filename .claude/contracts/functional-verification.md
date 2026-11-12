@@ -567,7 +567,7 @@ recalled. As its first act it takes a tree id with a temporary index
 (`GIT_INDEX_FILE=<fresh temp path> git add -A -- . && git write-tree`, the temp path a copy of the
 real index at a path that did not exist before, the state and pages folders excluded by pathspec),
 as its last act, after the refresh, it takes another the same way, and it returns `git -c core.quotePath=false diff
---name-only <before> <after>`, leaving out anything under the run's state and pages folders, which
+--no-renames --name-only <before> <after>` (`--no-renames` so a moved file lists its old path too), leaving out anything under the run's state and pages folders, which
 other agents write at the same time. It returns `null` when either git step fails. The regression
 pass reads this to decide what to re-check, and `null` widens that scope instead of narrowing it.
 It does not write to any TRD and it does not render a phase — there

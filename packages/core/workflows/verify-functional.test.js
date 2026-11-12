@@ -4720,6 +4720,13 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
       expect(labelsOf(nothing.agent, 'judge')).toHaveLength(2);
     });
 
+    it('a changed path under the state folder is dropped by the script, so it puts no no-covers criterion in scope', async () => {
+      const { agent, logs } = await journey(reproven, { args: { criterionCovers: {} }, files: ['.trd-state/example/dispatch.jsonl', './.trd-state/example/judge-x.json'] });
+      expect(regressionExercises(agent)).toHaveLength(0);
+      expect(logs.join('\n')).toMatch(/regression pass has nothing to re-check/);
+      expect(logs.join('\n')).not.toMatch(/changed files no criterion covers/);
+    });
+
     it('an empty covers list counts as no covers record', async () => {
       const { logs } = await journey(reproven, { args: { criterionCovers: { 'FS-1': [], 'FS-2': [] } }, files: ['src/x.js'] });
       expect(reasonsIn(logs)[1]).toBe('FS-1 (no-covers), FS-2 (no-covers)');
@@ -4979,7 +4986,7 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
         expect(prompt).toContain('GIT_INDEX_FILE=<that same path> git write-tree');
         expect(prompt).toMatch(/As your FIRST act/);
         expect(prompt).toMatch(/As your LAST act, after the refresh/);
-        expect(prompt).toContain('git -c core.quotePath=false diff --name-only <BEFORE> <AFTER>');
+        expect(prompt).toContain('git -c core.quotePath=false diff --no-renames --name-only <BEFORE> <AFTER>');
         expect(prompt).toContain('"filesChanged"');
         expect(prompt).toContain('".trd-state/example"');
         expect(prompt).toContain('".trd-state/example/pages"');
