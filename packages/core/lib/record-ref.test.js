@@ -427,9 +427,33 @@ describe('write: push, fold and fallback', () => {
     expect(r.outcome).toBe('fallback');
     expect(r.fallbackReason).toBe('push-failed');
     expect(r.committed).toBe(true);
-    expect(sh(repo, ['rev-parse', 'HEAD'])).not.toBe(head);
+    const newHead = sh(repo, ['rev-parse', 'HEAD']);
+    expect(newHead).not.toBe(head);
+    // `commit` is the branch commit; the unpushed ref commit is reported separately.
+    expect(r.commit).toBe(newHead);
+    expect(r.refCommit).toBe(sh(repo, ['rev-parse', REF]));
+    expect(r.refCommit).not.toBe(r.commit);
     const changed = sh(repo, ['show', '--name-only', '--format=', 'HEAD']).split('\n');
     expect(changed).toEqual(expect.arrayContaining([`${STATE}/implement.json`, `${STATE}/notes.md`]));
+  });
+
+  test('(d) the fallback force-adds gitignored record paths and commits only the state folder', () => {
+    const origin = rejectingOrigin();
+    const repo = initRepo();
+    withOrigin(repo, origin);
+    put(repo, '.gitignore', '.trd-state/\n');
+    sh(repo, ['add', '.gitignore']);
+    sh(repo, ['commit', '-q', '-m', 'ignore records']);
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    put(repo, `${STATE}/verification-report.md`, 'r\n');
+    put(repo, 'product.txt', 'not a record\n');
+
+    const r = doWrite(repo);
+    expect(r.outcome).toBe('fallback');
+    expect(r.committed).toBe(true);
+    expect(r.commit).toBe(sh(repo, ['rev-parse', 'HEAD']));
+    const changed = sh(repo, ['show', '--name-only', '--format=', 'HEAD']).split('\n').sort();
+    expect(changed).toEqual([`${STATE}/implement.json`, `${STATE}/verification-report.md`]);
   });
 
   test('(d) the same through the CLI exits 0 with one JSON line', () => {
@@ -473,6 +497,8 @@ describe('write: push, fold and fallback', () => {
     expect(r.fallbackReason).toBe('ref-write-failed');
     expect(r.detail).toMatch(/5 of 5/);
     expect(sh(repo, ['rev-parse', 'HEAD'])).not.toBe(head);
+    expect(r.commit).toBe(sh(repo, ['rev-parse', 'HEAD']));
+    expect(r.refCommit).toBeUndefined();
     expect(sh(repo, ['rev-parse', '--verify', '-q', REF], { __allowFail: true })).toBe('');
   });
 

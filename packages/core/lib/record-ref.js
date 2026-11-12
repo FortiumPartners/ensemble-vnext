@@ -25,7 +25,9 @@
  *   node record-ref.js restore --state-dir <dir>
  *
  * `write` outcomes: "ref" (on the ref; `push` is "pushed" | "no-remote" | "skipped"),
- * "fallback" (committed on the branch; `fallbackReason` "push-failed" | "ref-write-failed"),
+ * "fallback" (committed on the branch; `fallbackReason` "push-failed" | "ref-write-failed";
+ * `commit` is the branch commit, null when nothing needed committing; `refCommit` is the
+ * unpushed ref commit on "push-failed"),
  * "failed" (neither worked), "refused" (nothing attempted).
  *
  * Every git call is `spawnSync` with an argument array (no shell). Nothing here throws to a caller.
@@ -543,7 +545,8 @@ function branchCommit(top, repoPaths, message) {
     input: pathList(mine),
   });
   if (!c.ok) return { ok: false, err: c.err };
-  return { ok: true, committed: true, paths: mine };
+  const head = git(['rev-parse', 'HEAD'], { cwd: top });
+  return { ok: true, committed: true, paths: mine, commit: head.ok && head.out ? head.out : null };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -653,9 +656,13 @@ function writeInner(opts) {
     }
 
     const base = { slug, ref, skipped: sel.skipped };
+    // On a fallback, `commit` is the BRANCH commit that now holds the records (null when nothing
+    // was staged for them); a ref commit that moved but could not be pushed is `refCommit`.
     const fallback = (reason, detail, extra = {}) => {
       const fb = branchCommit(top, fallbackPaths, ctx.message);
-      if (fb.ok) return { ok: true, outcome: 'fallback', fallbackReason: reason, detail, committed: fb.committed, ...base, ...extra };
+      if (fb.ok) {
+        return { ok: true, outcome: 'fallback', fallbackReason: reason, detail, committed: fb.committed, commit: fb.commit || null, ...base, ...extra };
+      }
       return { ok: false, outcome: 'failed', fallbackReason: reason, refError: detail, fallbackError: fb.err, ...base, ...extra };
     };
 
@@ -681,7 +688,7 @@ function writeInner(opts) {
       const f = fold(top, written.map((w) => w.repo));
       return { ok: true, outcome: 'ref', push: p.state, folded: f.folded, ...(f.foldError ? { foldError: f.foldError } : {}), ...common() };
     }
-    return fallback('push-failed', p.err || 'push refused', { commit, push: 'failed' });
+    return fallback('push-failed', p.err || 'push refused', { refCommit: commit, push: 'failed' });
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
