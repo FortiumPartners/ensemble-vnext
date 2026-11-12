@@ -128,6 +128,17 @@
       "commit": null,
       "started_at": null,
       "completed_at": null
+    },
+    "AMEND-001": {
+      "status": "success",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        "docs/TRD/accepted-gaps-for-not-checkable-must-pass-criteria.md"
+      ],
+      "files_deleted": [],
+      "current_problem": null,
+      "completed_at": "2026-11-12T15:11:27.488Z"
     }
   },
   "checkpoints": [
