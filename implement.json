@@ -1,0 +1,114 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/cutover-for-existing-projects.md",
+  "trd_hash": "e581ae225aeabe740624b24c706fa486a996f2678a1b1cd60d2aa602032209a7",
+  "branch": "feature/50-cutover-for-existing-projects",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "records-cutover.js seed library + record-ref.js forgeFeatureId option",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/record-ref.js",
+        "packages/core/lib/record-ref.test.js",
+        "packages/core/lib/records-cutover.js",
+        "packages/core/lib/records-cutover.test.js",
+        ".claude/lib/record-ref.js",
+        ".claude/lib/records-cutover.js",
+        "packages/full/lib/records-cutover.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T14:44:41.227Z",
+      "completed_at": "2026-11-12T14:59:40.119Z",
+      "last_advanced": "2026-11-12T14:53:13.128Z"
+    },
+    "FIX-002": {
+      "description": "scaffold-project.sh --records-cutover mode + BATS acceptance",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T14:44:41.228Z",
+      "completed_at": "2026-11-12T14:59:40.119Z",
+      "last_advanced": "2026-11-12T14:53:13.129Z"
+    },
+    "FIX-003": {
+      "description": "/rebase-project Step 4.7b, prose test, mirrors, docs",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/rebase-project.md",
+        ".claude/commands/rebase-project.md",
+        "packages/full/commands/plugin-only/rebase-project.md",
+        "packages/core/commands/records-cutover-prose.test.js",
+        "docs/reference/other-commands.md",
+        "CHANGELOG.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T14:44:41.228Z",
+      "completed_at": "2026-11-12T14:59:40.119Z",
+      "last_advanced": "2026-11-12T14:53:13.129Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "337534b23e7c37ce791b3a04c0af61c019c99fcc",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T15:06:50.735Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "337534b23e7c37ce791b3a04c0af61c019c99fcc",
+    "last_checkpoint_timestamp": "2026-11-12T15:06:50.735Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/cutover-for-existing-projects.md § Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, node installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude sessions available; not needed for this change"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login present; not needed for this change"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}
