@@ -132,7 +132,7 @@ describe('verify-functional: stage ordering and agentType', () => {
         judgeCalls += 1;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
       return null;
     });
 
@@ -166,7 +166,7 @@ describe('verify-functional: stage ordering and agentType', () => {
         judgeCalls += 1;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
       return null;
     });
 
@@ -237,11 +237,14 @@ describe('verify-functional: dead Debug agent', () => {
       return null;
     });
 
-    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+    const { result, logs } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
 
     expect(result.outcome).toBe('satisfied');
-    expect(agent.calls.filter((c) => c.opts.label === 'exercise')).toHaveLength(2);
+    // A dead Debug agent addresses no cause (causes D9), so the next Exercise set holds nothing:
+    // no representative is re-captured and no exerciser is dispatched.
+    expect(agent.calls.filter((c) => c.opts.label === 'exercise')).toHaveLength(1);
     expect(agent.calls.filter((c) => c.opts.label === 'judge')).toHaveLength(2);
+    expect(logs.join('\n')).toMatch(/Debug returned nothing -- no cause addressed/);
   });
 });
 
@@ -296,7 +299,7 @@ describe('verify-functional: evidence-capture gaps go back to Exercise, not Debu
           ],
         });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }] };
       return null;
     });
 
@@ -322,7 +325,7 @@ describe('verify-functional: Debug reports unbuilt', () => {
         if (judgeCalls === 1) return remediateJudge();
         return satisfiedJudge({ action: 'exit-unbuilt', gaps: [], unbuilt: ['FS-1'] });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'capability absent', unbuilt: true }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'capability absent', unbuilt: true }] };
       return null;
     });
 
@@ -496,7 +499,7 @@ describe('verify-functional: the Judge is told the exact state-file key names', 
     expect(capturedPrompt).toContain('"criteria"');
     expect(capturedPrompt).toContain('"gapsClosed"');
     expect(capturedPrompt).toContain('"outcome"');
-    expect(capturedPrompt).toContain('four top-level keys');
+    expect(capturedPrompt).toContain('six top-level keys');
   });
 
   // THE TERMINALITY MARKER. implement-trd Step 3.6 step 0 gates the --resume composition on
@@ -627,7 +630,7 @@ describe('verify-functional: Exercise is scoped to the open set, per slice', () 
             })
           : satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b', reason: null, files: [] }] });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-2', result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }] };
       return null;
     });
 
@@ -672,6 +675,8 @@ describe('verify-functional: resume', () => {
     const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ resume }) });
 
     expect(capturedExercisePrompt).toMatch(/iteration 3/);
+    // the first resumed pass walks every criterion the snapshot does not hold as met
+    expect(JSON.parse(capturedExercisePrompt.match(/\nCriteria:\n(\[.*\])\n/)[1]).map((c) => c.id)).toEqual(['FS-1']);
     expect(capturedJudgePrompt).toMatch(/"FS-1"/); // previousGaps JSON includes the seeded gap
     expect(result.iterations).toBe(3);
   });
@@ -717,7 +722,7 @@ describe('verify-functional: iteration cap', () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
       if (opts.label === 'judge') return remediateJudge(); // never resolves -- always asks to remediate
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'tried' }] }; // never marks unbuilt
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'tried' }] }; // never marks unbuilt
       return null;
     });
 
@@ -818,7 +823,7 @@ describe('verify-functional: args.project scoping', () => {
         judgeCalls += 1;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
       return null;
     });
 
@@ -958,7 +963,7 @@ describe('verify-functional: Exercise capture-only prohibition', () => {
         judgeCalls += 1;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
       return null;
     });
 
@@ -989,7 +994,7 @@ describe('verify-functional: Debug refresh (D11)', () => {
       }
       if (opts.label === 'debug') {
         capturedDebugPrompt = prompt;
-        return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+        return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
       }
       return null;
     });
@@ -997,11 +1002,15 @@ describe('verify-functional: Debug refresh (D11)', () => {
     await runWorkflow(SOURCE, { agent, args: baseArgs({ refreshCommand: 'npm run dev:refresh' }) });
 
     expect(capturedDebugPrompt).toMatch(/npm run dev:refresh/);
-    // The refresh instruction is the LAST thing in the prompt body (before the return-shape
-    // instruction), not a step that precedes "fix the code in place".
-    const fixIdx = capturedDebugPrompt.indexOf('Fix the code in place');
+    // The command appears once. The refresh is the last step that changes anything: it follows the
+    // fix instruction, and the named pre-checks (causes D10) come after it, never before.
+    expect(capturedDebugPrompt.split('npm run dev:refresh')).toHaveLength(2);
+    const fixIdx = capturedDebugPrompt.indexOf('Fix every cause once');
     const refreshIdx = capturedDebugPrompt.indexOf('npm run dev:refresh');
+    const preCheckIdx = capturedDebugPrompt.indexOf('PRE-CHECKS');
+    expect(fixIdx).toBeGreaterThan(-1);
     expect(refreshIdx).toBeGreaterThan(fixIdx);
+    expect(preCheckIdx).toBeGreaterThan(refreshIdx);
     expect(capturedDebugPrompt).toMatch(/LAST STEP/);
   });
 
@@ -1016,7 +1025,7 @@ describe('verify-functional: Debug refresh (D11)', () => {
       }
       if (opts.label === 'debug') {
         capturedDebugPrompt = prompt;
-        return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+        return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
       }
       return null;
     });
@@ -1036,7 +1045,7 @@ describe('verify-functional: Debug refresh (D11)', () => {
         judgeCalls += 1;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
       return null;
     });
 
@@ -1085,7 +1094,7 @@ describe('verify-functional: settled/open partition across iterations', () => {
         }
         return satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, files: [] }] });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-2', result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }] };
       return null;
     });
 
@@ -1129,7 +1138,7 @@ describe('verify-functional: settled/open partition across iterations', () => {
         secondJudgePrompt = prompt;
         return satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, files: [] }] });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-2', result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }] };
       return null;
     });
 
@@ -1169,7 +1178,7 @@ describe('verify-functional: settled/open partition across iterations', () => {
           ],
         });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-2', result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }] };
       return null;
     });
 
@@ -1232,8 +1241,12 @@ describe('verify-functional: settled/open partition across iterations', () => {
 
   it('reloads only met resume entries as settled -- a not_verifiable entry goes back into the open set (D2)', async () => {
     let capturedJudgePrompt = null;
+    let capturedExercisePrompt = null;
     const agent = makeAgentStub((prompt, opts) => {
-      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-2', artifact: 'b.txt' }, { criterion: 'FS-3', artifact: null, reason: 'env unreachable' }]);
+      if (opts.label === 'exercise') {
+        capturedExercisePrompt = prompt;
+        return exercisePlanClaims([{ criterion: 'FS-2', artifact: 'b.txt' }, { criterion: 'FS-3', artifact: null, reason: 'env unreachable' }]);
+      }
       if (opts.label === 'judge') {
         capturedJudgePrompt = prompt;
         return satisfiedJudge({ criteria: [
@@ -1262,6 +1275,7 @@ describe('verify-functional: settled/open partition across iterations', () => {
     // FS-1 (met) is the only one seeded as settled -- FS-3 (not_verifiable in a PRIOR
     // invocation) is back in the open set for this one, alongside FS-2 (never settled).
     expect(openIdsFrom(capturedJudgePrompt)).toEqual(['FS-2', 'FS-3']);
+    expect(JSON.parse(capturedExercisePrompt.match(/\nCriteria:\n(\[.*\])\n/)[1]).map((c) => c.id)).toEqual(['FS-2', 'FS-3']);
     const settled = settledFrom(capturedJudgePrompt);
     expect(settled).toEqual([{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, cause: null, provenAt: 1, statement: 'statement for FS-1', cites: 'FR-1' }]);
     expect(result.criteria).toContainEqual(expect.objectContaining({ id: 'FS-1', status: 'met' }));
@@ -1358,7 +1372,7 @@ describe('verify-functional: met/total reach the decide-next payload', () => {
         secondJudgePrompt = prompt;
         return satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, files: [] }] });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-2', result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }] };
       return null;
     });
 
@@ -1526,7 +1540,7 @@ describe('verify-functional: end-of-run full-environment gate (D14)', () => {
       }
       if (opts.label === 'debug') {
         debugPrompt = prompt;
-        return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+        return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
       }
       return null;
     });
@@ -1613,7 +1627,7 @@ describe('verify-functional: end-of-run full-environment gate (D14)', () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
       if (opts.label === 'judge') return remediateJudge(); // never resolves
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'tried' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'tried' }] };
       return null;
     });
 
@@ -2168,7 +2182,7 @@ describe('verify-functional: check-skill prompt injection -- Judge STEP 2a', () 
         }
         return satisfiedJudge({ criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] }] });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
       return null;
     });
 
@@ -2211,7 +2225,7 @@ describe('verify-functional: Debug gap enrichment', () => {
       }
       if (opts.label === 'debug') {
         debugPrompt = prompt;
-        return { results: [{ criterion: 'DC-1', result: 'fixed it' }] };
+        return { results: [{ cause: 'criterion:DC-1', addressed: true, result: 'fixed it' }] };
       }
       return null;
     });
@@ -2276,7 +2290,7 @@ describe('verify-functional: Render stage', () => {
           ],
         });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'DC-1', result: 'fixed' }, { criterion: 'FL-1', result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:DC-1', addressed: true, result: 'fixed' }, { cause: 'criterion:FL-1', addressed: true, result: 'fixed' }] };
       if (opts.label === 'render') return { rendered: true, page: 'x/index.html', cards: 1, reason: '' };
       return null;
     });
@@ -2354,7 +2368,7 @@ describe('verify-functional: Render stage', () => {
           ],
         });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'DC-1', result: 'fixed' }, { criterion: 'FL-1', result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:DC-1', addressed: true, result: 'fixed' }, { cause: 'criterion:FL-1', addressed: true, result: 'fixed' }] };
       if (opts.label === 'render') return { rendered: true, page: 'x/index.html', cards: 1, reason: '' };
       return null;
     });
@@ -2732,7 +2746,7 @@ describe('verify-functional: liveEvidence (reuse of evidence a [LIVE] task captu
         judgeCalls++;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }] };
       return null;
     });
     await runWorkflow(SOURCE, { agent, args: baseArgs({ liveEvidence: [entry()] }) });
@@ -2957,7 +2971,7 @@ describe('verify-functional: must-pass enforcement', () => {
         // Iteration 2 returns only the open criterion; FS-2 (the must-pass one) is settled met.
         return satisfiedJudge({ criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] }] });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }] };
       return null;
     });
     const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2'] }) });
@@ -3005,7 +3019,7 @@ describe('verify-functional: must-pass enforcement', () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }]);
       if (opts.label === 'judge') return remediateJudge();
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'tried' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'tried' }] };
       return null;
     });
     const fell = await runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2', 'FS-9'], cap: 1 }) });
@@ -3131,7 +3145,7 @@ describe('verify-functional: setupTargets validation, before any agent runs', ()
 describe('verify-functional: the Setup phase', () => {
   it('dispatches no setup agent without setupTargets, and carries a Debug result without refresh as null', async () => {
     let judgeCalls = 0;
-    const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()), debug: { results: [{ criterion: 'FS-1', result: 'x' }] } }));
+    const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()), debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'x' }] } }));
     const { result, phases } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
     expect(labelsOf(agent).filter((l) => l.startsWith('setup') || l === 'record')).toEqual([]);
     expect(phases).not.toContain('Setup');
@@ -3168,7 +3182,7 @@ describe('verify-functional: the Setup phase', () => {
           ++judgeCalls === 1
             ? remediateJudge({ criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] }, { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no', files: [] }], gaps: ['FS-2'], debugGaps: [{ id: 'FS-2' }] })
             : satisfiedJudge(),
-        debug: { results: [{ criterion: 'FS-2', result: 'ok' }], refresh: { ran: false, exitCode: null } },
+        debug: { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'ok' }], refresh: { ran: false, exitCode: null } },
         setup: setupResult(),
       })
     );
@@ -3187,7 +3201,7 @@ describe('verify-functional: the Setup phase', () => {
     const agent = makeAgentStub(
       setupPlan({
         judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()),
-        debug: { results: [{ criterion: 'FS-1', result: 'absent', unbuilt: true }], refresh: { ran: false, exitCode: null } },
+        debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'absent', unbuilt: true }], refresh: { ran: false, exitCode: null } },
         setup: setupResult(),
       })
     );
@@ -3309,7 +3323,7 @@ describe('verify-functional: the setup-failure exit', () => {
     const agent = makeAgentStub(
       setupPlan({
         judge: () => (++judgeCalls === 1 ? remediateJudge({ closed: ['FS-2'] }) : satisfiedJudge()),
-        debug: { results: [{ criterion: 'FS-1', result: 'ok' }], refresh: { ran: false, exitCode: null } },
+        debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'ok' }], refresh: { ran: false, exitCode: null } },
         setup: () => (++setupCalls === 1 ? setupResult() : setupResult({ action: 'setup-failure', problems: [BROKEN] })),
         record: { recorded: true },
       })
@@ -3342,7 +3356,7 @@ describe('verify-functional: the setup-failure exit', () => {
   it('de-duplicates flags across iterations', async () => {
     let judgeCalls = 0;
     const flag = { environment: 'local', flag: 'no identity declared', default: 'treated as fine for this attempt' };
-    const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()), debug: { results: [], refresh: { ran: false, exitCode: null } }, setup: setupResult({ flags: [flag] }) }));
+    const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()), debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'x' }], refresh: { ran: false, exitCode: null } }, setup: setupResult({ flags: [flag] }) }));
     const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
     expect(result.setup.checked).toBe(2);
     expect(result.setup.flags).toEqual([flag]);
@@ -3350,7 +3364,7 @@ describe('verify-functional: the setup-failure exit', () => {
 });
 
 describe('verify-functional: Debug\'s refresh report (D16)', () => {
-  const failedRefresh = { results: [{ criterion: 'FS-1', result: 'fixed' }], refresh: { ran: true, exitCode: 1 } };
+  const failedRefresh = { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }], refresh: { ran: true, exitCode: 1 } };
 
   it('DEBUG_SCHEMA requires refresh and the prompt asks for it', async () => {
     let judgeCalls = 0;
@@ -3383,7 +3397,7 @@ describe('verify-functional: Debug\'s refresh report (D16)', () => {
     const agent = makeAgentStub(
       setupPlan({
         judge: () => (++judgeCalls < 3 ? remediateJudge() : satisfiedJudge()),
-        debug: () => (++debugCalls === 1 ? failedRefresh : { results: [{ criterion: 'FS-1', result: 'ok' }], refresh: { ran: true, exitCode: 0 } }),
+        debug: () => (++debugCalls === 1 ? failedRefresh : { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'ok' }], refresh: { ran: true, exitCode: 0 } }),
       })
     );
     await runWorkflow(SOURCE, { agent, args: baseArgs({ cap: 4, refreshCommand: 'npm run dev:refresh' }) });
@@ -3412,7 +3426,7 @@ describe('verify-functional: exit-setup-failure from the Judge', () => {
     const agent = makeAgentStub(
       setupPlan({
         judge: () => (++judgeCalls === 1 ? remediateJudge() : exitJudge()),
-        debug: { results: [{ criterion: 'FS-1', result: 'x' }], refresh: { ran: true, exitCode: 2 } },
+        debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'x' }], refresh: { ran: true, exitCode: 2 } },
       })
     );
     const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ refreshCommand: 'npm run dev:refresh', fullRunCommand: 'make all' }) });
@@ -3559,7 +3573,7 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
       }
       if (opts.label === 'debug') {
         debugCalls += 1;
-        return { results: [{ criterion: 'FS-3', result: 'missing', unbuilt: debugCalls === 1 }] };
+        return { results: [{ cause: 'criterion:FS-3', addressed: true, result: 'missing', unbuilt: debugCalls === 1 }] };
       }
       return null;
     });
@@ -3576,33 +3590,37 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
     expect(result.criteria.find((c) => c.id === 'FS-1').settled).toBeUndefined();
   });
 
-  it('a skipped Exercise keeps an open build defect a build defect, not an evidence gap (O1)', async () => {
+  it('a skipped Exercise carries an open build defect with its last verdict, and rules only the unbuilt id (O1, causes D6)', async () => {
     let judgeCalls = 0;
+    let secondJudgePrompt = null;
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'exercise') return claimsFor('FS-1', 'FS-2');
       if (opts.label === 'judge') {
         judgeCalls += 1;
         if (judgeCalls === 1) return remediate([ev('FS-1', 'judged-failed'), ev('FS-2', 'judged-failed')]);
-        // Exercise was skipped, so no claim reached the Judge: it rules FS-1 never-exercised.
+        secondJudgePrompt = prompt;
+        // Exercise was skipped: the Judge rules only the id Debug reported unbuilt; FS-1 is carried.
         return remediate(
-          [ev('FS-1', 'never-exercised'), { id: 'FS-2', status: 'unbuilt', tier1: null, artifact: null, reason: 'absent', cause: 'not-built', files: [] }],
+          [{ id: 'FS-2', status: 'unbuilt', tier1: null, artifact: null, reason: 'absent', cause: 'not-built', files: [] }],
           { action: 'exit-unbuilt', gaps: ['FS-1'], unbuilt: ['FS-2'], debugGaps: [] }
         );
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-2', result: 'missing', unbuilt: true }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'missing', unbuilt: true }] };
       return null;
     });
-    const { result, logs } = await runWorkflow(SOURCE, {
+    const { result } = await runWorkflow(SOURCE, {
       agent,
       args: baseArgs({ criteria: [criterion('FS-1'), criterion('FS-2')], cap: 4 }),
     });
     expect(agent.calls.filter((c) => c.opts.label === 'exercise')).toHaveLength(1);
     const fs1 = result.criteria.find((c) => c.id === 'FS-1');
     expect(fs1).toMatchObject({ status: 'not_met', cause: 'judged-failed', kind: 'build-defect', reason: 'judged-failed for FS-1' });
-    expect(logs.join('\n')).toMatch(/Exercise was skipped, so FS-1 is ruled never-exercised -- keeping its previous ruling/);
-    // The state the script writes carries the carried-forward kind too.
-    const writer = agent.calls.filter((c) => /judged-failed/.test(c.prompt) && /build-defect/.test(c.prompt) && c.opts.label !== 'judge');
-    expect(writer.length).toBeGreaterThan(0);
+    // AC 8: the forced id is ruled, not carried; the other open id is carried, not ruled.
+    expect(secondJudgePrompt).toMatch(/Rule each of them "unbuilt"/);
+    const carriedBlock = secondJudgePrompt.match(/Open criteria NOT re-checked this iteration[^\n]*\n(\[.*\])/)[1];
+    expect(JSON.parse(carriedBlock).map((e) => e.id)).toEqual(['FS-1']);
+    const underJudgement = secondJudgePrompt.match(/Criteria still open, under judgement this iteration \(\d+ of \d+\):\n(\[.*\])/)[1];
+    expect(JSON.parse(underJudgement).map((c) => c.id)).toEqual(['FS-2']);
   });
 
   it('never-exercised goes to Exercise, not Debug; Debug gets only build defects and not even a not-built-free iteration', async () => {
@@ -3614,7 +3632,7 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
         if (judgeCalls === 1) return remediate([ev('FS-1', 'never-exercised'), ev('FS-2', 'judged-failed')]);
         return satisfiedJudge({ criteria: [met('FS-1'), met('FS-2')] });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-2', result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed' }] };
       return null;
     });
     await runWorkflow(SOURCE, { agent, args: baseArgs() });
@@ -3633,7 +3651,7 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
         judgeCalls += 1;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }] };
       return null;
     });
     const { logs } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
@@ -3652,7 +3670,7 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
           debugGaps: [{ id: 'FS-9', statement: 'statement for FS-9', reason: 'no artifact', artifact: null, files: [] }],
         });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-9', result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-9', addressed: true, result: 'fixed' }] };
       return null;
     });
     const { logs } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
@@ -3694,7 +3712,7 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
     // the state file save and the report input rewrite both carry the corrected kind, then render-report runs
     expect(syncs[0].prompt).toMatch(/"id":"FS-1","status":"not_met"[^\n]*"kind":"build-defect"/);
     expect(syncs[0].prompt).toMatch(/"outcome":"stalled"/);
-    expect(syncs[0].prompt).toMatch(/\[\{"id":"FS-1","status":"not_met","reason":"[^"]*","kind":"build-defect"\}/);
+    expect(syncs[0].prompt).toMatch(/\[\{"id":"FS-1","status":"not_met","reason":"[^"]*","kind":"build-defect"(,"causeKey":"criterion:FS-1")?\}/);
     expect(syncs[0].prompt).toContain('render-report --file');
     expect(syncs[0].prompt).toContain('judge-report-input-1.json');
   });
@@ -3733,7 +3751,7 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
     expect(jp).toMatch(/"also return its "kind"|also return its "kind"/);
     expect(jp).toMatch(/"provenAt", "image", "ui", "imageExcluded", "kind", "settled"/);
     expect(jp).toMatch(/imageExcluded, kind, settled\)/);
-    expect(jp).toMatch(/"imageExcluded","kind","settled","verificationDigest" \}/);
+    expect(jp).toMatch(/"imageExcluded","kind","settled","verificationDigest"(,"causeKey")? \}/);
     expect(jp).toMatch(/"settledEvidenceGaps":</);
     expect(jp).toMatch(/not_met evidence gap with "settled":"definition-problem"/);
     expect(jp).not.toMatch(/absent\/null for a "not_met" criterion, which stays\s+open/);
@@ -3872,6 +3890,700 @@ describe('verify-functional: digest-persisted and preclassified not-checkable en
   it('stamps nothing when the digest is empty', async () => {
     const { result } = await run({ ...two }, () => satisfiedJudge({ criteria: [metC('FS-1'), NC('FS-2')] }));
     expect(result.criteria.find((c) => c.id === 'FS-2')).not.toHaveProperty('verificationDigest');
+  });
+});
+
+// --------------------------------------------------------------------------- shared-cause targeting
+
+describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)', () => {
+  const bd = (id, key, extra = {}) => ({
+    id,
+    status: 'not_met',
+    tier1: 'fail',
+    artifact: null,
+    reason: `r-${id}`,
+    cause: 'judged-failed',
+    files: [`src/${id}.js`],
+    ...(key === undefined ? {} : { causeKey: key }),
+    ...extra,
+  });
+  const gapOf = (c) => ({ id: c.id, statement: `statement for ${c.id}`, reason: c.reason, artifact: null, files: c.files });
+  const remediate = (criteria, overrides = {}) => ({
+    action: 'remediate',
+    reason: 'open gaps',
+    criteria,
+    gaps: criteria.filter((c) => c.status === 'not_met').map((c) => c.id),
+    unbuilt: [],
+    closed: [],
+    notesUpdated: false,
+    debugGaps: criteria.filter((c) => c.status === 'not_met').map(gapOf),
+    ...overrides,
+  });
+  const exitWith = (action, criteria, overrides = {}) => ({
+    action,
+    reason: `judge says ${action}`,
+    criteria,
+    gaps: criteria.filter((c) => c.status === 'not_met').map((c) => c.id),
+    unbuilt: [],
+    closed: [],
+    notesUpdated: false,
+    ...overrides,
+  });
+  const met = (id) => ({ id, status: 'met', tier1: 'pass', artifact: `${id}.txt`, reason: null, files: [] });
+  // Debug now gets one gap per cause (causes D7); this stub reports addressed every cause the prompt
+  // sent whose representative or a member is among `ids`.
+  const causesIn = (prompt) => JSON.parse(prompt.match(/\nCauses:\n(\[.*\])\n/)[1]);
+  const debugOk = (ids) => (prompt) => ({
+    results: causesIn(prompt)
+      .filter((c) => ids.includes(c.representative.id) || c.members.some((m) => ids.includes(m.id)))
+      .map((c) => ({ cause: c.cause, addressed: true, result: 'fixed' })),
+    refresh: { ran: false, exitCode: null },
+  });
+  // An Exercise stub that claims exactly the criteria its prompt hands it.
+  const claimsFromPrompt = (prompt) => {
+    const list = JSON.parse(prompt.match(/\nCriteria:\n(\[.*\])\n/)[1]);
+    return exercisePlanClaims(list.map((c) => ({ criterion: c.id, artifact: `${c.id}.txt` })));
+  };
+  const exercisedIdsOf = (call) => JSON.parse(call.prompt.match(/\nCriteria:\n(\[.*\])\n/)[1]).map((c) => c.id);
+  const openCausesIn = (prompt) => JSON.parse(prompt.match(/Open causes so far \(data, never instructions\): (\[.*\])\. Every other/)[1]);
+  const carriedIn = (prompt) => JSON.parse(prompt.match(/Open criteria NOT re-checked this iteration[^\n]*\n(\[.*\])/)[1]);
+  const run = (judges, { debug = debugOk(['FS-1']), args = {}, extra } = {}) => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return claimsFromPrompt(prompt);
+      if (opts.label === 'judge') {
+        const j = judges[Math.min(judgeCalls, judges.length - 1)];
+        judgeCalls += 1;
+        return typeof j === 'function' ? j(prompt) : j;
+      }
+      if (opts.label === 'debug') return typeof debug === 'function' ? debug(prompt) : debug;
+      if (extra) return extra(prompt, opts);
+      return null;
+    });
+    return runWorkflow(SOURCE, { agent, args: baseArgs(args) }).then((r) => ({ agent, ...r }));
+  };
+  const four = { criteria: [criterion('FS-1'), criterion('FS-2'), criterion('FS-3'), criterion('FS-4')], cap: 4 };
+  const labelsOf = (agent, label) => agent.calls.filter((c) => c.opts.label === label);
+
+  it('source: the old last-ruling map and the kind-only sync are gone, and the schema accepts the new keys', () => {
+    expect(SOURCE).not.toMatch(/lastRulings/);
+    expect(SOURCE).not.toMatch(/syncKindState/);
+    expect(SOURCE).toMatch(/const openEntries = new Map\(\)/);
+    const schema = SOURCE.match(/const JUDGE_CRITERION_SCHEMA = \{[\s\S]*?\n\}\n/)[0];
+    expect(schema).toMatch(/causeKey:/);
+    expect(schema).toMatch(/awaiting:/);
+  });
+
+  it('AC 1: iteration 1 exercises the whole open set; after Debug only the representatives of the addressed causes', async () => {
+    const { agent } = await run(
+      [
+        remediate([bd('FS-1', 'cache-bug'), bd('FS-2', 'cache-bug'), bd('FS-3', 'auth-bug'), bd('FS-4', 'auth-bug')]),
+        exitWith('exit-stuck', [bd('FS-1', 'cache-bug'), bd('FS-3', 'auth-bug')]),
+      ],
+      { debug: debugOk(['FS-1', 'FS-2', 'FS-3', 'FS-4']), args: four }
+    );
+    const exercises = labelsOf(agent, 'exercise');
+    expect(exercises).toHaveLength(2);
+    expect(exercisedIdsOf(exercises[0])).toEqual(['FS-1', 'FS-2', 'FS-3', 'FS-4']);
+    expect(exercisedIdsOf(exercises[1])).toEqual(['FS-1', 'FS-3']);
+  });
+
+  it('AC 1: every iteration before the first Debug pass exercises the whole open set', async () => {
+    const gap = (id) => ({ id, status: 'not_met', tier1: 'fail', artifact: null, reason: `r-${id}`, cause: 'evidence-missing', files: [] });
+    const { agent } = await run([remediate([gap('FS-1'), gap('FS-2'), gap('FS-3')]), exitWith('exit-stuck', [gap('FS-1'), gap('FS-2'), gap('FS-3')])], {
+      args: { criteria: [criterion('FS-1'), criterion('FS-2'), criterion('FS-3')], cap: 3 },
+    });
+    expect(labelsOf(agent, 'debug')).toHaveLength(0);
+    const exercises = labelsOf(agent, 'exercise');
+    expect(exercises.map(exercisedIdsOf)).toEqual([
+      ['FS-1', 'FS-2', 'FS-3'],
+      ['FS-1', 'FS-2', 'FS-3'],
+    ]);
+  });
+
+  it('AC 2: a missing or malformed causeKey makes the criterion its own cause, criterion:<id>, and is logged', async () => {
+    const { agent, logs } = await run(
+      [remediate([bd('FS-1', 'Not A Key!'), bd('FS-2'), bd('FS-3', 'shared'), bd('FS-4', 'shared')]), exitWith('exit-stuck', [bd('FS-1', 'x')])],
+      { debug: debugOk(['FS-1', 'FS-2', 'FS-3', 'FS-4']), args: four }
+    );
+    const causes = openCausesIn(labelsOf(agent, 'judge')[1].prompt);
+    expect(causes.map((c) => c.key)).toEqual(['criterion:FS-1', 'criterion:FS-2', 'shared']);
+    expect(causes.find((c) => c.key === 'shared')).toMatchObject({ representative: 'FS-3', members: ['FS-3', 'FS-4'] });
+    expect(logs.join('\n')).toMatch(/FS-1 has causeKey "Not A Key!", which fails .* its own cause, criterion:FS-1/);
+    expect(logs.join('\n')).toMatch(/FS-2 has no causeKey -- it is its own cause, criterion:FS-2/);
+  });
+
+  it('a causeKey on a met or non-build-defect entry is dropped and logged', async () => {
+    const { agent, logs } = await run([
+      exitWith('exit-satisfied', [{ ...met('FS-1'), causeKey: 'stray' }, { ...bd('FS-2', 'stray', { cause: 'evidence-missing' }) }], { gaps: [] }),
+    ]);
+    expect(logs.join('\n')).toMatch(/causeKey "stray" for FS-1, which is met -- dropping it/);
+    expect(logs.join('\n')).toMatch(/causeKey "stray" for FS-2, which is not an open build defect -- dropping it/);
+    expect(labelsOf(agent, 'state-sync')).toHaveLength(1);
+  });
+
+  describe('AC 3: the representative (D3)', () => {
+    const checks = { design: 'Capture: screenshot it.\nPage: render it.' };
+    const checkArgs = (criteria) => ({ criteria, checks, pagesDir: '.trd-state/example/pages', cap: 4 });
+
+    it('is the first non-check-derived member in definition order', async () => {
+      const { agent } = await run([remediate([bd('FS-1', 'k'), bd('FS-2', 'k'), bd('FS-3', 'k')]), exitWith('exit-stuck', [bd('FS-2', 'k')])], {
+        debug: debugOk(['FS-1', 'FS-2', 'FS-3']),
+        args: checkArgs([checkCriterion('FS-1', 'design'), criterion('FS-2'), checkCriterion('FS-3', 'design')]),
+      });
+      expect(openCausesIn(labelsOf(agent, 'judge')[1].prompt)).toEqual([expect.objectContaining({ key: 'k', representative: 'FS-2' })]);
+      expect(exercisedIdsOf(labelsOf(agent, 'exercise')[1])).toEqual(['FS-2']);
+    });
+
+    it('is the first member when every member is check-derived', async () => {
+      const { agent } = await run([remediate([bd('FS-1', 'k'), bd('FS-2', 'k')]), exitWith('exit-stuck', [bd('FS-1', 'k')])], {
+        debug: debugOk(['FS-1', 'FS-2']),
+        args: checkArgs([checkCriterion('FS-1', 'design'), checkCriterion('FS-2', 'design')]),
+      });
+      expect(openCausesIn(labelsOf(agent, 'judge')[1].prompt)).toEqual([expect.objectContaining({ key: 'k', representative: 'FS-1' })]);
+    });
+
+    it('is kept across iterations while it is a member and still eligible, even when an earlier member joins', async () => {
+      const { agent } = await run(
+        [
+          remediate([bd('FS-1', 'other'), bd('FS-2', 'k'), bd('FS-3', 'k')]),
+          // FS-1 now joins k, ahead of FS-2 in definition order; FS-2 stays the representative.
+          remediate([bd('FS-1', 'k'), bd('FS-2', 'k')]),
+          exitWith('exit-stuck', [bd('FS-2', 'k')]),
+        ],
+        { debug: debugOk(['FS-1', 'FS-2', 'FS-3']), args: { criteria: [criterion('FS-1'), criterion('FS-2'), criterion('FS-3')], cap: 4 } }
+      );
+      const exercises = labelsOf(agent, 'exercise');
+      expect(exercisedIdsOf(exercises[1])).toEqual(['FS-1', 'FS-2']); // reps of 'other' and 'k'
+      expect(openCausesIn(labelsOf(agent, 'judge')[2].prompt).find((c) => c.key === 'k')).toMatchObject({ representative: 'FS-2', members: ['FS-1', 'FS-2', 'FS-3'] });
+      expect(exercisedIdsOf(exercises[2])).toEqual(['FS-2']);
+    });
+
+    it('moves off a check-derived representative once a non-check-derived member exists', async () => {
+      const { agent } = await run(
+        [
+          remediate([bd('FS-1', 'k'), bd('FS-2', 'other'), bd('FS-3', 'k')]),
+          remediate([bd('FS-1', 'k'), bd('FS-2', 'k')]), // FS-2 (plain) joins k; FS-1 is check-derived
+          exitWith('exit-stuck', [bd('FS-2', 'k')]),
+        ],
+        {
+          debug: debugOk(['FS-1', 'FS-2', 'FS-3']),
+          args: checkArgs([checkCriterion('FS-1', 'design'), criterion('FS-2'), checkCriterion('FS-3', 'design')]),
+        }
+      );
+      expect(openCausesIn(labelsOf(agent, 'judge')[1].prompt).find((c) => c.key === 'k').representative).toBe('FS-1');
+      expect(openCausesIn(labelsOf(agent, 'judge')[2].prompt).find((c) => c.key === 'k').representative).toBe('FS-2');
+    });
+  });
+
+  it('AC 4: a carried criterion keeps its last verdict in the result, the state sync, the must-pass recheck and the render rows', async () => {
+    const checks = { design: 'Capture: screenshot it.\nPage: render it.' };
+    const { agent, result } = await run(
+      [
+        remediate([bd('FS-1', 'k'), bd('FS-2', 'k')]),
+        // FS-1 is the representative and passes; FS-2 is carried. A malformed key forces a state sync.
+        exitWith('exit-satisfied', [met('FS-1')], { gaps: [], closed: ['FS-1'] }),
+      ],
+      {
+        debug: debugOk(['FS-1', 'FS-2']),
+        args: { criteria: [criterion('FS-1'), checkCriterion('FS-2', 'design')], checks, pagesDir: '.trd-state/example/pages', cap: 3, mustPassIds: ['FS-2'] },
+        extra: (prompt, opts) => (opts.label === 'render' ? { rendered: true, page: 'p.html', cards: 1 } : null),
+      }
+    );
+    // The carried entry reaches the Judge as a carried block with its last verdict.
+    const carried = carriedIn(labelsOf(agent, 'judge')[1].prompt);
+    expect(carried).toEqual([expect.objectContaining({ id: 'FS-2', status: 'not_met', reason: 'r-FS-2', cause: 'judged-failed', causeKey: 'k' })]);
+    // The result keeps it, not as a placeholder.
+    expect(result.criteria.find((c) => c.id === 'FS-2')).toMatchObject({ status: 'not_met', reason: 'r-FS-2', kind: 'build-defect', causeKey: 'k' });
+    // The must-pass recheck sees the carried gap, so the Judge's own exit stands (no reconcile).
+    expect(labelsOf(agent, 'reconcile')).toHaveLength(0);
+    expect(result.outcome).toBe('satisfied');
+    // The render rows (iteration 2's exit renders) carry its last verdict and reason.
+    const renders = labelsOf(agent, 'render');
+    const lastRender = renders[renders.length - 1].prompt;
+    expect(lastRender).toMatch(/"id":"FS-2"[^}]*"status":"not_met","reason":"r-FS-2"/);
+  });
+
+  it('AC 4: the state sync writes a carried criterion with its last verdict, not a placeholder', async () => {
+    const { agent } = await run([remediate([bd('FS-1', 'k'), bd('FS-2', 'k')]), exitWith('exit-stuck', [bd('FS-1', 'Bad Key')])], {
+      debug: debugOk(['FS-1', 'FS-2']),
+      args: { criteria: [criterion('FS-1'), criterion('FS-2')], cap: 3 },
+    });
+    const sync = labelsOf(agent, 'state-sync');
+    expect(sync).toHaveLength(1);
+    const written = JSON.parse(sync[0].prompt.match(/exactly as given, to [^\n]*:\n(\{.*\})\n/)[1]);
+    expect(written.criteria.find((c) => c.id === 'FS-2')).toMatchObject({ status: 'not_met', tier1: 'fail', reason: 'r-FS-2', cause: 'judged-failed', causeKey: 'k' });
+    // FS-1 is the representative of 'k'; its malformed key is the fallback, which never closes a cause (D4),
+    // so it stays in 'k'.
+    expect(written.criteria.find((c) => c.id === 'FS-1')).toMatchObject({ status: 'not_met', causeKey: 'k' });
+    expect(written.causes.map((c) => c.key)).toEqual(['k']);
+    expect(written.exercised).toEqual([
+      { iteration: 1, ids: ['FS-1', 'FS-2'] },
+      { iteration: 2, ids: ['FS-1'] },
+    ]);
+    // Patches for the report input add the key and the top-level causes.
+    expect(sync[0].prompt).toMatch(/"id":"FS-1"[^}]*"causeKey":"k"/);
+    expect(sync[0].prompt).toMatch(/top-level "causes"/);
+  });
+
+  it('AC 5: the Judge prompt names the cause literals, the closure rule with the key pattern, six keys and causes written after ruling', async () => {
+    const { agent } = await run([remediate([bd('FS-1', 'k'), bd('FS-2', 'k')]), exitWith('exit-stuck', [bd('FS-1', 'k')])], {
+      debug: debugOk(['FS-1', 'FS-2']),
+      args: { criteria: [criterion('FS-1'), criterion('FS-2')], cap: 3 },
+    });
+    const [first, second] = labelsOf(agent, 'judge').map((c) => c.prompt);
+    for (const p of [first, second]) {
+      expect(p).toContain('"causes":');
+      expect(p).toContain('"previousCauses":');
+      expect(p).toContain('"awaitingRegression":');
+      expect(p).toContain('six top-level keys');
+      expect(p).toMatch(/AFTER you have ruled/);
+      expect(p).toContain('^[a-z0-9][a-z0-9._-]{0,63}$');
+    }
+    expect(first).toContain('"previousCauses":null');
+    // Iteration 2: previousCauses is the open keys, and the closure rule for k quotes the pattern.
+    expect(second).toContain('"previousCauses":["k"]');
+    expect(second).toMatch(/Cause "k" \(representative "FS-1", other members \["FS-2"\]\): if you rule "FS-1" "met", or "not_met" with a cause key that matches \^\[a-z0-9\]\[a-z0-9\._-\]\{0,63\}\$ and differs from "k", leave "k" out of "causes" and add \["FS-2"\] to "awaitingRegression"; otherwise \(including a key that fails that pattern, or none\) put "k" in "causes"/);
+    expect(second).toMatch(/exercised": \[\{"iteration":1,"ids":\["FS-1","FS-2"\]\},\{"iteration":2,"ids":\["FS-1"\]\}\]/);
+  });
+
+  it('a cause whose representative is not re-checked is handed to the Judge as a literal to keep', async () => {
+    const { agent } = await run(
+      [remediate([bd('FS-1', 'a'), bd('FS-2', 'b')]), remediate([bd('FS-1', 'a')]), exitWith('exit-stuck', [bd('FS-1', 'a')])],
+      { debug: debugOk(['FS-1']), args: { criteria: [criterion('FS-1'), criterion('FS-2')], cap: 4 } }
+    );
+    // Iteration 2's Debug is sent only FS-1, so iteration 3 re-checks cause a's representative alone.
+    const exercises = labelsOf(agent, 'exercise');
+    expect(exercisedIdsOf(exercises[2])).toEqual(['FS-1']);
+    const third = labelsOf(agent, 'judge')[2].prompt;
+    expect(third).toContain('"previousCauses":["a","b"]');
+    expect(third).toMatch(/starting from \["b"\] \(the open causes whose representative is not re-checked/);
+    expect(third).toMatch(/Cause "a" \(representative "FS-1"/);
+    expect(third).not.toMatch(/Cause "b" \(representative/);
+  });
+
+  describe('AC 6: resume.exercised (D18)', () => {
+    const resumeWith = (exercised) => ({ iteration: 1, criteria: [], gapsClosed: [0], exercised, outcome: null, causes: [{ key: 'ignored' }], extra: true });
+
+    it('drops a malformed value with a log line and starts the history empty', async () => {
+      for (const bad of ['nope', [{ iteration: 'x', ids: [] }], [{ iteration: 1, ids: [3] }], [{ iteration: 1, ids: [], confirmation: false }], [null]]) {
+        const { agent, logs } = await run([exitWith('exit-satisfied', [met('FS-1')], { gaps: [] })], {
+          args: { criteria: [criterion('FS-1')], cap: 3, resume: resumeWith(bad) },
+        });
+        expect(logs.join('\n')).toMatch(/resume\.exercised is not an array of .* dropping it; the exercised history starts empty/);
+        expect(labelsOf(agent, 'judge')[0].prompt).toMatch(/"exercised": \[\{"iteration":2,"ids":\["FS-1"\]\}\]/);
+      }
+    });
+
+    it('does not log for an absent value', async () => {
+      const { logs } = await run([exitWith('exit-satisfied', [met('FS-1')], { gaps: [] })], {
+        args: { criteria: [criterion('FS-1')], cap: 3, resume: { iteration: 1, criteria: [], gapsClosed: [0] } },
+      });
+      expect(logs.join('\n')).not.toMatch(/resume\.exercised/);
+    });
+
+    it('seeds a valid value, an entry carrying confirmation: true included, into the Judge literal and the synced state', async () => {
+      const seeded = [
+        { iteration: 1, ids: ['FS-1'] },
+        { iteration: 1, ids: ['FS-1'], confirmation: true },
+      ];
+      const { agent, logs } = await run([exitWith('exit-stuck', [bd('FS-1', 'Bad Key')])], {
+        args: { criteria: [criterion('FS-1')], cap: 3, resume: resumeWith(seeded) },
+      });
+      expect(logs.join('\n')).not.toMatch(/resume\.exercised/);
+      expect(labelsOf(agent, 'judge')[0].prompt).toContain(
+        '"exercised": [{"iteration":1,"ids":["FS-1"]},{"iteration":1,"ids":["FS-1"],"confirmation":true},{"iteration":2,"ids":["FS-1"]}]'
+      );
+      const sync = labelsOf(agent, 'state-sync');
+      expect(sync).toHaveLength(1);
+      const written = JSON.parse(sync[0].prompt.match(/exactly as given, to [^\n]*:\n(\{.*\})\n/)[1]);
+      expect(written.exercised).toEqual([...seeded, { iteration: 2, ids: ['FS-1'] }]);
+    });
+  });
+
+  it('FS-4 (resume): the first Exercise pass of a resumed invocation receives the whole open set, whatever cause state the snapshot carries', async () => {
+    const open = (id, causeKey) => ({ id, status: 'not_met', tier1: 'fail', artifact: null, reason: `r-${id}`, cause: 'build-defect', kind: 'build-defect', causeKey, files: [] });
+    const resume = {
+      iteration: 1,
+      criteria: [open('FS-1', 'cache-bug'), open('FS-2', 'cache-bug'), open('FS-3', 'auth-bug'), open('FS-4', 'auth-bug')],
+      gapsClosed: [0],
+      exercised: [{ iteration: 1, ids: ['FS-1', 'FS-2', 'FS-3', 'FS-4'] }],
+    };
+    const { agent } = await run([exitWith('exit-stuck', [bd('FS-1', 'cache-bug'), bd('FS-2', 'cache-bug'), bd('FS-3', 'auth-bug'), bd('FS-4', 'auth-bug')])], {
+      args: { ...four, resume },
+    });
+    const exercises = labelsOf(agent, 'exercise');
+    expect(labelsOf(agent, 'debug')).toHaveLength(0);
+    // A targeted set would be the representatives only (FS-1, FS-3); the first resumed pass walks all four.
+    expect(exercises.map(exercisedIdsOf)[0]).toEqual(['FS-1', 'FS-2', 'FS-3', 'FS-4']);
+  });
+
+  it('AC 7: the zero-criteria branch hands decide-next causes: [], previousCauses: null and awaitingRegression: []', async () => {
+    const { agent } = await run([exitWith('exit-satisfied', [], { gaps: [] })], { args: { criteria: [] } });
+    const prompt = labelsOf(agent, 'judge')[0].prompt;
+    expect(prompt).toContain('"causes":[],"previousCauses":null,"awaitingRegression":[]');
+    expect(prompt).toContain('six top-level keys');
+  });
+
+  it('AC 8: an id Debug reported unbuilt is ruled unbuilt and left out of the carried block; the rest are carried', async () => {
+    const { agent } = await run(
+      [
+        remediate([bd('FS-1', 'a'), bd('FS-2', 'b'), bd('FS-3', 'c')]),
+        exitWith('exit-unbuilt', [{ id: 'FS-2', status: 'unbuilt', tier1: null, artifact: null, reason: 'absent', cause: 'not-built', files: [] }], { unbuilt: ['FS-2'], gaps: ['FS-1', 'FS-3'] }),
+      ],
+      {
+        debug: { results: [{ cause: 'b', addressed: true, result: 'absent', unbuilt: true }], refresh: { ran: false, exitCode: null } },
+        args: { criteria: [criterion('FS-1'), criterion('FS-2'), criterion('FS-3')], cap: 4 },
+      }
+    );
+    expect(labelsOf(agent, 'exercise')).toHaveLength(1);
+    const second = labelsOf(agent, 'judge')[1].prompt;
+    expect(second).toMatch(/Rule each of them "unbuilt"/);
+    expect(carriedIn(second).map((e) => e.id)).toEqual(['FS-1', 'FS-3']);
+    expect(JSON.parse(second.match(/under judgement this iteration \(\d+ of \d+\):\n(\[.*\])/)[1]).map((c) => c.id)).toEqual(['FS-2']);
+  });
+
+  describe('Debug per cause (causes D7-D11)', () => {
+    const debugReturn = (results) => ({ results, refresh: { ran: true, exitCode: 0 } });
+    const hasCauses = [bd('FS-1', 'a', { files: ['./src/x.js', 'src/y.js'] }), bd('FS-2', 'a', { files: ['src/x.js', 'src/z.js'] }), bd('FS-3', 'b'), bd('FS-4', 'b')];
+    const stuck = exitWith('exit-stuck', [bd('FS-1', 'a'), bd('FS-3', 'b')]);
+
+    it('dispatches ONE app-debugger per remediate iteration with one gap per cause: representative, members, normalised union of files', async () => {
+      const { agent } = await run([remediate(hasCauses), stuck], { debug: debugOk(['FS-1', 'FS-3']), args: four });
+      const debugs = labelsOf(agent, 'debug');
+      expect(debugs).toHaveLength(1);
+      expect(debugs[0].opts.agentType).toBe('app-debugger');
+      const causes = causesIn(debugs[0].prompt);
+      expect(causes.map((c) => c.cause)).toEqual(['a', 'b']);
+      expect(causes[0].representative).toMatchObject({ id: 'FS-1', statement: 'statement for FS-1', reason: 'r-FS-1' });
+      expect(causes[0].members.map((m) => m.id)).toEqual(['FS-1', 'FS-2']);
+      expect(causes[0].members[1]).toMatchObject({ id: 'FS-2', reason: 'r-FS-2' });
+      // './src/x.js' and 'src/x.js' are one file
+      expect(causes[0].files).toEqual(['src/x.js', 'src/y.js', 'src/z.js']);
+    });
+
+    it('DEBUG_SCHEMA is per cause: cause, addressed and result required, preCheck optional, refresh still required', async () => {
+      const { agent } = await run([remediate(hasCauses), stuck], { debug: debugOk(['FS-1']), args: four });
+      const schema = labelsOf(agent, 'debug')[0].opts.schema;
+      expect(schema.required).toEqual(['results', 'refresh']);
+      expect(schema.properties.results.items.required).toEqual(['cause', 'addressed', 'result']);
+      expect(schema.properties.results.items.properties.preCheck.required).toEqual(['command', 'exitCode']);
+      expect(schema.properties.results.items.properties.criterion).toBeUndefined();
+    });
+
+    it('re-captures only the causes Debug addressed; an unaddressed or unlisted cause is left out and logged', async () => {
+      const { agent, logs } = await run([remediate(hasCauses), stuck], {
+        debug: debugReturn([{ cause: 'a', addressed: true, result: 'fixed' }, { cause: 'b', addressed: false, result: 'could not' }]),
+        args: four,
+      });
+      expect(labelsOf(agent, 'exercise').map(exercisedIdsOf)).toEqual([['FS-1', 'FS-2', 'FS-3', 'FS-4'], ['FS-1']]);
+      expect(logs.join('\n')).toMatch(/Debug did not address cause b/);
+
+      const missing = await run([remediate(hasCauses), stuck], { debug: debugReturn([{ cause: 'a', addressed: true, result: 'fixed' }]), args: four });
+      expect(labelsOf(missing.agent, 'exercise').map(exercisedIdsOf)[1]).toEqual(['FS-1']);
+      expect(missing.logs.join('\n')).toMatch(/Debug returned no entry for cause b -- not addressed/);
+    });
+
+    it('a pre-check that fails, or has no exit code, keeps its cause out of the next Exercise set; a passing one is a hint to that slice only', async () => {
+      const { agent } = await run([remediate(hasCauses), stuck], {
+        debug: debugReturn([
+          { cause: 'a', addressed: true, result: 'fixed', preCheck: { command: 'npx jest a.test.js', exitCode: 0 } },
+          { cause: 'b', addressed: true, result: 'fixed', preCheck: { command: 'npx jest b.test.js', exitCode: 1 } },
+        ]),
+        args: four,
+      });
+      const exercises = labelsOf(agent, 'exercise');
+      expect(exercisedIdsOf(exercises[1])).toEqual(['FS-1']);
+      expect(exercises[1].prompt).toMatch(/Debug ran the check shown and it passed/);
+      expect(exercises[1].prompt).toContain('npx jest a.test.js');
+      expect(exercises[1].prompt).not.toContain('b.test.js');
+      expect(exercises[0].prompt).not.toContain('a.test.js');
+      // the Judge never sees a pre-check, so one can never settle a criterion met
+      for (const j of labelsOf(agent, 'judge')) expect(j.prompt).not.toMatch(/a\.test\.js|b\.test\.js|pre-check/i);
+
+      const noCode = await run([remediate(hasCauses), stuck], {
+        debug: debugReturn([{ cause: 'a', addressed: true, result: 'fixed', preCheck: { command: 'npx jest a.test.js', exitCode: null } }]),
+        args: four,
+      });
+      expect(labelsOf(noCode.agent, 'exercise')).toHaveLength(1);
+      expect(noCode.logs.join('\n')).toMatch(/pre-check for cause a .* recorded no exit code/);
+    });
+
+    it('the hint does not outlive the iteration it was given in', async () => {
+      const once = (() => {
+        let n = 0;
+        return () => (++n === 1 ? debugReturn([{ cause: 'a', addressed: true, result: 'fixed', preCheck: { command: 'npx jest a.test.js', exitCode: 0 } }]) : undefined);
+      })();
+      const { agent } = await run([remediate(hasCauses), remediate(hasCauses), stuck], { debug: once, args: four });
+      const exercises = labelsOf(agent, 'exercise');
+      expect(exercises[1].prompt).toContain('npx jest a.test.js');
+      // the second Debug pass is dead: nothing addressed, so no third Exercise pass is dispatched
+      expect(exercises).toHaveLength(2);
+    });
+
+    it('a cause reported unbuilt puts all its members into forcedUnbuilt', async () => {
+      const { agent } = await run([remediate(hasCauses), exitWith('exit-unbuilt', [], { gaps: ['FS-3', 'FS-4'] })], {
+        debug: debugReturn([{ cause: 'a', addressed: false, result: 'absent', unbuilt: true }, { cause: 'b', addressed: true, result: 'fixed' }]),
+        args: four,
+      });
+      expect(labelsOf(agent, 'exercise')).toHaveLength(1);
+      expect(labelsOf(agent, 'judge')[1].prompt).toContain('["FS-1","FS-2"]');
+    });
+
+    it('debugAttempts records one line per cause', async () => {
+      const { result } = await run([remediate(hasCauses), stuck], {
+        debug: debugReturn([{ cause: 'a', addressed: true, result: 'fixed x' }, { cause: 'b', addressed: true, result: 'fixed y' }]),
+        args: four,
+      });
+      expect(result.debugAttempts[0].result).toBe('a: fixed x; b: fixed y');
+    });
+  });
+
+  describe('how a cause ends (causes D4, D14, D15)', () => {
+    const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => `FS-${from + i}`);
+    const defs = (n) => range(1, n).map((id) => criterion(id));
+    const recordsIn = (prompt) => JSON.parse(prompt.match(/before this ruling: (\[.*\])\. Apply the closure/)[1]);
+    const syncedState = (call) => JSON.parse(call.prompt.match(/exactly as given, to [^\n]*:\n(\{.*\})\n/)[1]);
+    const gate = { fullRunCommand: 'make e2e' };
+    const passRun = { command: 'make e2e', status: 'pass' };
+
+    it('AC 1: a 20-member cause is re-checked through its representative; when it is met the cause closes and 19 members await, outside every later inner-loop Exercise prompt', async () => {
+      const a = range(1, 20);
+      const { agent } = await run(
+        [
+          remediate([...a.map((id) => bd(id, 'a')), bd('FS-21', 'b'), bd('FS-22', 'b')]),
+          remediate([met('FS-1'), bd('FS-21', 'b')]),
+          exitWith('exit-stuck', [bd('FS-21', 'b')]),
+        ],
+        { debug: debugOk(['FS-1', 'FS-21']), args: { criteria: defs(22), cap: 5 } }
+      );
+      const exercises = labelsOf(agent, 'exercise');
+      expect(exercisedIdsOf(exercises[0])).toHaveLength(22);
+      expect(exercisedIdsOf(exercises[1])).toEqual(['FS-1', 'FS-21']);
+      expect(exercisedIdsOf(exercises[2])).toEqual(['FS-21']); // none of the 19 waiting members
+      // the second Debug pass is sent only the open cause
+      expect(causesIn(labelsOf(agent, 'debug')[1].prompt).map((c) => c.cause)).toEqual(['b']);
+      // the third Judge is handed the 19 as carried, awaiting; the cause is closed, with closedAt
+      const judge3 = labelsOf(agent, 'judge')[2].prompt;
+      const carried = carriedIn(judge3);
+      expect(carried.filter((c) => c.awaiting === 'regression').map((c) => c.id)).toEqual(range(2, 20));
+      expect(recordsIn(judge3).find((c) => c.key === 'a')).toMatchObject({ status: 'closed', closedAt: 2, representative: 'FS-1' });
+      // and they are checked once, at the exit, after the loop (D15)
+      expect(exercises).toHaveLength(4);
+      expect(exercisedIdsOf(exercises[3])).toEqual(range(2, 20));
+    });
+
+    it('AC 2: a representative ruled not_met under a new valid key closes its old cause and joins the new one', async () => {
+      const { agent, logs } = await run(
+        [
+          remediate([bd('FS-1', 'a'), bd('FS-2', 'a'), bd('FS-3', 'b')]),
+          remediate([bd('FS-1', 'c'), bd('FS-3', 'b')]),
+          exitWith('exit-unbuilt', [bd('FS-1', 'c')], { unbuilt: ['FS-1'] }),
+        ],
+        { debug: debugOk(['FS-1', 'FS-2', 'FS-3']), args: { criteria: defs(3), cap: 5 } }
+      );
+      const judge3 = labelsOf(agent, 'judge')[2].prompt;
+      const open = openCausesIn(judge3);
+      expect(open.find((c) => c.key === 'c')).toMatchObject({ representative: 'FS-1', members: ['FS-1'] });
+      expect(open.find((c) => c.key === 'a')).toBeUndefined();
+      expect(recordsIn(judge3).find((c) => c.key === 'a')).toMatchObject({ status: 'closed', closedAt: 2 });
+      expect(carriedIn(judge3).find((c) => c.id === 'FS-2')).toMatchObject({ awaiting: 'regression' });
+      expect(logs.join('\n')).toMatch(/FS-1 now fails under cause c, not a -- a closes and FS-1 joins c/);
+    });
+
+    it('AC 3: a representative with a missing or malformed key stays in its cause, which does not close, and a log line names it', async () => {
+      const { agent, logs } = await run(
+        [
+          remediate([bd('FS-1', 'a'), bd('FS-2', 'a')]),
+          remediate([bd('FS-1', 'Bad Key')]),
+          exitWith('exit-unbuilt', [bd('FS-1', 'a')], { unbuilt: ['FS-1'] }),
+        ],
+        { debug: debugOk(['FS-1', 'FS-2']), args: { criteria: defs(2), cap: 5 } }
+      );
+      const judge3 = labelsOf(agent, 'judge')[2].prompt;
+      expect(openCausesIn(judge3).find((c) => c.key === 'a')).toMatchObject({ representative: 'FS-1', members: ['FS-1', 'FS-2'] });
+      expect(carriedIn(judge3).some((c) => c.awaiting)).toBe(false);
+      expect(logs.join('\n')).toMatch(/FS-1 has the fallback key criterion:FS-1 .* it stays in cause a, which does not close/);
+      // the Judge-written file named the malformed key, so the script corrected it
+      expect(labelsOf(agent, 'state-sync').length).toBeGreaterThan(0);
+    });
+
+    it('AC 4: a representative ruled an evidence gap leaves its cause; the cause takes a new representative, exercised next iteration with no Debug pass', async () => {
+      const gap = { id: 'FS-1', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no artifact', cause: 'evidence-missing', files: [] };
+      const { agent } = await run(
+        [remediate([bd('FS-1', 'a'), bd('FS-2', 'a'), bd('FS-3', 'a')]), remediate([gap]), exitWith('exit-stuck', [bd('FS-2', 'a')])],
+        { debug: debugOk(['FS-1', 'FS-2', 'FS-3']), args: { criteria: defs(3), cap: 5 } }
+      );
+      expect(labelsOf(agent, 'debug')).toHaveLength(1); // the first iteration's only
+      const exercises = labelsOf(agent, 'exercise');
+      expect(exercisedIdsOf(exercises[1])).toEqual(['FS-1']);
+      // FS-1 (the re-capture) and FS-2 (a's new representative, by definition order)
+      expect(exercisedIdsOf(exercises[2])).toEqual(['FS-1', 'FS-2']);
+      expect(openCausesIn(labelsOf(agent, 'judge')[2].prompt).find((c) => c.key === 'a')).toMatchObject({ representative: 'FS-2', members: ['FS-2', 'FS-3'] });
+    });
+
+    it('re-captures an evidence gap the Judge ruled but left out of debugGaps, so a targeted iteration does not strand it', async () => {
+      const gap = { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no artifact', cause: 'evidence-missing', files: [] };
+      const { agent } = await run(
+        [remediate([bd('FS-1', 'a'), gap], { debugGaps: [gapOf(bd('FS-1', 'a'))] }), exitWith('exit-stuck', [bd('FS-1', 'a'), met('FS-2')])],
+        { debug: debugOk(['FS-1']), args: { criteria: defs(2), cap: 5 } }
+      );
+      expect(exercisedIdsOf(labelsOf(agent, 'exercise')[1])).toEqual(['FS-1', 'FS-2']);
+    });
+
+    describe('D14: the stall backstop', () => {
+      const stalled = (extra = {}) => exitWith('exit-stalled', [met('FS-1'), bd('FS-2', 'b')], { reason: 'no progress', finalRun: passRun, ...extra });
+      const two = { criteria: defs(2), ...gate };
+
+      it('turns exit-stalled into remediate below the cap, rewrites outcome to null, builds Debug gaps from the criteria entries and discards the stalled gate', async () => {
+        const { agent, result, logs } = await run(
+          [remediate([bd('FS-1', 'a'), bd('FS-2', 'b')]), stalled(), exitWith('exit-stuck', [bd('FS-2', 'b')], { finalRun: { command: 'make e2e', status: 'fail' } })],
+          { debug: debugOk(['FS-1', 'FS-2']), args: { ...two, cap: 3 } }
+        );
+        const sync = labelsOf(agent, 'state-sync');
+        expect(sync).toHaveLength(1);
+        expect(syncedState(sync[0]).outcome).toBeNull();
+        // one Debug pass for the open cause, from the Judge's criteria entry (the return has no debugGaps)
+        const debugs = labelsOf(agent, 'debug');
+        expect(debugs).toHaveLength(2);
+        expect(causesIn(debugs[1].prompt)).toEqual([
+          expect.objectContaining({ cause: 'b', representative: expect.objectContaining({ id: 'FS-2', reason: 'r-FS-2', files: ['src/FS-2.js'] }) }),
+        ]);
+        // the stalled exit's gate is gone: the final result carries the real exit's, and the real exit's Judge was told to run it
+        expect(result.outcome).toBe('stuck');
+        expect(result.finalRun).toEqual({ command: 'make e2e', status: 'fail' });
+        expect(labelsOf(agent, 'judge')[2].prompt).toContain('make e2e');
+        expect(logs.join('\n')).toMatch(/exit-stalled but cause\(s\) a closed .* becomes remediate/);
+        expect(logs.join('\n')).toMatch(/stalled exit's full-environment run is discarded/);
+      });
+
+      it('at the cap the replacement is exit-stuck, with the state file outcome and the report input rewritten', async () => {
+        const { agent, result } = await run([remediate([bd('FS-1', 'a'), bd('FS-2', 'b')]), stalled()], {
+          debug: debugOk(['FS-1', 'FS-2']),
+          args: { ...two, cap: 2 },
+        });
+        expect(result.outcome).toBe('stuck');
+        expect(result.reason).toBe('iteration cap (2) reached with 1 gap(s) still open');
+        expect(result.finalRun).toEqual(passRun); // still an exit: the gate that ran stands
+        const sync = labelsOf(agent, 'state-sync');
+        expect(sync).toHaveLength(1);
+        expect(syncedState(sync[0]).outcome).toBe('stuck');
+        expect(sync[0].prompt).toMatch(/top-level "outcome" to "stuck" and its top-level "reason" to "iteration cap \(2\) reached/);
+      });
+
+      it('leaves exit-stalled alone when no cause closed', async () => {
+        const { agent, result } = await run(
+          [remediate([bd('FS-1', 'a'), bd('FS-2', 'b')]), exitWith('exit-stalled', [bd('FS-1', 'a'), bd('FS-2', 'b')])],
+          { debug: debugOk(['FS-1', 'FS-2']), args: { ...two, cap: 3 } }
+        );
+        expect(result.outcome).toBe('stalled');
+        expect(labelsOf(agent, 'state-sync')).toHaveLength(0);
+      });
+    });
+
+    describe('D15: the confirmation pass', () => {
+      const four = { criteria: defs(4), cap: 5, ...gate };
+      const seeds = () => remediate([bd('FS-1', 'a'), bd('FS-2', 'a'), bd('FS-3', 'a'), bd('FS-4', 'b')]);
+      const exitSatisfied = () => exitWith('exit-satisfied', [met('FS-1'), met('FS-4')], { gaps: [], finalRun: passRun });
+      const confirmCalls = (agent) => {
+        const exercises = labelsOf(agent, 'exercise');
+        const judges = labelsOf(agent, 'judge');
+        return { exercise: exercises[exercises.length - 1], judge: judges[judges.length - 1] };
+      };
+
+      it('AC 6: one Exercise and one Judge over only the awaiting members, no Debug, cap = iteration, -confirm files, no gate; a member still failing makes a satisfied exit non-satisfied', async () => {
+        const { agent, result } = await run(
+          [seeds(), exitSatisfied(), exitWith('exit-stuck', [met('FS-2'), bd('FS-3', 'a')], { gaps: ['FS-3'] })],
+          { debug: debugOk(['FS-1', 'FS-4']), args: four }
+        );
+        expect(labelsOf(agent, 'exercise')).toHaveLength(3);
+        expect(labelsOf(agent, 'judge')).toHaveLength(3);
+        expect(labelsOf(agent, 'debug')).toHaveLength(1);
+        const { exercise, judge } = confirmCalls(agent);
+        expect(exercisedIdsOf(exercise)).toEqual(['FS-2', 'FS-3']);
+        expect(exercise.prompt).toMatch(/confirmation pass at the end of iteration 2/);
+        expect(judge.prompt).toMatch(/CONFIRMATION pass at the end of iteration 2/);
+        expect(judge.prompt).toContain('judge-claims-2-confirm.json');
+        expect(judge.prompt).toContain('judge-decide-2-confirm.json');
+        expect(judge.prompt).toContain('judge-report-input-2-confirm.json');
+        expect(judge.prompt).toContain('judge-state-2-confirm.json');
+        expect(judge.prompt).toMatch(/"cap":2,/);
+        expect(judge.prompt).toMatch(/"awaitingRegression":\[\]/);
+        // the exit's Judge ran the gate; neither confirmation prompt carries its command
+        expect(labelsOf(agent, 'judge')[1].prompt).toContain('make e2e');
+        expect(exercise.prompt).not.toContain('make e2e');
+        expect(judge.prompt).not.toContain('make e2e');
+        // a member still failing: not satisfied
+        expect(result.outcome).toBe('stuck');
+        expect(result.finalRun).toEqual(passRun); // the exit's gate result, carried
+        expect(result.criteria.find((c) => c.id === 'FS-3')).toMatchObject({ status: 'not_met' });
+        expect(result.criteria.find((c) => c.id === 'FS-2')).toMatchObject({ status: 'met' });
+      });
+
+      it('AC 7: an exit-stuck from the confirmation names the members still failing and the real cap, not the exit iteration', async () => {
+        const { result, agent } = await run(
+          [seeds(), exitSatisfied(), exitWith('exit-stuck', [met('FS-2'), bd('FS-3', 'a')], { gaps: ['FS-3'], reason: 'iteration cap (2) reached with 1 gap(s) still open' })],
+          { debug: debugOk(['FS-1', 'FS-4']), args: four }
+        );
+        expect(result.reason).toContain('FS-3');
+        expect(result.reason).toContain('of 5');
+        expect(result.reason).not.toMatch(/iteration cap \(2\)/);
+        // the Judge-written report input is brought in step, with the exercised history marking the pass
+        const sync = labelsOf(agent, 'state-sync');
+        expect(sync).toHaveLength(1);
+        expect(syncedState(sync[0]).exercised).toContainEqual({ iteration: 2, ids: ['FS-2', 'FS-3'], confirmation: true });
+        expect(sync[0].prompt).toMatch(/top-level "outcome" to "stuck" and its top-level "reason" to "[^"]*FS-3/);
+        // the confirmation Judge's own report input is the one patched and re-rendered, not the exit's
+        expect(sync[0].prompt).toContain('judge-report-input-2-confirm.json');
+        expect(sync[0].prompt).not.toContain('judge-report-input-2.json');
+      });
+
+      it('all members passing keeps the exit satisfied, with no state-sync and the awaiting markers gone', async () => {
+        const { result, agent } = await run(
+          [seeds(), exitSatisfied(), exitWith('exit-satisfied', [met('FS-2'), met('FS-3')], { gaps: [], finalRun: passRun })],
+          { debug: debugOk(['FS-1', 'FS-4']), args: four }
+        );
+        expect(result.outcome).toBe('satisfied');
+        expect(result.criteria.every((c) => c.status === 'met' && c.awaiting === undefined)).toBe(true);
+        expect(labelsOf(agent, 'state-sync')).toHaveLength(0);
+      });
+
+      it('AC 8: exit-unbuilt and exit-setup-failure dispatch no confirmation pass', async () => {
+        for (const action of ['exit-unbuilt', 'exit-setup-failure']) {
+          const { agent } = await run([seeds(), exitWith(action, [met('FS-1'), met('FS-4')], { gaps: ['FS-2'], unbuilt: action === 'exit-unbuilt' ? ['FS-2'] : [] })], {
+            debug: debugOk(['FS-1', 'FS-4']),
+            args: four,
+          });
+          expect(labelsOf(agent, 'exercise')).toHaveLength(2);
+          expect(labelsOf(agent, 'judge')).toHaveLength(2);
+        }
+      });
+
+      it('no member awaiting means no confirmation pass', async () => {
+        const { agent } = await run([exitWith('exit-satisfied', [met('FS-1'), met('FS-2')], { gaps: [] })], { args: { criteria: defs(2), cap: 3 } });
+        expect(labelsOf(agent, 'exercise')).toHaveLength(1);
+        expect(labelsOf(agent, 'judge')).toHaveLength(1);
+      });
+    });
+  });
+
+  it('AC 9: no state-sync agent runs on an iteration where the script corrected nothing; a replaced causeKey runs one', async () => {
+    const clean = await run([remediate([bd('FS-1', 'k'), bd('FS-2'), met('FS-3')]), exitWith('exit-satisfied', [met('FS-1'), met('FS-2')], { gaps: [] })], {
+      debug: debugOk(['FS-1', 'FS-2']),
+      args: { criteria: [criterion('FS-1'), criterion('FS-2'), criterion('FS-3')], cap: 3 },
+    });
+    expect(labelsOf(clean.agent, 'state-sync')).toHaveLength(0); // a missing key is the script's own default, not a correction
+
+    const replaced = await run([exitWith('exit-stuck', [bd('FS-1', 'UPPER'), bd('FS-2', 'fine')])], { args: { criteria: [criterion('FS-1'), criterion('FS-2')], cap: 3 } });
+    expect(labelsOf(replaced.agent, 'state-sync')).toHaveLength(1);
+  });
+
+  it('schemas: the Judge accepts causeKey and awaiting, and the state sync is dispatched with the sonnet pin', async () => {
+    const { agent } = await run([exitWith('exit-stuck', [bd('FS-1', 'UPPER')])], { args: { criteria: [criterion('FS-1')], cap: 3 } });
+    const judgeSchema = labelsOf(agent, 'judge')[0].opts.schema;
+    expect(judgeSchema.properties.criteria.items.properties.causeKey).toBeDefined();
+    expect(judgeSchema.properties.criteria.items.properties.awaiting.enum).toEqual(['regression', null]);
+    expect(unpinnedLabels(agent)).toEqual([]);
   });
 });
 

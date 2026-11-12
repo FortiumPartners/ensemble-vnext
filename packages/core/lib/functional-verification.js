@@ -314,6 +314,10 @@ function formatCoveragePercent(fraction) {
  *   mustPassUncovered: string[],// NEW (D10) — ids of must-pass objectives no criterion covers; required
  *   settledEvidenceGaps: string[], // NEW (triage D6) — ids settled as evidence gaps; removed from `gaps` and
  *                               //     `previousGaps` before closed/stall/cap; required, `[]` when none
+ *   causes: string[],           // NEW (causes D12) -- open cause keys after this ruling; required, `[]` when none
+ *   previousCauses: string[]|null, // NEW (causes D12) -- the cause keys open last iteration; null on the first
+ *   awaitingRegression: string[], // NEW (causes D12) -- ids of closed causes' other members; removed from
+ *                               //     `gaps` and `previousGaps` up front, like settledEvidenceGaps; required
  *   refreshFailed: boolean,     // NEW (preflight D16) — the last Debug pass's refresh ran and exited
  *                               //     non-zero, and no Setup check consumed that fact; required
  *   total?: number,             // NEW (D8) — the definition's whole criterion count
@@ -322,7 +326,7 @@ function formatCoveragePercent(fraction) {
  * }} input
  * @returns {{action: 'exit-satisfied'|'exit-unbuilt'|'exit-stalled'|'exit-stuck'|
  *   'exit-insufficient-coverage'|'exit-must-pass-unproven'|'exit-setup-failure'|'remediate',
- *   reason: string, closed: string[]}}
+ *   reason: string, closed: string[], closedCauses: string[]}}
  */
 function decideNext(input) {
   const { iteration, gaps, unbuilt, previousGaps: inputPreviousGaps, met, total } = input;
@@ -371,17 +375,37 @@ function decideNext(input) {
   if (!Array.isArray(settledEvidenceGaps)) {
     throw new TypeError('decideNext: input.settledEvidenceGaps is required and must be an array (an absent value would read as "no evidence gap is settled" and hold the run to the iteration cap — D6)');
   }
+  // Required, never defaulted (causes D12), checked after `settledEvidenceGaps` so callers that
+  // omit several fields still see the earlier field's message. An absent `causes` would read as
+  // "no cause is open"; an absent `awaitingRegression` would hold every closed cause's members
+  // open until the cap.
+  const { causes, previousCauses, awaitingRegression } = input;
+  if (!Array.isArray(causes)) {
+    throw new TypeError('decideNext: input.causes is required and must be an array (an absent value would read as "no cause is open" and hide a stalled cause — D12)');
+  }
+  if (previousCauses !== null && !Array.isArray(previousCauses)) {
+    throw new TypeError('decideNext: input.previousCauses is required and must be an array or null (an absent value would read as "no cause was open last iteration" and hide a closed cause — D12)');
+  }
+  if (!Array.isArray(awaitingRegression)) {
+    throw new TypeError('decideNext: input.awaitingRegression is required and must be an array (an absent value would hold every closed cause\'s members open until the iteration cap — D12)');
+  }
   const cap = input.cap ?? DEFAULT_CAP;
   const coverageFloor = input.coverageFloor ?? COVERAGE_FLOOR;
 
   // A settled evidence gap is neither a closure (it must not fake progress past the stall rule)
   // nor an open gap (it must not hold the run to the cap): drop it from both lists up front.
-  const openGaps = gaps.filter((id) => !settledEvidenceGaps.includes(id));
-  const previousGaps = inputPreviousGaps == null ? inputPreviousGaps : inputPreviousGaps.filter((id) => !settledEvidenceGaps.includes(id));
+  // A member awaiting the regression pass (causes D12) is treated the same way: it was not
+  // re-checked this iteration, so it is neither closed nor open.
+  const dropped = (id) => settledEvidenceGaps.includes(id) || awaitingRegression.includes(id);
+  const openGaps = gaps.filter((id) => !dropped(id));
+  const previousGaps = inputPreviousGaps == null ? inputPreviousGaps : inputPreviousGaps.filter((id) => !dropped(id));
 
   // `closed` is previousGaps \ openGaps — computed unconditionally so it is always accurate on
   // the returned object, regardless of which branch below fires.
   const closed = previousGaps == null ? [] : previousGaps.filter((id) => !openGaps.includes(id));
+  // Causes that were open last iteration and are not now (causes D12): a closed cause is progress
+  // even when no single criterion id left the gap set.
+  const closedCauses = previousCauses == null ? [] : previousCauses.filter((key) => !causes.includes(key));
 
   // Evaluation order is the specification (D14; preflight D16): unbuilt, satisfied, setup-failure,
   // stalled, stuck, remediate. Unbuilt wins even over a clean gap set,
@@ -395,12 +419,14 @@ function decideNext(input) {
       action: 'exit-unbuilt',
       reason: `${unbuilt.length} criterion/criteria absent (unbuilt), not misbehaving — loop stops rather than debugging missing code`,
       closed,
+      closedCauses,
     };
   } else if (openGaps.length === 0) {
     result = {
       action: 'exit-satisfied',
       reason: 'no gaps remain — every criterion is met, not verifiable here, or settled as an evidence gap',
       closed,
+      closedCauses,
     };
   } else if (refreshFailed) {
     // After the satisfied branch (no gap, nothing to blame) and before the stall branch: a gap
@@ -410,6 +436,7 @@ function decideNext(input) {
       action: 'exit-setup-failure',
       reason: "the last Debug pass's refresh failed, so this attempt measured a build without its fixes — the environment, not the code",
       closed,
+      closedCauses,
     };
   } else if (
     // `previousGaps.length > 0` is load-bearing, not defensive. An empty previousGaps is
@@ -418,24 +445,27 @@ function decideNext(input) {
     // and with no gap to close, "closed no gaps" is vacuously true. Without this clause a
     // resumed run exits `stalled` ("remediation is not converging") on its first iteration,
     // before the Debug stage has been dispatched even once.
-    previousGaps != null && previousGaps.length > 0 && closed.length === 0
+    previousGaps != null && previousGaps.length > 0 && closed.length === 0 && closedCauses.length === 0
   ) {
     result = {
       action: 'exit-stalled',
-      reason: 'iteration closed no gaps — remediation is not converging',
+      reason: 'iteration closed no gaps and no causes — remediation is not converging',
       closed,
+      closedCauses,
     };
   } else if (iteration >= cap) {
     result = {
       action: 'exit-stuck',
       reason: `iteration cap (${cap}) reached with ${openGaps.length} gap(s) still open`,
       closed,
+      closedCauses,
     };
   } else {
     result = {
       action: 'remediate',
       reason: `${openGaps.length} gap(s) open — dispatching debug stage`,
       closed,
+      closedCauses,
     };
   }
 
@@ -464,6 +494,7 @@ function decideNext(input) {
         `coverage floor ${formatCoveragePercent(coverageFloor)} — ${uncoveredCount} ` +
         `criterion/criteria uncovered; base cause: ${result.reason}`,
       closed,
+      closedCauses,
     };
   }
 
@@ -479,7 +510,7 @@ function decideNext(input) {
       mustPassUncovered.length > 0 ? `must-pass objectives with no criterion: ${mustPassUncovered.join(', ')}` : null,
     ].filter(Boolean).join('; ');
     if (result.action === 'exit-satisfied') {
-      result = { action: 'exit-must-pass-unproven', reason: `${named} — the core was not shown to work`, closed };
+      result = { action: 'exit-must-pass-unproven', reason: `${named} — the core was not shown to work`, closed, closedCauses };
     } else if (result.action === 'exit-insufficient-coverage') {
       result = { ...result, reason: `${result.reason}; ${named}` };
     }
@@ -1293,6 +1324,11 @@ function renderReport(input) {
   const isSettledGap = (c) => c.settled === 'definition-problem';
   const settledGaps = kindGate ? criteria.filter((c) => c.status === 'not_met' && isSettledGap(c)) : [];
 
+  // Cause rendering (causes D19) is gated on the input carrying `causes` or any `awaiting`, so an
+  // older input renders byte-identically.
+  const causeRows = Array.isArray(input.causes) ? input.causes : [];
+  const awaitingMark = (c) => (c.awaiting === 'regression' ? ' — awaiting the regression pass, not re-checked' : '');
+
   const lines = [];
   lines.push(`# Functional Verification Report: ${feature}`);
   lines.push('');
@@ -1549,11 +1585,28 @@ function renderReport(input) {
         .map((a) => `iter ${a.iteration}: ${a.result}`)
         .join('; ');
       lines.push(
-        `| ${c.id} | ${escapeCell(c.statement)} | ${kindGate ? `${kindWords(c)} | ` : ''}${escapeCell(c.tier1 ?? '')} | ${escapeCell(c.reason)} | ${escapeCell(c.blocker)} | ${escapeCell(attempts)} |`
+        `| ${c.id} | ${escapeCell(c.statement)} | ${kindGate ? `${kindWords(c)} | ` : ''}${escapeCell(c.tier1 ?? '')} | ${escapeCell(c.reason)}${awaitingMark(c)} | ${escapeCell(c.blocker)} | ${escapeCell(attempts)} |`
       );
     }
   }
   lines.push('');
+
+  if (causeRows.length > 0) {
+    lines.push('## Causes');
+    lines.push('');
+    lines.push('| Cause | Representative | Members | Status |');
+    lines.push('|-------|----------------|---------|--------|');
+    for (const k of causeRows) {
+      const members = Array.isArray(k.members) ? k.members : [];
+      const awaiting = criteria.filter((c) => c.awaiting === 'regression' && members.includes(c.id)).length;
+      let status = k.status === 'closed' ? `closed at iteration ${k.closedAt ?? '?'}` : 'open';
+      if (awaiting > 0) status += `, ${awaiting} member${awaiting === 1 ? '' : 's'} awaiting the regression pass`;
+      lines.push(
+        `| ${escapeCell(k.key)} | ${escapeCell(k.representative)} | ${members.length} (${escapeCell(members.join(', '))}) | ${status} |`
+      );
+    }
+    lines.push('');
+  }
 
   lines.push('## Not Verifiable');
   lines.push('');

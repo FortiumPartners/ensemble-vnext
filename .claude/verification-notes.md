@@ -883,7 +883,7 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   Reader: `node .claude/lib/spec-scope.js objectives --trd <trd>`.
 - [ran] No server is needed. `node .claude/lib/functional-verification.js` subcommands `decide-next`,
   `render-report` and `must-pass-coverage --trd <trd> --definition <def>` exercise every criterion;
-  `decide-next` requires `mustPass`, `mustPassUncovered` and `settledEvidenceGaps` arrays and `coverageFloor` as a fraction (0.6).
+  `decide-next` requires `mustPass`, `mustPassUncovered`, `settledEvidenceGaps`, `causes`, `previousCauses` (array or null) and `awaitingRegression` arrays and `coverageFloor` as a fraction (0.6).
 
 ## Exercising docs-audit-assemble skip logic (audit-docs-moved-trd-skip, 2026-10-06, iteration 1)
 
@@ -1347,7 +1347,7 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 ## Exercising triage-unmet-results-by-kind (2026-11-11, iteration 1)
 
 - [ran] Workflow-run criteria (routing by kind, re-capture, settle, resume digest, preclassified) are provable with no live session: a node script using `readScript`/`runWorkflow`/`makeAgentStub` from `packages/core/workflows/test-harness.js`. A stub Judge `remediate` result must carry `debugGaps` for each not_met gap: re-capture/retry routing is keyed to `debugGaps`, so a stub without them never settles an evidence gap (it looks like a missing feature but is a stub omission).
-- [ran] `decideNext` needs `refreshFailed`, `mustPass`, `mustPassUncovered` and `settledEvidenceGaps` all present (it throws on absence), so a lib call needs the full input shape.
+- [ran] `decideNext` needs `refreshFailed`, `mustPass`, `mustPassUncovered`, `settledEvidenceGaps`, `causes`, `previousCauses` and `awaitingRegression` all present (it throws on absence), so a lib call needs the full input shape.
 - [ran] `verification-digest` prints `{"digest":"<hex>"}` (not a bare hash) and hashes whitespace/CRLF-normalised content: a file `hello\n` gives the sha256 of `hello`, not of the raw bytes; an absent path prints `{"digest":""}`.
 - [ran] A design-structure criterion id is `ST-<board id>` (the board is `id` minus `ST-`); a payload with other ids is silently skipped by `preclassify`. The parts-board reason reads "parts board <id>: the structure check does not run".
 - [ran] Mirror check: `cmp packages/core/<p> .claude/<p>` is empty for the workflow, lib and verify-build/implement-trd/refine-verification commands.
@@ -1355,4 +1355,12 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 
 - [ran] `classOf`/`rank`/`openRanked` from `.claude/lib/followup-rank.js` are exercised with a plain `node` script; build fixture ledgers with `discovered.record(dir, {ref, summary, blocking:false, rankClass?})` (rows carry `blocksFeature:false`) and close one with `discovered.resolve(dir, row, "filed <stub url>")`, then run `node .claude/lib/followup-rank.js open --state-dir a --state-dir b`.
 - [inferred] A "file-followups run record" is played from contract steps 3-5 over `openRanked` output with a stub URL (see `.trd-state/rank-follow-ups-product-first/evidence/fs910.js`); no real filing happens.
+
+- [ran] Shared-cause targeting (targeted-inner-loop-by-shared-cause): the two full-file transcripts `npx jest packages/core/workflows/verify-functional.test.js --verbose` (255 pass) and `npx jest packages/core/lib/functional-verification.test.js --verbose` (438 pass) cover every criterion; no filtered -t run is needed.
+
+## Exercising targeted-inner-loop-by-shared-cause FS-25 (2026-11-12, iteration 1)
+
+- [ran] `SMOKE_PROJECT_DIR=<repo>/.trd-state/<feature>/evidence/live/work/slot-1 SMOKE_EVIDENCE_DIR=<evidence>/FS-25-live bash test/smoke/scenarios/verify-inner-loop-causes.sh` ran in about 5.5 minutes, 12 of 12 assertions passed; no folder-trust prompt step was needed for `claude --print` with bypassPermissions.
+- [ran] No jest test builds a resume snapshot "with and without" exercised/causes and compares; the nearest are the `AC 6: resume.exercised (D18)` tests in verify-functional.test.js, whose resume fixture carries `causes` and `extra` keys that the workflow ignores.
+- [ran] FS-25 re-capture (iteration 2): the compact-JSON locator missed because verification-state.json is pretty-printed; use a single-line literal such as `"closedAt": 2` or `"representative": "FS-1",`, or put a `jq -c` extraction in the artifact. The with/without resume comparison needs no new jest test: a scratch node script requiring `packages/core/workflows/test-harness` (`readScript`, `runWorkflow`, `makeAgentStub`) runs verify-functional.js with `resume` = {iteration,criteria,gapsClosed} vs. plus exercised/causes vs. the whole state file; all three gave identical dispatches and results (cap 6, 6 criteria).
 - [ran] stop-run-record-dumps-on-main (2026-11-11): `scaffold-project.sh --git-files .` and `--refresh --plugin-dir <abs packages/full> .` are provable in `mktemp -d` git repos in seconds (script `.trd-state/stop-run-record-dumps-on-main/evidence/fs1-5-run.sh`); the 313 untracked files of Ensemble's own repo are read from the `D` entries of `git show --name-status 234abbfc`, and all are still on disk.

@@ -239,7 +239,7 @@ sequenceDiagram
     J->>CLI: check-evidence with claims file and since
     CLI-->>J: tier1 pass, fail or skipped per claim
     J->>J: read passing and judge-only artifacts, rule status and cause
-    J->>CLI: decide-next with gaps, unbuilt, met, total, cap, floor
+    J->>CLI: decide-next with gaps, unbuilt, met, total, cap, floor, causes, previousCauses, awaitingRegression
     CLI-->>J: action and reason
     J->>DISK: save verification-state.json
     alt action is an exit
@@ -265,14 +265,14 @@ sequenceDiagram
 | # | Stage | Agent type | Kind | What it does | Where |
 |---|---|---|---|---|---|
 | 0 | Setup | untyped agent, Sonnet; at most two per iteration | code decides, model gathers | Before Exercise, for the setup targets that still hold an open criterion: gathers facts and runs `decide-setup`. May end the run as `setup-failure` (§7a). Skipped when `setupTargets` is empty or Exercise is skipped | `runSetupCheck()`; `decideSetup()` |
-| 1 | Exercise | `verify-app`, 1..k in parallel | model | Brings the system up **once** per slice, walks every criterion in it, writes one artifact each, returns a claim: artifact path + a **locator** (a literal string it saw inside the artifact), or `artifact: null` + a reason. **Capture only**: no edits, rebuilds or restarts. Updates `verification-notes.md` with marked lines | `buildExercisePrompt()`; contract "The exercise discipline" |
+| 1 | Exercise | `verify-app`, 1..k in parallel | model | Brings the system up **once** per slice, walks every criterion in its Exercise set (the whole open set until a Debug pass has run; after one, the representative of each cause that pass addressed, the representative of any cause awaiting confirmation, and the evidence gaps owed their one re-capture), writes one artifact each, returns a claim: artifact path + a **locator** (a literal string it saw inside the artifact), or `artifact: null` + a reason. **Capture only**: no edits, rebuilds or restarts. Updates `verification-notes.md` with marked lines | `buildExercisePrompt()`; contract "The exercise discipline" |
 | 2 | Reconcile | — | code | One claim per open criterion: a missing claim becomes `artifact: null`, "returned no claim"; claims for unknown ids are dropped; `judgeOnly` is stamped from the definition, never from the agent | `reconcileClaims()` |
 | 3 | Judge: tier 1 | untyped agent running the CLI | code | `check-evidence` before any content is read | `checkEvidence()` (§8 below) |
 | 4 | Judge: rule | untyped agent | model | For tier-1 passes and judge-only rows, reads the artifact and assigns a status and a cause; for check rows, applies the skill's Rubric, answers every owner comment, merges `verdicts.json` | `buildJudgePrompt()` STEP 2, 2a |
 | 5 | Judge: decide | CLI, run by the Judge | code | `decide-next` returns the action | `decideNext()` (§9 below) |
 | 6 | Judge: persist | untyped agent | model, fixed steps | State file through `implement-state.save()` (temp file + rename), always with an `outcome` key (null while remediating) | STEP 4 |
 | 7 | Judge: exit only | untyped agent | code + model | Runs `fullRunCommand` once (not on `exit-unbuilt`), then `render-report` | STEP 5 |
-| 8 | Debug | `app-debugger`, one | model | Fixes each `not_met` gap in place, then runs `refreshCommand` once so the next Exercise measures the new code. Does not re-verify its own fix. Reports an absent capability as `unbuilt` instead of building it; the next iteration then **skips Exercise** and the Judge carries those ids into `unbuilt`, which exits the loop (**code**: `skipExercise`, `forcedUnbuilt`) | `buildDebugPrompt()`; contract "The debugger's brief" |
+| 8 | Debug | `app-debugger`, one | model | Receives one gap per open cause (a set of `build-defect` criteria that share a root, keyed by the Judge's `causeKey`) and fixes each cause once, in place. Then runs `refreshCommand` once so the next Exercise measures the new code, and after the refresh runs any targeted pre-check it named (changing no code), reporting its command and exit code per cause. A failing pre-check keeps that cause's representative out of the next Exercise pass; a passing one is a hint to the exerciser, never a verdict. Does not re-verify its own fix. Reports an absent capability as `unbuilt` instead of building it; the next iteration then **skips Exercise** and the Judge carries those ids into `unbuilt`, which exits the loop (**code**: `skipExercise`, `forcedUnbuilt`) | `buildDebugPrompt()`; contract "The debugger's brief" |
 | 9 | Render | untyped agent, one per selected check | model | Rebuilds that check's page from the recorded verdicts, never re-judging. Runs beside Debug, and before return on exit; not at all when no check is selected | `buildRenderPrompt()`, `dispatchRender()` |
 
 ### 7a. The setup check: is the environment fit to measure?
@@ -303,6 +303,8 @@ survived because the fix never reached the running build.
 `decide-next`, and the workflow maps it to an outcome through a fixed table
 (`OUTCOME_BY_ACTION`). A Judge that dies ends the workflow with an error (`required()`); a dead
 exerciser or debugger is recorded and the loop continues.
+
+**Causes, and what is re-checked after a fix.** The Judge gives each `not_met` `build-defect` criterion a `causeKey`; criteria with the same key are one cause, with one representative (the first member that is not check-derived, else the first). Once Debug has run, the next Exercise pass walks only the representative of each addressed cause (plus any cause awaiting confirmation and the owed evidence-gap re-captures). A cause closes when its representative is `met`, or `not_met` under a valid different key. Its other members keep their last verdict and are marked `awaiting: "regression"`: they are not walked, judged or debugged inside the loop and are not gaps for `decideNext`. One confirmation pass at the end of the run re-checks them, and a member that still fails keeps the run from `satisfied`. The first iteration of every invocation, including a resume, walks the whole open set and regroups from scratch.
 
 **Settled criteria are not re-walked.** After each Judge return the workflow moves every `met`,
 `not_verifiable` and `unbuilt` verdict into a `settled` map; only `not_met` stays open. A later
@@ -378,9 +380,9 @@ next round, never built against.
 | Order | Condition | Action → outcome |
 |---|---|---|
 | 1 | any criterion `unbuilt` | `exit-unbuilt` → **unbuilt** (wins even over zero gaps) |
-| 2 | no `not_met` gaps (after removing `settledEvidenceGaps`, a required input) | `exit-satisfied` → **satisfied** |
+| 2 | no `not_met` gaps (after removing `settledEvidenceGaps` and `awaitingRegression`, both required inputs) | `exit-satisfied` → **satisfied** |
 | 3 | `refreshFailed`: the last Debug pass's refresh ran and exited non-zero | `exit-setup-failure` → **setup-failure** |
-| 4 | last iteration had gaps and this one closed none | `exit-stalled` → **stalled** |
+| 4 | last iteration had gaps and this one closed none, and closed no cause either (`closedCauses`, from the required `causes` and `previousCauses`) | `exit-stalled` → **stalled** |
 | 5 | `iteration >= cap` (default 3; `--cap N` on `/verify-build`) | `exit-stuck` → **stuck** |
 | 6 | otherwise | `remediate` → Debug, then another iteration |
 
@@ -451,9 +453,11 @@ without calling the workflow (`implement-trd.md` §8.1). Only the five short out
 | `## Evidence` | Same condition. One image per criterion whose proof is an image (png, jpg; a frame grab for video), under its id and statement; then "Images left out" with the reason. The Judge looks at each image before citing it, and one showing a credential is never cited |
 | `## Fix run` | Appended by the fix loop only (`renderFixSummary()`); each criterion still open carries its stop reason, `setup failure: <problem>` first |
 
-`verification-state.json` (Judge STEP 4) has exactly four keys: `iteration`, `criteria` (every
-criterion: `id`, `status`, `tier1`, `artifact`, `reason`, `cause`, `provenAt`), `gapsClosed`
-(an audit list; nothing reads it back), and **`outcome`** — `null` means "stopped mid-loop,
+`verification-state.json` (Judge STEP 4) has exactly six keys: `iteration`, `criteria` (every
+criterion: `id`, `status`, `tier1`, `artifact`, `reason`, `cause`, `provenAt`, plus `causeKey` and `awaiting` where they apply), `gapsClosed`
+(an audit list; nothing reads it back), `causes` (one record per cause: key, representative,
+members, `open` or `closed`, `closedAt`), `exercised` (per iteration, the ids that iteration
+exercised; an audit history that a resume reads leniently and the loop never steers by), and **`outcome`** — `null` means "stopped mid-loop,
 resumable", anything else means finished. `/implement-trd --verify --resume` and
 `/verify-build --resume` read only that key to decide whether to re-enter.
 
