@@ -3187,6 +3187,98 @@ describe('renderReport: the must-pass line and outcome (D13)', () => {
     expect(out).toContain('awaiting the regression pass, not re-checked');
   });
 
+  describe('the Regression pass section (one-full-regression-pass-at-the-end D14)', () => {
+    const record = {
+      rounds: [
+        {
+          round: 1, iteration: 3,
+          scope: [
+            { id: 'FS-1', reason: 'covers-changed', files: ['src/a.js'] },
+            { id: 'FS-2', reason: 'changes-unknown' },
+            { id: 'FS-3', reason: 'no-covers' },
+          ],
+          caught: ['FS-1'],
+          debug: { causes: ['k1'], filesChanged: ['src/b.js'] },
+        },
+        { round: 2, iteration: 3, scope: [{ id: 'FS-1', reason: 'sent-to-debug' }], caught: [] },
+      ],
+      notRewalked: ['FS-4'],
+      unclaimedChanges: ['docs/x.md'],
+      gateBeforeEdits: true,
+    };
+    const crits = () => [
+      crit('FS-1', 'not_met', { kind: 'build-defect', reason: 'broke' }),
+      crit('FS-2', 'met', { artifact: 'a', provenAt: 3, regression: 1 }),
+      crit('FS-3', 'met', { artifact: 'b', provenAt: 2 }),
+      crit('FS-4', 'not_met', { kind: 'evidence-gap', settled: 'regression-unchecked', reason: 'no capture' }),
+    ];
+
+    test('renders each round, the caught ids, the repair round, not-re-walked and unclaimed files', () => {
+      const out = renderReport(input({ outcome: 'stuck', criteria: crits(), regression: record }));
+      expect(out).toContain('## Regression pass');
+      expect(out).toContain('### Round 1 (iteration 3)');
+      expect(out).toContain('| FS-1 | covers-changed | src/a.js |');
+      expect(out).toContain('| FS-2 | changes-unknown |  |');
+      expect(out).toContain('Caught: FS-1');
+      expect(out).toContain('Repair round: causes k1; files changed: src/b.js');
+      expect(out).toContain('### Round 2 (iteration 3)');
+      expect(out).toContain('| FS-1 | sent-to-debug |  |');
+      expect(out).toContain('Not re-walked (covered files unchanged): FS-4');
+      expect(out).toContain('Changed files no criterion covers: docs/x.md');
+    });
+
+    test('gateBeforeEdits renders the D12 sentence, and only when true', () => {
+      const withGate = renderReport(input({ criteria: crits(), regression: record }));
+      expect(withGate).toContain('The full-environment gate ran before the repair round');
+      const without = renderReport(input({ criteria: crits(), regression: { ...record, gateBeforeEdits: false } }));
+      expect(without).not.toContain('full-environment gate ran before');
+    });
+
+    test('Proven at and Not Met rows carry the regression wording; others stay bare', () => {
+      const out = renderReport(input({ outcome: 'stuck', criteria: crits(), regression: record }));
+      expect(out).toContain('| FS-2 | s FS-2 | a | iteration 3 (regression pass 1) |');
+      expect(out).toContain('| FS-3 | s FS-3 | b | 2 |');
+      expect(out).toContain('broke — caught by the regression pass (was met earlier in the run)');
+    });
+
+    test('an input with no regression key renders byte-identically', () => {
+      const base = input({ outcome: 'stuck', criteria: crits() });
+      const plain = renderReport(base);
+      expect(plain).not.toContain('Regression pass');
+      expect(plain).not.toContain('caught by the regression pass');
+      expect(renderReport({ ...base, regression: undefined })).toBe(plain);
+      expect(renderReport({ ...base, regression: null })).toBe(plain);
+      expect(plain).toContain('| FS-2 | s FS-2 | a | 3 |');
+    });
+
+    test('a regression-unchecked entry is listed in the section, not under definition problems', () => {
+      const out = renderReport(input({ outcome: 'stuck', criteria: crits(), regression: record }));
+      expect(out).toContain('Captures the pass could not make');
+      expect(out).toContain('| FS-4 | s FS-4 | no capture |');
+      expect(out).not.toContain('## Evidence gaps (definition problems)');
+    });
+
+    test('tolerates malformed record fields and escapes cells', () => {
+      const out = renderReport(input({
+        regression: { rounds: [{ round: 1, iteration: 1, scope: 'x', caught: 7, debug: { causes: null, filesChanged: 'no' } }, null], notRewalked: 'a', unclaimedChanges: ['a|b'] },
+      }));
+      expect(out).toContain('## Regression pass');
+      expect(out).toContain('Repair round: causes _none_; files changed: unknown');
+      expect(out).toContain('a\\|b');
+      expect(() => renderReport(input({ regression: { rounds: 'x' } }))).not.toThrow();
+    });
+
+    test('the section sits before Evidence gaps and Evidence', () => {
+      const out = renderReport(input({
+        outcome: 'stuck', regression: record,
+        criteria: [crit('FS-1', 'not_met', { kind: 'evidence-gap', settled: 'definition-problem', reason: 'r' }), crit('FS-2', 'met', { image: 'i.png' })],
+      }));
+      const at = (h) => out.indexOf(h);
+      expect(at('## Regression pass')).toBeGreaterThan(-1);
+      expect(at('## Regression pass')).toBeLessThan(at('## Evidence gaps (definition problems)'));
+    });
+  });
+
   test('the new outcome renders its label, Diagnosis and the refine-verification Next line', () => {
     const out = renderReport(input({
       outcome: 'must-pass-unproven',

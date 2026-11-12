@@ -26,6 +26,8 @@
  *
  *   node .claude/lib/live-evidence.js record-criteria --state-dir D --trd T --definition P \
  *        [--state verification-state.json]    # prints {"recorded":[...],"none":[...]}
+ *   node .claude/lib/live-evidence.js derive-criteria --state-dir D --trd T --definition P
+ *                                          # prints {"<id>":[paths]} for every criterion that maps
  *
  * CRITERION COVERS (separate from the manifest above): for each criterion proven `met`, the repo
  * paths of the TRD tasks that serve it, so custody (`custody.js reconcile`) can re-prove only the
@@ -245,7 +247,8 @@ function backtickedExistingPaths(text, cwd) {
  * objective id anywhere in the row) and possibly task ids. Tasks whose `Serves` includes a named
  * objective, plus tasks named directly, contribute their grounding Touches; a task with no
  * Touches contributes the existing paths backticked in its Master Task List row (`source:
- * 'task-row'`). No task or no path means no entry. Throws when the TRD or the definition cannot
+ * 'task-row'`). No task or no path means no entry. `ids` null/undefined means every id in the
+ * definition's id column; an empty array means none. Throws when the TRD or the definition cannot
  * be read (the CLI turns that into exit 2), so a wrong path is never mistaken for "nothing maps".
  *
  * Requires `trd-parser`/`spec-scope`/`functional-verification` inside the function:
@@ -257,8 +260,9 @@ function deriveCriterionCovers({ trdPath, definitionPath, ids, cwd = process.cwd
   const { parseTrd, maskFencedLines, findTables } = require('./trd-parser');
   const { objectiveRows } = require('./spec-scope');
   const result = new Map();
-  const want = new Set(ids || []);
-  if (want.size === 0) return result;
+  // ids null/undefined = every row of the id column; [] = none.
+  const want = ids == null ? null : new Set(ids);
+  if (want && want.size === 0) return result;
 
   const trdText = fs.readFileSync(trdPath, 'utf8');
   const parsed = parseTrd(trdText);
@@ -278,7 +282,7 @@ function deriveCriterionCovers({ trdPath, definitionPath, ids, cwd = process.cwd
 
   for (const row of table.dataRows) {
     const id = String(row.cells[idCol] ?? '').replace(/\*\*|`/g, '').trim();
-    if (!want.has(id)) continue;
+    if (want && !want.has(id)) continue;
     const rowText = row.cells.join(' | ');
     const objs = named(rowText, objectiveIds);
     const taskIds = new Set(named(rowText, parsed.tasks.map((t) => t.id)));
@@ -361,6 +365,14 @@ function main(argv, out = process.stdout, err = process.stderr) {
       out.write(JSON.stringify({ recorded, none: met.filter((id) => !recorded.includes(id)) }) + '\n');
       return 0;
     }
+    if (sub === 'derive-criteria') {
+      if (!f.trd || !f.definition) throw new Error('derive-criteria needs --trd and --definition');
+      const derived = deriveCriterionCovers({ trdPath: f.trd, definitionPath: f.definition, ids: null });
+      const obj = {};
+      for (const [id, v] of derived) obj[id] = v.covers;
+      out.write(JSON.stringify(obj) + '\n');
+      return 0;
+    }
     if (sub === 'read') {
       const { entries, dropped } = readFresh(f['state-dir']);
       if (dropped > 0) err.write(`live-evidence: dropped ${dropped} stale entr${dropped === 1 ? 'y' : 'ies'} (covered files changed since capture)\n`);
@@ -378,7 +390,7 @@ function main(argv, out = process.stdout, err = process.stderr) {
       }
       return 0;
     }
-    throw new Error('usage: live-evidence.js record|read|record-criteria --state-dir D ...');
+    throw new Error('usage: live-evidence.js record|read|record-criteria|derive-criteria --state-dir D ...');
   } catch (e) {
     err.write(`live-evidence: ${e.message}\n`);
     return 2;

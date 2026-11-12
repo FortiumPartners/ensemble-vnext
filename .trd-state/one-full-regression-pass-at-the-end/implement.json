@@ -1,0 +1,159 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/one-full-regression-pass-at-the-end.md",
+  "trd_hash": "d7abf6da6efd8cb3bb6b99aae18e2c3896fd57a04788a4f5a3d8e7bd7d0bddf9",
+  "branch": "feature/30-one-full-regression-pass-at-the-end",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "REGR-B001": {
+      "description": "live-evidence.js: deriveCriterionCovers accepts ids: null meaning every id in the definition's id column; new CLI subcommand derive-criteria --state-dir D --trd T --definition P prints {id: [paths]} (",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/live-evidence.js",
+        "packages/core/lib/live-evidence.test.js",
+        ".claude/lib/live-evidence.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T10:26:30.735Z",
+      "completed_at": "2026-11-12T10:31:09.285Z",
+      "last_advanced": "2026-11-12T10:28:31.365Z"
+    },
+    "REGR-B002": {
+      "description": "functional-verification.js renderReport: the ## Regression pass section and the Proven at / Not Met row wording (D14), from the record in §3.2. Mirror.",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js",
+        ".claude/lib/functional-verification.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T10:26:30.736Z",
+      "completed_at": "2026-11-12T10:31:09.288Z",
+      "last_advanced": "2026-11-12T10:28:31.365Z"
+    },
+    "REGR-B003": {
+      "description": "custody.js: export coverMatcher (no behaviour change). custody.test.js: a reverified state written in the regression pass's shape (one id met at iteration 1 then caught, not_met with regression: 1; on",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/custody.js",
+        "packages/core/lib/custody.test.js",
+        ".claude/lib/custody.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T10:26:30.736Z",
+      "completed_at": "2026-11-12T10:31:09.288Z",
+      "last_advanced": "2026-11-12T10:28:31.365Z"
+    },
+    "REGR-B004": {
+      "description": "Inputs, scope and round 1. criterionCovers read and validated (D3); filesChanged in DEBUG_SCHEMA and buildDebugPrompt, and debugChanges recorded per in-loop Debug pass with the D2 normalisation; inlin",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "REGR-B005": {
+      "description": "Repair round, round 2, record. The D9 Debug round and round 2 (-regression-2 suffix, previousGaps = round 1's gaps, final action); the regression record (§3.2) with notRewalked, unclaimedChanges and g",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "REGR-B006": {
+      "description": "Commands: implement-trd.md §8.3 and verify-build.md §4 add criterionCovers after liveEvidence with its derive step (derive-criteria; {} for a sweep file; {} plus an ISSUES line on a non-zero exit) — 2",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "REGR-D001": {
+      "description": "Documentation (D16): the contract's \"awaiting\" and \"When a cause closes\" paragraphs describe the regression pass (scope reasons, fresh capture, one repair round) instead of the confirmation pass, keep",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "REGR-T001": {
+      "description": "Add test/smoke/scenarios/verify-regression-pass.sh (D17); register it in test/smoke/run-smoke.sh (LLM_OPT_IN_SCENARIOS and a SCENARIO_TIMEOUT entry) and test/smoke/README.md (table row and tree line).",
+      "phase": 4,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": "3fa237c8",
+    "last_checkpoint_timestamp": "2026-11-12T10:26:06.401Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/plan/one-full-regression-pass-at-the-end.investigation.md",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI installed; scaffold-project.sh present"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh installed; not needed by this feature"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}
