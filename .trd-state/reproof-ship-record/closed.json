@@ -1,0 +1,13 @@
+{
+  "feature": "reproof-ship-record",
+  "trd": "docs/TRD/reproof-ship-record.md",
+  "closedAt": "2026-11-12T01:47:52Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; a live re-proof inside a real /ship-build merge was never run (the gate's new call is proven only as contract text plus unit and seam tests)",
+    "report": ".trd-state/reproof-ship-record/audit-build-report.md",
+    "auditedCommit": "fecade03af475904070e342c7532227f4f08bd44",
+    "anchorCommit": null
+  }
+}

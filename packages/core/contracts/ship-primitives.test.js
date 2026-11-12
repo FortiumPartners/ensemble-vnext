@@ -159,6 +159,17 @@ describe('the custody gate (ship-custody-gate.md)', () => {
     expect(gateFlat.indexOf('--reverified', iVerify)).toBeGreaterThan(iVerify);
     expect(gateFlat).toMatch(/reverify\/verification-state\.json/);
   });
+  test('records the re-proof with reproof between the verify call and the --reverified reconcile', () => {
+    const iVerify = gateFlat.indexOf('/verify-build <work.trd> --criteria <ids> --no-fix --chained');
+    const iReproof = gateFlat.indexOf('ship-sequencer.js reproof');
+    const iRecon = gateFlat.indexOf('repeat the reconcile above with `--reverified');
+    expect(iReproof).toBeGreaterThan(iVerify);
+    expect(iRecon).toBeGreaterThan(iReproof);
+    for (const f of ['--custody', '--reverified', '--started-at', '--outcome']) {
+      expect(gateFlat.slice(iReproof, iRecon)).toContain(f);
+    }
+    expect(gateFlat).toMatch(/refused call \(`ok:false`\) is one readout line, never a stop/);
+  });
   test('names the merged re-proof file and the retried flag', () => {
     expect(gateFlat).toMatch(/holds the merged result after the re-proof's one retry/);
     expect(gateFlat).toMatch(/`retried: true` marks a criterion re-judged on the second try/);

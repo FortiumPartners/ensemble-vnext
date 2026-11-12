@@ -793,4 +793,4 @@ function main(argv) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { parseYaml, checkWorkflows, checkDir, main, DOCS_PROBE, RECORD_PROBE, matchesFilter };
+module.exports = { parseYaml, checkWorkflows, checkDir, main, DOCS_PROBE, RECORD_PROBE, matchesFilter, globToRegex };

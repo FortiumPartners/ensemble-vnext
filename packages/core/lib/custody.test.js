@@ -82,7 +82,37 @@ describe('classifyPath (D10)', () => {
     ['docs/TRD/f.md', 'ignored'],
     ['.claude/verification-notes.md', 'ignored'],
     ['.claude/other.md', 'shipped'],
-    ['docs/TRD/other.md', 'shipped'],
+    ['docs/TRD/other.md', 'docs'],
+    ['docs/guides/x.md', 'docs'],
+    ['doc/x.txt', 'docs'],
+    ['README.md', 'docs'],
+    ['pkg/CHANGELOG.md', 'docs'],
+    ['LICENSE', 'docs'],
+    ['sub/readme.rst', 'docs'],
+    ['README.tpl', 'shipped'],
+    ['packages/core/commands/x.md', 'shipped'],
+    ['notes.md', 'shipped'],
+    ['package.json', 'shipped'],
+    ['pyproject.toml', 'shipped'],
+    ['package-lock.json', 'deps'],
+    ['web/yarn.lock', 'deps'],
+    ['pnpm-lock.yaml', 'deps'],
+    ['Pipfile.lock', 'deps'],
+    ['go.sum', 'deps'],
+    ['Cargo.lock', 'deps'],
+    ['mix.lock', 'deps'],
+    ['app/packages.lock.json', 'deps'],
+    ['.github/workflows/ci.yml', 'ci-config'],
+    ['.github/actions/x/action.yml', 'ci-config'],
+    ['.gitlab-ci.yml', 'ci-config'],
+    ['azure-pipelines.yml', 'ci-config'],
+    ['bitbucket-pipelines.yml', 'ci-config'],
+    ['Jenkinsfile', 'ci-config'],
+    ['.circleci/config.yml', 'ci-config'],
+    ['.buildkite/pipeline.yml', 'ci-config'],
+    ['.github/CODEOWNERS', 'shipped'],
+    ['.github/workflows/x.test.js', 'test-only'],
+    ['OWNER-CALLS.md', 'ignored'],
     ['src/a.test.js', 'test-only'],
     ['src/a.test.sh', 'test-only'],
     ['src/a.spec.tsx', 'test-only'],
@@ -126,6 +156,47 @@ describe('reconcile: setting the anchor', () => {
     expect(r.action).toBe('moved');
   });
 
+  describe('audit.anchorCommit (post-fix head)', () => {
+    function history(anchorCommit) {
+      const s = setup();
+      const A = s.commit('audited', { 'src/a.js': 'a2' });
+      s.commit('fix run', { 'src/b.js': 'b2' });
+      const F = s.commit('fix run 2', { 'src/a.js': 'a3' });
+      const closed = { audit: { auditedCommit: A } };
+      if (anchorCommit !== undefined) closed.audit.anchorCommit = anchorCommit === 'F' ? F : anchorCommit;
+      fs.writeFileSync(path.join(s.stateDir, 'closed.json'), JSON.stringify(closed));
+      git(s.repo, 'add', '-A');
+      git(s.repo, 'commit', '-m', 'close');
+      return { s, A, F };
+    }
+
+    test('anchors at the post-fix head (audit-fixed); a second reconcile is none', () => {
+      const { s, F } = history('F');
+      expect(reconcile(s.args())).toMatchObject({ action: 'set', anchor: F });
+      expect(s.readCustody().anchor).toEqual({ commit: F, source: 'audit-fixed' });
+      expect(reconcile(s.args()).action).toBe('none');
+    });
+
+    test('a null anchorCommit falls back to the audited commit', () => {
+      const { s, A } = history(null);
+      const r = reconcile(s.args());
+      // The anchor starts at A (then moves, as today), so read where it began from the first move.
+      const c = s.readCustody();
+      expect(c.anchor.source).toBe('audited');
+      expect(c.moves.length).toBeGreaterThan(0);
+      expect(c.moves[0].from).toBe(A);
+      expect(['set', 'none']).not.toContain(r.action);
+    });
+
+    test('an anchorCommit that names no commit is refused, naming it', () => {
+      const { s } = history('deadbee');
+      const r = reconcile(s.args());
+      expect(r.action).toBe('refused');
+      expect(r.reason).toMatch(/audit anchor commit deadbee/);
+      expect(fs.existsSync(path.join(s.stateDir, 'custody.json'))).toBe(false);
+    });
+  });
+
   test('an ambiguous short id is refused with that reason and sets no anchor', () => {
     const s = setup();
     const tree = git(s.repo, 'rev-parse', 'HEAD^{tree}');
@@ -162,6 +233,7 @@ describe('reconcile: moving the anchor', () => {
 
   test.each([
     ['only under .trd-state/', { '.trd-state/f/audit-build-report.md': 'x' }],
+    ['only to the root OWNER-CALLS.md log', { 'OWNER-CALLS.md': 'call' }],
     ['only to the TRD', { [TRD]: TRD_TEXT + '\nmore' }],
     ['only to a test-only file', { 'src/a.test.js': 't', 'src/__tests__/h.js': 'h' }],
   ])('a change %s is equal: none, anchor stays', (_n, files) => {
@@ -250,15 +322,13 @@ describe('reconcile: moving the anchor', () => {
       expect(reconcile(s.args()).ids.sort()).toEqual(['FS-1', 'O2']);
     });
 
-    test('a manifest whose covered files did not change: no-affected-criteria', () => {
+    test('a manifest whose covered files did not change, but the changed file is claimed by no record: reverify (unclaimed-path guard)', () => {
       const s = withDefinition();
       expect(liveEvidence.record(s.stateDir, {
         task: 'T', artifact: path.join(s.stateDir, 'evidence', 'FS-1.txt'), covers: [path.join(s.repo, 'src/a.js')],
       })).toBe(true);
-      const head = s.commit('unrelated fix', { 'src/b.js': 'b2' });
-      const r = reconcile(s.args());
-      expect(r).toMatchObject({ action: 'moved', anchor: head });
-      expect(s.readCustody().moves[0]).toMatchObject({ rule: 'no-affected-criteria', reverified: [] });
+      s.commit('unrelated fix', { 'src/b.js': 'b2' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1'] });
     });
 
     test('a manifest whose covered file changed: reverify; --reverified met moves, not met is refused', () => {
@@ -296,6 +366,275 @@ describe('reconcile: moving the anchor', () => {
     git(s.repo, 'commit', '-m', 'state');
     expect(reconcile(s.args()).action).toBe('none');
     expect(s.readCustody().anchor.commit).toBe(before);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Change classes and ensemble.reproof (re-prove-only-what-a-change-can-affect)
+// ---------------------------------------------------------------------------
+
+describe('reconcile: change classes and ensemble.reproof', () => {
+  const TRD2 = TRD_TEXT.replace('| O1 | first | yes |', '| O1 | first | yes |\n| O2 | second | yes |');
+  const DEF2 = DEFINITION.replace(/\n$/, '\n| FS-2 | b | c | e | [read] | locator | | O2 |\n');
+
+  /**
+   * Anchored repo with A (FS-1) and B (FS-2), both met. `recA`/`recB` are the repo paths each criterion's
+   * covers record names (null: no record). `extra` files and `reproof` settings go into the commit
+   * before the anchor, so neither shows up as a difference afterwards.
+   */
+  const write = (s, rel, text) => s.write(rel, text);
+  function twoCriteria({ recA = ['src/a.js'], recB = null, reproof, settingsRaw, lateSettings, extra = {} } = {}) {
+    const s = setup();
+    const files = { 'src/b.js': 'b2', [TRD]: TRD2, ...extra };
+    if (reproof !== undefined) files['.claude/settings.json'] = JSON.stringify({ ensemble: { reproof } });
+    if (settingsRaw !== undefined) files['.claude/settings.json'] = settingsRaw;
+    s.commit('work', files);
+    reconcile(s.args());
+    fs.writeFileSync(path.join(s.stateDir, 'success-definition.md'), DEF2);
+    fs.writeFileSync(path.join(s.stateDir, 'verification-state.json'), JSON.stringify({
+      criteria: [{ id: 'FS-1', status: 'met', artifact: null }, { id: 'FS-2', status: 'met', artifact: null }],
+    }));
+    const map = new Map();
+    if (recA) map.set('FS-1', { covers: recA, source: 'touches' });
+    if (recB) map.set('FS-2', { covers: recB, source: 'touches' });
+    liveEvidence.recordCriterionCovers(s.stateDir, map);
+    // An invalid setting would stop the anchoring reconcile above, so a test of one writes it afterwards.
+    if (lateSettings !== undefined) write(s, '.claude/settings.json', lateSettings);
+    return s;
+  }
+
+  describe('defaults: docs, lockfile and CI config ask for no re-proof', () => {
+    test.each([
+      ['docs-only', { 'docs/guide.md': 'g' }, 'tier-none', /docs/],
+      ['README-only', { 'README.md': 'r2' }, 'tier-none', /docs/],
+      ['lockfile-only', { 'package-lock.json': '{}' }, 'tier-ci', /deps/],
+      ['workflow-only', { '.github/workflows/ci.yml': 'on: push' }, 'tier-ci', /ci-config/],
+    ])('%s since the anchor moves (rule %s), never reverify', (_n, files, rule, named) => {
+      const s = twoCriteria();
+      const before = s.readCustody().anchor.commit;
+      const head = s.commit('change', files);
+      const r = reconcile(s.args());
+      expect(r).toMatchObject({ action: 'moved', anchor: head });
+      expect(r.ids).toBeUndefined();
+      expect(r.reason).toMatch(named);
+      expect(s.readCustody().moves).toEqual([
+        expect.objectContaining({ from: before, to: head, rule, reverified: [] }),
+      ]);
+    });
+
+    test('docs plus a workflow is tier-ci, the reason naming both classes', () => {
+      const s = twoCriteria();
+      s.commit('change', { 'docs/g.md': 'g', '.github/workflows/ci.yml': 'x' });
+      const r = reconcile(s.args());
+      expect(r.action).toBe('moved');
+      expect(r.reason).toMatch(/docs, ci-config/);
+      expect(s.readCustody().moves[0].rule).toBe('tier-ci');
+    });
+
+    test('docs plus a test-only file moves (test-only paths join the partition)', () => {
+      const s = twoCriteria();
+      s.commit('change', { 'docs/g.md': 'g', 'src/a.test.js': 't' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'moved' });
+    });
+
+    test('a docs change beside a shipped one does not hide the shipped one', () => {
+      const s = twoCriteria({ recB: ['src/b.js'] });
+      s.commit('change', { 'docs/g.md': 'g', 'src/a.js': 'a3' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1'] });
+    });
+
+    test('with no success definition the old no-success-definition move still wins', () => {
+      const s = setup();
+      s.commit('work', { 'src/a.js': 'a2' });
+      reconcile(s.args());
+      s.commit('docs', { 'docs/g.md': 'g' });
+      reconcile(s.args());
+      expect(s.readCustody().moves[0].rule).toBe('no-success-definition');
+    });
+  });
+
+  describe('shipped changes re-prove by covers', () => {
+    test('a change to a file in A\'s record re-proves A only (B\'s record names another file)', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      s.commit('fix', { 'src/a.js': 'a3' });
+      const r = reconcile(s.args());
+      expect(r).toMatchObject({ action: 'reverify', ids: ['FS-1'], reused: ['FS-2'] });
+    });
+
+    test('a change to a file no record names re-proves A and B', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      s.commit('fix', { 'src/c.js': 'c' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+    });
+
+    test('shipped: all re-proves B when only A\'s file changed', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'], reproof: { shipped: 'all' } });
+      s.commit('fix', { 'src/a.js': 'a3' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+    });
+
+    test('a no-record criterion is still re-proved by any shipped change (fallback unchanged)', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: null });
+      s.commit('fix', { 'src/a.js': 'a3' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+    });
+
+    test.each([
+      ['a directory with a slash', ['src/']],
+      ['a directory without one', ['src']],
+      ['a glob', ['src/*.js']],
+      ['a brace list', ['src/{a,b}.js']],
+    ])('a record naming %s covers a changed file under it', (_n, recB) => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB });
+      s.commit('fix', { 'src/a.js': 'a3' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+    });
+
+    test('a record left from a run where the criterion was met is not used once it is no longer met', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      fs.writeFileSync(path.join(s.stateDir, 'verification-state.json'), JSON.stringify({
+        criteria: [{ id: 'FS-1', status: 'met', artifact: null }, { id: 'FS-2', status: 'not_met', artifact: null }],
+      }));
+      s.commit('fix', { 'src/a.js': 'a3' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+    });
+  });
+
+  describe('promotion', () => {
+    test('docs: reprove makes a docs-only change reverify every must-pass id', () => {
+      const s = twoCriteria({ reproof: { docs: 'reprove' } });
+      s.commit('docs', { 'docs/g.md': 'g' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+    });
+
+    test('testOnly: reprove makes a test-only change reverify every must-pass id', () => {
+      const s = twoCriteria({ reproof: { testOnly: 'reprove' } });
+      s.commit('tests', { 'src/a.test.js': 't' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+    });
+
+    test('ciConfig: reprove and deps: reprove promote their classes', () => {
+      const s = twoCriteria({ reproof: { ciConfig: 'reprove', deps: 'reprove' } });
+      s.commit('ci', { '.github/workflows/ci.yml': 'x' });
+      expect(reconcile(s.args()).action).toBe('reverify');
+      const t = twoCriteria({ reproof: { ciConfig: 'reprove', deps: 'reprove' } });
+      t.commit('lock', { 'yarn.lock': 'x' });
+      expect(reconcile(t.args()).action).toBe('reverify');
+    });
+
+    test('tier ci and none are both accepted values', () => {
+      const s = twoCriteria({ reproof: { docs: 'ci', deps: 'none' } });
+      s.commit('docs and lock', { 'docs/g.md': 'g', 'package-lock.json': '{}' });
+      const r = reconcile(s.args());
+      expect(r.action).toBe('moved');
+      expect(s.readCustody().moves[0].rule).toBe('tier-ci');
+    });
+
+    test('depsReprove: a listed package on a changed lockfile line reverifies; one not named does not', () => {
+      // As in a real lockfile, a bump changes the version and resolved lines, not the key line.
+      const lock = (pkgs) => JSON.stringify({ packages: Object.fromEntries(Object.entries(pkgs).map(([k, v]) => [k, { ...v, resolved: `https://registry.npmjs.org/${k.split('/')[1]}/-/${k.split('/')[1]}-${v.version}.tgz` }])) }, null, 1);
+      const reproof = { depsReprove: ['left-pad'] };
+      const hit = twoCriteria({ reproof, extra: { 'package-lock.json': lock({ 'node_modules/left-pad': { version: '1.0.0' } }) } });
+      hit.commit('bump', { 'package-lock.json': lock({ 'node_modules/left-pad': { version: '1.3.0' } }) });
+      expect(reconcile(hit.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+
+      const miss = twoCriteria({ reproof, extra: { 'package-lock.json': lock({ 'node_modules/left-pad': { version: '1.0.0' }, 'node_modules/other': { version: '1.0.0' } }) } });
+      miss.commit('bump', { 'package-lock.json': lock({ 'node_modules/left-pad': { version: '1.0.0' }, 'node_modules/other': { version: '2.0.0' } }) });
+      expect(reconcile(miss.args())).toMatchObject({ action: 'moved' });
+      expect(miss.readCustody().moves[0].rule).toBe('tier-ci');
+    });
+
+    test('depsReprove matches whole words only', () => {
+      const s = twoCriteria({ reproof: { depsReprove: ['pad'] }, extra: { 'package-lock.json': '"left-pad": "1.0.0"\n' } });
+      s.commit('bump', { 'package-lock.json': '"left-pad": "1.3.0"\n' });
+      expect(reconcile(s.args()).action).toBe('moved');
+    });
+
+    test.each([
+      ['Cargo.lock (name on the stanza line above)', 'Cargo.lock',
+        (v) => `[[package]]\nname = "serde"\nversion = "${v}"\nchecksum = "c${v}"\n\n[[package]]\nname = "other"\nversion = "1.0.0"\n`],
+      ['Pipfile.lock (name on the enclosing key)', 'Pipfile.lock',
+        (v) => `{\n    "default": {\n        "serde": {\n            "hashes": [\n                "sha256:h${v}"\n            ],\n            "version": "==${v}"\n        }\n    }\n}\n`],
+    ])('depsReprove: a bump in %s that changes only version lines still reverifies', (_n, file, lock) => {
+      const s = twoCriteria({ reproof: { depsReprove: ['serde'] }, extra: { [file]: lock('1.0.0') } });
+      s.commit('bump', { [file]: lock('1.0.1') });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+    });
+
+    test('depsReprove: a bump of another package in a Cargo.lock does not reverify', () => {
+      const lock = (v) => `[[package]]\nname = "serde"\nversion = "1.0.0"\n\n[[package]]\nname = "other"\nversion = "${v}"\n`;
+      const s = twoCriteria({ reproof: { depsReprove: ['serde'] }, extra: { 'Cargo.lock': lock('1.0.0') } });
+      s.commit('bump', { 'Cargo.lock': lock('2.0.0') });
+      expect(reconcile(s.args()).action).toBe('moved');
+    });
+
+    test('a test-only change at reprove is not waved through by the formatter shortcut', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'], reproof: { testOnly: 'reprove' } });
+      s.commit('tests', { 'src/a.test.js': 't' });
+      s.commit('prettier', { 'src/a.js': 'a2 ' });
+      expect(reconcile(s.args({ reason: 'format' }))).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+    });
+
+    test('format: reprove disables the formatter shortcut; the default honours it', () => {
+      const ok = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      ok.commit('prettier', { 'src/a.js': 'a2 ' });
+      expect(reconcile(ok.args({ reason: 'format' }))).toMatchObject({ action: 'moved', reason: 'moved: formatter commit' });
+
+      const off = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'], reproof: { format: 'reprove' } });
+      off.commit('prettier', { 'src/a.js': 'a2 ' });
+      expect(reconcile(off.args({ reason: 'format' }))).toMatchObject({ action: 'reverify', ids: ['FS-1'] });
+    });
+  });
+
+  describe('reading the setting', () => {
+    test.each([
+      ['docs: "skip"', { docs: 'skip' }, /ensemble\.reproof\.docs must be one of none, ci, reprove \(got "skip"\)/],
+      ['testOnly: 3', { testOnly: 3 }, /ensemble\.reproof\.testOnly/],
+      ['deps: "x"', { deps: 'x' }, /ensemble\.reproof\.deps/],
+      ['ciConfig: "x"', { ciConfig: 'x' }, /ensemble\.reproof\.ciConfig/],
+      ['format: "ci"', { format: 'ci' }, /ensemble\.reproof\.format must be one of none, reprove/],
+      ['shipped: "some"', { shipped: 'some' }, /ensemble\.reproof\.shipped must be one of covers, all/],
+      ['depsReprove: "x"', { depsReprove: 'x' }, /ensemble\.reproof\.depsReprove/],
+      ['depsReprove: [""]', { depsReprove: [''] }, /ensemble\.reproof\.depsReprove/],
+      ['depsReprove: [1]', { depsReprove: [1] }, /ensemble\.reproof\.depsReprove/],
+    ])('%s is refused naming the setting, and the anchor does not move', (_n, reproof, reason) => {
+      const s = twoCriteria({ lateSettings: JSON.stringify({ ensemble: { reproof } }) });
+      const before = s.readCustody().anchor.commit;
+      s.commit('docs', { 'docs/g.md': 'g' });
+      const r = reconcile(s.args());
+      expect(r.action).toBe('refused');
+      expect(r.reason).toMatch(reason);
+      expect(s.readCustody().anchor.commit).toBe(before);
+    });
+
+    test('ensemble.reproof that is not an object is refused', () => {
+      const s = twoCriteria({ lateSettings: JSON.stringify({ ensemble: { reproof: 'docs' } }) });
+      s.commit('docs', { 'docs/g.md': 'g' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'refused', reason: expect.stringMatching(/ensemble\.reproof/) });
+    });
+
+    test('unparseable .claude/settings.json is refused naming ensemble.reproof', () => {
+      const s = twoCriteria({ lateSettings: '{ nope' });
+      s.commit('docs', { 'docs/g.md': 'g' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'refused', reason: expect.stringMatching(/ensemble\.reproof.*JSON/) });
+    });
+
+    test('an unknown key is ignored, and an absent file or key means defaults', () => {
+      const s = twoCriteria({ reproof: { docs: 'none', somethingElse: 'x' } });
+      s.commit('docs', { 'docs/g.md': 'g' });
+      expect(reconcile(s.args()).action).toBe('moved');
+    });
+
+    test('--set-only succeeds with an invalid setting (it compares nothing)', () => {
+      const s = setup();
+      s.commit('work', { '.claude/settings.json': JSON.stringify({ ensemble: { reproof: { docs: 'skip' } } }) });
+      expect(reconcile(s.args({ setOnly: true })).action).toBe('set');
+    });
+
+    test('check reads no setting: an invalid one does not stop a link check', () => {
+      const s = twoCriteria({ lateSettings: JSON.stringify({ ensemble: { reproof: { docs: 'skip' } } }) });
+      expect(check(s.args({ link: 'bogus' })).reason).toBe('unknown link bogus');
+    });
   });
 });
 
@@ -461,6 +800,15 @@ describe('check: merge link (stub gh)', () => {
     const { s, head } = anchoredAt();
     pr('MERGED', 'main', head);
     expect(check(s.args({ link: 'merge', pr: 7, target: 'main' }))).toMatchObject({ ok: true, observed: head });
+  });
+
+  test('fails on a docs-only difference from the anchor (tiers do not weaken the link)', () => {
+    const { s } = anchoredAt();
+    const head = s.commit('docs', { 'docs/g.md': 'g' });
+    pr('MERGED', 'main', head);
+    const r = check(s.args({ link: 'merge', pr: 7, target: 'main' }));
+    expect(r.ok).toBe(false);
+    expect(r.differing).toEqual(['docs/g.md']);
   });
 
   test('fails for an open PR, naming that', () => {
@@ -745,6 +1093,22 @@ describe('reconcile: base, head and set-only', () => {
     mergeBase(s);
     const r = reconcile(s.args({ base: 'origin/main' }));
     expect(r).toMatchObject({ action: 'reverify', ids: ['FS-1'], differing: ['src/b.js'] });
+  });
+
+  test('a promoted lockfile that came in from the base (excused) still reverifies', () => {
+    const s = setup();
+    // The setting is committed before the anchor, so it is not itself a difference.
+    s.commit('work', { 'src/b.js': 'b2', '.claude/settings.json': JSON.stringify({ ensemble: { reproof: { deps: 'reprove' } } }) });
+    reconcile(s.args());
+    withDefinition(s, null);
+    landOnBase(s, { 'yarn.lock': 'x' });
+    const merged = mergeBase(s);
+    const before = s.readCustody().anchor.commit;
+    const r = reconcile(s.args({ base: 'origin/main' }));
+    expect(r.excused).toContain('yarn.lock');
+    expect(r).toMatchObject({ action: 'reverify', ids: ['FS-1'] });
+    expect(s.readCustody().anchor.commit).toBe(before);
+    expect(merged).not.toBe(before);
   });
 
   test('mergeBases reports the old and new merge bases as full shas, only when --base is given', () => {

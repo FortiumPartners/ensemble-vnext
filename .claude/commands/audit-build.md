@@ -288,6 +288,9 @@ backstop for such a wake-up scheduled anyway whose round was already recorded. O
 It matches on the run id alone, never the commit: a new audit at an unchanged commit is not stale.
 When it prints `{"stale":true}`, print one line (this audit run already recorded its round) and stop:
 no workflow, no report, no banner.
+A completion notification from this run's own chained work — the fix run's workflows and agents,
+or its end-of-run review — is not a wake-up: it continues this run where it was waiting, and this
+check does not apply to it.
 
 **1. Count.** Tally the whole `handoff` in one call:
 `node .claude/lib/audit-rounds.js tally '{"handoff":<the workflow's handoff array>,"deferred":[<the deferred ids>],"index":<the workflow's returned index>}'` returns
@@ -318,11 +321,24 @@ They are reported for design, and the feature stays open.
 **4. Close, or re-audit.**
 - `close` true: after the chained run's RETURN line, perform `/close-feature`'s "The close step"
   (`.claude/commands/close-feature.md`) with `"closedBy": "audit"`, `"note": null` and
-  `"audit": { "verdict": "<the VERDICT line>", "report": ".trd-state/<feature>/audit-build-report.md", "auditedCommit": "<the header's value>" }`,
-  except that its commit is folded into the one below. Then commit, publish and open the PR as
+  `"audit": { "verdict": "<the VERDICT line>", "report": ".trd-state/<feature>/audit-build-report.md", "auditedCommit": "<the header's value>", "anchorCommit": <below> }`
+  (`anchorCommit` goes inside `audit`, never at the top level: `custody.js` reads only
+  `audit.anchorCommit`), except that its commit is folded into the one below. Then commit, publish and open the PR as
   below, and print the run's single banner. Add every caveat `decide` returned, and anything
   the fix run did not finish, to the readout. A feature that is already closed (a re-audit)
   gets its `closed.json` rewritten with this run's audit fields.
+  `anchorCommit` is the commit a later `/ship-build` starts its custody check from, so work this
+  audit's own fix run committed is not re-proved. Set it to the full output of `git rev-parse HEAD`
+  only when this round chained a fix run in step 3, its `[STATUS: /implement-trd] RETURN →` line
+  is not `RETURN → STUCK`, and `decide` returned `close` true. Take the head only once the fix run
+  is completely done: wait for its end-of-run review result (`implement-trd.md` §7.2) and for the
+  `fix(<feature>): end-of-run review edits` commit it makes, because under `--chained` that review
+  can still be running after the RETURN line. If the review's `[review-pending]` row for this fix
+  run is still unresolved when the close is written, write `null`. Waiting may span turns:
+  the review's completion re-invokes this session, and that re-entry continues this run (step 0's
+  stale-wake check does not apply to it). In every other close (no fix run
+  chained, a STUCK return) write `"anchorCommit": null`. `auditedCommit` stays the report header's
+  value either way.
 - `reaudit` true: the feature stays open and NEXT is `/audit-build` (the next round passes
   `previous` and `trdHash`, below). Commit the report; no close record, no PR.
 - `capReached` true: **the feature stays open. It never closes with a caveat while a defect is

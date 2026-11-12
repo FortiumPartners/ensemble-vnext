@@ -310,8 +310,9 @@ action runs a project slash command from the vendored `.claude/` directory on a 
 ## Custody: ship what was verified
 
 The principle: the code that ships is the code that was verified. `custody.js` keeps one anchor
-commit in `<state-dir>/custody.json`: the audited commit from `closed.json` when there is one,
-otherwise `HEAD` at the first push.
+commit in `<state-dir>/custody.json`: the head after `/audit-build`'s own fix run
+(`closed.json` `audit.anchorCommit`) when there is one, else the audited commit
+(`audit.auditedCommit`), otherwise `HEAD` at the first push.
 
 **Code equality** between two commits is `git diff --no-renames --name-only`, with every
 changed path classed as ignored (`.trd-state/` and the work's TRD), test-only, or shipped. The
@@ -326,11 +327,39 @@ excused, not counted as shipped changes.
 
 | Shipped source since the anchor | Outcome |
 |---|---|
-| no anchor yet | the anchor is recorded (audited commit, or `HEAD`); `set` when `HEAD` equals it, otherwise the rows below apply |
+| no anchor yet | the anchor is recorded (post-fix head, else audited commit, else `HEAD`); `set` when `HEAD` equals it, otherwise the rows below apply |
 | unchanged (or changed only by files that came from the base) | `none`: the anchor stays |
 | changed by the formatter commit (`--reason format`) | `moved`, with no re-verification |
 | changed, and no success definition or no must-pass criterion is affected | `moved` |
 | changed, and a must-pass criterion is affected | `reverify`: the gate runs `/verify-build --criteria <ids> --no-fix --chained` on the pushed head, then `moved` if all are met (criteria whose files did not change are `reused`); if not, the run stops |
+
+### What a change re-proves: `ensemble.reproof`
+
+Each changed path is classed `ignored` (record files, `OWNER-CALLS.md`, the work's TRD), `test-only`,
+`ci-config` (workflows and other CI definitions), `deps` (lockfiles only; `package.json` and other
+manifests stay shipped), `docs` (`docs/`, README/CHANGELOG-style files) or `shipped`. The pr-head,
+merge and deploy links still fail on any non-ignored, non-test difference: the tiers decide only what
+`reconcile` re-proves. Set them in `.claude/settings.json`; an absent key means its default, and
+`/rebase-project` never writes the key, so your value survives a refresh.
+
+| Key | Allowed | Default | Meaning |
+|---|---|---|---|
+| `docs` | `none` / `ci` / `reprove` | `none` | a docs-only change re-proves nothing |
+| `testOnly` | same | `ci` | left to CI |
+| `ciConfig` | same | `ci` | left to CI |
+| `deps` | same | `ci` | left to CI, unless `depsReprove` names a package |
+| `depsReprove` | array of package names | `[]` | a lockfile whose diff changes a line in an entry naming one of these (whole word) is re-proved |
+| `format` | `none` / `reprove` | `none` | `reprove` stops the formatter-commit shortcut (`--reason format`) |
+| `shipped` | `covers` / `all` | `covers` | `covers`: re-prove only criteria whose recorded files changed; `all`: every must-pass criterion |
+
+When every changed path is non-shipped at `none` or `ci`, the anchor moves with no re-proof: rule
+`tier-none` (all at `none`) or `tier-ci` (any at `ci`), and the reason names the classes. A path at
+`reprove` puts every must-pass criterion in doubt, and a base-branch excuse does not soften it. A
+changed shipped path that no criterion's record names also puts every must-pass criterion in doubt.
+The per-criterion file lists come from `record-criteria`, run by `/implement-trd` and `/verify-build`
+after a verification run; they live in `<state-dir>/evidence/criterion-covers.json`. A value outside
+the allowed set, or `settings.json` that is not valid JSON, makes `reconcile` return `refused` naming
+the setting.
 
 The gate commits and pushes nothing before the act it guards: the re-anchor in `custody.json`
 stays uncommitted, so the PR head stays the one CI checked and `--match-head-commit` matches.
@@ -347,3 +376,40 @@ later reconcile or check reads and writes that copy (`ship-sequencer.js status` 
   anchor. The readout reports the commit released from this work.
 
 Nothing is fixed automatically: a failed link is reported and the run stops.
+
+### Re-proof record
+
+Each time the custody gate re-proves criteria (the `reverify` row above), the run keeps a trace in
+the `reproof` block of `shipped.json`, so Forge can read what was re-proved and how it went. A new
+record starts with `reproof: { count: 0, runs: [] }`. The custody gate writes one entry per
+re-proof through `ship-sequencer.js reproof --state-dir <d> --custody '<the reconcile line that
+returned reverify>' --reverified <path> --started-at <ISO time taken before /verify-build>
+[--outcome <word>]`; never write the block by hand. A call is refused, leaving the record
+unchanged, when there is no record, the run is done, the custody value is not JSON or lacks
+`action` or an `ids` list, or `--started-at` is not a time. The block is reporting, not proof.
+
+After a merge the record, and so this block, lives in the detached file under the git directory
+that `ship-sequencer.js status` reports as `recordPath`; read it there, not in the tracked state
+directory.
+
+| Field | Meaning |
+|---|---|
+| `reproof` | The block itself, holding `count` and `runs`. |
+| `count` | Number of re-proofs recorded so far; always the length of `runs`. |
+| `runs` | One entry per re-proof, oldest first. |
+| `step` | Id of the ship step handed out when the gate ran, so the entry names the act the gate was guarding. `null` when no step was handed out. |
+| `primitive` | The primitive of that step (for example `merge` or `release`). `null` when no step was handed out. |
+| `pass` | The pass number (of a `repeat`) the step was on. `null` when no step was handed out. |
+| `criteria` | The success-definition criterion ids re-proved: the `ids` of the custody line, exactly what was passed to `/verify-build --criteria`. |
+| `met` | The criteria, among `criteria`, that the re-verification file marks `met`. Empty when that file is missing, unreadable, or older than `startedAt` (a leftover from an earlier re-proof). |
+| `id` | Inside a `met` item: the criterion id. |
+| `retried` | Inside a `met` item: true when the verification re-judged that criterion after a first failed attempt. |
+| `outcome` | The verification outcome: `--outcome` when given, else the outcome in the re-verification file, else `null`. |
+| `custody` | What the gate saw when it asked for the re-proof. |
+| `action` | Inside `custody`: the gate's action, always `reverify` here. |
+| `classes` | Inside `custody`: the distinct classes of the differing paths (today `shipped`), plus `base` when `excused` is non-empty. So `["shipped"]`, `["base"]` or both. |
+| `differing` | Inside `custody`: the shipped paths that differ from the anchor. |
+| `excused` | Inside `custody`: paths that differ only because they came from the base, so were not counted. Empty when none. |
+| `startedAt` | When the re-proof began, the time taken before `/verify-build` ran (ISO time). |
+| `endedAt` | When the entry was recorded (ISO time). |
+| `durationSeconds` | Whole seconds from `startedAt` to the recording call. |

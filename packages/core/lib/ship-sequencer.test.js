@@ -957,3 +957,166 @@ describe('step-level recovery loop (loop-on / loop-via / loop-rounds)', () => {
     test('loop-rounds with a whole-number default loads cleanly', () => expect(errs({ params: 'rounds=3', 'loop-on': 'red', 'loop-via': 'echo', 'loop-rounds': 'rounds' })).not.toMatch(/papa/));
   });
 });
+
+describe('reproof', () => {
+  const cli = (args) => {
+    const r = spawnSync('node', [SCRIPT, ...args], { encoding: 'utf8' });
+    return { code: r.status, out: r.stdout.trim() ? JSON.parse(r.stdout) : null };
+  };
+  const common = () => ['--contracts', contractsDir];
+  const shippedFile = () => path.join(stateDir(), 'shipped.json');
+  const readRecord = () => JSON.parse(fs.readFileSync(shippedFile(), 'utf8'));
+  const startRun = () => {
+    const p = path.join(tmp, 'ship.md');
+    fs.writeFileSync(p, policy('1. alpha\n2. india'));
+    cli(['start', '--state-dir', stateDir(), '--policy', p, '--kind', 'feature', '--id', 'f', ...common()]);
+  };
+  const handOut = () => cli(['next', '--state-dir', stateDir(), ...common()]);
+  const line = (o) => JSON.stringify({ action: 'reverify', ...o });
+  const reverifiedFile = (criteria, extra = {}) => {
+    const f = path.join(tmp, 'verification-state.json');
+    fs.writeFileSync(f, JSON.stringify({ criteria, outcome: 'satisfied', ...extra }));
+    return f;
+  };
+  const reproof = (custody, reverified, startedAt, more = []) =>
+    cli(['reproof', '--state-dir', stateDir(), '--custody', custody, '--reverified', reverified, '--started-at', startedAt, ...more]);
+  const before = () => new Date(Date.now() - 5000).toISOString();
+
+  test('start writes an empty reproof block', () => {
+    startRun();
+    expect(readRecord().reproof).toEqual({ count: 0, runs: [] });
+  });
+
+  test('two runs are appended with every field; the second has a retried and an unmet criterion', () => {
+    startRun();
+    handOut();
+    const t1 = before();
+    const r1 = reproof(line({ ids: ['FS-2', 'FS-5'], differing: ['src/a.js'], excused: [] }),
+      reverifiedFile([{ id: 'FS-2', status: 'met' }, { id: 'FS-5', status: 'met', retried: true }]), t1);
+    expect(r1.out).toMatchObject({ ok: true, count: 1 });
+    const t2 = before();
+    reproof(line({ ids: ['FS-2', 'FS-5'], differing: ['src/a.js', 'src/a.test.js'], excused: ['x.js'] }),
+      reverifiedFile([{ id: 'FS-2', status: 'met' }, { id: 'FS-5', status: 'unmet', retried: true }], { outcome: 'stalled' }), t2,
+      ['--outcome', 'partial']);
+    const rec = readRecord();
+    expect(rec.reproof.count).toBe(2);
+    expect(rec.reproof.runs[0]).toEqual({
+      step: '1', primitive: 'alpha', pass: 1, criteria: ['FS-2', 'FS-5'],
+      met: [{ id: 'FS-2', retried: false }, { id: 'FS-5', retried: true }], outcome: 'satisfied',
+      custody: { action: 'reverify', classes: ['shipped'], differing: ['src/a.js'], excused: [] },
+      startedAt: t1, endedAt: expect.any(String), durationSeconds: expect.any(Number),
+    });
+    expect(rec.reproof.runs[0].durationSeconds).toBeGreaterThanOrEqual(4);
+    const second = rec.reproof.runs[1];
+    expect(second.met).toEqual([{ id: 'FS-2', retried: false }]);
+    expect(second.outcome).toBe('partial');
+    expect(second.custody.classes).toEqual(['shipped', 'test-only', 'base']);
+    expect(second.custody.excused).toEqual(['x.js']);
+    // the cursor and results are untouched
+    expect(rec.results).toEqual([]);
+    expect(rec.cursor).toEqual({ step: '1', pass: 1 });
+  });
+
+  test('base alone when differing is empty; a missing excused reads as []', () => {
+    startRun();
+    handOut();
+    reproof(line({ ids: ['A'], differing: [], excused: ['x.js'] }), reverifiedFile([]), before());
+    reproof(line({ ids: ['A'], differing: ['src/a.js'] }), reverifiedFile([]), before());
+    const [a, b] = readRecord().reproof.runs;
+    expect(a.custody.classes).toEqual(['base']);
+    expect(b.custody).toMatchObject({ classes: ['shipped'], excused: [] });
+  });
+
+  test('a reverified file older than --started-at, or missing, gives met: [] and a null outcome', () => {
+    startRun();
+    handOut();
+    const f = reverifiedFile([{ id: 'A', status: 'met' }]);
+    reproof(line({ ids: ['A'], differing: [] }), f, new Date(Date.now() + 60000).toISOString());
+    reproof(line({ ids: ['A'], differing: [] }), path.join(tmp, 'nope.json'), before());
+    const [stale, missing] = readRecord().reproof.runs;
+    expect(stale.met).toEqual([]);
+    expect(stale.outcome).toBeNull();
+    expect(missing.met).toEqual([]);
+  });
+
+  test('with nothing handed out the step fields are null and the run is still recorded', () => {
+    startRun();
+    reproof(line({ ids: ['A'], differing: [] }), reverifiedFile([{ id: 'A', status: 'met' }]), before());
+    const [run] = readRecord().reproof.runs;
+    expect(run).toMatchObject({ step: null, primitive: null, pass: null, met: [{ id: 'A', retried: false }] });
+  });
+
+  test('a record without the reproof key gains it', () => {
+    startRun();
+    handOut();
+    const rec = readRecord();
+    delete rec.reproof;
+    fs.writeFileSync(shippedFile(), JSON.stringify(rec));
+    expect(reproof(line({ ids: ['A'], differing: [] }), reverifiedFile([]), before()).out.ok).toBe(true);
+    expect(readRecord().reproof.count).toBe(1);
+  });
+
+  test('refusals return ok:false and leave the file byte-identical', () => {
+    const f = reverifiedFile([]);
+    const t = before();
+    expect(reproof(line({ ids: [] }), f, t).out.ok).toBe(false); // no record
+    startRun();
+    handOut();
+    const bytes = fs.readFileSync(shippedFile(), 'utf8');
+    for (const [custody, started] of [
+      ['not json', t],
+      [JSON.stringify({ ids: ['A'] }), t],
+      [JSON.stringify({ action: 'reverify' }), t],
+      [line({ ids: ['A'] }), 'yesterday-ish'],
+    ]) {
+      expect(reproof(custody, f, started).out.ok).toBe(false);
+      expect(fs.readFileSync(shippedFile(), 'utf8')).toBe(bytes);
+    }
+    // a missing --started-at or --custody is a refusal too, not a usage exit
+    const noTime = cli(['reproof', '--state-dir', stateDir(), '--custody', line({ ids: ['A'] }), '--reverified', f]);
+    expect(noTime).toMatchObject({ code: 0, out: { ok: false } });
+    const noCustody = cli(['reproof', '--state-dir', stateDir(), '--reverified', f, '--started-at', t]);
+    expect(noCustody).toMatchObject({ code: 0, out: { ok: false } });
+    expect(fs.readFileSync(shippedFile(), 'utf8')).toBe(bytes);
+    // a done run
+    cli(['record', '--state-dir', stateDir(), '--step', '1', '--result', 'done', ...common()]);
+    handOut();
+    cli(['record', '--state-dir', stateDir(), '--step', '2', '--result', 'gone', ...common()]);
+    const done = fs.readFileSync(shippedFile(), 'utf8');
+    expect(reproof(line({ ids: ['A'] }), f, t).out).toMatchObject({ ok: false, reason: expect.stringMatching(/done/) });
+    expect(fs.readFileSync(shippedFile(), 'utf8')).toBe(done);
+  });
+
+  test('a detached record is written in its detached file, not the tracked one', () => {
+    const env = { ...process.env };
+    delete env.GIT_DIR; delete env.GIT_WORK_TREE; delete env.GIT_INDEX_FILE;
+    const root = path.join(tmp, 'repo');
+    fs.mkdirSync(root);
+    const git = (...a) => {
+      const r = spawnSync('git', a, { cwd: root, encoding: 'utf8', env });
+      if (r.status !== 0) throw new Error(r.stderr);
+      return r.stdout.trim();
+    };
+    git('init', '-q', '-b', 'main');
+    git('config', 'user.email', 't@example.com');
+    git('config', 'user.name', 't');
+    fs.writeFileSync(path.join(root, 'README'), 'x');
+    git('add', '.');
+    git('commit', '-q', '-m', 'init');
+    writeContract(contractsDir, { primitive: 'mike', params: '', results: 'merged', 'detach-on': 'merged', outward: 'no', section: 'ship' });
+    const sd = path.join(fs.realpathSync(root), '.trd-state', 'f');
+    const p = path.join(tmp, 'ship.md');
+    fs.writeFileSync(p, policy('1. mike\n2. india'));
+    const opts = { stateDir: sd, policyPath: p, contractsDir, work: { kind: 'feature', id: 'f', trd: null, branch: 'main' } };
+    expect(seq.start(opts).ok).toBe(true);
+    seq.next(sd, { contractsDir });
+    const rec = seq.record(sd, { step: '1', result: 'merged' }, { contractsDir });
+    expect(rec.recordPath).not.toBe(path.join(sd, 'shipped.json'));
+    seq.next(sd, { contractsDir });
+    const tracked = fs.readFileSync(path.join(sd, 'shipped.json'), 'utf8');
+    const r = seq.recordReproof(sd, { custody: line({ ids: ['A'], differing: [] }), reverifiedPath: null, startedAt: before() });
+    expect(r.ok).toBe(true);
+    expect(fs.readFileSync(path.join(sd, 'shipped.json'), 'utf8')).toBe(tracked);
+    expect(JSON.parse(fs.readFileSync(rec.recordPath, 'utf8')).reproof.count).toBe(1);
+  });
+});

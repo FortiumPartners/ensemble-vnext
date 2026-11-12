@@ -354,6 +354,17 @@ case for a sweep file); otherwise "Must pass: {k} of {n} proven" ({n} = `mustPas
 the same count the report's `**Must pass**:` line prints), naming each unproven one by its
 statement in plain words and each objective in `mustPass.uncovered` as having no criterion.
 
+**Record what each proven criterion covers, once, after the workflow returns** (skip under
+`--criteria`, whose subset state sits under `reverify/`): custody re-proves, after a later change,
+only the criteria whose files the change touched, and reads those files from this record:
+
+```bash
+node .claude/lib/live-evidence.js record-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md
+```
+
+It writes `<state-dir>/evidence/criterion-covers.json` and prints `{"recorded":[...],"none":[...]}`.
+A failure is one ISSUES line, never STUCK: the verification outcome stands without it.
+
 **§8.5 applies here in full: while the loop is in flight, its gaps are not yours to fix.**
 Record them and let it finish.
 
