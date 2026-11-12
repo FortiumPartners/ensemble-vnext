@@ -3022,6 +3022,11 @@ _cutover_fixture() {
     [ "$(git diff --cached --name-only --diff-filter=D | wc -l | tr -d ' ')" -eq 4 ]
     [ -f .trd-state/live/implement.json ] && [ -f .trd-state/done/closed.json ] && [ -f .trd-state/_session-log.md ]
     [ "$(git log --oneline | wc -l | tr -d ' ')" -eq 1 ]
+    # The seed's JSON line prints after every Untracked line (TRD After-item 3).
+    local seed_at untracked_at
+    seed_at="$(printf '%s\n' "$output" | grep -n 'Records seed: {' | cut -d: -f1)"
+    untracked_at="$(printf '%s\n' "$output" | grep -n 'Untracked ' | tail -1 | cut -d: -f1)"
+    [ -n "$seed_at" ] && [ -n "$untracked_at" ] && [ "$seed_at" -gt "$untracked_at" ]
 }
 
 @test "cutover: plain scaffold, --git-files and --refresh leave records tracked" {

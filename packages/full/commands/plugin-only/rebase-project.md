@@ -1148,7 +1148,9 @@ exists but cannot be listed every in-flight feature is skipped rather than risk 
 records. The ref is pushed best effort; a failed push keeps it local and is not fatal.
 
 Report:
-- "Records cutover: N files untracked (staged, not committed); refs seeded: <slug> on <branch> (pushed or kept local), ...; skipped: <slug> (why), ..."
+- "Records cutover: N files untracked (staged, not committed) from <each `.trd-state/<folder>/` they came from, or the shared logs>; refs seeded: <slug> on <branch> (pushed or kept local), ...; skipped: <slug> (why), ..."
+  (name the folders, not every file: a large project untracks hundreds; the full list is
+  `git diff --cached --name-only --diff-filter=D -- .trd-state`, which the report names too)
   (count the `finished` and `branch-mismatch` skips rather than naming them: every worktree carries
   the base branch's old folders, so they repeat once per worktree)
 - If any file was untracked: "Commit this removal on the base branch so every feature branch stops
@@ -1308,8 +1310,15 @@ git restore --staged .claude/ # if you already staged it
 git restore --staged .trd-state # undo the records cutover's untracking (Step 4.7b); files never left disk
 ```
 
-The cutover's seeded refs (`refs/ensemble/records/<slug>`) are not part of the working tree; they
-are additive, so leaving them is harmless.
+The cutover's seeded refs (`refs/ensemble/records/<slug>`) are not part of the working tree, so
+**`git restore` does not undo a seeded ref, and it never undoes a ref that was pushed**: the copy on
+`origin` stays there whatever you restore locally. The refs are additive, so leaving them is
+harmless. To remove one anyway, delete it on both sides:
+
+```bash
+git update-ref -d refs/ensemble/records/<slug>              # the local ref
+git push origin --delete refs/ensemble/records/<slug>       # only if the report said it was pushed
+```
 
 Undo one component by narrowing the path — `git restore .claude/skills/`. Inspect before
 undoing with `git diff .claude/`.

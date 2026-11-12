@@ -1859,8 +1859,9 @@ ensure_gitignore() {
 # --records-cutover entry point. Delivers the ignore/merge-union lines, untracks every tracked
 # path under .trd-state/ that the ignore lines now cover (`git ls-files -ci --exclude-standard`
 # is exactly "tracked and now ignored", and honours the _docs-audit negation), then seeds the
-# records ref of each in-flight feature. Seeding goes first: it reads the folders on disk, which
-# untracking leaves in place. Errors warn and return 0. Never commits.
+# records ref of each in-flight feature and prints its JSON line, after the Untracked lines.
+# Seeding reads the folders on disk (never the index), which untracking leaves in place, so the
+# order does not change what is seeded. Errors warn and return 0. Never commits.
 records_cutover() {
     local target_dir="$1"
     local lib="${SCRIPT_DIR}/../lib/records-cutover.js"
@@ -1872,6 +1873,38 @@ records_cutover() {
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         warn "Not a git work tree — lines delivered, nothing untracked or seeded"
         return 0
+    fi
+
+    local -a paths=()
+    local p
+    while IFS= read -r -d '' p; do
+        paths+=("$p")
+    done < <(git ls-files -z -ci --exclude-standard -- .trd-state ':(exclude).trd-state/_docs-audit' 2>/dev/null || true)
+    if [[ ${#paths[@]} -gt 0 ]]; then
+        # `git rm` is all-or-nothing per call: one path with staged content that differs from both
+        # HEAD and the file fails its whole chunk, so a failed chunk is retried one path at a time.
+        local i=0 chunk=200 done_count=0 failed=0 q
+        while [[ $i -lt ${#paths[@]} ]]; do
+            if git rm --cached --quiet --ignore-unmatch -- "${paths[@]:i:chunk}" >/dev/null 2>&1; then
+                for q in "${paths[@]:i:chunk}"; do
+                    info "Untracked $q"
+                    done_count=$((done_count + 1))
+                done
+            else
+                for q in "${paths[@]:i:chunk}"; do
+                    if git rm --cached --quiet --ignore-unmatch -- "$q" >/dev/null 2>&1; then
+                        info "Untracked $q"
+                        done_count=$((done_count + 1))
+                    else
+                        warn "Could not untrack $q"
+                        failed=$((failed + 1))
+                    fi
+                done
+            fi
+            i=$((i + chunk))
+        done
+        info "Untracked ${done_count} record path(s) under .trd-state/ (index only); commit this removal on the base branch"
+        [[ $failed -eq 0 ]] || warn "Could not untrack ${failed} .trd-state/ path(s)"
     fi
 
     if ! command -v node >/dev/null 2>&1; then
@@ -1888,39 +1921,6 @@ records_cutover() {
             warn "Records ref seeding produced no result"
         fi
     fi
-
-    local -a paths=()
-    local p
-    while IFS= read -r -d '' p; do
-        paths+=("$p")
-    done < <(git ls-files -z -ci --exclude-standard -- .trd-state ':(exclude).trd-state/_docs-audit' 2>/dev/null || true)
-    if [[ ${#paths[@]} -eq 0 ]]; then
-        return 0
-    fi
-    # `git rm` is all-or-nothing per call: one path with staged content that differs from both
-    # HEAD and the file fails its whole chunk, so a failed chunk is retried one path at a time.
-    local i=0 chunk=200 done_count=0 failed=0 q
-    while [[ $i -lt ${#paths[@]} ]]; do
-        if git rm --cached --quiet --ignore-unmatch -- "${paths[@]:i:chunk}" >/dev/null 2>&1; then
-            for q in "${paths[@]:i:chunk}"; do
-                info "Untracked $q"
-                done_count=$((done_count + 1))
-            done
-        else
-            for q in "${paths[@]:i:chunk}"; do
-                if git rm --cached --quiet --ignore-unmatch -- "$q" >/dev/null 2>&1; then
-                    info "Untracked $q"
-                    done_count=$((done_count + 1))
-                else
-                    warn "Could not untrack $q"
-                    failed=$((failed + 1))
-                fi
-            done
-        fi
-        i=$((i + chunk))
-    done
-    info "Untracked ${done_count} record path(s) under .trd-state/ (index only); commit this removal on the base branch"
-    [[ $failed -eq 0 ]] || warn "Could not untrack ${failed} .trd-state/ path(s)"
     return 0
 }
 
