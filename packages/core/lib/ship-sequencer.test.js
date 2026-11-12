@@ -1120,3 +1120,85 @@ describe('reproof', () => {
     expect(JSON.parse(fs.readFileSync(rec.recordPath, 'utf8')).reproof.count).toBe(1);
   });
 });
+
+describe('records-ref fallback (worktree -> ref -> detached record)', () => {
+  const { spawnSync } = require('child_process');
+  const recordRef = require('./record-ref');
+  const REL = '.trd-state/feat';
+  let repo;
+  let prevCwd;
+  let prevForge;
+  const git = (...a) => {
+    const r = spawnSync('git', a, { cwd: repo, encoding: 'utf8' });
+    if (r.status !== 0) throw new Error(r.stderr);
+  };
+  const folder = () => path.join(repo, REL);
+  const opts = (extra = {}) => {
+    const p = path.join(tmp, 'ship.md');
+    fs.writeFileSync(p, policy('1. alpha\n2. bravo'));
+    return { stateDir: REL, policyPath: p, contractsDir, work: { kind: 'feature', id: 'f', trd: 'docs/TRD/f.md', branch: 'b' }, ...extra };
+  };
+
+  beforeEach(() => {
+    prevCwd = process.cwd();
+    prevForge = process.env.FORGE_FEATURE_ID;
+    delete process.env.FORGE_FEATURE_ID;
+    repo = fs.mkdtempSync(path.join(tmp, 'repo-'));
+    git('init', '-q', '-b', 'b');
+    git('config', 'user.email', 't@t');
+    git('config', 'user.name', 't');
+    git('commit', '-q', '--allow-empty', '-m', 'init');
+    process.chdir(fs.realpathSync(repo));
+  });
+  afterEach(() => {
+    process.chdir(prevCwd);
+    if (prevForge === undefined) delete process.env.FORGE_FEATURE_ID;
+    else process.env.FORGE_FEATURE_ID = prevForge;
+  });
+
+  /** Starts a run, parks its record on the ref, then deletes the folder. */
+  const parkOnRef = () => {
+    expect(seq.start(opts()).ok).toBe(true);
+    const w = recordRef.write({ stateDir: REL, cwd: repo, command: 'ship-build', step: 'park' });
+    expect(w.ok).toBe(true);
+    fs.rmSync(folder(), { recursive: true, force: true });
+  };
+
+  test('(a) start --resume restores shipped.json from the ref; next returns the parked step', () => {
+    parkOnRef();
+    const r = seq.start(opts({ resume: true }));
+    expect(r).toMatchObject({ ok: true, resumed: true, status: 'running' });
+    expect(seq.next(REL, authorizeAll()).step.primitive).toBe('alpha');
+  });
+
+  test('(a) next and status on a deleted folder load the record from the ref', () => {
+    parkOnRef();
+    expect(seq.next(REL, authorizeAll()).action).toBe('run');
+    fs.rmSync(folder(), { recursive: true, force: true });
+    expect(seq.status(REL).error).toBeUndefined();
+    expect(seq.status(REL).status).toBe('running');
+  });
+
+  test('(a2) start --resume ignores a ref owned by a different feature and begins a new run', () => {
+    parkOnRef();
+    const r = seq.start(opts({ resume: true, work: { kind: 'feature', id: 'f', trd: 'docs/TRD/f.md', branch: 'other-feature' } }));
+    expect(r.ok).toBe(true);
+    expect(r.resumed).toBeUndefined();
+  });
+
+  test('(c) neither a ref nor a file: start begins a new run', () => {
+    const r = seq.start(opts({ resume: true }));
+    expect(r.ok).toBe(true);
+    expect(r.resumed).toBeUndefined();
+  });
+
+  test('(d) start without resume begins a new run and restores nothing', () => {
+    parkOnRef();
+    const r = seq.start(opts());
+    expect(r.ok).toBe(true);
+    expect(r.resumed).toBeUndefined();
+    expect(fs.existsSync(path.join(folder(), 'shipped.json'))).toBe(true);
+    // the new run's own file, not a restored one: no other restored record files
+    expect(fs.existsSync(path.join(folder(), 'record.json'))).toBe(false);
+  });
+});

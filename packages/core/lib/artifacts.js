@@ -30,6 +30,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const recordRef = require('./record-ref');
 
 const VERSION = 2;
 const FILE = 'artifacts.json';
@@ -44,8 +45,15 @@ const KINDS = [
 
 const manifestPath = (stateDir) => path.join(stateDir, FILE);
 
-/** The file's text, or null when absent. */
+/**
+ * The file's text, or null when absent. `get` and `record` both read through here, so both see
+ * a manifest that lives only on the feature's records ref: `ensure` restores the folder first
+ * (a no-op when it already holds records, and `refused`/`no-record` leave today's behaviour).
+ * Restoring before `record` writes matters: a one-entry manifest created in an absent folder
+ * would make every later restore refuse and hide the ref's other entries.
+ */
 function readText(stateDir) {
+  recordRef.ensure({ stateDir });
   try {
     return fs.readFileSync(manifestPath(stateDir), 'utf8');
   } catch (e) {

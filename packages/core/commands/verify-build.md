@@ -103,6 +103,15 @@ at the next bridge". The owner answers it in `/refine-verification`, not mid-run
 
 ### 3. Read the inputs from disk
 
+First restore the feature's records if this worktree lacks them (`--resume` needs
+`verification-state.json`):
+
+```bash
+node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
+```
+
+Any outcome but `present` or `restored` means no record: carry on as today. A `failed` outcome is one ISSUES line, "records ref could not be fetched".
+
 Exactly the inputs §8.1–§8.3 assemble. Read those sections for how each is derived rather than
 restating the derivations here.
 

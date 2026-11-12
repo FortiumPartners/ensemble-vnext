@@ -39,12 +39,43 @@ const CYCLE_ORDER = ['implement', 'checks', 'debug', 'complete'];
  * hook) should catch around this call themselves.
  *
  * @param {string} filePath - Path to implement.json
+ * @param {{local?: boolean}} [opts] - `local` skips the network fetch when falling back to the ref
  * @returns {Object} Parsed state
  * @throws {Error} If the file cannot be read or is not valid JSON
  */
-function load(filePath) {
-  const content = fs.readFileSync(filePath, 'utf-8');
+function load(filePath, opts = {}) {
+  let content;
+  try {
+    content = fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    // Only a missing file under `.trd-state/<slug>/` may fall back to the feature's records
+    // ref; any other failure (and a miss that the ref cannot fill) rethrows the original error
+    // untouched so callers that catch ENOENT keep working.
+    if (!err || err.code !== 'ENOENT') throw err;
+    content = restoreFromRef(filePath, opts);
+    if (content === null) throw err;
+  }
   return JSON.parse(content);
+}
+
+/**
+ * Restore `.trd-state/<slug>/` from the records ref and re-read `filePath` once.
+ * Returns the file content, or null when nothing was restored or the file is still missing.
+ * `record-ref` is required lazily so a plain `load` pays nothing.
+ */
+function restoreFromRef(filePath, opts) {
+  const parts = path.resolve(filePath).split(path.sep);
+  const i = parts.lastIndexOf('.trd-state');
+  if (i < 0 || i + 2 >= parts.length) return null; // not <top>/.trd-state/<slug>/<file>
+  const top = parts.slice(0, i).join(path.sep) || path.sep;
+  const stateDir = parts.slice(0, i + 2).join(path.sep);
+  try {
+    const r = require('./record-ref').ensure({ stateDir, cwd: top, local: opts && opts.local });
+    if (!r || r.outcome !== 'restored') return null;
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch {
+    return null;
+  }
 }
 
 /**

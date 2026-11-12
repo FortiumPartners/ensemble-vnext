@@ -1,0 +1,142 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "A new library, `packages/core/lib/record-ref.js` (vendored byte-identical to `.claude/lib/record-ref.js`, symlinked from `packages/full/lib/record-ref.js`), writes a feature's run records to the git ref `refs/ensemble/records/<slug>` without changing the checked-out branch, and without touching the real index except to untrack folded records (O5). Must pass: yes.",
+      "source": "TRD Objectives table, row O1 (source: roadmap item 1 brief)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "The ref's commit tree is folder-rooted: its root is the contents of `.trd-state/<slug>/` (every record file, the verification loop's per-iteration files included), plus exactly the images under `evidence/` that the folder's `verification-report.md` references; never `dispatch.jsonl`, `implement.lock`, `findings/`, or any other file under `evidence/`. Must pass: yes.",
+      "source": "TRD Objectives table, row O2 (roadmap item 1 brief; Forge reader TRD D3 and O13)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "Every write adds `record.json` at the tree root holding exactly `forge_feature_id` (the `FORGE_FEATURE_ID` env var when non-empty, else `null`), `branch` (the current branch, `null` when detached) and `slug`. Must pass: yes.",
+      "source": "TRD Objectives table, row O3 (roadmap item 1 brief; forge-vnext origin/main src/f3/phase-orchestrator/records-ref.ts:280-291)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O4",
+      "statement": "Each write commits on the previous ref value with a message naming the command and step, and moves the ref by compare-and-swap (`git update-ref <ref> <new> <old>`), retrying a bounded number of times on a lost swap; two writers racing one ref both land, with no file from either lost. Must pass: yes.",
+      "source": "TRD Objectives table, row O4 (roadmap item 1 brief; report section 3 Shape)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O5",
+      "statement": "After the ref moves, the writer pushes it to `origin` best effort. When the ref cannot be written, or the push is refused or fails, it commits the same records on the branch by pathspec (force-adding ignored paths) and reports which happened; a failure never throws and never fails the caller. On a write whose ref moved and whose push succeeded (or had no `origin` to push to), record files already tracked on the branch are folded into the ref and removed from the index (staged, not committed). Must pass: yes.",
+      "source": "TRD Objectives table, row O5 (roadmap item 1 brief; joint decisions 2, 3, 6)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O6",
+      "statement": "The same writer serves the shared ref `refs/ensemble/records/_shared`, whose tree holds `_session-log.md` and `_sweep/discovered.jsonl` (paths relative to `.trd-state/`). Must pass: no (blank in table).",
+      "source": "TRD Objectives table, row O6 (roadmap item 1 brief; joint decision 8)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O7",
+      "statement": "`read` returns one file at a ref (local ref, else fetched from `origin`), `list` lists the records refs, `restore` materialises a missing state folder from its ref; every operation is both a module function and a CLI verb that prints one JSON line and exits 0, never throws, and runs git only through `spawnSync` with an argument array. Must pass: yes.",
+      "source": "TRD Objectives table, row O7 (roadmap item 1 brief)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O8",
+      "statement": "Proven live on `islayjames/ship-build-live-test` that pushing a `refs/ensemble/records/*` ref starts no GitHub workflow, once against the repo as it is and once with a throwaway branch carrying an `on: push` workflow with no branch filter (the probe ref's commit parented on that branch's head), while the throwaway branch's own push does start its run; the throwaway branch and probe refs are deleted afterwards. Must pass: yes.",
+      "source": "TRD Objectives table, row O8 (roadmap item 1 brief, How it will be checked (live); joint decision 2)",
+      "served_by": [
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "N1",
+      "statement": "Non-goal: no command, hook, workflow or other library calls `record-ref.js` (item 3, to come).",
+      "source": "TRD Non-Goals section",
+      "served_by": []
+    },
+    {
+      "id": "N2",
+      "statement": "Non-goal: no reader falls back to the ref (item 2, to come); `implement-state.js`, `custody.js`, `ship-sequencer.js`, `ship-record-dir.js`, `record-files.js` and every hook are unchanged.",
+      "source": "TRD Non-Goals section",
+      "served_by": []
+    },
+    {
+      "id": "N3",
+      "statement": "Non-goal: no `.gitignore` or `gitignore-framework.txt` change, no `ensemble.records` settings key, no untrack in `/rebase-project` (items 3 and 5, to come).",
+      "source": "TRD Non-Goals section",
+      "served_by": []
+    },
+    {
+      "id": "N4",
+      "statement": "Non-goal: no change in `forge-vnext`; no pruning of any ref; no edit to `.claude/rules/verification.md`.",
+      "source": "TRD Non-Goals section",
+      "served_by": []
+    },
+    {
+      "id": "FIX-002-cases",
+      "statement": "Test cases (a) through (n) plus read, list, restore, slug refusal and the .claude/lib byte-identical check, each as listed in the FIX-002 acceptance criteria (e.g. (a) two racing writers both outcome ref; (c) unwritable objects gives outcome failed; (d) pre-receive rejection gives outcome fallback; (n) non-fast-forward reconciles to ref).",
+      "source": "TRD Master Task List, FIX-002 acceptance criteria",
+      "served_by": [
+        "FIX-002"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "Write `packages/core/lib/record-ref.js` (module + CLI: `write`, `read`, `list`, `restore`) per `## Decision`; copy it byte-identical to `.claude/lib/record-ref.js`; add the symlink `packages/full/lib/record-ref.js -> ../../core/lib/record-ref.js`; add a CHANGELOG `## [Unreleased]` entry. Serves O1-O7. Dependencies: none. Acceptance: write from a scratch repo with bare origin prints one JSON line with outcome ref and record.json holds exactly three fields; HEAD and git status unchanged; no git dir prints outcome refused and exits 0; file has no exec(, execSync(, or shell: true; cmp of the two copies succeeds and symlink resolves.",
+      "touches": [
+        "packages/core/lib/record-ref.js (new)",
+        ".claude/lib/record-ref.js (new)",
+        "packages/full/lib/record-ref.js (new symlink)",
+        "CHANGELOG.md"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "Write `packages/core/lib/record-ref.test.js` covering every acceptance case of the brief against real temporary git repositories (no git mocks). Serves O1-O7. Dependencies: FIX-001. Acceptance: `npx jest packages/core/lib/record-ref.test.js` passes with cases (a) to (n) and the read, list, restore, slug-refusal and byte-identical checks, each able to fail if behaviour is absent.",
+      "touches": [
+        "packages/core/lib/record-ref.test.js (new)"
+      ]
+    },
+    {
+      "id": "FIX-003",
+      "description": "Live probe on `islayjames/ship-build-live-test` (environment github-live-test): prove pushing refs/ensemble/records/* starts no workflow, then clean up; record commands, SHAs and gh run list output in `.trd-state/records-ref-library/live-ci-probe.md`. Serves O8. Dependencies: FIX-001. Acceptance: Probe 1 (as-is ref push, no run with that headSha after 90s); Probe 2 (unfiltered on-push throwaway branch run appears; ref push on top of it starts no run after 90s); cleanup leaves none of the throwaway branch or probe refs on the remote; Claude Code Web gap recorded as unverifiable here, naming the fallback as its cover.",
+      "touches": [
+        ".trd-state/records-ref-library/live-ci-probe.md (new)"
+      ]
+    }
+  ],
+  "open_questions": [
+    "OQ-1 | With no `origin` remote configured, should a write fall back to a branch commit? | Assumed: No: `push: \"no-remote\"`, the ref write stands and branch-tracked records are folded; a project with no remote has no clone that could lose the records | owner-only: (blank)",
+    "OQ-2 | Should files under `evidence/` other than referenced images (`live-manifest.jsonl`, `criterion-covers.json`) go on the ref? | Assumed: No, the brief says exactly the images the verification-report.md references. Raised as a finding for item 2/3: custody's re-proof reads `criterion-covers.json` | owner-only: (blank)"
+  ],
+  "could_not_verify": [
+    "Whether a Claude Code Web (`claude --remote`) session can push or fetch `refs/ensemble/*`: not verifiable from this machine (verification.md section 5). Covered by design: any failed push takes the branch-commit fallback, and read/restore report no record when the fetch fails. Stays a stated gap until an environment for it is listed.",
+    "A non-fast-forward reconcile is attempted once per write; a remote ref moving again during that one retry still falls back for that write.",
+    "Concurrent writers on the same machine are proven by the race test; writers on two machines pushing one ref are not exercised."
+  ]
+}

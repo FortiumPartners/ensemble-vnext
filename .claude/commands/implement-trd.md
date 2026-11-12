@@ -183,7 +183,14 @@ this guard and runs on, with no `### 1.3` branch switch, no `### 1.3a` write and
 left exactly as it is; the run stays on the current branch. A lone `--shipping` — without
 `--reconcile` and `--chained` both — gets no exception and meets this guard like any other run. `<feature>` is the TRD's
 basename without its extension (the rule `/close-feature`'s §3.2 shares with `router.py`'s
-`derive_feature()`). If `.trd-state/<feature>/closed.json` exists:
+`derive_feature()`). First restore the feature's records if this worktree lacks them, so a
+closed feature reads as closed on a fresh checkout:
+
+```bash
+node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
+```
+
+Any outcome but `present` or `restored` means no record: carry on as today. A `failed` outcome is one ISSUES line, "records ref could not be fetched". Then, if `.trd-state/<feature>/closed.json` exists:
 
 - Ordinarily, end the run:
   ```

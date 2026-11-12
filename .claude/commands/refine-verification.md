@@ -49,6 +49,14 @@ command and asks nothing.
 
 ## Inputs
 
+First restore the feature's records if this worktree lacks them:
+
+```bash
+node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
+```
+
+Any outcome but `present` or `restored` means no record: carry on as today. A `failed` outcome is one ISSUES line, "records ref could not be fetched".
+
 | Input | Where it comes from | Required / optional |
 |---|---|---|
 | Latest verification report, with its Diagnosis block (a `setup-failure` report has none; its `**Setup**:` lines are the diagnosis) | `.trd-state/<feature>/verification-report.md` | required |

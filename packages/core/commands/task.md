@@ -199,7 +199,20 @@ anything.
 ## Resume
 
 `/task --resume` scans `.trd-state/*/implement.json` for the most recent file with `"kind":
-"task"` and no `closed.json` beside it. It never needs `current.json`. With none found, end
+"task"` and no `closed.json` beside it. When the scan finds nothing, the run may live only on
+the records ref: list the `task-*` slugs on `origin`, fetch just those refs once, read each
+one's `implement.json` and `closed.json` without a second fetch (a slug whose `closed.json` reads
+back is closed, not a candidate), then restore the one chosen:
+
+```bash
+node .claude/lib/record-ref.js list --remote
+GIT_TERMINAL_PROMPT=0 git -c http.lowSpeedLimit=1 -c http.lowSpeedTime=15 fetch origin '+refs/ensemble/records/task-*:refs/ensemble/records/task-*'
+node .claude/lib/record-ref.js read-record --local --state-dir .trd-state/task-<slug> --file implement.json
+node .claude/lib/record-ref.js read-record --local --state-dir .trd-state/task-<slug> --file closed.json
+node .claude/lib/record-ref.js ensure --state-dir .trd-state/task-<slug>
+```
+
+Any outcome but `present` or `restored` means no record: carry on as today. A `failed` outcome is one ISSUES line, "records ref could not be fetched". Resume the most recent unclosed `"kind": "task"` one it finds; with none, the next sentence applies. It never needs `current.json`. With none found, end
 `COMMAND STUCK` with the reason "no unfinished task to resume". Otherwise load it, continue from
 the first step whose status is neither `success` nor `deferred` (a step left `in_progress` is
 run once, as pending), and carry on from Step 2. A step left `failed` already ran: record it
