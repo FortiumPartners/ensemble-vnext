@@ -3,7 +3,7 @@
 **Source**: docs/TRD/writers-move-to-the-ref.md §Intended Change (given to the deriver as extracted text only; line numbers below are lines of that extracted text)
 **Source kind**: intended-change
 **Derived**: 2026-11-12T12:47:41Z
-**Criteria**: 21
+**Criteria**: 22
 
 Every row cites a numbered item of the source's **After** list ("After N", with its line in the
 extracted text), sometimes with the **Before** bullet that names the defect it closes. No row is
@@ -36,6 +36,7 @@ part is proven.
 | FS-19 | On a feature branch, when the ref cannot be written or pushed and `--no-fallback` is not given, the write still falls back to a branch commit exactly as before | After 4, l.81 ("otherwise the fallback is exactly as before"); Before l.47-48 | Scratch repo on a feature branch with an unreachable `origin`: write's JSON output showing `"outcome":"fallback"` and `git log -1 --format=%s` showing a new `records(<slug>): …` commit | [read] | locator | | |
 | FS-20 | With no feature active, `precompact.js` appends to `.trd-state/_session-log.md` and then writes `refs/ensemble/records/_shared` locally, without pushing or touching the network | After 5, l.82; Before l.24-25 (nothing carried the shared log anywhere but a later `git add -A`) | Scratch repo with no active feature and no reachable remote: run the hook, then `git cat-file -p refs/ensemble/records/_shared:_session-log.md` showing the newly appended entry, and the hook's output or a trace showing no push attempted | [read] | locator | | |
 | FS-21 | `/sweep` writes the shared records ref at its end | After 5, l.83; Before l.24 (`/sweep` never committed) | Excerpt of `packages/core/commands/sweep.md` with line numbers showing a `record-ref.js write` with `--shared` in its final step | [read] | locator | | |
+| FS-22 | When the records ref holds post-merge `shipped.json` and `custody.json` and the worktree's `.trd-state/<slug>/` holds older, pre-merge copies of both, a `record-ref.js write` leaves the ref holding the post-merge copies of both files while it updates the folder's other records on the ref as usual; when the worktree's copies are the further-along ones, they are written as before | After 6, l.84-89 (amendment, product PM, 2026-11-12) | Scratch repo on a feature branch: seed `refs/ensemble/records/<slug>` with post-merge `shipped.json`/`custody.json` (recording the merge), leave pre-merge copies of both in the worktree and change `implement.json`; run the write; transcript of `git rev-parse refs/ensemble/records/<slug>:shipped.json` and `:custody.json` identical before and after, `git cat-file -p refs/ensemble/records/<slug>:implement.json` showing the change; then a second run with the worktree copies further along, `git cat-file -p` showing the worktree content on the ref | [read] | locator | | O13 |
 
 ## Coverage of the must-pass objectives
 
@@ -53,3 +54,4 @@ part is proven.
   FS-18. The objective's clause "hooks and the ship loop never make a branch commit" has no
   explicit After line; FS-20 states only what the source says of the hook (a local ref write), and
   FS-1/FS-3 cover the ship prose.
+- **O13** (the ref's post-merge ship record is never replaced by an older worktree copy): FS-22.

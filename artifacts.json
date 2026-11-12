@@ -5,5 +5,17 @@
     "url": "https://claude.ai/artifact/GszK3bNmQ68Y3XVELpL5AQ",
     "updated_at": "2026-11-12T12:45:51.573Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/writers-move-to-the-ref/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-12T13:22:51.357Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/writers-move-to-the-ref/verification-report.md",
+    "url": "https://claude.ai/artifact/LEFbAJk45FeijAFzgg8i3c",
+    "updated_at": "2026-11-12T13:52:09.754Z",
+    "command": "/implement-trd"
   }
 }

@@ -189,6 +189,22 @@
       "started_at": "2026-11-12T12:46:52.776Z",
       "completed_at": "2026-11-12T13:22:26.142Z",
       "last_advanced": "2026-11-12T12:52:01.314Z"
+    },
+    "FIX-011": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/record-ref.js",
+        "packages/core/lib/record-ref.test.js",
+        ".claude/lib/record-ref.js"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-12T13:37:19.272Z",
+      "description": "Amendment from the product PM: write never rolls back a post-merge shipped.json/custody.json"
     }
   },
   "checkpoints": [
