@@ -26,7 +26,7 @@ still to come) and `context` (every earlier result's `data`). No parameters.
      switch to** `ship/<work.id>` at `HEAD` with `git switch -c ship/<work.id>`; the uncommitted
      sweep changes carry over. Otherwise stay on the current branch.
    - On the first push of the run, take the pathspec: every path `git status --porcelain` lists
-     now, except the state directory. Keep it in this result's `data.paths`; a later `push` in a
+     now, except every `.trd-state/` path. Keep it in this result's `data.paths`; a later `push` in a
      `repeat` reads it back from `context.paths`.
    - Commit exactly that pathspec (`git add -- <paths>`, never `git add -A`) with a message that
      names the sweep and each path. List each path in the readout line for this step.
@@ -39,7 +39,13 @@ still to come) and `context` (every earlier result's `data`). No parameters.
    `set` or `none`: go on. `refused` (for example an audited commit that cannot be found): put
    the reason in `data.issues` and go on; the push is not gated, and the custody gate before a
    merge or release refuses on the same reason.
-3. `git push -u origin <branch>` (the branch the work is on now). The push itself is not gated by
+3. Write the records ref first, so the push carries it to origin:
+   ```bash
+   node .claude/lib/record-ref.js write --state-dir <work.stateDir> --command /ship-build \
+     --step "push" --no-fallback
+   ```
+   A failed or refused write goes in `data.issues`; the push goes on. Then
+   `git push -u origin <branch>` (the branch the work is on now). The push itself is not gated by
    custody.
 
 Never fix a failure here and never amend or force-push.

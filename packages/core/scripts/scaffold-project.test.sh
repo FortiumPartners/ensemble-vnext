@@ -2794,14 +2794,15 @@ PY
     [ "${lines[${#lines[@]}-1]%% *}" = "REFRESH_SUMMARY" ]
 }
 
-@test "git files: scaffold writes nine ignore lines and three union lines; second run changes nothing" {
+@test "git files: scaffold writes eleven ignore lines and three union lines; second run changes nothing" {
     local plugin_dir
     plugin_dir="$(_get_plugin_dir)"
     run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
     [ "$status" -eq 0 ]
     for l in '.trd-state/current.json' '.trd-state/_dispatch.jsonl' '.trd-state/*/dispatch.jsonl' '.trd-state/_command-runs/' \
         '.trd-state/**/evidence/' '.trd-state/**/findings/' '.trd-state/**/judge-*.json' \
-        '.trd-state/**/record-*.json' '.trd-state/**/setup-decide-*.json'; do
+        '.trd-state/**/record-*.json' '.trd-state/**/setup-decide-*.json' \
+        '.trd-state/*' '!.trd-state/_docs-audit/'; do
         grep -qxF -- "$l" "$TEST_DIR/.gitignore"
     done
     grep -qxF '.trd-state/_session-log.md merge=union' "$TEST_DIR/.gitattributes"
@@ -2909,21 +2910,63 @@ _seed_paths() {
     [ "$(git log --oneline | wc -l | tr -d ' ')" -eq 1 ]
 }
 
-@test "git files: durable run records are never ignored and stay tracked after --git-files" {
+@test "git files: record files are ignored but stay tracked after --git-files; scratch still untracks" {
     cd "$TEST_DIR"
     git init -q . && git config user.email t@t && git config user.name t
-    { _durable_paths; _scratch_paths; } | _seed_paths
+    { _durable_paths; _scratch_paths; echo .trd-state/_session-log.md; echo .trd-state/_sweep/discovered.jsonl; } | _seed_paths
     git add .trd-state && git commit -qm init
     run "$SCAFFOLD_SCRIPT" --git-files "$TEST_DIR"
     [ "$status" -eq 0 ]
     local f
     while IFS= read -r f; do
-        # --no-index: without it check-ignore never reports a tracked file, so the
-        # assertion would pass whatever the ignore lines say.
+        # --no-index: without it check-ignore never reports a tracked file.
+        git check-ignore --no-index -q -- "$f"
+        # the ignore line must not untrack a record: it lives in the index until the cutover
+        [ -n "$(git ls-files -- "$f")" ]
+    done < <(_durable_paths; echo .trd-state/_session-log.md; echo .trd-state/_sweep/discovered.jsonl)
+    [ -z "$(git diff --cached --name-only -- '.trd-state/feat/closed.json' .trd-state/_session-log.md .trd-state/_sweep)" ]
+    [ -z "$(git ls-files -- .trd-state/feat/evidence/a.png)" ]
+}
+
+@test "git files: _docs-audit, verification-notes and OWNER-CALLS are not ignored" {
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$(_get_plugin_dir)" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    cd "$TEST_DIR"
+    git init -q .
+    local f
+    for f in .trd-state/_docs-audit/last-run.json .claude/verification-notes.md OWNER-CALLS.md; do
         run git check-ignore --no-index -q -- "$f"
         [ "$status" -eq 1 ]
-        [ -n "$(git ls-files -- "$f")" ]
-    done < <(_durable_paths)
+    done
+}
+
+@test "git files: the record-ignore lines are written once (the marker stays template-only) and a second run adds no line" {
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$(_get_plugin_dir)" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    ! grep -qF '@ignore-only' "$TEST_DIR/.gitignore"
+    [ "$(grep -cxF '.trd-state/*' "$TEST_DIR/.gitignore")" -eq 1 ]
+    [ "$(grep -cxF '!.trd-state/_docs-audit/' "$TEST_DIR/.gitignore")" -eq 1 ]
+    local before; before="$(cat "$TEST_DIR/.gitignore")"
+    run "$SCAFFOLD_SCRIPT" --git-files "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ "$before" = "$(cat "$TEST_DIR/.gitignore")" ]
+}
+
+@test "records: scaffold stamps ensemble.records ref; an owner's branch survives --refresh" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    run python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['ensemble']['records'])" "$TEST_DIR/.claude/settings.json"
+    [ "$output" = "ref" ]
+    python3 - "$TEST_DIR/.claude/settings.json" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p)); d["ensemble"]["records"]="branch"; json.dump(d,open(p,"w"))
+PY
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    run python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['ensemble']['records'])" "$TEST_DIR/.claude/settings.json"
+    [ "$output" = "branch" ]
 }
 
 @test "git files: --refresh adds the scratch lines to an existing .gitignore and leaves the index unchanged" {

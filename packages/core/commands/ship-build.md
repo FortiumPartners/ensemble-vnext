@@ -161,6 +161,19 @@ node .claude/lib/ship-sequencer.js next --state-dir <state-dir>
   A result the contract does not declare is refused; read the reason and record the right
   one. Pass any line a step wants shown to the owner in `data.issues`.
 
+  **Then write the records ref, until the merge step has run:**
+
+  ```bash
+  node .claude/lib/record-ref.js write --state-dir <state-dir> --command /ship-build \
+    --step "<step.id> <result>" --no-fallback
+  ```
+
+  `--no-fallback` because the merge contract (`ship-primitive-merge.md`) forbids new commits
+  between the push and the merge; a write that cannot reach the ref refuses rather than
+  committing on the branch. Once the merge step has run, stop these per-step writes (the
+  sequencer then writes the record itself, see Step 5). A failed or refused write is one line
+  in ISSUES, never STUCK.
+
   **End the loop on what `record` returns, not only on what `next` returns.** `next` never
   answers `wait`: it hands a parked or stopped step out again (that is how `--resume` works), so
   a loop that called it right after recording `wait` or `stop` would re-run the step and clear
@@ -194,28 +207,34 @@ Never probe a service by acting on it: no test issue, PR, comment or release to 
 tracker or remote answers. Check read-only (`gh auth status`, `gh repo view`) or let the step's
 own call fail and record why.
 
-## Step 5: Commit the record
+## Step 5: Write the record
 
-Commit the state directory by pathspec so the record travels with the branch:
+The record travels on the feature's records ref (`refs/ensemble/records/<slug>`, a git ref that
+is not a branch), not as a commit on the branch. Write it once more, as an ordinary write:
 
 ```bash
-git add -- <state-dir>
-git commit -m "chore(<work id>): ship-build record" -- <state-dir>
+node .claude/lib/record-ref.js write --state-dir <state-dir> --command /ship-build \
+  --step "ship-build record"
 ```
 
 Skip this when the branch's PR is already merged. Read that from the PR itself —
 `gh pr list --head <branch> --state merged --json number --jq length` — not from whether a
 step called `merge` ran, because a PR merged outside this run counts too. A merged branch gets
-no state commit, and nothing is committed on the default branch either. After the merge the
+no records write, and nothing is committed on the default branch either. After the merge the
 sequencer writes the record to an untracked file under the git common directory, so it needs
 no commit; `ship-sequencer.js status` reports its path as `recordPath`, and STATE names it.
 
-A failed commit is one line in ISSUES, never STUCK.
+The write prints one JSON line. `outcome: "failed"` or `"refused"`, `fallback`, or `ref` with
+`push: "failed"` is one line in ISSUES, never STUCK.
 
-**Push the state directory only at a `wait` whose recorded `data` carries `remoteResume:
-true`** (the `await-approval` contract sets it, and only when the trigger's workflow file is on
-the remote default branch). A remote resume needs the record on the branch. A `wait` without
-it is not pushed here, and this command claims no trigger for it.
+**At a `wait` whose recorded `data` carries `remoteResume: true`** (the `await-approval`
+contract sets it, and only when the trigger's workflow file is on the remote default branch), a
+remote resume needs the record where the runner can fetch it, so the write above is the park
+push: the ref is pushed to origin. Only if the write reports `outcome: "fallback"`, push the
+branch (`git push origin <branch>`) so the record on it travels. If it reports `failed`, put
+that in ISSUES and claim no trigger. A `wait` without `remoteResume` needs no push here, and
+this command claims no trigger for it. The workflow's `--resume` restores the record from the
+ref.
 
 ## Step 6: Readout and banner
 

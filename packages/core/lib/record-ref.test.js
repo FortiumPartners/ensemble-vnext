@@ -60,6 +60,11 @@ function initRepo(prefix = 'repo') {
   return dir;
 }
 
+/** Moves a repo onto a feature branch: record commits and folds are only allowed off the default branch. */
+function onFeature(repo, name = 'feature/x') {
+  sh(repo, ['checkout', '-q', '-b', name]);
+}
+
 function initBare() {
   const dir = mkTmp('origin');
   sh(dir, ['init', '-q', '--bare', '-b', 'main']);
@@ -364,6 +369,7 @@ describe('write: record selection', () => {
 describe('write: same-feature rule', () => {
   test('(i) a slug reused by a different feature drops the tip\'s closed.json, parented on the old tip', () => {
     const repo = initRepo();
+    onFeature(repo);
     put(repo, `${STATE}/implement.json`, '{}\n');
     put(repo, `${STATE}/closed.json`, '{"closed":true}\n');
     process.env.FORGE_FEATURE_ID = 'old-feature';
@@ -402,9 +408,10 @@ describe('write: same-feature rule', () => {
 });
 
 describe('write: push, fold and fallback', () => {
-  test('(e) tracked records are folded out of the index after a pushed write, working copy kept, no commit', () => {
+  test('(e) tracked records are folded out of the branch in one commit after a pushed write, working copy kept', () => {
     const origin = initBare();
     const repo = initRepo();
+    onFeature(repo);
     withOrigin(repo, origin);
     put(repo, `${STATE}/implement.json`, '{}\n');
     put(repo, `${STATE}/closed.json`, '{}\n');
@@ -419,14 +426,19 @@ describe('write: push, fold and fallback', () => {
     expect(treeFiles(repo, REF)).toEqual(expect.arrayContaining(['implement.json', 'closed.json']));
     expect(sh(repo, ['ls-files', STATE])).toBe('');
     expect(fs.existsSync(path.join(repo, STATE, 'implement.json'))).toBe(true);
-    expect(sh(repo, ['rev-parse', 'HEAD'])).toBe(head); // staged deletion only, nothing committed
-    expect(sh(repo, ['diff', '--cached', '--name-only']).split('\n').sort()).toEqual([`${STATE}/closed.json`, `${STATE}/implement.json`]);
+    // The removal is committed: exactly one new commit, naming the ref, touching only those paths.
+    expect(sh(repo, ['rev-list', '--count', `${head}..HEAD`])).toBe('1');
+    expect(r.foldCommit).toBe(sh(repo, ['rev-parse', 'HEAD']));
+    expect(sh(repo, ['log', '-1', '--format=%s'])).toBe(`records(${SLUG}): moved to ${REF}`);
+    expect(sh(repo, ['show', '--name-status', '--format=', 'HEAD']).split('\n').sort()).toEqual([`D\t${STATE}/closed.json`, `D\t${STATE}/implement.json`]);
+    expect(sh(repo, ['status', '--porcelain', '--', STATE])).toBe(`?? ${STATE}/`);
     expect(sh(origin, ['rev-parse', REF])).toBe(sh(repo, ['rev-parse', REF]));
   });
 
   test('(j) folding leaves a tracked findings/x.json and dispatch.jsonl tracked', () => {
     const origin = initBare();
     const repo = initRepo();
+    onFeature(repo);
     withOrigin(repo, origin);
     put(repo, `${STATE}/implement.json`, '{}\n');
     put(repo, `${STATE}/findings/x.json`, '{}');
@@ -467,6 +479,7 @@ describe('write: push, fold and fallback', () => {
   test('(d) an origin whose pre-receive rejects refs/ensemble/* yields a fallback branch commit', () => {
     const origin = rejectingOrigin();
     const repo = initRepo();
+    onFeature(repo);
     withOrigin(repo, origin);
     put(repo, `${STATE}/implement.json`, '{}\n');
     put(repo, `${STATE}/notes.md`, 'n\n');
@@ -489,6 +502,7 @@ describe('write: push, fold and fallback', () => {
   test('(d) the fallback force-adds gitignored record paths and commits only the state folder', () => {
     const origin = rejectingOrigin();
     const repo = initRepo();
+    onFeature(repo);
     withOrigin(repo, origin);
     put(repo, '.gitignore', '.trd-state/\n');
     sh(repo, ['add', '.gitignore']);
@@ -508,6 +522,7 @@ describe('write: push, fold and fallback', () => {
   test('(d) the same through the CLI exits 0 with one JSON line', () => {
     const origin = rejectingOrigin();
     const repo = initRepo();
+    onFeature(repo);
     withOrigin(repo, origin);
     put(repo, `${STATE}/implement.json`, '{}\n');
     const r = runCli(repo, ['write', '--state-dir', STATE, '--command', 'c', '--step', 's']);
@@ -520,6 +535,7 @@ describe('write: push, fold and fallback', () => {
   test('(k) the fallback leaves an unrelated staged file staged and out of the fallback commit', () => {
     const origin = rejectingOrigin();
     const repo = initRepo();
+    onFeature(repo);
     withOrigin(repo, origin);
     put(repo, `${STATE}/implement.json`, '{}\n');
     put(repo, 'unrelated.txt', 'keep me staged\n');
@@ -535,6 +551,7 @@ describe('write: push, fold and fallback', () => {
 
   test('(m) every retry lost (the ref is locked) falls back with ref-write-failed', () => {
     const repo = initRepo();
+    onFeature(repo);
     put(repo, `${STATE}/implement.json`, '{}\n');
     const gitDir = path.resolve(repo, sh(repo, ['rev-parse', '--git-dir']));
     fs.mkdirSync(path.join(gitDir, 'refs', 'ensemble', 'records'), { recursive: true });
@@ -553,6 +570,7 @@ describe('write: push, fold and fallback', () => {
 
   (IS_ROOT ? test.skip : test)('(c) unwritable objects/ makes ref write and fallback both fail: outcome failed, exit 0, no throw', () => {
     const repo = initRepo();
+    onFeature(repo);
     put(repo, `${STATE}/implement.json`, '{}\n');
     const gitDir = path.resolve(repo, sh(repo, ['rev-parse', '--git-dir']));
     const objects = path.join(gitDir, 'objects');
@@ -610,6 +628,185 @@ describe('write: push, fold and fallback', () => {
     expect(r.outcome).toBe('ref');
     expect(r.push).toBe('pushed');
     expect(treeFiles(origin, REF)).toEqual(expect.arrayContaining(['from-a.md', 'from-b.md', 'local-only.md', 'record.json']));
+  });
+});
+
+describe('write: default branch, no-fallback and shared never commit', () => {
+  const branchState = (repo) => ({ log: sh(repo, ['log', '--format=%H', 'main']), files: sh(repo, ['ls-files']) });
+  const deadOrigin = () => path.join(mkTmp('dead'), 'nope.git'); // a path that is not a repository
+
+  test('on main with an unreachable origin: ref, push failed, git log and ls-files unchanged', () => {
+    const repo = initRepo();
+    withOrigin(repo, deadOrigin());
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    const before = branchState(repo);
+    const r = doWrite(repo);
+    expect(r.outcome).toBe('ref');
+    expect(r.push).toBe('failed');
+    expect(r.fallbackSkipped).toBe('default-branch');
+    expect(branchState(repo)).toEqual(before);
+    expect(sh(repo, ['rev-parse', REF])).toBe(r.commit);
+  });
+
+  test('on a detached HEAD a lost push does not commit either', () => {
+    const repo = initRepo();
+    withOrigin(repo, deadOrigin());
+    sh(repo, ['checkout', '-q', '--detach']);
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    const head = sh(repo, ['rev-parse', 'HEAD']);
+    const r = doWrite(repo);
+    expect(r.outcome).toBe('ref');
+    expect(r.push).toBe('failed');
+    expect(sh(repo, ['rev-parse', 'HEAD'])).toBe(head);
+  });
+
+  test('on main a tracked record is not folded after a pushed write', () => {
+    const origin = initBare();
+    const repo = initRepo();
+    withOrigin(repo, origin);
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    sh(repo, ['add', '-f', STATE]);
+    sh(repo, ['commit', '-q', '-m', 'track']);
+    const head = sh(repo, ['rev-parse', 'HEAD']);
+    const r = doWrite(repo);
+    expect(r.outcome).toBe('ref');
+    expect(r.push).toBe('pushed');
+    expect(r.folded).toEqual([]);
+    expect(sh(repo, ['ls-files', STATE])).toBe(`${STATE}/implement.json`);
+    expect(sh(repo, ['rev-parse', 'HEAD'])).toBe(head);
+    expect(sh(repo, ['diff', '--cached', '--name-only'])).toBe('');
+  });
+
+  (IS_ROOT ? test.skip : test)('on main a broken object store is failed + fallbackSkipped, nothing committed', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    const before = branchState(repo);
+    const gitDir = path.resolve(repo, sh(repo, ['rev-parse', '--git-dir']));
+    const objects = path.join(gitDir, 'objects');
+    cleanups.push(() => spawnSync('chmod', ['-R', 'u+w', objects]));
+    spawnSync('chmod', ['-R', 'a-w', objects]);
+    const r = doWrite(repo);
+    expect(r.outcome).toBe('failed');
+    expect(r.fallbackSkipped).toBe('default-branch');
+    spawnSync('chmod', ['-R', 'u+w', objects]);
+    expect(branchState(repo)).toEqual(before);
+  });
+
+  test('a ref left by a feature branch is refused from main: identity, tip unchanged', () => {
+    const repo = initRepo();
+    onFeature(repo);
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    expect(doWrite(repo).outcome).toBe('ref');
+    const tip = sh(repo, ['rev-parse', REF]);
+    sh(repo, ['checkout', '-q', 'main']);
+    const r = doWrite(repo);
+    expect(r.outcome).toBe('refused');
+    expect(r.reason).toBe('identity');
+    expect(sh(repo, ['rev-parse', REF])).toBe(tip);
+  });
+
+  test('a fresh task-x ref from main is written, and a second write from main is the same feature', () => {
+    const repo = initRepo();
+    put(repo, '.trd-state/task-x/report.md', 'r\n');
+    const w = () => recordRef.write({ stateDir: '.trd-state/task-x', command: 'task', step: 's', cwd: repo });
+    expect(w().outcome).toBe('ref');
+    put(repo, '.trd-state/task-x/more.md', 'm\n');
+    const r = w();
+    expect(r.outcome).toBe('ref');
+    expect(treeFiles(repo, 'refs/ensemble/records/task-x')).toEqual(expect.arrayContaining(['report.md', 'more.md']));
+  });
+
+  (IS_ROOT ? test.skip : test)('--no-fallback with an unwritable objects/ on a feature branch commits nothing', () => {
+    const repo = initRepo();
+    onFeature(repo);
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    const head = sh(repo, ['rev-parse', 'HEAD']);
+    const gitDir = path.resolve(repo, sh(repo, ['rev-parse', '--git-dir']));
+    const objects = path.join(gitDir, 'objects');
+    cleanups.push(() => spawnSync('chmod', ['-R', 'u+w', objects]));
+    spawnSync('chmod', ['-R', 'a-w', objects]);
+    const r = runCli(repo, ['write', '--state-dir', STATE, '--command', 'c', '--step', 's', '--no-fallback']);
+    const out = JSON.parse(r.stdout);
+    expect(out.outcome).toBe('failed');
+    expect(out.fallbackSkipped).toBe('no-fallback');
+    spawnSync('chmod', ['-R', 'u+w', objects]);
+    expect(sh(repo, ['rev-parse', 'HEAD'])).toBe(head);
+  });
+
+  test('fallback:false with a lost push on a feature branch keeps the ref local and commits nothing', () => {
+    const repo = initRepo();
+    onFeature(repo);
+    withOrigin(repo, deadOrigin());
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    const head = sh(repo, ['rev-parse', 'HEAD']);
+    const r = doWrite(repo, { fallback: false });
+    expect(r.outcome).toBe('ref');
+    expect(r.push).toBe('failed');
+    expect(r.fallbackSkipped).toBe('no-fallback');
+    expect(sh(repo, ['rev-parse', 'HEAD'])).toBe(head);
+  });
+
+  test('a --shared write never folds: a tracked _session-log.md stays tracked', () => {
+    const origin = initBare();
+    const repo = initRepo();
+    onFeature(repo);
+    withOrigin(repo, origin);
+    put(repo, '.trd-state/_session-log.md', 'one\n');
+    sh(repo, ['add', '-f', '.trd-state/_session-log.md']);
+    sh(repo, ['commit', '-q', '-m', 'track log']);
+    const head = sh(repo, ['rev-parse', 'HEAD']);
+    const r = recordRef.write({ shared: true, command: 'c', step: 's', cwd: repo });
+    expect(r.outcome).toBe('ref');
+    expect(r.push).toBe('pushed');
+    expect(sh(repo, ['ls-files', '.trd-state/_session-log.md'])).toBe('.trd-state/_session-log.md');
+    expect(sh(repo, ['rev-parse', 'HEAD'])).toBe(head);
+  });
+
+  test('feature branch tracking implement.json: one removal commit, the user\'s staged change untouched, and a no-ff merge of base is clean', () => {
+    const origin = initBare();
+    const repo = initRepo();
+    withOrigin(repo, origin);
+    onFeature(repo);
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    sh(repo, ['add', '-f', STATE]);
+    sh(repo, ['commit', '-q', '-m', 'track']);
+    // Base moves on by deleting the record, as a merged PR would.
+    sh(repo, ['checkout', '-q', 'main']);
+    put(repo, 'base.txt', 'b\n');
+    sh(repo, ['add', 'base.txt']);
+    sh(repo, ['commit', '-q', '-m', 'base moves']);
+    sh(repo, ['checkout', '-q', 'feature/x']);
+    put(repo, 'staged.txt', 's\n');
+    sh(repo, ['add', 'staged.txt']);
+    const head = sh(repo, ['rev-parse', 'HEAD']);
+
+    const r = doWrite(repo);
+    expect(r.outcome).toBe('ref');
+    expect(sh(repo, ['rev-list', '--count', `${head}..HEAD`])).toBe('1');
+    expect(sh(repo, ['show', '--name-status', '--format=%s', 'HEAD'])).toBe(`records(${SLUG}): moved to ${REF}\n\nD\t${STATE}/implement.json`);
+    expect(sh(repo, ['diff', '--cached', '--name-only'])).toBe('staged.txt');
+    sh(repo, ['reset', '-q', 'staged.txt']);
+    sh(repo, ['merge', '--no-ff', '--no-commit', 'main']);
+  });
+
+  test('origin/HEAD naming trunk makes trunk the default branch; without it master is', () => {
+    const repo = initRepo();
+    sh(repo, ['checkout', '-q', '-b', 'trunk']);
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    withOrigin(repo, deadOrigin());
+    sh(repo, ['update-ref', 'refs/remotes/origin/trunk', 'HEAD']);
+    sh(repo, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/trunk']);
+    const head = sh(repo, ['rev-parse', 'HEAD']);
+    const r = doWrite(repo);
+    expect(r.fallbackSkipped).toBe('default-branch');
+    expect(sh(repo, ['rev-parse', 'HEAD'])).toBe(head);
+
+    const repo2 = initRepo();
+    withOrigin(repo2, deadOrigin());
+    sh(repo2, ['checkout', '-q', '-b', 'master']);
+    put(repo2, `${STATE}/implement.json`, '{}\n');
+    const r2 = doWrite(repo2);
+    expect(r2.fallbackSkipped).toBe('default-branch');
   });
 });
 

@@ -1210,7 +1210,7 @@ one exists, else `git merge-base main HEAD` (phase 1, nothing checkpointed yet).
 
 **Historical (before 2026-08-28), kept for the reasoning.** Why apply rather than count: until 2026-08-16 this prompt said only "Report the total
 finding count", and nothing downstream did anything with the number: Step 4.4 does not gate
-on it and Step 5.2 writes it into a commit message. Every finding from every per-phase review
+on it and Step 5.1 writes it into a commit message. Every finding from every per-phase review
 was therefore reduced to an integer and discarded — while `review 4 finding(s)` in the git log
 read like diligence.
 
@@ -1301,7 +1301,25 @@ whether the failure matches a documented risk (Step 1.6).
 
 After a phase's `Workflow` call returns `status: "complete"` and the resolved battery is green (or was skipped):
 
-### 5.1 Update State
+### 5.1 Git Checkpoint — product code only
+
+```bash
+git add -A
+git commit -m "chore(phase {N}): checkpoint (battery {green|red|skipped}; verify-app {status})" || true
+COMMIT_SHA=$(git rev-parse HEAD)
+```
+
+`.trd-state/` is git-ignored: this commit carries product code only, and no staging or
+commit step in this command names a run-record path. A phase that changed nothing has
+nothing to commit; the `|| true` keeps that from aborting, and `COMMIT_SHA` is then the
+previous commit. Read `COMMIT_SHA` after the commit, never before.
+
+Commit only — no branch push here. Pushing the branch after every phase buys nothing but network
+round-trips: nobody reads a phase-N branch mid-run, and the branch is pushed once, at Step 9,
+after the whole run (including Step 7.2's review fixes) is on it. (The records-ref write in 5.3
+does push, but only the feature's records ref, never the branch.)
+
+### 5.2 Update State
 
 ```bash
 node -e '
@@ -1314,18 +1332,17 @@ node -e '
 
 Advance `phase_cursor`.
 
-### 5.2 Git Checkpoint
+### 5.3 Write the Phase Checkpoint to the Records Ref
 
 ```bash
-git add -A
-git commit -m "chore(phase {N}): checkpoint (battery {green|red|skipped}; verify-app {status})"
+node .claude/lib/record-ref.js write --state-dir .trd-state/<feature> --command /implement-trd --step "phase N checkpoint"
 ```
 
-Commit only — no push here. Pushing after every phase buys nothing but network round-trips:
-nobody reads a phase-N branch mid-run, and the branch is pushed once, at Step 9, after the
-whole run (including Step 7.2's review fixes) is on it.
+Under `--shipping` the same write happens (records are not product code). Outcome handling is
+in `.claude/rules/command-status.md`, "Run records go to the records ref": report a bad outcome
+as one ISSUES line, never STUCK.
 
-### 5.3 Context Management at Phase Boundary — DO NOT PAUSE
+### 5.4 Context Management at Phase Boundary — DO NOT PAUSE
 
 **Phase boundaries are NOT user-pause points.** After a phase checkpoint, emit the PHASE
 banner (per `.claude/rules/command-status.md`) and **immediately spawn the next phase in
@@ -2072,13 +2089,16 @@ before.
 
 ### 9.0 Final push
 
+The records are not pushed here: every `record-ref.js write` (Step 5.3 and the final write below)
+pushes the feature's records ref itself. This push is the branch's product code only.
+
 Under `--shipping` (§3.7) skip this push entirely and go on to the readout (or the RETURN line). The RETURN line still waits for §7.2's review result and its pathspec commit.
 
 ```bash
 git push -u origin {branch_name}
 ```
 
-The one push of the run — everything committed at each phase checkpoint (Step 5.2) and by
+The one push of the run — everything committed at each phase checkpoint (Step 5.1) and by
 Step 7.2's review-edit commit, when the review's result arrived before this point, goes up
 together. A review result that arrives after this push makes its commit then; push that commit
 too (`git push origin {branch_name}`, not under `--shipping`), or it stays local. A network
@@ -2298,6 +2318,13 @@ any check page's — is one line of prose — never a STUCK, never a retry, neve
 banner. The report and the pages on disk are the deliverable.
 
 ### 9.1 The banner closes the turn — nothing after it
+
+**Final records write, before every banner.** After the last record is on disk (the report, any
+`artifacts.js record`) and before the readout's banner, run
+`node .claude/lib/record-ref.js write --state-dir .trd-state/<feature> --command /implement-trd --step "run complete"`.
+Do the same before a `COMMAND STUCK` banner, and under `--chained` before the
+`[STATUS: /implement-trd] RETURN → …` line (including the STUCK form). Report a bad outcome as
+one ISSUES line.
 
 **Emit `═══ COMMAND COMPLETE: /implement-trd ═══` plus its one-line summary as the LAST
 lines of the turn, immediately after the readout above.**
