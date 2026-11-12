@@ -565,6 +565,22 @@ describe('load(): falls back to the records ref', () => {
     expect(load(stateFile())).toEqual(loaded);
   });
 
+  it('treats a ref owned by a different feature as no record: ENOENT, nothing materialised', () => {
+    const dir = path.dirname(stateFile());
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(stateFile(), JSON.stringify({ version: '1.0.0', tasks: { T1: { status: 'success' } } }));
+    const w = spawnSync(process.execPath, [RECORD_REF, 'write', '--state-dir', '.trd-state/demo', '--command', 'implement-trd', '--step', 'test', '--no-push'], { cwd: repo, encoding: 'utf8', env: { ...process.env, FORGE_FEATURE_ID: '' } });
+    expect(w.status).toBe(0);
+    fs.rmSync(dir, { recursive: true });
+    // the same positive setup as the resume test, but this session is a different feature (branch)
+    git(['checkout', '-q', '-b', 'other-feature']);
+
+    let err;
+    try { load(stateFile(), { local: true }); } catch (e) { err = e; }
+    expect(err && err.code).toBe('ENOENT');
+    expect(fs.existsSync(dir)).toBe(false);
+  });
+
   it('throws the original ENOENT when neither folder nor ref exists', () => {
     let err;
     try { load(stateFile(), { local: true }); } catch (e) { err = e; }

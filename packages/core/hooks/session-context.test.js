@@ -255,6 +255,17 @@ describe('session-context.js falls back to the local records ref', () => {
     expect(ctx).not.toContain('Closed:');
   });
 
+  it('(a2) a ref owned by a different feature gives no Closed: line and creates no folder', async () => {
+    repo = repoWithRef({
+      'closed.json': JSON.stringify({ closedAt: '2026-10-01T00:00:00Z', closedBy: 'owner', note: 'done' }),
+    });
+    git(repo, ['checkout', '-q', '-b', 'other-feature']);
+    const ctx = await bannerFor(repo);
+    expect(ctx).toContain(`TRD:    docs/TRD/${SLUG}.md`);
+    expect(ctx).not.toContain('Closed:');
+    expect(fs.existsSync(path.join(repo, '.trd-state', SLUG))).toBe(false);
+  });
+
   it('(b) neither a folder nor a ref: output is the same as without the fallback', async () => {
     repo = repoWithRef({ 'implement.json': '{}' });
     git(repo, ['update-ref', '-d', REF]);

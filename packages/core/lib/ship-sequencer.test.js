@@ -1179,6 +1179,13 @@ describe('records-ref fallback (worktree -> ref -> detached record)', () => {
     expect(seq.status(REL).status).toBe('running');
   });
 
+  test('(a2) start --resume ignores a ref owned by a different feature and begins a new run', () => {
+    parkOnRef();
+    const r = seq.start(opts({ resume: true, work: { kind: 'feature', id: 'f', trd: 'docs/TRD/f.md', branch: 'other-feature' } }));
+    expect(r.ok).toBe(true);
+    expect(r.resumed).toBeUndefined();
+  });
+
   test('(c) neither a ref nor a file: start begins a new run', () => {
     const r = seq.start(opts({ resume: true }));
     expect(r.ok).toBe(true);

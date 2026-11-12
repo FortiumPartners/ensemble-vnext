@@ -1244,6 +1244,27 @@ describe('reconcile and check: fall back to the records ref', () => {
     expect(r.observed).toBe(anchor);
   });
 
+  test('a ref owned by a different feature is no record: reconcile sets a fresh anchor, check finds none', () => {
+    // Identity is the Forge feature id when both sides have one, else the branch. Pin it to the
+    // branch rule so an ambient FORGE_FEATURE_ID cannot make the two sessions "the same feature".
+    const savedId = process.env.FORGE_FEATURE_ID;
+    delete process.env.FORGE_FEATURE_ID;
+    try {
+      const { s, anchor } = refOnly();
+      git(s.repo, 'checkout', '-q', '-b', 'other-feature');
+      expect(git(s.repo, 'rev-parse', 'HEAD')).toBe(anchor); // same commit, so only the identity check can differ
+      const r = reconcile(s.args({ setOnly: true }));
+      expect(r.action).toBe('set');
+      expect(fs.existsSync(path.join(s.stateDir, 'closed.json'))).toBe(false); // the ref's closed.json was not restored
+      fs.rmSync(s.stateDir, { recursive: true, force: true });
+      expect(check({ stateDir: s.stateDir, link: 'pr-head', pr: 1, trdPath: TRD, cwd: s.repo }))
+        .toMatchObject({ ok: false, reason: 'no anchor' });
+      expect(fs.existsSync(s.stateDir)).toBe(false);
+    } finally {
+      if (savedId !== undefined) process.env.FORGE_FEATURE_ID = savedId;
+    }
+  });
+
   test('neither folder nor ref: behaves as the no-closed.json case', () => {
     const s = setup();
     const head = git(s.repo, 'rev-parse', 'HEAD');

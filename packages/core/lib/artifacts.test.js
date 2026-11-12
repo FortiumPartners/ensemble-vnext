@@ -302,6 +302,21 @@ describe('records-ref fallback', () => {
     expect(m.trd.url).toBe('https://x/trd-new');
   });
 
+  it('(a2) ref owned by a different feature: get is empty; record starts a fresh manifest and restores nothing', () => {
+    fs.mkdirSync(path.join(repo, 'docs'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'docs', 'a.md'), '# a\n');
+    artifacts.record(STATE, 'prd', entry('https://x/prd'), { root: repo, now: NOW });
+    expect(recordRef.write({ stateDir: STATE, command: 'c', step: 's', cwd: repo, push: false }).ok).toBe(true);
+    fs.rmSync(path.join(repo, STATE), { recursive: true, force: true });
+    git(repo, ['checkout', '-q', '-b', 'other-feature']);
+
+    expect(artifacts.get(STATE, 'prd')).toBe('');
+    artifacts.record(STATE, 'trd', entry('https://x/trd'), { root: repo, now: NOW });
+    const m = JSON.parse(fs.readFileSync(path.join(repo, STATE, 'artifacts.json'), 'utf8'));
+    expect(Object.keys(m).filter((k) => k !== 'version')).toEqual(['trd']);
+    expect(fs.existsSync(path.join(repo, STATE, 'record.json'))).toBe(false);
+  });
+
   it('(b) no ref: get is empty and record creates a one-entry manifest', () => {
     fs.mkdirSync(path.join(repo, 'docs'), { recursive: true });
     fs.writeFileSync(path.join(repo, 'docs', 'a.md'), '# a\n');

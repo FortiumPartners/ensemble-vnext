@@ -284,6 +284,17 @@ describe('precompact.js and the records ref', () => {
     expect(log).toContain('Ref task');
   });
 
+  test('(d3) ref owned by a different feature: nothing restored; checkpoint goes to _session-log.md', () => {
+    const folder = setup({ withRef: true });
+    git(tmpDir, ['checkout', '-q', '-b', 'other-feature']);
+    const r = runHook({ cwd: tmpDir, payload: {}, env: { FORGE_FEATURE_ID: '' } });
+    expect(r.status).toBe(0);
+    expect(fs.existsSync(folder)).toBe(false);
+    const log = fs.readFileSync(path.join(tmpDir, '.trd-state', '_session-log.md'), 'utf-8');
+    expect(log).toContain('## Compaction checkpoint');
+    expect(log).not.toContain('Ref task');
+  });
+
   test('(d2) neither folder nor ref: the checkpoint lands in _session-log.md and no folder appears', () => {
     const folder = setup({ withRef: false });
     const r = runHook({ cwd: tmpDir, payload: {} });
