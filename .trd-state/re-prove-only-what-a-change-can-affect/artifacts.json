@@ -11,5 +11,11 @@
     "url": "",
     "updated_at": "2026-11-12T00:31:41.129Z",
     "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/re-prove-only-what-a-change-can-affect/verification-report.md",
+    "url": "https://claude.ai/artifact/5JXK1SrNKwRwJ9VT4wbr5v",
+    "updated_at": "2026-11-12T00:52:53.742Z",
+    "command": "/implement-trd"
   }
 }
