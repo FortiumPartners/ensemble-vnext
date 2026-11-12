@@ -45,6 +45,32 @@ const DEFINITION = [
   '| FS-1 | a | c | e | [read] | locator | | O1 |', '',
 ].join('\n');
 
+/**
+ * Deploy-link token from a commit sha: the shortest prefix of at least `n` characters that
+ * contains a letter a-f, because custody.js rejects an all-digit token as a build number.
+ * Returns the full sha when it has no letter at all.
+ */
+function tokenOf(sha, n) {
+  for (let len = n; len < sha.length; len++) {
+    if (/[a-f]/.test(sha.slice(0, len))) return sha.slice(0, len);
+  }
+  return sha;
+}
+
+describe('tokenOf', () => {
+  test('extends an all-digit prefix to the first letter', () => {
+    expect(tokenOf('2012004412' + 'ab' + '0'.repeat(28), 8)).toBe('2012004412a');
+  });
+  test('keeps exactly n characters when the prefix already has a letter', () => {
+    expect(tokenOf('1234567a' + '0'.repeat(32), 8)).toBe('1234567a');
+    expect(tokenOf('a' + '0'.repeat(39), 8)).toHaveLength(8);
+  });
+  test('returns the full sha when it has no letter', () => {
+    const sha = '1'.repeat(40);
+    expect(tokenOf(sha, 8)).toBe(sha);
+  });
+});
+
 /** A temp repo on branch feature/x with a local bare origin, a TRD and a state directory. */
 function setup() {
   const root = tmp();
@@ -911,10 +937,10 @@ describe('detach: a run held on the records ref', () => {
     process.env.STUB_PR_JSON = JSON.stringify({ state: 'MERGED', baseRefName: 'main', headRefOid: anchorA });
     const m = check(s.args({ link: 'merge', pr: 1, base: 'main' }));
     expect(m).toMatchObject({ ok: true });
-    const d = check(s.args({ link: 'deploy', identityOutput: `build ${anchorA.slice(0, 8)}` }));
+    const d = check(s.args({ link: 'deploy', identityOutput: `build ${tokenOf(anchorA, 8)}` }));
     expect(d).toMatchObject({ ok: true, observed: anchorA });
     // against B the same output would differ in shipped code, so the ref anchor is what was used
-    expect(check(s.args({ link: 'deploy', identityOutput: `build ${b.slice(0, 8)}` })).ok).toBe(false);
+    expect(check(s.args({ link: 'deploy', identityOutput: `build ${tokenOf(b, 8)}` })).ok).toBe(false);
   });
 
   test('a reconcile move lands on the ref, not the tracked file', () => {
@@ -1092,23 +1118,23 @@ describe('check: deploy link', () => {
 
   test('passes when a token (git describe form) resolves to a code-equal commit', () => {
     const { s, head } = anchoredAt();
-    const r = deploy(s, `v1.2.3-4-g${head.slice(0, 9)}`);
+    const r = deploy(s, `v1.2.3-4-g${tokenOf(head, 9)}`);
     expect(r).toMatchObject({ ok: true, observed: head });
   });
 
   test('passes on a later test-only commit; fails on a shipped one, naming the file', () => {
     const { s } = anchoredAt();
     const t = s.commit('tests', { 'src/x.test.js': 't' });
-    expect(deploy(s, `build ${t.slice(0, 8)}`).ok).toBe(true);
+    expect(deploy(s, `build ${tokenOf(t, 8)}`).ok).toBe(true);
     const bad = s.commit('sneaky', { 'src/b.js': 'b2' });
-    const r = deploy(s, `build ${bad.slice(0, 8)}`);
+    const r = deploy(s, `build ${tokenOf(bad, 8)}`);
     expect(r.ok).toBe(false);
     expect(r.differing).toEqual(['src/b.js']);
   });
 
   test('skips an all-digit token and passes on the real one beside it', () => {
     const { s, head } = anchoredAt();
-    expect(deploy(s, `1234567 ${head.slice(0, 8)}`).ok).toBe(true);
+    expect(deploy(s, `1234567 ${tokenOf(head, 8)}`).ok).toBe(true);
   });
 });
 
