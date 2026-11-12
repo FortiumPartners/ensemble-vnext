@@ -2162,9 +2162,9 @@ function readMinifiedEnvironments(verificationText) {
     const name = clean(r.cells[0]);
     if (!name) continue;
     const text = r.cells.join(' ').toLowerCase();
-    // The lookbehind keeps a negated form ("unminified", "non-minified", "non-production build")
-    // from reading as the thing it negates.
-    if (name.toLowerCase() === 'production' || /(?<![\w-])(?:production build|prod build|minified)\b/.test(text)) names.push(name);
+    // The lookbehinds keep a negated form ("unminified", "non-minified", "non-production build",
+    // "not minified", "non minified") from reading as the thing it negates.
+    if (name.toLowerCase() === 'production' || /(?<![\w-])(?<!\b(?:not|non)\s+)(?:production build|prod build|minified)\b/.test(text)) names.push(name);
   }
   return names;
 }

@@ -3733,7 +3733,7 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
     expect(jp).toMatch(/"also return its "kind"|also return its "kind"/);
     expect(jp).toMatch(/"provenAt", "image", "ui", "imageExcluded", "kind", "settled"/);
     expect(jp).toMatch(/imageExcluded, kind, settled\)/);
-    expect(jp).toMatch(/"imageExcluded","kind","settled" \}/);
+    expect(jp).toMatch(/"imageExcluded","kind","settled","verificationDigest" \}/);
     expect(jp).toMatch(/"settledEvidenceGaps":</);
     expect(jp).toMatch(/not_met evidence gap with "settled":"definition-problem"/);
     expect(jp).not.toMatch(/absent\/null for a "not_met" criterion, which stays\s+open/);

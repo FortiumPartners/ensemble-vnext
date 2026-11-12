@@ -4394,6 +4394,8 @@ describe('readMinifiedEnvironments', () => {
       '| local | http://localhost:3000 | dev server, unminified bundle |',
       '| preview | https://p.example | non-minified preview |',
       '| qa | https://q.example | a non-production build |',
+      '| dev | https://d.example | dev server, not minified |',
+      '| demo | https://e.example | non minified demo |',
     ]);
     expect(readMinifiedEnvironments(text)).toEqual([]);
   });

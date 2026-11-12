@@ -798,7 +798,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `write the notes file yourself, so do not re-derive this.\n\n` +
     `Return { "action": "exit-satisfied"|"exit-unbuilt"|"exit-stalled"|"exit-stuck"|` +
     `"exit-insufficient-coverage"|"exit-must-pass-unproven"|"exit-setup-failure"|"remediate", ` +
-    `"reason": "<string>", "criteria": [ { "id","status","tier1","artifact","reason","cause","files","image","ui","imageExcluded","kind","settled" }, ` +
+    `"reason": "<string>", "criteria": [ { "id","status","tier1","artifact","reason","cause","files","image","ui","imageExcluded","kind","settled","verificationDigest" }, ` +
     `... one entry per criterion you judged THIS iteration -- the open set above, not the ` +
     `already-settled ones ], "gaps": [<not_met ids>], "unbuilt": ` +
     `[<unbuilt ids>], "closed": [<ids decide-next reported closed>], "notesUpdated": <boolean>, ` +
