@@ -4,7 +4,7 @@
   "trd_hash": "c8741db87afd33638730204962a8adfe8943df3dd817a3d0360e910369869323",
   "branch": "feature/10-triage-unmet-results-by-kind",
   "strategy": "tdd",
-  "phase_cursor": 2,
+  "phase_cursor": 3,
   "tasks": {
     "TRIAGE-B001": {
       "description": "In functional-verification.js, add KINDS, KIND_BY_CAUSE, KIND_LABEL and kindOf beside CAUSES (§3.1). Add the required settledEvidenceGaps input to decideNext (§3.2). Add the verification-digest CLI (D",
@@ -95,25 +95,25 @@
     "TRIAGE-B006": {
       "description": "Add kind rendering to renderReport (D16): a kind on each row, kind counts leading the Diagnosis line, the ## Evidence gaps (definition problems) section, preclassified marks, the satisfied suffix, and",
       "phase": 3,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-11-12T04:56:15.477Z",
       "completed_at": null
     },
     "TRIAGE-B007": {
       "description": "In verify-functional.js, add the two new arguments with validation (D12), resume seeding by digest (D8), preclassified seeding (D11) and the cold-start setup probe (D13). Stamp verificationDigest on e",
       "phase": 3,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-11-12T04:56:15.477Z",
       "completed_at": null
     },
     "TRIAGE-B008": {
@@ -161,11 +161,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-12T04:45:57.908Z"
+    },
+    {
+      "phase": 2,
+      "commit": "61079d7b52dde520121dc595253a7aaf27c366b6",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T04:56:15.476Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "50904621a7e55ec3418ab72c713ad8566f0b7603",
-    "last_checkpoint_timestamp": "2026-11-12T04:45:57.908Z",
+    "last_healthy_checkpoint": "61079d7b52dde520121dc595253a7aaf27c366b6",
+    "last_checkpoint_timestamp": "2026-11-12T04:56:15.476Z",
     "interrupted": false,
     "interrupt_reason": null
   },
