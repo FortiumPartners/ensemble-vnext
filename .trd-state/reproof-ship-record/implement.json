@@ -4,7 +4,7 @@
   "trd_hash": "1a5b78d691cb402b3596e390bc3f897c0aa477b7a8a298f3ea1ae89f15730ca2",
   "branch": "feature/60-re-proof-results-in-the-ship-record",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "recordReproof + reproof CLI in ship-sequencer.js",
@@ -53,10 +53,19 @@
       "completed_at": "2026-11-12T01:17:41.554Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "b179a6673344e96f810f28e33dcc77e0c8cf4e58",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T01:29:11.126Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "80ae45ba4e6736f3289c4c0bb47bec942f9cf67f",
-    "last_checkpoint_timestamp": "2026-11-12T01:04:09.440Z",
+    "last_healthy_checkpoint": "b179a6673344e96f810f28e33dcc77e0c8cf4e58",
+    "last_checkpoint_timestamp": "2026-11-12T01:29:11.126Z",
     "interrupted": false,
     "interrupt_reason": null
   },
