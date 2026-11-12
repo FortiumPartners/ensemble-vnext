@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/EiiTDJvRxwYCSCRdJHqXJx",
     "updated_at": "2026-11-12T20:38:37.802Z",
     "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/every-waived-failure-filed-as-a-defect-issue/audit-build-report.md",
+    "url": "https://claude.ai/artifact/2aMurTeMrb4LsyiJnwVNT2",
+    "updated_at": "2026-11-12T20:54:02.457Z",
+    "command": "/audit-build"
   }
 }

@@ -1,0 +1,13 @@
+{
+  "feature": "every-waived-failure-filed-as-a-defect-issue",
+  "trd": "docs/TRD/every-waived-failure-filed-as-a-defect-issue.md",
+  "closedAt": "2026-11-12T20:53:50Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; nothing tests that both close commands list each filed issue's URL in their STATE section; FIX-006's two literal grep acceptance checks fail as written, though the text they check is correct; no real GitHub issue was filed and no Linear or Jira tracker was exercised.",
+    "report": ".trd-state/every-waived-failure-filed-as-a-defect-issue/audit-build-report.md",
+    "auditedCommit": "53ca2af5a7772c6be9363adf2f501e1987cec80c",
+    "anchorCommit": "8fa357820629b174d4bcd9e2038c7537a0a2159c"
+  }
+}
