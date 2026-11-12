@@ -525,21 +525,21 @@ an API or store: it changes the verification loop's own workflow, library and co
 
 ## Could Not Verify
 
-State after `/audit-build` round 1 (2026-11-12, source
-`docs/plan/one-full-regression-pass-at-the-end.investigation.md` supplied; objectives O1–O13 and
-11 tasks checked against the delivered code). One earlier row was checked and removed: `derive-criteria` now exists
-(REGR-B001), and run on this feature's own TRD and success definition it maps 12 of 19
-criteria (FS-7, FS-8 and FS-15 to FS-19 get no covers). So the no-covers group, part (c) of O1,
-is not rare: on a definition this size about a third of the criteria fall into it. That costs
-extra re-checks whenever a Debug pass changed any file (OQ-4); it does not make the pass miss
-anything, so no requirement changes.
+State after `/audit-build` round 2 (2026-11-12), a RE-AUDIT limited to whether round 1's defects
+are fixed and to the files changed since commit ea3834e5; it took no fresh sample and raised no
+findings (5 of 5 verifiers reporting; source `docs/plan/one-full-regression-pass-at-the-end.investigation.md`;
+13 requirements and 13 tasks indexed). Round 1 checked every requirement; this round re-checked
+only that scope.
 
-Whether the end-to-end fixture run (O9, REGR-T001) shows a catch is not a row here: it is a
-reported gap in the audit readout, because the scenario is built and its one recorded run was
-INCONCLUSIVE.
+The earlier row on `derive-criteria` stays removed: it exists (REGR-B001), and on this feature's own
+TRD it maps 12 of 19 criteria (FS-7, FS-8 and FS-15 to FS-19 get no covers). That group costs extra
+re-checks whenever a Debug pass changed any file (OQ-4); it does not make the pass miss anything.
+
+Whether the end-to-end fixture run (O9, REGR-T001) shows a catch is not a row here: it was reported as a
+gap in round 1 (the scenario is built; its one recorded run was INCONCLUSIVE). This re-audit did not run it.
 
 The rows below were not checked by this audit. Each needs a run (a harness run or a live
-session), and this audit only reads code, tests and recorded evidence.
+session); this re-audit only read the changed files, tests and recorded evidence.
 
 | Claim | How I'd check it | Why this audit did not |
 |-------|------------------|------------------------|
