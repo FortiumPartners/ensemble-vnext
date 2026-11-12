@@ -1,0 +1,13 @@
+{
+  "feature": "stop-run-record-dumps-on-main",
+  "trd": "docs/TRD/stop-run-record-dumps-on-main.md",
+  "closedAt": "2026-11-12T07:41:12Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (the change has no PRD; its source is the owner's ruling and the brief, so only TRD-to-code traceability was checked); the design-render walk test (design-render-walk.test.js) needs Chromium and was not run by this audit, so its relocated fixture is proven passing only by CI; the brief's survey of outside readers of these files was not re-run.",
+    "report": ".trd-state/stop-run-record-dumps-on-main/audit-build-report.md",
+    "auditedCommit": "c1eb94c2656907765a2f9d6cf8c2fe7240284e9d",
+    "anchorCommit": null
+  }
+}
