@@ -5,5 +5,11 @@
     "url": "https://claude.ai/artifact/Pj6E4ze2hRpW8sG2GfDF8f",
     "updated_at": "2026-11-11T23:14:13.911Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/re-prove-only-what-a-change-can-affect/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-12T00:31:41.129Z",
+    "command": "/implement-trd"
   }
 }
