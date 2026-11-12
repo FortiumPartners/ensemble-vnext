@@ -105,6 +105,12 @@ explicit commits and through the `git add -A` checkpoint:
    which `merge-base-in` against the base succeeds; otherwise the fallback is exactly as before.
 5. `precompact.js` with no feature writes `refs/ensemble/records/_shared` locally (no push, no
    network) after appending to `_session-log.md`; `/sweep` writes the shared ref at its end.
+6. (Amendment, product PM, 2026-11-12.) With a post-merge `shipped.json` and `custody.json` on
+   `refs/ensemble/records/<slug>` (written by the ship sequencer after a merge) and an older,
+   pre-merge copy of both left in the worktree's `.trd-state/<slug>/`, a `record-ref.js write`
+   leaves the ref holding the post-merge copies of both files, while the folder's other records
+   are updated on the ref as usual; when the worktree's copy is the further-along one, it is
+   written as before.
 
 ## Decision
 
