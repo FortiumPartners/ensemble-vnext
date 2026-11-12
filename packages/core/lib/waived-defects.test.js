@@ -191,6 +191,42 @@ describe('waived-defects', () => {
     expect(wd.listWaived(stateDir)).toHaveLength(0);
   });
 
+  test('an existing label differing only in case is reused, not re-created', () => {
+    const { root, stateDir } = setup();
+    const s = stub({ labels: ['Defect'] });
+    const r = wd.gate(stateDir, { root, runner: s.run });
+    expect(r).toMatchObject({ ok: true, filed: [{ ref: 'C-1', url: URL1 }] });
+    expect(s.calls.some((x) => x[1] === 'label' && x[2] === 'create')).toBe(false);
+    const c = creates(s.calls)[0];
+    expect(c[c.indexOf('--label') + 1]).toBe('Defect');
+  });
+
+  test('a state written before the waived row does not retire it', () => {
+    const { root, stateDir } = setup({ waived: [] });
+    fs.writeFileSync(path.join(stateDir, 'verification-state.json'), JSON.stringify({ criteria: [{ id: 'C-1', status: 'met' }] }));
+    fv.recordNonBlockingFollowups(stateDir, ['C-1'], '2999-01-01T00:00:00.000Z');
+    const r = wd.gate(stateDir, { root, runner: stub().run });
+    expect(r).toMatchObject({ ok: true, retired: [], filed: [{ ref: 'C-1', url: URL1 }] });
+  });
+
+  test('a Linear refusal carries the title and body to file through the skill', () => {
+    const { root, stateDir } = setup({ tracker: 'linear', project: 'ENS' });
+    const r = wd.gate(stateDir, { root, runner: stub().run });
+    expect(r.ok).toBe(false);
+    expect(r.failed[0].title).toMatch(/^Defect: C-1 Login shows the dashboard/);
+    expect(r.failed[0].body).toMatch(/blank page after login/);
+  });
+
+  test('record-filed on an already-filed criterion writes no second marker', () => {
+    const { stateDir } = setup();
+    expect(wd.recordFiled(stateDir, 'C-1', URL1)).toMatchObject({ ok: true });
+    const before = ledgerLines(stateDir).length;
+    expect(wd.recordFiled(stateDir, 'C-1', URL1)).toMatchObject({ ok: true, already: true });
+    expect(wd.recordFiled(stateDir, 'C-1', 'https://github.com/o/r/issues/99')).toMatchObject({ ok: false });
+    expect(ledgerLines(stateDir)).toHaveLength(before);
+    expect(wd.listWaived(stateDir)[0].url).toBe(URL1);
+  });
+
   test('--stack reads the named stack.md, not the branch copy', () => {
     const { root, stateDir } = setup({ tracker: 'none', project: '' });
     const other = path.join(root, 'base-stack.md');

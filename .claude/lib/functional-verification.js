@@ -1196,7 +1196,7 @@ function readTextOrEmpty(p) {
  */
 function applyTrackerGate(result, stackText, runner) {
   if (!result || result.policy !== 'must-pass') return result;
-  const { parseTracker } = require('./waived-defects'); // lazy: mutual require
+  const { parseTracker, defaultRunner } = require('./waived-defects'); // lazy: mutual require
   const { tracker, project } = parseTracker(stackText);
   let refused = null;
   if (tracker === 'none') {
@@ -1204,9 +1204,8 @@ function applyTrackerGate(result, stackText, runner) {
   } else if (!project) {
     refused = `stack.md declares Tracker: ${tracker} with no Project, so waived failures cannot be filed`;
   } else if (tracker === 'github') {
-    // Bounded like owner-rules.js's network calls: a hung `gh` must not hang the verification start.
-    const run = runner || ((cmd, args) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 30000, env: { ...process.env, GH_PROMPT_DISABLED: '1' } }));
-    const r = run('gh', ['repo', 'view', project, '--json', 'name']);
+    // The gate's own bounded runner: a hung `gh` must not hang the verification start.
+    const r = (runner || defaultRunner)('gh', ['repo', 'view', project, '--json', 'name']);
     if (!r || r.status !== 0) refused = `the GitHub tracker ${project} is not reachable, so waived failures cannot be filed`;
   }
   if (!refused) return result;

@@ -180,17 +180,22 @@ function errText(r) {
   return String(r.stderr || r.stdout || `exit ${r.status}`).trim().slice(0, 300);
 }
 
-/** Make sure the `defect` label exists (read-only list first; created once when missing). */
+/**
+ * Make sure the `defect` label exists (read-only list first; created once when missing). GitHub
+ * label names are case-insensitive, so an existing `Defect` counts (creating `defect` beside it
+ * fails "already exists"); its own spelling is returned as `name` and used when filing.
+ */
 function ensureLabel(run, project) {
   const list = run('gh', ['label', 'list', '-R', project, '--search', LABEL, '--json', 'name']);
   if (list.status !== 0) return { ok: false, error: errText(list) };
   let names = [];
   try {
-    names = JSON.parse(list.stdout || '[]').map((l) => l.name);
+    names = JSON.parse(list.stdout || '[]').map((l) => String(l && l.name));
   } catch { /* treat as missing */ }
-  if (names.includes(LABEL)) return { ok: true };
+  const existing = names.find((n) => n.toLowerCase() === LABEL);
+  if (existing) return { ok: true, name: existing };
   const made = run('gh', ['label', 'create', LABEL, '-R', project, '--description', 'A confirmed defect', '--color', 'D73A4A']);
-  return made.status === 0 ? { ok: true } : { ok: false, error: errText(made) };
+  return made.status === 0 ? { ok: true, name: LABEL } : { ok: false, error: errText(made) };
 }
 
 /**
@@ -203,7 +208,14 @@ function gate(stateDir, { root = process.cwd(), runner = defaultRunner, stackPat
   // A criterion the latest full verification run proved `met` is no longer failing: only
   // verify-build's fix loop records a `met` row, so without this a later passing run would still
   // file a defect for it. Its row is resolved so no reader lists it as open again.
-  const state = readJson(path.join(stateDir, 'verification-state.json'));
+  // The state must postdate the row: a row recorded after it (a later subset re-proof that failed
+  // the criterion again) is newer evidence than that run's `met`, and is filed, not retired.
+  const statePath = path.join(stateDir, 'verification-state.json');
+  const state = readJson(statePath);
+  let stateAt = '';
+  try {
+    stateAt = fs.statSync(statePath).mtime.toISOString();
+  } catch { /* no state: nothing is retired */ }
   const metNow = new Set(
     (state && Array.isArray(state.criteria) ? state.criteria : []).filter((c) => c && c.status === 'met').map((c) => c.id)
   );
@@ -214,7 +226,7 @@ function gate(stateDir, { root = process.cwd(), runner = defaultRunner, stackPat
       // same URL, so it does not stay open in the ledger for file-followups to list forever.
       if (!r.resolvedAt) discovered.resolve(stateDir, { ts: r.ts, summary: r.summary }, `filed ${r.url}`);
       out.already.push({ ref: r.ref, url: r.url });
-    } else if (metNow.has(r.ref)) {
+    } else if (metNow.has(r.ref) && stateAt >= String(r.ts || '')) {
       discovered.resolve(stateDir, { ts: r.ts, summary: r.summary }, 'met in the latest verification run');
       out.retired.push({ ref: r.ref });
     } else todo.push(r);
@@ -223,10 +235,12 @@ function gate(stateDir, { root = process.cwd(), runner = defaultRunner, stackPat
 
   const { tracker, project } = readTracker(root, stackPath);
   out.tracker = tracker;
+  // Every unfiled row carries the title and body the gate would file, so a Linear/Jira skill or a
+  // person filing by hand files the same issue (no other CLI exposes buildIssue).
   const refuse = (reason, error) => {
     out.ok = false;
     out.reason = reason;
-    for (const r of todo) out.failed.push({ ref: r.ref, summary: r.summary, error: error || reason });
+    for (const r of todo) out.failed.push({ ref: r.ref, summary: r.summary, error: error || reason, ...buildIssue(stateDir, r, { closedBy }) });
     return out;
   };
   if (tracker === 'none') return refuse('no tracker declared in stack.md');
@@ -244,10 +258,10 @@ function gate(stateDir, { root = process.cwd(), runner = defaultRunner, stackPat
       const { title, body } = buildIssue(stateDir, r, { closedBy });
       const file = path.join(dir, 'body.md');
       fs.writeFileSync(file, body);
-      const res = runner('gh', ['issue', 'create', '-R', project, '--title', title, '--body-file', file, '--label', LABEL]);
+      const res = runner('gh', ['issue', 'create', '-R', project, '--title', title, '--body-file', file, '--label', label.name]);
       const url = String(res.stdout || '').trim().split('\n').pop().trim();
       if (res.status !== 0 || !/^https?:\/\/\S+$/.test(url)) {
-        out.failed.push({ ref: r.ref, summary: r.summary, error: errText(res) });
+        out.failed.push({ ref: r.ref, summary: r.summary, error: errText(res), title, body });
         continue;
       }
       if (!discovered.resolve(stateDir, { ts: r.ts, summary: r.summary }, `filed ${url}`)) {
@@ -270,6 +284,8 @@ function recordFiled(stateDir, ref, url) {
   if (!/^https?:\/\/\S+$/.test(String(url || ''))) return { ok: false, reason: 'url must be an http(s) URL' };
   const row = listWaived(stateDir).find((r) => r.ref === ref);
   if (!row) return { ok: false, reason: `no waived row for ${ref}` };
+  // Its recorded URL is the one every reader uses; a second marker would be written and ignored.
+  if (row.url) return row.url === url ? { ok: true, ref, url, already: true } : { ok: false, reason: `${ref} is already filed as ${row.url}` };
   if (!discovered.resolve(stateDir, { ts: row.ts, summary: row.summary }, `filed ${url}`)) {
     return { ok: false, reason: 'marker could not be written' };
   }
@@ -303,6 +319,6 @@ function usage() {
   return 2;
 }
 
-module.exports = { parseTracker, readTracker, listWaived, buildIssue, waiverLine, gate, recordFiled, WAIVED_PREFIX };
+module.exports = { parseTracker, readTracker, listWaived, buildIssue, waiverLine, gate, recordFiled, defaultRunner, WAIVED_PREFIX };
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));

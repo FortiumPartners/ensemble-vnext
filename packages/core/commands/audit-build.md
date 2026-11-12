@@ -349,7 +349,7 @@ They are reported for design, and the feature stays open.
   (`.claude/commands/close-feature.md`) with `"closedBy": "audit"`, `"note": null` and
   `"audit": { "verdict": "<the VERDICT line>", "report": ".trd-state/<feature>/audit-build-report.md", "auditedCommit": "<the header's value>", "anchorCommit": <below> }`
   (`anchorCommit` goes inside `audit`, never at the top level: `custody.js` reads only
-  `audit.anchorCommit`), except that its step 4 (the records write) is skipped here: the one write below carries it. Then commit the TRD (if needed), publish, write the records and open the PR as
+  `audit.anchorCommit`), except that its step 0 (the gate, which already ran above with `--closed-by audit`) and its step 4 (the records write) are skipped here: the one write below carries it. Then commit the TRD (if needed), publish, write the records and open the PR as
   below, and print the run's single banner. Add every caveat `decide` returned, and anything
   the fix run did not finish, to the readout. A feature that is already closed (a re-audit)
   gets its `closed.json` rewritten with this run's audit fields.
