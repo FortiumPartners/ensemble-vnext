@@ -4,7 +4,7 @@
   "trd_hash": "fde984629d9dfb02f661b330441d5af9cc52e5dc4019571d4ee96bfbc70e319c",
   "branch": "feature/20-targeted-inner-loop-by-shared-cause",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "CAUSE-B001": {
       "description": "functional-verification.js: add causes, previousCauses and awaitingRegression to decideNext with validation after settledEvidenceGaps; return closedCauses; extend the stall rule (§3.1). Add the ## Cau",
@@ -96,10 +96,19 @@
       "completed_at": null
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "82cebbaf05fea3b36d802e28d79b74c058ec717e",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T07:51:37.786Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "82cebbaf05fea3b36d802e28d79b74c058ec717e",
+    "last_checkpoint_timestamp": "2026-11-12T07:51:37.786Z",
     "interrupted": false,
     "interrupt_reason": null
   },
