@@ -4,7 +4,7 @@
   "trd_hash": "0b1310fe85ced134eef1c43b1a7f3b35c27c1b3708b6e0dfde62a460079ccc5e",
   "branch": "feature/40-fold-the-detached-ship-record-into-the-ref",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "FIX-001",
@@ -111,10 +111,19 @@
       "last_advanced": "2026-11-12T12:32:46.038Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "fbcf56415abcb380028ec0c1a44afae19e589637",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T12:48:34.661Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "fbcf56415abcb380028ec0c1a44afae19e589637",
+    "last_checkpoint_timestamp": "2026-11-12T12:48:34.661Z",
     "interrupted": false,
     "interrupt_reason": null
   },
