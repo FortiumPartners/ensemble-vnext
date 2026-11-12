@@ -132,14 +132,15 @@ describe('verify-functional: stage ordering and agentType', () => {
         judgeCalls += 1;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }], filesChanged: [] };
       return null;
     });
 
     const { result } = await runWorkflow(SOURCE, { agent: agent2, args: baseArgs({ cap: 3 }) });
 
     const labels = agent2.calls.map((c) => c.opts.label);
-    expect(labels).toEqual(['exercise', 'judge', 'debug', 'exercise', 'judge']);
+    // The trailing state-sync is the exit's own state write after a Debug pass (regression pass D18b).
+    expect(labels).toEqual(['exercise', 'judge', 'debug', 'exercise', 'judge', 'state-sync']);
     expect(result.outcome).toBe('satisfied');
   });
 
@@ -166,7 +167,7 @@ describe('verify-functional: stage ordering and agentType', () => {
         judgeCalls += 1;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }], filesChanged: [] };
       return null;
     });
 
@@ -241,9 +242,14 @@ describe('verify-functional: dead Debug agent', () => {
 
     expect(result.outcome).toBe('satisfied');
     // A dead Debug agent addresses no cause (causes D9), so the next Exercise set holds nothing:
-    // no representative is re-captured and no exerciser is dispatched.
-    expect(agent.calls.filter((c) => c.opts.label === 'exercise')).toHaveLength(1);
-    expect(agent.calls.filter((c) => c.opts.label === 'judge')).toHaveLength(2);
+    // no representative is re-captured and no loop exerciser is dispatched. What it changed is
+    // unknown, though, so the regression pass at the exit re-checks the one criterion already proven.
+    const exercises = agent.calls.filter((c) => c.opts.label === 'exercise');
+    expect(exercises).toHaveLength(2);
+    expect(exercises[1].prompt).toMatch(/regression pass 1 at the end of iteration 2/);
+    expect(exercises[1].prompt).toContain('"id":"FS-2"');
+    expect(exercises[1].prompt).not.toContain('"id":"FS-1"');
+    expect(agent.calls.filter((c) => c.opts.label === 'judge')).toHaveLength(3);
     expect(logs.join('\n')).toMatch(/Debug returned nothing -- no cause addressed/);
   });
 });
@@ -299,7 +305,7 @@ describe('verify-functional: evidence-capture gaps go back to Exercise, not Debu
           ],
         });
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }], filesChanged: [] };
       return null;
     });
 
@@ -325,7 +331,7 @@ describe('verify-functional: Debug reports unbuilt', () => {
         if (judgeCalls === 1) return remediateJudge();
         return satisfiedJudge({ action: 'exit-unbuilt', gaps: [], unbuilt: ['FS-1'] });
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'capability absent', unbuilt: true }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'capability absent', unbuilt: true }], filesChanged: [] };
       return null;
     });
 
@@ -630,7 +636,7 @@ describe('verify-functional: Exercise is scoped to the open set, per slice', () 
             })
           : satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b', reason: null, files: [] }] });
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }], filesChanged: [] };
       return null;
     });
 
@@ -652,12 +658,14 @@ describe('verify-functional: resume', () => {
     let capturedExercisePrompt = null;
     let capturedJudgePrompt = null;
     const agent = makeAgentStub((prompt, opts) => {
+      // The first prompts only: the resumed FS-2 is re-checked by the regression pass at the exit, because
+      // a resume that continues a run cannot say what its last Debug pass changed (regression pass D18a).
       if (opts.label === 'exercise') {
-        capturedExercisePrompt = prompt;
+        capturedExercisePrompt = capturedExercisePrompt || prompt;
         return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
       }
       if (opts.label === 'judge') {
-        capturedJudgePrompt = prompt;
+        capturedJudgePrompt = capturedJudgePrompt || prompt;
         return satisfiedJudge();
       }
       return null;
@@ -722,7 +730,7 @@ describe('verify-functional: iteration cap', () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
       if (opts.label === 'judge') return remediateJudge(); // never resolves -- always asks to remediate
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'tried' }] }; // never marks unbuilt
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'tried' }], filesChanged: [] }; // never marks unbuilt
       return null;
     });
 
@@ -823,7 +831,7 @@ describe('verify-functional: args.project scoping', () => {
         judgeCalls += 1;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }], filesChanged: [] };
       return null;
     });
 
@@ -963,7 +971,7 @@ describe('verify-functional: Exercise capture-only prohibition', () => {
         judgeCalls += 1;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }], filesChanged: [] };
       return null;
     });
 
@@ -994,7 +1002,7 @@ describe('verify-functional: Debug refresh (D11)', () => {
       }
       if (opts.label === 'debug') {
         capturedDebugPrompt = prompt;
-        return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
+        return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }], filesChanged: [] };
       }
       return null;
     });
@@ -1025,7 +1033,7 @@ describe('verify-functional: Debug refresh (D11)', () => {
       }
       if (opts.label === 'debug') {
         capturedDebugPrompt = prompt;
-        return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
+        return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }], filesChanged: [] };
       }
       return null;
     });
@@ -1045,7 +1053,7 @@ describe('verify-functional: Debug refresh (D11)', () => {
         judgeCalls += 1;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }], filesChanged: [] };
       return null;
     });
 
@@ -1094,7 +1102,7 @@ describe('verify-functional: settled/open partition across iterations', () => {
         }
         return satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, files: [] }] });
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }], filesChanged: [] };
       return null;
     });
 
@@ -1138,7 +1146,7 @@ describe('verify-functional: settled/open partition across iterations', () => {
         secondJudgePrompt = prompt;
         return satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, files: [] }] });
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }], filesChanged: [] };
       return null;
     });
 
@@ -1178,7 +1186,7 @@ describe('verify-functional: settled/open partition across iterations', () => {
           ],
         });
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }], filesChanged: [] };
       return null;
     });
 
@@ -1257,8 +1265,10 @@ describe('verify-functional: settled/open partition across iterations', () => {
       return null;
     });
 
+    // iteration 0 (a /verify-build fix-round snapshot): this test is about which entries seed `settled`;
+    // a snapshot that continues a run (iteration >= 1) also queues its `met` for the regression pass.
     const resume = {
-      iteration: 1,
+      iteration: 0,
       criteria: [
         { id: 'FS-1', status: 'met', artifact: 'a.txt', reason: null, tier1: 'pass', provenAt: 1 },
         { id: 'FS-2', status: 'not_met', artifact: null, reason: 'still broken' },
@@ -1372,7 +1382,7 @@ describe('verify-functional: met/total reach the decide-next payload', () => {
         secondJudgePrompt = prompt;
         return satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, files: [] }] });
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed it' }], filesChanged: [] };
       return null;
     });
 
@@ -1540,7 +1550,7 @@ describe('verify-functional: end-of-run full-environment gate (D14)', () => {
       }
       if (opts.label === 'debug') {
         debugPrompt = prompt;
-        return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
+        return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }], filesChanged: [] };
       }
       return null;
     });
@@ -1627,7 +1637,7 @@ describe('verify-functional: end-of-run full-environment gate (D14)', () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
       if (opts.label === 'judge') return remediateJudge(); // never resolves
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'tried' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'tried' }], filesChanged: [] };
       return null;
     });
 
@@ -2182,7 +2192,7 @@ describe('verify-functional: check-skill prompt injection -- Judge STEP 2a', () 
         }
         return satisfiedJudge({ criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] }] });
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed it' }], filesChanged: [] };
       return null;
     });
 
@@ -2225,7 +2235,7 @@ describe('verify-functional: Debug gap enrichment', () => {
       }
       if (opts.label === 'debug') {
         debugPrompt = prompt;
-        return { results: [{ cause: 'criterion:DC-1', addressed: true, result: 'fixed it' }] };
+        return { results: [{ cause: 'criterion:DC-1', addressed: true, result: 'fixed it' }], filesChanged: [] };
       }
       return null;
     });
@@ -2290,7 +2300,7 @@ describe('verify-functional: Render stage', () => {
           ],
         });
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:DC-1', addressed: true, result: 'fixed' }, { cause: 'criterion:FL-1', addressed: true, result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:DC-1', addressed: true, result: 'fixed' }, { cause: 'criterion:FL-1', addressed: true, result: 'fixed' }], filesChanged: [] };
       if (opts.label === 'render') return { rendered: true, page: 'x/index.html', cards: 1, reason: '' };
       return null;
     });
@@ -2368,7 +2378,7 @@ describe('verify-functional: Render stage', () => {
           ],
         });
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:DC-1', addressed: true, result: 'fixed' }, { cause: 'criterion:FL-1', addressed: true, result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:DC-1', addressed: true, result: 'fixed' }, { cause: 'criterion:FL-1', addressed: true, result: 'fixed' }], filesChanged: [] };
       if (opts.label === 'render') return { rendered: true, page: 'x/index.html', cards: 1, reason: '' };
       return null;
     });
@@ -2492,8 +2502,10 @@ describe('verify-functional: cause', () => {
       if (opts.label === 'judge') return satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, cause: null, files: [] }] });
       return null;
     });
+    // iteration 0 (a fix-round snapshot): a snapshot that continues a run would re-check FS-1 in the
+    // regression pass; this test is about the carry, not the re-check.
     const resume = {
-      iteration: 1,
+      iteration: 0,
       criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, cause: null, provenAt: 1 }],
       gapsClosed: [1],
     };
@@ -2602,6 +2614,7 @@ describe('verify-functional: report images', () => {
     const prompts = [];
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a.txt', screenshot: 'evidence/FS-1/shot.png' }, { criterion: 'FS-2', artifact: 'b.txt' }]);
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed' }], refresh: { ran: false, exitCode: null }, filesChanged: [] };
       if (opts.label === 'judge') {
         judgeCalls += 1;
         prompts.push(prompt);
@@ -2637,7 +2650,7 @@ describe('verify-functional: report images', () => {
       return null;
     });
     const resume = {
-      iteration: 1,
+      iteration: 0, // a fix-round snapshot: this test is about the settled list, not the regression pass
       criteria: [
         { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, cause: null, provenAt: 1, image: 'evidence/FS-1/shot.png', ui: true, imageExcluded: null },
         { id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, cause: null, provenAt: 1 },
@@ -2746,7 +2759,7 @@ describe('verify-functional: liveEvidence (reuse of evidence a [LIVE] task captu
         judgeCalls++;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }], filesChanged: [] };
       return null;
     });
     await runWorkflow(SOURCE, { agent, args: baseArgs({ liveEvidence: [entry()] }) });
@@ -2971,7 +2984,7 @@ describe('verify-functional: must-pass enforcement', () => {
         // Iteration 2 returns only the open criterion; FS-2 (the must-pass one) is settled met.
         return satisfiedJudge({ criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] }] });
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }], filesChanged: [] };
       return null;
     });
     const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2'] }) });
@@ -3019,7 +3032,7 @@ describe('verify-functional: must-pass enforcement', () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }]);
       if (opts.label === 'judge') return remediateJudge();
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'tried' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'tried' }], filesChanged: [] };
       return null;
     });
     const fell = await runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2', 'FS-9'], cap: 1 }) });
@@ -3145,7 +3158,7 @@ describe('verify-functional: setupTargets validation, before any agent runs', ()
 describe('verify-functional: the Setup phase', () => {
   it('dispatches no setup agent without setupTargets, and carries a Debug result without refresh as null', async () => {
     let judgeCalls = 0;
-    const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()), debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'x' }] } }));
+    const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()), debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'x' }], filesChanged: [] } }));
     const { result, phases } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
     expect(labelsOf(agent).filter((l) => l.startsWith('setup') || l === 'record')).toEqual([]);
     expect(phases).not.toContain('Setup');
@@ -3182,7 +3195,7 @@ describe('verify-functional: the Setup phase', () => {
           ++judgeCalls === 1
             ? remediateJudge({ criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] }, { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no', files: [] }], gaps: ['FS-2'], debugGaps: [{ id: 'FS-2' }] })
             : satisfiedJudge(),
-        debug: { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'ok' }], refresh: { ran: false, exitCode: null } },
+        debug: { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'ok' }], refresh: { ran: false, exitCode: null }, filesChanged: [] },
         setup: setupResult(),
       })
     );
@@ -3201,12 +3214,12 @@ describe('verify-functional: the Setup phase', () => {
     const agent = makeAgentStub(
       setupPlan({
         judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()),
-        debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'absent', unbuilt: true }], refresh: { ran: false, exitCode: null } },
+        debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'absent', unbuilt: true }], refresh: { ran: false, exitCode: null }, filesChanged: [] },
         setup: setupResult(),
       })
     );
     await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
-    expect(labelsOf(agent)).toEqual(['setup', 'exercise', 'judge', 'debug', 'judge']);
+    expect(labelsOf(agent)).toEqual(['setup', 'exercise', 'judge', 'debug', 'judge', 'state-sync']);
   });
 
   it('copies each target\'s refreshable into the prompt', async () => {
@@ -3323,7 +3336,7 @@ describe('verify-functional: the setup-failure exit', () => {
     const agent = makeAgentStub(
       setupPlan({
         judge: () => (++judgeCalls === 1 ? remediateJudge({ closed: ['FS-2'] }) : satisfiedJudge()),
-        debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'ok' }], refresh: { ran: false, exitCode: null } },
+        debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'ok' }], refresh: { ran: false, exitCode: null }, filesChanged: [] },
         setup: () => (++setupCalls === 1 ? setupResult() : setupResult({ action: 'setup-failure', problems: [BROKEN] })),
         record: { recorded: true },
       })
@@ -3348,7 +3361,7 @@ describe('verify-functional: the setup-failure exit', () => {
     expect(empty.result.setup).toEqual({ checked: 0, refreshed: 0, flags: [], problems: [] });
     const atCap = await runWorkflow(SOURCE, { agent: makeAgentStub(setupPlan()), args: baseArgs({ cap: 3, resume: { iteration: 3, criteria: [], gapsClosed: [] } }) });
     expect(atCap.result.setup).toEqual({ checked: 0, refreshed: 0, flags: [], problems: [] });
-    const fallThrough = await runWorkflow(SOURCE, { agent: makeAgentStub(setupPlan({ judge: remediateJudge(), debug: { results: [], refresh: { ran: false, exitCode: null } } })), args: baseArgs({ cap: 1 }) });
+    const fallThrough = await runWorkflow(SOURCE, { agent: makeAgentStub(setupPlan({ judge: remediateJudge(), debug: { results: [], refresh: { ran: false, exitCode: null }, filesChanged: [] } })), args: baseArgs({ cap: 1 }) });
     expect(fallThrough.result.outcome).toBe('stuck');
     expect(fallThrough.result.setup).toEqual({ checked: 0, refreshed: 0, flags: [], problems: [] });
   });
@@ -3356,7 +3369,7 @@ describe('verify-functional: the setup-failure exit', () => {
   it('de-duplicates flags across iterations', async () => {
     let judgeCalls = 0;
     const flag = { environment: 'local', flag: 'no identity declared', default: 'treated as fine for this attempt' };
-    const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()), debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'x' }], refresh: { ran: false, exitCode: null } }, setup: setupResult({ flags: [flag] }) }));
+    const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()), debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'x' }], refresh: { ran: false, exitCode: null }, filesChanged: [] }, setup: setupResult({ flags: [flag] }) }));
     const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
     expect(result.setup.checked).toBe(2);
     expect(result.setup.flags).toEqual([flag]);
@@ -3364,14 +3377,14 @@ describe('verify-functional: the setup-failure exit', () => {
 });
 
 describe('verify-functional: Debug\'s refresh report (D16)', () => {
-  const failedRefresh = { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }], refresh: { ran: true, exitCode: 1 } };
+  const failedRefresh = { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }], refresh: { ran: true, exitCode: 1 }, filesChanged: [] };
 
   it('DEBUG_SCHEMA requires refresh and the prompt asks for it', async () => {
     let judgeCalls = 0;
     const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()), debug: failedRefresh }));
     await runWorkflow(SOURCE, { agent, args: baseArgs({ refreshCommand: 'npm run dev:refresh' }) });
     const debugCall = agent.calls.find((c) => c.opts.label === 'debug');
-    expect(debugCall.opts.schema.required).toEqual(['results', 'refresh']);
+    expect(debugCall.opts.schema.required).toEqual(['results', 'refresh', 'filesChanged']);
     expect(debugCall.opts.schema.properties.refresh.required).toEqual(['ran', 'exitCode']);
     expect(debugCall.prompt).toMatch(/"refresh": \{"ran": true, "exitCode": <its exit code>\}/);
     const noRefresh = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 3 ? remediateJudge() : satisfiedJudge()), debug: failedRefresh }));
@@ -3397,7 +3410,7 @@ describe('verify-functional: Debug\'s refresh report (D16)', () => {
     const agent = makeAgentStub(
       setupPlan({
         judge: () => (++judgeCalls < 3 ? remediateJudge() : satisfiedJudge()),
-        debug: () => (++debugCalls === 1 ? failedRefresh : { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'ok' }], refresh: { ran: true, exitCode: 0 } }),
+        debug: () => (++debugCalls === 1 ? failedRefresh : { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'ok' }], refresh: { ran: true, exitCode: 0 }, filesChanged: [] }),
       })
     );
     await runWorkflow(SOURCE, { agent, args: baseArgs({ cap: 4, refreshCommand: 'npm run dev:refresh' }) });
@@ -3426,7 +3439,7 @@ describe('verify-functional: exit-setup-failure from the Judge', () => {
     const agent = makeAgentStub(
       setupPlan({
         judge: () => (++judgeCalls === 1 ? remediateJudge() : exitJudge()),
-        debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'x' }], refresh: { ran: true, exitCode: 2 } },
+        debug: { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'x' }], refresh: { ran: true, exitCode: 2 }, filesChanged: [] },
       })
     );
     const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ refreshCommand: 'npm run dev:refresh', fullRunCommand: 'make all' }) });
@@ -3573,7 +3586,7 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
       }
       if (opts.label === 'debug') {
         debugCalls += 1;
-        return { results: [{ cause: 'criterion:FS-3', addressed: true, result: 'missing', unbuilt: debugCalls === 1 }] };
+        return { results: [{ cause: 'criterion:FS-3', addressed: true, result: 'missing', unbuilt: debugCalls === 1 }], filesChanged: [] };
       }
       return null;
     });
@@ -3605,7 +3618,7 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
           { action: 'exit-unbuilt', gaps: ['FS-1'], unbuilt: ['FS-2'], debugGaps: [] }
         );
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'missing', unbuilt: true }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'missing', unbuilt: true }], filesChanged: [] };
       return null;
     });
     const { result } = await runWorkflow(SOURCE, {
@@ -3632,7 +3645,7 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
         if (judgeCalls === 1) return remediate([ev('FS-1', 'never-exercised'), ev('FS-2', 'judged-failed')]);
         return satisfiedJudge({ criteria: [met('FS-1'), met('FS-2')] });
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'fixed' }], filesChanged: [] };
       return null;
     });
     await runWorkflow(SOURCE, { agent, args: baseArgs() });
@@ -3651,7 +3664,7 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
         judgeCalls += 1;
         return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }], filesChanged: [] };
       return null;
     });
     const { logs } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
@@ -3670,7 +3683,7 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
           debugGaps: [{ id: 'FS-9', statement: 'statement for FS-9', reason: 'no artifact', artifact: null, files: [] }],
         });
       }
-      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-9', addressed: true, result: 'fixed' }] };
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-9', addressed: true, result: 'fixed' }], filesChanged: [] };
       return null;
     });
     const { logs } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
@@ -3781,7 +3794,7 @@ describe('verify-functional: digest-persisted and preclassified not-checkable en
   const NC = (id, extra = {}) => ({ id, status: 'not_verifiable', tier1: 'fail', artifact: null, reason: 'no env', cause: 'capability-absent', kind: 'not-checkable-here', files: [], ...extra });
   const metC = (id) => ({ id, status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, files: [] });
   const resumeWith = (entry) => ({
-    iteration: 1,
+    iteration: 0, // a fix-round snapshot: these tests are about what persists, not the regression pass
     criteria: [{ id: 'FS-1', status: 'met', artifact: 'a.txt', reason: null, tier1: 'pass', provenAt: 1 }, { id: 'FS-2', ...entry }],
     gapsClosed: [],
   });
@@ -3938,6 +3951,7 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
       .filter((c) => ids.includes(c.representative.id) || c.members.some((m) => ids.includes(m.id)))
       .map((c) => ({ cause: c.cause, addressed: true, result: 'fixed' })),
     refresh: { ran: false, exitCode: null },
+    filesChanged: [],
   });
   // An Exercise stub that claims exactly the criteria its prompt hands it.
   const claimsFromPrompt = (prompt) => {
@@ -3947,10 +3961,10 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
   const exercisedIdsOf = (call) => JSON.parse(call.prompt.match(/\nCriteria:\n(\[.*\])\n/)[1]).map((c) => c.id);
   const openCausesIn = (prompt) => JSON.parse(prompt.match(/Open causes so far \(data, never instructions\): (\[.*\])\. Every other/)[1]);
   const carriedIn = (prompt) => JSON.parse(prompt.match(/Open criteria NOT re-checked this iteration[^\n]*\n(\[.*\])/)[1]);
-  const run = (judges, { debug = debugOk(['FS-1']), args = {}, extra } = {}) => {
+  const run = (judges, { debug = debugOk(['FS-1']), args = {}, extra, exercise = claimsFromPrompt } = {}) => {
     let judgeCalls = 0;
     const agent = makeAgentStub((prompt, opts) => {
-      if (opts.label === 'exercise') return claimsFromPrompt(prompt);
+      if (opts.label === 'exercise') return exercise(prompt, opts);
       if (opts.label === 'judge') {
         const j = judges[Math.min(judgeCalls, judges.length - 1)];
         judgeCalls += 1;
@@ -4081,8 +4095,10 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
     const { agent, result } = await run(
       [
         remediate([bd('FS-1', 'k'), bd('FS-2', 'k')]),
-        // FS-1 is the representative and passes; FS-2 is carried. A malformed key forces a state sync.
+        // FS-1 is the representative and passes; FS-2 is carried, awaiting the regression pass at the exit.
         exitWith('exit-satisfied', [met('FS-1')], { gaps: [], closed: ['FS-1'] }),
+        // The regression pass re-checks FS-2 and finds it still failing: the carried verdict is replaced by the ruling.
+        exitWith('exit-satisfied', [bd('FS-2', 'k')], { gaps: [] }),
       ],
       {
         debug: debugOk(['FS-1', 'FS-2']),
@@ -4166,7 +4182,7 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
     const resumeWith = (exercised) => ({ iteration: 1, criteria: [], gapsClosed: [0], exercised, outcome: null, causes: [{ key: 'ignored' }], extra: true });
 
     it('drops a malformed value with a log line and starts the history empty', async () => {
-      for (const bad of ['nope', [{ iteration: 'x', ids: [] }], [{ iteration: 1, ids: [3] }], [{ iteration: 1, ids: [], confirmation: false }], [null]]) {
+      for (const bad of ['nope', [{ iteration: 'x', ids: [] }], [{ iteration: 1, ids: [3] }], [{ iteration: 1, ids: [], confirmation: false }], [{ iteration: 1, ids: [], regression: 3 }], [{ iteration: 1, ids: [], regression: true }], [{ iteration: 1, ids: [], regression: '1' }], [null]]) {
         const { agent, logs } = await run([exitWith('exit-satisfied', [met('FS-1')], { gaps: [] })], {
           args: { criteria: [criterion('FS-1')], cap: 3, resume: resumeWith(bad) },
         });
@@ -4182,17 +4198,19 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
       expect(logs.join('\n')).not.toMatch(/resume\.exercised/);
     });
 
-    it('seeds a valid value, an entry carrying confirmation: true included, into the Judge literal and the synced state', async () => {
+    it('seeds a valid value, entries carrying confirmation: true (older files) or regression: 1 | 2 included, into the Judge literal and the synced state', async () => {
       const seeded = [
         { iteration: 1, ids: ['FS-1'] },
         { iteration: 1, ids: ['FS-1'], confirmation: true },
+        { iteration: 1, ids: ['FS-1'], regression: 1 },
+        { iteration: 1, ids: ['FS-1'], regression: 2 },
       ];
       const { agent, logs } = await run([exitWith('exit-stuck', [bd('FS-1', 'Bad Key')])], {
         args: { criteria: [criterion('FS-1')], cap: 3, resume: resumeWith(seeded) },
       });
       expect(logs.join('\n')).not.toMatch(/resume\.exercised/);
       expect(labelsOf(agent, 'judge')[0].prompt).toContain(
-        '"exercised": [{"iteration":1,"ids":["FS-1"]},{"iteration":1,"ids":["FS-1"],"confirmation":true},{"iteration":2,"ids":["FS-1"]}]'
+        '"exercised": [{"iteration":1,"ids":["FS-1"]},{"iteration":1,"ids":["FS-1"],"confirmation":true},{"iteration":1,"ids":["FS-1"],"regression":1},{"iteration":1,"ids":["FS-1"],"regression":2},{"iteration":2,"ids":["FS-1"]}]'
       );
       const sync = labelsOf(agent, 'state-sync');
       expect(sync).toHaveLength(1);
@@ -4232,7 +4250,7 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
         exitWith('exit-unbuilt', [{ id: 'FS-2', status: 'unbuilt', tier1: null, artifact: null, reason: 'absent', cause: 'not-built', files: [] }], { unbuilt: ['FS-2'], gaps: ['FS-1', 'FS-3'] }),
       ],
       {
-        debug: { results: [{ cause: 'b', addressed: true, result: 'absent', unbuilt: true }], refresh: { ran: false, exitCode: null } },
+        debug: { results: [{ cause: 'b', addressed: true, result: 'absent', unbuilt: true }], refresh: { ran: false, exitCode: null }, filesChanged: [] },
         args: { criteria: [criterion('FS-1'), criterion('FS-2'), criterion('FS-3')], cap: 4 },
       }
     );
@@ -4244,7 +4262,7 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
   });
 
   describe('Debug per cause (causes D7-D11)', () => {
-    const debugReturn = (results) => ({ results, refresh: { ran: true, exitCode: 0 } });
+    const debugReturn = (results) => ({ results, refresh: { ran: true, exitCode: 0 }, filesChanged: [] });
     const hasCauses = [bd('FS-1', 'a', { files: ['./src/x.js', 'src/y.js'] }), bd('FS-2', 'a', { files: ['src/x.js', 'src/z.js'] }), bd('FS-3', 'b'), bd('FS-4', 'b')];
     const stuck = exitWith('exit-stuck', [bd('FS-1', 'a'), bd('FS-3', 'b')]);
 
@@ -4265,7 +4283,7 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
     it('DEBUG_SCHEMA is per cause: cause, addressed and result required, preCheck optional, refresh still required', async () => {
       const { agent } = await run([remediate(hasCauses), stuck], { debug: debugOk(['FS-1']), args: four });
       const schema = labelsOf(agent, 'debug')[0].opts.schema;
-      expect(schema.required).toEqual(['results', 'refresh']);
+      expect(schema.required).toEqual(['results', 'refresh', 'filesChanged']);
       expect(schema.properties.results.items.required).toEqual(['cause', 'addressed', 'result']);
       expect(schema.properties.results.items.properties.preCheck.required).toEqual(['command', 'exitCode']);
       expect(schema.properties.results.items.properties.criterion).toBeUndefined();
@@ -4440,9 +4458,12 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
           [remediate([bd('FS-1', 'a'), bd('FS-2', 'b')]), stalled(), exitWith('exit-stuck', [bd('FS-2', 'b')], { finalRun: { command: 'make e2e', status: 'fail' } })],
           { debug: debugOk(['FS-1', 'FS-2']), args: { ...two, cap: 3 } }
         );
+        // Two writes: the replaced exit's (outcome null, the run goes on) and the real exit's, which
+        // the regression pass owns after a Debug pass (regression pass D18b).
         const sync = labelsOf(agent, 'state-sync');
-        expect(sync).toHaveLength(1);
+        expect(sync).toHaveLength(2);
         expect(syncedState(sync[0]).outcome).toBeNull();
+        expect(syncedState(sync[1]).outcome).toBe('stuck');
         // one Debug pass for the open cause, from the Judge's criteria entry (the return has no debugGaps)
         const debugs = labelsOf(agent, 'debug');
         expect(debugs).toHaveLength(2);
@@ -4477,42 +4498,56 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
           { debug: debugOk(['FS-1', 'FS-2']), args: { ...two, cap: 3 } }
         );
         expect(result.outcome).toBe('stalled');
-        expect(labelsOf(agent, 'state-sync')).toHaveLength(0);
+        // No kind, key or action was corrected; the one write is the exit's own, after a Debug pass (D18b).
+        const sync = labelsOf(agent, 'state-sync');
+        expect(sync).toHaveLength(1);
+        expect(syncedState(sync[0]).outcome).toBe('stalled');
+        expect(sync[0].prompt).not.toMatch(/the workflow replaced the action the Judge wrote/);
       });
     });
 
-    describe('D15: the confirmation pass', () => {
+    describe('D15 (now the regression pass): members awaiting a closed cause are re-checked at the exit', () => {
       const four = { criteria: defs(4), cap: 5, ...gate };
       const seeds = () => remediate([bd('FS-1', 'a'), bd('FS-2', 'a'), bd('FS-3', 'a'), bd('FS-4', 'b')]);
       const exitSatisfied = () => exitWith('exit-satisfied', [met('FS-1'), met('FS-4')], { gaps: [], finalRun: passRun });
-      const confirmCalls = (agent) => {
+      // The exit iteration's Exercise and Judge are calls 0..1 (iteration 1) and 2 (the exit's own is the
+      // second Judge); a regression round r is the call after them.
+      const regressionCalls = (agent, round = 1) => {
         const exercises = labelsOf(agent, 'exercise');
         const judges = labelsOf(agent, 'judge');
-        return { exercise: exercises[exercises.length - 1], judge: judges[judges.length - 1] };
+        return { exercise: exercises[1 + round], judge: judges[1 + round] };
       };
 
-      it('AC 6: one Exercise and one Judge over only the awaiting members, no Debug, cap = iteration, -confirm files, no gate; a member still failing makes a satisfied exit non-satisfied', async () => {
+      it('AC 6: round 1 is one Exercise and one Judge over only the awaiting members, cap = iteration, -regression-1 files, no gate; a member still failing makes a satisfied exit non-satisfied (one repair round and a round 2 follow)', async () => {
         const { agent, result } = await run(
           [seeds(), exitSatisfied(), exitWith('exit-stuck', [met('FS-2'), bd('FS-3', 'a')], { gaps: ['FS-3'] })],
           { debug: debugOk(['FS-1', 'FS-4']), args: four }
         );
-        expect(labelsOf(agent, 'exercise')).toHaveLength(3);
-        expect(labelsOf(agent, 'judge')).toHaveLength(3);
-        expect(labelsOf(agent, 'debug')).toHaveLength(1);
-        const { exercise, judge } = confirmCalls(agent);
+        // iteration 1, the exit, round 1, round 2: never a third round (O5); one loop Debug and one repair Debug
+        expect(labelsOf(agent, 'exercise')).toHaveLength(4);
+        expect(labelsOf(agent, 'judge')).toHaveLength(4);
+        expect(labelsOf(agent, 'debug')).toHaveLength(2);
+        const { exercise, judge } = regressionCalls(agent);
         expect(exercisedIdsOf(exercise)).toEqual(['FS-2', 'FS-3']);
-        expect(exercise.prompt).toMatch(/confirmation pass at the end of iteration 2/);
-        expect(judge.prompt).toMatch(/CONFIRMATION pass at the end of iteration 2/);
-        expect(judge.prompt).toContain('judge-claims-2-confirm.json');
-        expect(judge.prompt).toContain('judge-decide-2-confirm.json');
-        expect(judge.prompt).toContain('judge-report-input-2-confirm.json');
-        expect(judge.prompt).toContain('judge-state-2-confirm.json');
+        expect(exercise.prompt).toMatch(/regression pass 1 at the end of iteration 2/);
+        expect(judge.prompt).toMatch(/REGRESSION pass 1 at the end of iteration 2/);
+        expect(judge.prompt).toContain('judge-claims-2-regression-1.json');
+        expect(judge.prompt).toContain('judge-decide-2-regression-1.json');
+        expect(judge.prompt).toContain('judge-report-input-2-regression-1.json');
+        expect(judge.prompt).toContain('judge-state-2-regression-1.json');
+        // the gate copy is read from the exit's own un-suffixed report input, never from a round's
+        expect(judge.prompt).toMatch(/Read [^\s]*judge-report-input-2\.json \(the exit's report input\)/);
         expect(judge.prompt).toMatch(/"cap":2,/);
         expect(judge.prompt).toMatch(/"awaitingRegression":\[\]/);
-        // the exit's Judge ran the gate; neither confirmation prompt carries its command
+        // the exit's Judge ran the gate; neither regression prompt carries its command
         expect(labelsOf(agent, 'judge')[1].prompt).toContain('make e2e');
-        expect(exercise.prompt).not.toContain('make e2e');
-        expect(judge.prompt).not.toContain('make e2e');
+        for (const round of [1, 2]) {
+          const calls = regressionCalls(agent, round);
+          expect(calls.exercise.prompt).not.toContain('make e2e');
+          expect(calls.judge.prompt).not.toContain('make e2e');
+        }
+        // the old names are gone
+        expect(`${exercise.prompt}${judge.prompt}`).not.toMatch(/-confirm|confirmation pass|CONFIRMATION/i);
         // a member still failing: not satisfied
         expect(result.outcome).toBe('stuck');
         expect(result.finalRun).toEqual(passRun); // the exit's gate result, carried
@@ -4520,7 +4555,7 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
         expect(result.criteria.find((c) => c.id === 'FS-2')).toMatchObject({ status: 'met' });
       });
 
-      it('AC 7: an exit-stuck from the confirmation names the members still failing and the real cap, not the exit iteration', async () => {
+      it('AC 7: an exit-stuck from the regression pass names the members still failing and the real cap, not the exit iteration', async () => {
         const { result, agent } = await run(
           [seeds(), exitSatisfied(), exitWith('exit-stuck', [met('FS-2'), bd('FS-3', 'a')], { gaps: ['FS-3'], reason: 'iteration cap (2) reached with 1 gap(s) still open' })],
           { debug: debugOk(['FS-1', 'FS-4']), args: four }
@@ -4528,27 +4563,45 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
         expect(result.reason).toContain('FS-3');
         expect(result.reason).toContain('of 5');
         expect(result.reason).not.toMatch(/iteration cap \(2\)/);
-        // the Judge-written report input is brought in step, with the exercised history marking the pass
+        // the Judge-written report input is brought in step, with the exercised history marking both rounds
         const sync = labelsOf(agent, 'state-sync');
         expect(sync).toHaveLength(1);
-        expect(syncedState(sync[0]).exercised).toContainEqual({ iteration: 2, ids: ['FS-2', 'FS-3'], confirmation: true });
+        expect(syncedState(sync[0]).exercised).toContainEqual({ iteration: 2, ids: ['FS-2', 'FS-3'], regression: 1 });
+        expect(syncedState(sync[0]).exercised).toContainEqual({ iteration: 2, ids: ['FS-3'], regression: 2 });
         expect(sync[0].prompt).toMatch(/top-level "outcome" to "stuck" and its top-level "reason" to "[^"]*FS-3/);
-        // the confirmation Judge's own report input is the one patched and re-rendered, not the exit's
-        expect(sync[0].prompt).toContain('judge-report-input-2-confirm.json');
+        // the LATEST round's own report input is the one patched and re-rendered, not the exit's
+        expect(sync[0].prompt).toContain('judge-report-input-2-regression-2.json');
         expect(sync[0].prompt).not.toContain('judge-report-input-2.json');
       });
 
-      it('all members passing keeps the exit satisfied, with no state-sync and the awaiting markers gone', async () => {
+      it('a false "iteration cap" in a non-stuck regression result is corrected in place when the run had budget left', async () => {
+        const { result, agent } = await run(
+          [seeds(), exitSatisfied(), exitWith('exit-insufficient-coverage', [met('FS-2'), met('FS-3')], { gaps: [], reason: 'proven ratio 4/4 ... iteration cap (2) reached' })],
+          { debug: debugOk(['FS-1', 'FS-4']), args: four }
+        );
+        expect(result.reason).not.toContain('iteration cap (2) reached');
+        expect(result.reason).toContain('the run ended at iteration 2 of 5');
+        expect(labelsOf(agent, 'state-sync')[0].prompt).toMatch(/top-level "reason" to "[^"]*the run ended at iteration 2 of 5/);
+      });
+
+      it('all members passing keeps the exit satisfied, the awaiting markers gone and the proof stamped with the exit iteration and the round', async () => {
         const { result, agent } = await run(
           [seeds(), exitSatisfied(), exitWith('exit-satisfied', [met('FS-2'), met('FS-3')], { gaps: [], finalRun: passRun })],
           { debug: debugOk(['FS-1', 'FS-4']), args: four }
         );
         expect(result.outcome).toBe('satisfied');
         expect(result.criteria.every((c) => c.status === 'met' && c.awaiting === undefined)).toBe(true);
-        expect(labelsOf(agent, 'state-sync')).toHaveLength(0);
+        // O4: a re-proven criterion's entry carries the exit iteration and the round
+        expect(result.criteria.find((c) => c.id === 'FS-2')).toMatchObject({ provenAt: 2, regression: 1 });
+        expect(result.criteria.find((c) => c.id === 'FS-1')).not.toHaveProperty('regression');
+        // after a Debug pass the exit's one state write is made by the regression pass (D18b)
+        const sync = labelsOf(agent, 'state-sync');
+        expect(sync).toHaveLength(1);
+        expect(syncedState(sync[0]).outcome).toBe('satisfied');
+        expect(syncedState(sync[0]).criteria.find((c) => c.id === 'FS-2')).toMatchObject({ status: 'met', provenAt: 2, regression: 1 });
       });
 
-      it('AC 8: exit-unbuilt and exit-setup-failure dispatch no confirmation pass', async () => {
+      it('AC 8: exit-unbuilt and exit-setup-failure dispatch no regression pass', async () => {
         for (const action of ['exit-unbuilt', 'exit-setup-failure']) {
           const { agent } = await run([seeds(), exitWith(action, [met('FS-1'), met('FS-4')], { gaps: ['FS-2'], unbuilt: action === 'exit-unbuilt' ? ['FS-2'] : [] })], {
             debug: debugOk(['FS-1', 'FS-4']),
@@ -4556,23 +4609,691 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
           });
           expect(labelsOf(agent, 'exercise')).toHaveLength(2);
           expect(labelsOf(agent, 'judge')).toHaveLength(2);
+          // the exit still gets its one state write, since a Debug pass ran (D18b)
+          expect(labelsOf(agent, 'state-sync')).toHaveLength(1);
         }
       });
 
-      it('no member awaiting means no confirmation pass', async () => {
+      it('no member awaiting and no Debug pass means no regression pass and no state write', async () => {
         const { agent } = await run([exitWith('exit-satisfied', [met('FS-1'), met('FS-2')], { gaps: [] })], { args: { criteria: defs(2), cap: 3 } });
         expect(labelsOf(agent, 'exercise')).toHaveLength(1);
         expect(labelsOf(agent, 'judge')).toHaveLength(1);
+        expect(labelsOf(agent, 'state-sync')).toHaveLength(0);
       });
     });
   });
 
+  describe('regression pass, round 1 (regression pass D2-D11, D18)', () => {
+    const { coverMatcher } = require('../lib/custody');
+    const evidence = '.trd-state/example/evidence';
+    const defs = (n) => Array.from({ length: n }, (_, i) => criterion(`FS-${i + 1}`));
+    const stateOf = (call) => JSON.parse(call.prompt.match(/exactly as given, to [^\n]*:\n(\{.*\})\n/)[1]);
+    const regressionExercises = (agent) => labelsOf(agent, 'exercise').filter((c) => /regression pass \d at the end/.test(c.prompt));
+    const underJudgement = (prompt) => JSON.parse(prompt.match(/under judgement this iteration \(\d+ of \d+\):\n(\[.*\])/)[1]).map((c) => c.id);
+    const settledIn = (prompt) => JSON.parse(prompt.match(/judgements only:\n(.*)/)[1]);
+    const reasonsIn = (logs) => logs.join('\n').match(/regression pass round 1 re-checks ([^;\n]*)/);
+    // An Exercise stub that captures every criterion into the evidence directory its own prompt names, so
+    // a regression round's claims sit inside its folder.
+    const freshClaims = (prompt) => {
+      const dir = prompt.match(/\nEvidence directory: (\S+)/)[1];
+      const list = JSON.parse(prompt.match(/\nCriteria:\n(\[.*\])\n/)[1]);
+      return exercisePlanClaims(list.map((c) => ({ criterion: c.id, artifact: `${dir}/${c.id}.txt` })));
+    };
+    // FS-1 and FS-2 are proven at iteration 1 while FS-3 is not. Debug fixes FS-3 (reporting `files`), and
+    // FS-3 passes at iteration 2. FS-1 covers src/a.js and FS-2 covers src/z.js.
+    const baseArgs3 = (over = {}) => ({
+      criteria: [criterion('FS-1'), criterion('FS-2'), criterion('FS-3')],
+      cap: 4,
+      criterionCovers: { 'FS-1': ['src/a.js'], 'FS-2': ['src/z.js'] },
+      ...over,
+    });
+    const debugReporting = (patch) => (prompt) => {
+      const { filesChanged: _dropped, ...rest } = debugOk(['FS-3'])(prompt);
+      return typeof patch === 'function' ? patch(rest) : { ...rest, ...patch };
+    };
+    const reproven = exitWith('exit-satisfied', [met('FS-1')], { gaps: [] });
+    const journey = (roundJudge = reproven, { files = ['src/a.js'], args = {}, debug, extra, exercise = freshClaims, middle } = {}) =>
+      run([remediate([met('FS-1'), met('FS-2'), bd('FS-3', 'k')]), middle || exitWith('exit-satisfied', [met('FS-3')], { gaps: [] }), roundJudge], {
+        debug: debug || debugReporting({ filesChanged: files }),
+        args: baseArgs3(args),
+        extra,
+        exercise,
+      });
+
+    it('O3: a met criterion whose covered file Debug changed is re-checked; ruled not_met there it ends not_met in the result and the synced state', async () => {
+      const { agent, result, logs } = await journey(exitWith('exit-stuck', [bd('FS-1', 'regressed')], { gaps: ['FS-1'] }));
+      const exercises = regressionExercises(agent);
+      // round 1, then (the Judge still rules FS-1 failing) the repair round's round 2
+      expect(exercises).toHaveLength(2);
+      expect(exercisedIdsOf(exercises[0])).toEqual(['FS-1']);
+      expect(underJudgement(labelsOf(agent, 'judge')[2].prompt)).toEqual(['FS-1']);
+      expect(reasonsIn(logs)[1]).toBe('FS-1 (covers-changed)');
+      expect(result.outcome).toBe('stuck');
+      expect(result.criteria.find((c) => c.id === 'FS-1')).toMatchObject({ status: 'not_met', kind: 'build-defect', causeKey: 'regressed', regression: 2 });
+      const sync = labelsOf(agent, 'state-sync');
+      expect(sync).toHaveLength(1);
+      expect(stateOf(sync[0]).criteria.find((c) => c.id === 'FS-1')).toMatchObject({ status: 'not_met', causeKey: 'regressed' });
+      expect(stateOf(sync[0]).exercised).toContainEqual({ iteration: 2, ids: ['FS-1'], regression: 1 });
+    });
+
+    it('FS-1: the regression pass also runs when the Judge exits at the iteration cap iteration', async () => {
+      // cap 2: iteration 2 is the last iteration, so the Judge's exit-stuck there is an exit AT the cap.
+      const { agent, result, logs } = await journey(reproven, {
+        args: { cap: 2 },
+        middle: exitWith('exit-stuck', [bd('FS-3', 'k')], { gaps: ['FS-3'] }),
+        files: ['src/a.js'],
+      });
+      expect(labelsOf(agent, 'judge')).toHaveLength(3);
+      const exercises = regressionExercises(agent);
+      expect(exercisedIdsOf(exercises[0])).toEqual(['FS-1']);
+      expect(reasonsIn(logs)[1]).toBe('FS-1 (covers-changed)');
+      expect(result.regression.rounds[0]).toMatchObject({ round: 1, iteration: 2 });
+    });
+
+    it('O2: a met criterion whose covers no Debug record touches is in no round prompt and keeps its artifact and provenAt', async () => {
+      const { agent, result, logs } = await journey();
+      const [exercise] = regressionExercises(agent);
+      expect(exercisedIdsOf(exercise)).toEqual(['FS-1']);
+      const judge = labelsOf(agent, 'judge')[2].prompt;
+      expect(settledIn(judge).map((e) => e.id)).toEqual(['FS-2', 'FS-3']);
+      expect(settledIn(judge).find((e) => e.id === 'FS-2')).toMatchObject({ artifact: 'FS-2.txt', provenAt: 1 });
+      expect(result.criteria.find((c) => c.id === 'FS-2')).toMatchObject({ status: 'met', artifact: 'FS-2.txt', provenAt: 1 });
+      expect(result.criteria.find((c) => c.id === 'FS-2')).not.toHaveProperty('regression');
+      expect(logs.join('\n')).toMatch(/not re-walked: FS-2, FS-3/);
+    });
+
+    it('O4: a re-proven criterion is settled again with provenAt = the exit iteration and regression: 1', async () => {
+      const { result, agent } = await journey();
+      expect(result.outcome).toBe('satisfied');
+      expect(result.criteria.find((c) => c.id === 'FS-1')).toMatchObject({ status: 'met', provenAt: 2, regression: 1 });
+      expect(stateOf(labelsOf(agent, 'state-sync')[0]).criteria.find((c) => c.id === 'FS-1')).toMatchObject({ status: 'met', provenAt: 2, regression: 1 });
+    });
+
+    it('O1c: a met criterion with no covers entry is re-checked when a Debug pass changed any file, and not when every pass returned []', async () => {
+      const changed = await journey(reproven, { args: { criterionCovers: {} }, files: ['src/x.js'] });
+      expect(reasonsIn(changed.logs)[1]).toBe('FS-1 (no-covers), FS-2 (no-covers)');
+      expect(exercisedIdsOf(regressionExercises(changed.agent)[0])).toEqual(['FS-1', 'FS-2']);
+
+      const nothing = await journey(reproven, { args: { criterionCovers: {} }, files: [] });
+      expect(regressionExercises(nothing.agent)).toHaveLength(0);
+      expect(nothing.logs.join('\n')).toMatch(/regression pass has nothing to re-check/);
+      expect(labelsOf(nothing.agent, 'judge')).toHaveLength(2);
+    });
+
+    it('a changed path under the state folder is dropped by the script, so it puts no no-covers criterion in scope', async () => {
+      const { agent, logs } = await journey(reproven, { args: { criterionCovers: {} }, files: ['.trd-state/example/dispatch.jsonl', './.trd-state/example/judge-x.json'] });
+      expect(regressionExercises(agent)).toHaveLength(0);
+      expect(logs.join('\n')).toMatch(/regression pass has nothing to re-check/);
+      expect(logs.join('\n')).not.toMatch(/changed files no criterion covers/);
+    });
+
+    it('an empty covers list counts as no covers record', async () => {
+      const { logs } = await journey(reproven, { args: { criterionCovers: { 'FS-1': [], 'FS-2': [] } }, files: ['src/x.js'] });
+      expect(reasonsIn(logs)[1]).toBe('FS-1 (no-covers), FS-2 (no-covers)');
+    });
+
+    it.each([
+      ['a Debug pass that returned nothing', () => undefined],
+      ['no filesChanged at all', debugReporting({})],
+      ['filesChanged: null', debugReporting({ filesChanged: null })],
+      ['a filesChanged that is not an array', debugReporting({ filesChanged: 'src/a.js' })],
+      ['a non-string in the list', debugReporting({ filesChanged: ['src/a.js', 7] })],
+      ['an absolute path', debugReporting({ filesChanged: ['/repo/src/a.js'] })],
+      ['a path climbing out with ..', debugReporting({ filesChanged: ['../outside.js'] })],
+      ['a path git quoted', debugReporting({ filesChanged: ['"src/caf\\303\\251.js"'] })],
+    ])('changes-unknown: %s puts every met proven at or before it in scope', async (_label, debug) => {
+      const { agent, logs } = await journey(reproven, { debug });
+      expect(reasonsIn(logs)[1]).toBe('FS-1 (changes-unknown), FS-2 (changes-unknown)');
+      expect(exercisedIdsOf(regressionExercises(agent)[0])).toEqual(['FS-1', 'FS-2']);
+      if (_label !== 'a Debug pass that returned nothing') expect(logs.join('\n')).toMatch(/Debug returned no usable filesChanged/);
+    });
+
+    it('a leading ./ on a changed path is stripped before it is matched', async () => {
+      const { logs } = await journey(reproven, { files: ['./src/a.js'] });
+      expect(reasonsIn(logs)[1]).toBe('FS-1 (covers-changed)');
+    });
+
+    it('D5: a criterion proven at iteration 2 is out of scope for a change recorded at iteration 1, with covers or without', async () => {
+      const gap = { id: 'FS-4', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no artifact', cause: 'evidence-missing', files: [] };
+      const { agent, logs } = await run(
+        [
+          remediate([met('FS-1'), met('FS-2'), bd('FS-3', 'k'), gap]),
+          exitWith('exit-satisfied', [met('FS-3'), met('FS-4')], { gaps: [] }),
+          exitWith('exit-satisfied', [met('FS-1')], { gaps: [] }),
+        ],
+        {
+          debug: debugReporting({ filesChanged: ['src/a.js'] }),
+          args: { ...baseArgs3({ criteria: defs(4), criterionCovers: { 'FS-1': ['src/a.js'], 'FS-2': ['src/z.js'], 'FS-3': ['src/a.js'] } }) },
+          exercise: freshClaims,
+        }
+      );
+      // FS-3 covers the changed file but was proven AFTER the change; FS-4 has no covers and was too.
+      expect(exercisedIdsOf(regressionExercises(agent)[0])).toEqual(['FS-1']);
+      expect(logs.join('\n')).toMatch(/not re-walked: FS-2, FS-3, FS-4/);
+    });
+
+    it('O1b: members awaiting a closed cause are in round 1 as cause-member, and no pass runs when nothing changed and nothing awaits', async () => {
+      const seeded = await run(
+        [remediate([bd('FS-1', 'a'), bd('FS-2', 'a'), bd('FS-3', 'a'), bd('FS-4', 'b')]), exitWith('exit-satisfied', [met('FS-1'), met('FS-4')], { gaps: [] }), exitWith('exit-satisfied', [met('FS-2'), met('FS-3')], { gaps: [] })],
+        { debug: debugOk(['FS-1', 'FS-4']), args: { criteria: defs(4), cap: 5 }, exercise: freshClaims }
+      );
+      expect(reasonsIn(seeded.logs)[1]).toBe('FS-2 (cause-member), FS-3 (cause-member)');
+
+      const quiet = await run([exitWith('exit-satisfied', [met('FS-1'), met('FS-2')], { gaps: [] })], { args: { criteria: defs(2), cap: 3 } });
+      expect(labelsOf(quiet.agent, 'exercise')).toHaveLength(1);
+      expect(quiet.logs.join('\n')).not.toMatch(/regression pass/);
+    });
+
+    describe('D8: only a fresh capture counts', () => {
+      const noCovers = { criterionCovers: {}, criteria: defs(4) };
+      // FS-1, FS-2 and FS-4 are proven at iteration 1 with FS-3 failing; Debug changes a file nothing covers.
+      const regressionClaims = (claimFor) => (prompt) => {
+        if (!/regression pass \d at the end/.test(prompt)) return freshClaims(prompt);
+        const list = JSON.parse(prompt.match(/\nCriteria:\n(\[.*\])\n/)[1]);
+        return exercisePlanClaims(list.map((c) => ({ criterion: c.id, artifact: claimFor(c.id) })));
+      };
+      const fourJourney = (claimFor, over = {}) =>
+        run(
+          [remediate([met('FS-1'), met('FS-2'), bd('FS-3', 'k'), met('FS-4')]), exitWith('exit-satisfied', [met('FS-3')], { gaps: [] }), exitWith('exit-satisfied', [met('FS-1'), met('FS-2'), met('FS-4')], { gaps: [] })],
+          { debug: debugReporting({ filesChanged: ['src/x.js'] }), args: { ...noCovers, cap: 4, ...over }, exercise: regressionClaims(claimFor) }
+        );
+      const claimsIn = (prompt) => JSON.parse(prompt.match(/This iteration's Exercise claims:\n(\[.*\])/)[1]);
+
+      it('names the round folder in the evidence-directory line and asks for fresh captures', async () => {
+        const { agent } = await fourJourney((id) => `${evidence}/regression-1/${id}.txt`);
+        const prompt = regressionExercises(agent)[0].prompt;
+        expect(prompt).toContain(`Evidence directory: ${evidence}/regression-1 (`);
+        expect(prompt).toMatch(/<evidenceDir>, it means \.trd-state\/example\/evidence\/regression-1/);
+        expect(prompt).toMatch(/predates the fixes and does not count/);
+        expect(prompt).toContain(`starting "${evidence}/regression-1/"`);
+        // the loop's own Exercise prompts are untouched
+        expect(labelsOf(agent, 'exercise')[0].prompt).toContain(`Evidence directory: ${evidence}\n`);
+      });
+
+      it('replaces a claim outside the round folder with a stand-in; keeps ./-prefixed and absolute-inside paths exactly as written', async () => {
+        const claimFor = (id) =>
+          ({
+            'FS-1': `${evidence}/FS-1.txt`, // captured earlier in the run: outside the round folder
+            'FS-2': `./${evidence}/regression-1/FS-2.png`,
+            'FS-4': `/repo/${evidence}/regression-1/FS-4.png`,
+          })[id];
+        const { agent } = await fourJourney(claimFor);
+        const claims = claimsIn(labelsOf(agent, 'judge')[2].prompt);
+        expect(claims.find((c) => c.criterion === 'FS-1')).toEqual({ criterion: 'FS-1', artifact: null, reason: 'not captured in the regression pass', judgeOnly: false });
+        expect(claims.find((c) => c.criterion === 'FS-2')).toMatchObject({ artifact: `./${evidence}/regression-1/FS-2.png` });
+        expect(claims.find((c) => c.criterion === 'FS-4')).toMatchObject({ artifact: `/repo/${evidence}/regression-1/FS-4.png` });
+      });
+
+      it('an absolute path that does not contain the round folder is replaced', async () => {
+        const { agent } = await fourJourney(() => `/repo/${evidence}/FS-1.txt`);
+        for (const c of claimsIn(labelsOf(agent, 'judge')[2].prompt)) expect(c).toMatchObject({ artifact: null, reason: 'not captured in the regression pass' });
+      });
+
+      it('a claim with no artifact keeps its stated reason, and a judge-only claim is not filtered', async () => {
+        const judgeOnly = (id) => (id === 'FS-1' ? { tier1: 'judge-only -- pixel comparison' } : {});
+        const { agent } = await run(
+          [remediate([met('FS-1'), met('FS-2'), bd('FS-3', 'k')]), exitWith('exit-satisfied', [met('FS-3')], { gaps: [] }), reproven],
+          {
+            debug: debugReporting({ filesChanged: ['src/x.js'] }),
+            args: { criteria: [criterion('FS-1', judgeOnly('FS-1')), criterion('FS-2'), criterion('FS-3')], criterionCovers: {}, cap: 4 },
+            exercise: (prompt) =>
+              /regression pass \d at the end/.test(prompt)
+                ? exercisePlanClaims([{ criterion: 'FS-1', artifact: 'old/FS-1.png' }, { criterion: 'FS-2', artifact: null, reason: 'the server would not start' }])
+                : freshClaims(prompt),
+          }
+        );
+        const claims = claimsIn(labelsOf(agent, 'judge')[2].prompt);
+        expect(claims.find((c) => c.criterion === 'FS-1')).toMatchObject({ artifact: 'old/FS-1.png', judgeOnly: true });
+        expect(claims.find((c) => c.criterion === 'FS-2')).toMatchObject({ artifact: null, reason: 'the server would not start' });
+      });
+
+      it('(16) a check-derived criterion with a captured artifact under <evidenceDir>/regression-1/<skill>/ reaches the Judge unchanged', async () => {
+        const skill = 'verify-flow-as-built';
+        const checks = { [skill]: 'Capture: walk the flow.\nPage: render it.' };
+        const { agent } = await run(
+          [remediate([met('FS-1'), met('FS-2'), bd('FS-3', 'k')]), exitWith('exit-satisfied', [met('FS-3')], { gaps: [] }), reproven],
+          {
+            debug: debugReporting({ filesChanged: ['src/x.js'] }),
+            args: {
+              criteria: [criterion('FS-1'), checkCriterion('FS-2', skill, { tier1: 'locator' }), criterion('FS-3')],
+              criterionCovers: {},
+              checks,
+              pagesDir: '.trd-state/example/pages',
+              cap: 4,
+            },
+            exercise: (prompt) =>
+              /regression pass \d at the end/.test(prompt)
+                ? exercisePlanClaims([{ criterion: 'FS-1', artifact: `${evidence}/regression-1/FS-1.txt` }, { criterion: 'FS-2', artifact: `${evidence}/regression-1/${skill}/FS-2.json`, locator: 'step 1' }])
+                : freshClaims(prompt),
+            extra: (prompt, opts) => (opts.label === 'render' ? { rendered: true, page: 'p.html', cards: 1 } : null),
+          }
+        );
+        const exercise = regressionExercises(agent)[0].prompt;
+        expect(exercise).toContain(`Evidence directory: ${evidence}/regression-1 (`);
+        expect(exercise).toMatch(/CHECK `verify-flow-as-built`/);
+        const claims = claimsIn(labelsOf(agent, 'judge')[2].prompt);
+        expect(claims.find((c) => c.criterion === 'FS-2')).toMatchObject({ artifact: `${evidence}/regression-1/${skill}/FS-2.json`, locator: 'step 1', judgeOnly: false });
+      });
+
+      it('offers no live evidence in a regression round, even when Debug had not run before the resume', async () => {
+        const live = [{ artifact: '/repo/.trd-state/example/evidence/live/T-1/home.txt', covers: [{ path: '/repo/src/home.js', sha256: 'abc' }] }];
+        const { agent } = await fourJourney((id) => `${evidence}/regression-1/${id}.txt`, { liveEvidence: live });
+        expect(regressionExercises(agent)[0].prompt).not.toMatch(/EVIDENCE ALREADY CAPTURED/);
+      });
+    });
+
+    describe('D10: a capture the pass could not make is recorded, not looped', () => {
+      const unchecked = exitWith('exit-satisfied', [{ id: 'FS-1', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no artifact', cause: 'evidence-missing', files: [] }], { gaps: ['FS-1'] });
+
+      it('O6/(9)/(17): a round-1 evidence gap is settled regression-unchecked, not definition-problem, and is not re-exercised', async () => {
+        const { agent, result } = await journey(unchecked);
+        expect(regressionExercises(agent)).toHaveLength(1);
+        expect(labelsOf(agent, 'judge')).toHaveLength(3);
+        expect(result.criteria.find((c) => c.id === 'FS-1')).toMatchObject({ status: 'not_met', kind: 'evidence-gap', settled: 'regression-unchecked', provenAt: 2, regression: 1 });
+        expect(JSON.stringify(result.criteria)).not.toContain('definition-problem');
+        // the Judge is told the id is not an open gap and not to capture it again
+        expect(labelsOf(agent, 'judge')[2].prompt).toMatch(/recorded as unchecked, and it is NOT sent to Debug and NOT captured again/);
+      });
+
+      it('a regression-unchecked entry is not an open gap for the must-pass recheck', async () => {
+        const { result, agent } = await journey(unchecked, { args: { mustPassIds: ['FS-1'] }, extra: (prompt, opts) => (opts.label === 'reconcile' ? { reconciled: true } : null) });
+        expect(result.outcome).toBe('must-pass-unproven');
+        expect(labelsOf(agent, 'reconcile')).toHaveLength(1);
+      });
+
+      it('D7: an in-scope id the Judge returned no entry for is never left met: it is recorded as an unchecked capture', async () => {
+        const { result, logs } = await journey(exitWith('exit-satisfied', [], { gaps: [] }));
+        expect(result.criteria.find((c) => c.id === 'FS-1')).toMatchObject({
+          status: 'not_met',
+          kind: 'evidence-gap',
+          reason: 'the regression pass returned no ruling',
+          settled: 'regression-unchecked',
+          regression: 1,
+        });
+        expect(logs.join('\n')).toMatch(/the Judge returned no ruling for FS-1/);
+      });
+
+      it('a not-checkable result in a round is re-statused not_verifiable and settled', async () => {
+        const { result } = await journey(exitWith('exit-satisfied', [{ id: 'FS-1', status: 'not_verifiable', tier1: 'fail', artifact: null, reason: 'no browser', cause: 'capability-absent', files: [] }], { gaps: [] }));
+        expect(result.criteria.find((c) => c.id === 'FS-1')).toMatchObject({ status: 'not_verifiable', kind: 'not-checkable-here', regression: 1 });
+      });
+    });
+
+    describe('D4: the inline matcher agrees with custody.js coverMatcher', () => {
+      const table = [
+        ['src/lib', 'src/lib/x.js'],
+        ['src/lib', 'src/lib'],
+        ['src/lib', 'src/libx/y.js'],
+        ['src/lib/', 'src/lib/deep/x.js'],
+        ['src/lib//', 'src/lib/x.js'],
+        ['src/a.js', 'src/a.js'],
+        ['src/a.js', 'src/a.jsx'],
+        ['src/a.js', 'other/src/a.js'],
+        ['src/*.js', 'src/a.js'],
+        ['src/*.js', 'src/deep/a.js'],
+        ['src/**', 'src/deep/deeper/a.js'],
+        ['src/**/a.js', 'src/a.js'],
+        ['src/**/a.js', 'src/x/y/a.js'],
+        ['**/a.js', 'x/y/a.js'],
+        ['.claude/commands/{amend,sweep}.md', '.claude/commands/amend.md'],
+        ['.claude/commands/{amend,sweep}.md', '.claude/commands/other.md'],
+        ['src/?.js', 'src/a.js'],
+        ['src/?.js', 'src/ab.js'],
+        ['src/[ab].js', 'src/b.js'],
+        ['src/[!ab].js', 'src/b.js'],
+        ['docs/v1.0/*.md', 'docs/v1x0/a.md'],
+      ];
+      it.each(table)('cover %s, changed file %s', async (cover, file) => {
+        const { logs } = await journey(reproven, { args: { criterionCovers: { 'FS-1': [cover], 'FS-2': ['unrelated/none.js'] } }, files: [file] });
+        const inScope = /re-checks FS-1 \(covers-changed\)/.test(logs.join('\n'));
+        expect(inScope).toBe(coverMatcher(cover)(file));
+      });
+    });
+
+    describe('D3: args.criterionCovers is validated before any agent runs', () => {
+      const attempt = (criterionCovers) =>
+        runWorkflow(SOURCE, {
+          agent: makeAgentStub((prompt, opts) => (opts.label === 'exercise' ? claimsFromPrompt(prompt) : opts.label === 'judge' ? satisfiedJudge() : null)),
+          args: baseArgs({ criterionCovers }),
+        });
+
+      it('throws naming the id when a value is not an array of non-empty strings', async () => {
+        await expect(attempt({ 'FS-1': 'src/a.js' })).rejects.toThrow('verify-functional: args.criterionCovers[FS-1] must be an array of non-empty path strings');
+        await expect(attempt({ 'FS-2': ['src/a.js', ''] })).rejects.toThrow(/criterionCovers\[FS-2\]/);
+        await expect(attempt({ 'FS-2': [7] })).rejects.toThrow(/criterionCovers\[FS-2\]/);
+      });
+
+      it('throws when it is not a plain object', async () => {
+        for (const bad of ['src/a.js', ['FS-1'], 7, true]) await expect(attempt(bad)).rejects.toThrow(/args\.criterionCovers must be a plain object/);
+      });
+
+      it('accepts absent, null and {}; an id that is not one of the criteria is ignored, not an error', async () => {
+        for (const ok of [undefined, null, {}, { 'NOT-A-CRITERION': ['src/a.js'] }]) await expect(attempt(ok)).resolves.toBeDefined();
+      });
+
+      it('an unknown id never enters the scope', async () => {
+        const { logs } = await journey(reproven, { args: { criterionCovers: { 'NOT-A-CRITERION': ['src/a.js'], 'FS-1': ['src/none.js'], 'FS-2': ['src/z.js'] } }, files: ['src/a.js'] });
+        expect(logs.join('\n')).toMatch(/changed files no criterion covers: src\/a\.js/);
+        expect(logs.join('\n')).not.toMatch(/re-checks/);
+      });
+    });
+
+    describe('D2: Debug measures what it changed', () => {
+      it('the prompt asks for two tree ids from a temporary index and the diff between them, excluding the state and pages folders', async () => {
+        const { agent } = await journey(reproven, { args: { pagesDir: '.trd-state/example/pages', checks: {}, } });
+        const prompt = labelsOf(agent, 'debug')[0].prompt;
+        expect(prompt).toContain('GIT_INDEX_FILE=<fresh temp path> git add -A');
+        expect(prompt).toContain('GIT_INDEX_FILE=<that same path> git write-tree');
+        expect(prompt).toMatch(/As your FIRST act/);
+        expect(prompt).toMatch(/As your LAST act, after the refresh/);
+        expect(prompt).toContain('git -c core.quotePath=false diff --no-renames --name-only <BEFORE> <AFTER>');
+        expect(prompt).toContain('"filesChanged"');
+        expect(prompt).toContain('".trd-state/example"');
+        expect(prompt).toContain('".trd-state/example/pages"');
+        expect(prompt).toMatch(/Return null if either git step fails/);
+        // the temp index is a copy of the real one at a path that did not exist, and the excluded
+        // folders are left out by pathspec, so an empty mktemp file or an embedded repo cannot fail it
+        expect(prompt).toMatch(/mktemp -d/);
+        expect(prompt).toContain('cp "$(git rev-parse --git-path index)" <fresh temp path>');
+        expect(prompt).toContain("git add -A -- . ':(exclude).trd-state/example' ':(exclude).trd-state/example/pages'");
+      });
+
+      it('filesChanged is required and nullable in the schema', async () => {
+        const { agent } = await journey();
+        const schema = labelsOf(agent, 'debug')[0].opts.schema;
+        expect(schema.required).toContain('filesChanged');
+        expect(schema.properties.filesChanged).toEqual({ type: ['array', 'null'], items: { type: 'string' } });
+        expect(schema.additionalProperties).toBe(false);
+      });
+
+      it('a dead Debug agent is recorded as unknown, so it widens the pass', async () => {
+        const { logs } = await journey(reproven, { debug: () => undefined });
+        expect(reasonsIn(logs)[1]).toBe('FS-1 (changes-unknown), FS-2 (changes-unknown)');
+      });
+    });
+
+    describe('D18: an interruption', () => {
+      const resumed = (iteration) => ({
+        iteration,
+        criteria: [
+          { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, cause: null, provenAt: 1 },
+          { id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, cause: null, provenAt: 2 },
+        ],
+        gapsClosed: iteration > 0 ? [1] : [],
+      });
+      const openOne = [criterion('FS-1'), criterion('FS-2'), criterion('FS-3')];
+
+      it('(18) a resume that continues a run (iteration >= 1) puts every resumed met in round 1 as changes-unknown', async () => {
+        const { agent, logs } = await run([exitWith('exit-satisfied', [met('FS-3')], { gaps: [] }), exitWith('exit-satisfied', [met('FS-1'), met('FS-2')], { gaps: [] })], {
+          args: { criteria: openOne, cap: 5, resume: resumed(2), criterionCovers: { 'FS-1': ['src/none.js'] } },
+          exercise: freshClaims,
+        });
+        expect(reasonsIn(logs)[1]).toBe('FS-1 (changes-unknown), FS-2 (changes-unknown)');
+        expect(exercisedIdsOf(regressionExercises(agent)[0])).toEqual(['FS-1', 'FS-2']);
+        // iteration 3's own proof of FS-3 postdates the unknown pass
+        expect(regressionExercises(agent)).toHaveLength(1);
+      });
+
+      it('(18) a fix-round snapshot (iteration 0) seeds nothing: no pass, no state write', async () => {
+        const { agent, logs } = await run([exitWith('exit-satisfied', [met('FS-3')], { gaps: [] })], { args: { criteria: openOne, cap: 5, resume: resumed(0) }, exercise: freshClaims });
+        expect(regressionExercises(agent)).toHaveLength(0);
+        expect(labelsOf(agent, 'state-sync')).toHaveLength(0);
+        expect(logs.join('\n')).not.toMatch(/regression pass/);
+      });
+
+      it('(20) a fix-round resume carrying a met with provenAt 2, or null, is in round 1 as covers-changed when this invocation\'s iteration-1 Debug changes a covered file', async () => {
+        const snapshot = {
+          iteration: 0,
+          criteria: [
+            { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, cause: null, provenAt: 2 },
+            { id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, cause: null, provenAt: null },
+            { id: 'FS-4', status: 'met', tier1: 'pass', artifact: 'd.txt', reason: null, cause: null, provenAt: 1 },
+          ],
+          gapsClosed: [],
+        };
+        const { agent, logs } = await run(
+          [remediate([bd('FS-3', 'k')]), exitWith('exit-satisfied', [met('FS-3')], { gaps: [] }), exitWith('exit-satisfied', [met('FS-1'), met('FS-2')], { gaps: [] })],
+          {
+            debug: debugReporting({ filesChanged: ['src/a.js'] }),
+            args: { criteria: [criterion('FS-1'), criterion('FS-2'), criterion('FS-3'), criterion('FS-4')], cap: 4, resume: snapshot, criterionCovers: { 'FS-1': ['src/a.js'], 'FS-2': ['src/'], 'FS-4': ['src/z.js'] } },
+            exercise: freshClaims,
+          }
+        );
+        expect(reasonsIn(logs)[1]).toBe('FS-1 (covers-changed), FS-2 (covers-changed)');
+        expect(exercisedIdsOf(regressionExercises(agent)[0])).toEqual(['FS-1', 'FS-2']);
+        expect(logs.join('\n')).toMatch(/not re-walked: FS-3, FS-4|not re-walked: FS-4/);
+      });
+
+      it('(19) once a Debug pass has run, a Judge is told to write outcome null even on an exit, and the sync runs when the scope is empty', async () => {
+        const { agent, result } = await journey(reproven, { files: [] });
+        const judges = labelsOf(agent, 'judge');
+        expect(judges[0].prompt).toMatch(/"outcome": <null when decide-next returned "remediate"; otherwise/);
+        expect(judges[0].prompt).not.toMatch(/the workflow writes the final outcome itself/);
+        expect(judges[1].prompt).toContain('"outcome": <null, on every action, an exit included: the workflow writes the final outcome itself>');
+        expect(judges[1].prompt).toMatch(/records the real outcome itself, in a later write/);
+        // empty scope: no round, but the exit's one state write still happens, with the real outcome
+        expect(regressionExercises(agent)).toHaveLength(0);
+        const sync = labelsOf(agent, 'state-sync');
+        expect(sync).toHaveLength(1);
+        expect(stateOf(sync[0]).outcome).toBe('satisfied');
+        expect(result.outcome).toBe('satisfied');
+      });
+
+      it('(19) a resume that continues a run tells its first Judge to write outcome null', async () => {
+        const { agent } = await run([exitWith('exit-satisfied', [met('FS-3')], { gaps: [] }), reproven], { args: { criteria: openOne, cap: 5, resume: resumed(2) }, exercise: freshClaims });
+        expect(labelsOf(agent, 'judge')[0].prompt).toContain('the workflow writes the final outcome itself');
+      });
+    });
+
+    describe('REGR-B005: the repair round, round 2 and the record (regression pass D9, D12, D13)', () => {
+      const failing = (id = 'FS-1', key = 'regressed') => exitWith('exit-stuck', [bd(id, key)], { gaps: [id] });
+      const fixed = (patch = {}) => (prompt) => ({
+        results: causesIn(prompt).map((c) => ({ cause: c.cause, addressed: true, result: 'fixed' })),
+        refresh: { ran: false, exitCode: null },
+        filesChanged: ['src/a.js'],
+        ...patch,
+      });
+      // The loop's own Debug (call 0) fixes FS-3 and changes src/a.js; the repair Debug (call 1) is `repair`.
+      const twoDebugs = (repair) => {
+        let n = 0;
+        return (prompt) => (n++ === 0 ? debugReporting({ filesChanged: ['src/a.js'] })(prompt) : typeof repair === 'function' ? repair(prompt) : repair);
+      };
+      const repairJourney = (round1, round2, { repair = fixed(), args = {}, extra } = {}) =>
+        run([remediate([met('FS-1'), met('FS-2'), bd('FS-3', 'k')]), exitWith('exit-satisfied', [met('FS-3')], { gaps: [] }), round1, round2], {
+          debug: twoDebugs(repair),
+          args: baseArgs3(args),
+          exercise: freshClaims,
+          extra,
+        });
+      const proven1 = exitWith('exit-satisfied', [met('FS-1')], { gaps: [] });
+      const judgeAt = (agent, n) => labelsOf(agent, 'judge')[n];
+
+      it('(1) one app-debugger whose gaps hold only the caught ids, then exactly one more Exercise and Judge', async () => {
+        const { agent, result } = await repairJourney(failing(), proven1);
+        const debugs = labelsOf(agent, 'debug');
+        expect(debugs).toHaveLength(2);
+        expect(debugs[1].opts).toMatchObject({ agentType: 'app-debugger', phase: 'Debug' });
+        expect(causesIn(debugs[1].prompt)).toEqual([expect.objectContaining({ cause: 'regressed', members: [expect.objectContaining({ id: 'FS-1', reason: 'r-FS-1' })] })]);
+        expect(causesIn(debugs[1].prompt)[0].representative).toMatchObject({ id: 'FS-1', reason: 'r-FS-1' });
+        expect(regressionExercises(agent)).toHaveLength(2);
+        expect(labelsOf(agent, 'judge')).toHaveLength(4);
+        expect(judgeAt(agent, 3).prompt).toMatch(/REGRESSION pass 2 at the end of iteration 2/);
+        expect(judgeAt(agent, 3).prompt).toContain('judge-report-input-2-regression-2.json');
+        expect(judgeAt(agent, 3).prompt).toMatch(/"cap":2,/);
+        // the repair is a debug attempt like any other
+        expect(result.debugAttempts).toHaveLength(2);
+        expect(result.debugAttempts[1]).toMatchObject({ iteration: 2, gaps: ['FS-1'] });
+        expect(result.outcome).toBe('satisfied');
+        expect(result.criteria.find((c) => c.id === 'FS-1')).toMatchObject({ status: 'met', provenAt: 2, regression: 2 });
+      });
+
+      it('(1) a cause round 1 opened and round 2 re-proved is recorded closed, not dropped from the state', async () => {
+        const { agent } = await repairJourney(failing(), proven1);
+        const sync = labelsOf(agent, 'state-sync');
+        expect(sync).toHaveLength(1);
+        const state = JSON.parse(sync[0].prompt.match(/exactly as given, to [^\n]*:\n(\{.*\})\n/)[1]);
+        expect(state.causes).toContainEqual(expect.objectContaining({ key: 'regressed', status: 'closed', closedAt: 2, members: ['FS-1'] }));
+      });
+
+      it('(1) O5: a round-2 failure dispatches no further Debug, Exercise or Judge', async () => {
+        const { agent, result } = await repairJourney(failing(), failing());
+        expect(labelsOf(agent, 'debug')).toHaveLength(2);
+        expect(regressionExercises(agent)).toHaveLength(2);
+        expect(labelsOf(agent, 'judge')).toHaveLength(4);
+        expect(result.outcome).toBe('stuck');
+        expect(result.reason).toContain('FS-1');
+        expect(result.reason).toContain('of 4');
+        expect(result.criteria.find((c) => c.id === 'FS-1')).toMatchObject({ status: 'not_met', regression: 2 });
+      });
+
+      it('(2) round 2 is scoped by the repair Debug\'s files plus every id sent; a met untouched by it is not re-walked', async () => {
+        const { agent, logs } = await repairJourney(failing(), proven1);
+        const [, second] = regressionExercises(agent);
+        // FS-1 was sent; FS-3 has no covers and a file changed after its proof; FS-2 covers src/z.js only
+        expect(exercisedIdsOf(second)).toEqual(['FS-1', 'FS-3']);
+        expect(logs.join('\n')).toMatch(/round 2 re-checks FS-1 \(sent-to-debug\), FS-3 \(no-covers\); not re-walked: FS-2/);
+        const none = await repairJourney(failing(), proven1, { repair: fixed({ filesChanged: [] }) });
+        expect(exercisedIdsOf(regressionExercises(none.agent)[1])).toEqual(['FS-1']);
+      });
+
+      it('(3) a dead repair Debug puts every settled met in round 2\'s scope', async () => {
+        const { agent, result } = await repairJourney(failing(), proven1, { repair: () => undefined });
+        expect(exercisedIdsOf(regressionExercises(agent)[1])).toEqual(['FS-1', 'FS-2', 'FS-3']);
+        expect(result.regression.rounds[1].scope).toEqual([
+          { id: 'FS-1', reason: 'sent-to-debug' },
+          { id: 'FS-2', reason: 'changes-unknown' },
+          { id: 'FS-3', reason: 'changes-unknown' },
+        ]);
+        expect(result.regression.rounds[0].debug).toEqual({ causes: ['regressed'], filesChanged: null });
+        expect(result.debugAttempts[1].result).toBe('agent returned nothing');
+      });
+
+      it('(4) O6: an evidence gap or a not-checkable ruling in round 1 is not sent to the repair or to round 2', async () => {
+        const gapOnly = exitWith('exit-satisfied', [{ id: 'FS-1', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no artifact', cause: 'evidence-missing', files: [] }], { gaps: ['FS-1'] });
+        const a = await repairJourney(gapOnly, proven1);
+        expect(labelsOf(a.agent, 'debug')).toHaveLength(1);
+        expect(regressionExercises(a.agent)).toHaveLength(1);
+        expect(a.result.regression.rounds).toHaveLength(1);
+        expect(a.result.regression.rounds[0].caught).toEqual([]);
+
+        const notCheckable = exitWith('exit-satisfied', [{ id: 'FS-1', status: 'not_verifiable', tier1: 'fail', artifact: null, reason: 'no browser', cause: 'capability-absent', files: [] }], { gaps: [] });
+        const b = await repairJourney(notCheckable, proven1);
+        expect(labelsOf(b.agent, 'debug')).toHaveLength(1);
+        expect(regressionExercises(b.agent)).toHaveLength(1);
+
+        // mixed: FS-1 a build defect, FS-2 an evidence gap -- the repair and round 2 hold FS-1 only
+        const mixed = exitWith('exit-stuck', [bd('FS-1', 'regressed'), { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no artifact', cause: 'evidence-missing', files: [] }], { gaps: ['FS-1', 'FS-2'] });
+        const c = await repairJourney(mixed, proven1, { args: { criterionCovers: { 'FS-1': ['src/a.js'], 'FS-2': ['src/a.js'], 'FS-3': ['src/z.js'] } } });
+        expect(causesIn(labelsOf(c.agent, 'debug')[1].prompt).flatMap((g) => g.members.map((m) => m.id))).toEqual(['FS-1']);
+        expect(exercisedIdsOf(regressionExercises(c.agent)[1])).toEqual(['FS-1']);
+        expect(c.result.regression.rounds[0].caught).toEqual(['FS-1']);
+        expect(c.result.criteria.find((x) => x.id === 'FS-2')).toMatchObject({ settled: 'regression-unchecked' });
+      });
+
+      it('(5) O8: the sync prompt and the result carry the same record, and the state file holds it', async () => {
+        const { agent, result } = await repairJourney(failing(), proven1);
+        const sync = labelsOf(agent, 'state-sync');
+        expect(sync).toHaveLength(1);
+        expect(result.regression).toEqual({
+          rounds: [
+            { round: 1, iteration: 2, scope: [{ id: 'FS-1', reason: 'covers-changed', files: ['src/a.js'] }], caught: ['FS-1'], debug: { causes: ['regressed'], filesChanged: ['src/a.js'] } },
+            { round: 2, iteration: 2, scope: [{ id: 'FS-1', reason: 'sent-to-debug' }, { id: 'FS-3', reason: 'no-covers' }], caught: [] },
+          ],
+          notRewalked: ['FS-2'],
+          unclaimedChanges: [],
+          gateBeforeEdits: false,
+        });
+        expect(stateOf(sync[0]).regression).toEqual(result.regression);
+        // the report input is patched with the same record, and the per-entry marker is in its patch list
+        expect(sync[0].prompt).toContain(`Set the file's top-level "regression" to this object`);
+        expect(sync[0].prompt).toContain(JSON.stringify(result.regression));
+        expect(sync[0].prompt).toMatch(/"awaiting" and "regression" to the values given/);
+        expect(sync[0].prompt).toMatch(/\{"id":"FS-1","status":"met","reason":null,"regression":2\}/);
+        expect(stateOf(sync[0]).criteria.find((c) => c.id === 'FS-1')).toMatchObject({ status: 'met', provenAt: 2, regression: 2 });
+      });
+
+      it('(5) unclaimedChanges lists a changed file no criterion covers, from both rounds', async () => {
+        const { result } = await repairJourney(failing(), proven1, { repair: fixed({ filesChanged: ['src/a.js', 'docs/notes.md'] }) });
+        expect(result.regression.unclaimedChanges).toEqual(['docs/notes.md']);
+      });
+
+      it('(5) a run with no pass carries regression: null and dispatches no sync for it', async () => {
+        const { agent, result } = await run([exitWith('exit-satisfied', [met('FS-1'), met('FS-2')], { gaps: [] })], { args: { criteria: defs(2), cap: 3 } });
+        expect(result.regression).toBeNull();
+        expect(labelsOf(agent, 'state-sync')).toHaveLength(0);
+        // a pass whose scope is empty is no pass either, though the exit's state write still happens
+        const empty = await journey(reproven, { files: [] });
+        expect(empty.result.regression).toBeNull();
+        expect(stateOf(labelsOf(empty.agent, 'state-sync')[0])).not.toHaveProperty('regression');
+        // nor does an exit that runs no pass
+        const unbuilt = await run([exitWith('exit-unbuilt', [met('FS-1')], { gaps: ['FS-2'], unbuilt: ['FS-2'] })], { args: { criteria: defs(2), cap: 3 } });
+        expect(unbuilt.result.regression).toBeNull();
+      });
+
+      it('(6) O7: gateBeforeEdits is true only when a gate command is declared and the repair round ran; no regression prompt carries the command', async () => {
+        const gated = await repairJourney(failing(), proven1, { args: { fullRunCommand: 'make e2e' } });
+        expect(gated.result.regression.gateBeforeEdits).toBe(true);
+        for (const call of [...regressionExercises(gated.agent), judgeAt(gated.agent, 2), judgeAt(gated.agent, 3)]) expect(call.prompt).not.toContain('make e2e');
+        // gate declared, no repair round: false
+        const noRepair = await journey(reproven, { args: { fullRunCommand: 'make e2e' } });
+        expect(noRepair.result.regression.gateBeforeEdits).toBe(false);
+        // repair round, no gate declared: false
+        const noGate = await repairJourney(failing(), proven1);
+        expect(noGate.result.regression.gateBeforeEdits).toBe(false);
+      });
+
+      it('(7) exercised holds regression: 1 and regression: 2 entries at the exit iteration', async () => {
+        const { agent } = await repairJourney(failing(), proven1);
+        const { exercised } = stateOf(labelsOf(agent, 'state-sync')[0]);
+        expect(exercised).toContainEqual({ iteration: 2, ids: ['FS-1'], regression: 1 });
+        expect(exercised).toContainEqual({ iteration: 2, ids: ['FS-1', 'FS-3'], regression: 2 });
+      });
+
+      it('(9) a repair Debug whose refresh exited 1 tells round 2\'s Judge refreshFailed, and a setup-failure there is the final action', async () => {
+        const { agent, result } = await repairJourney(failing(), exitWith('exit-setup-failure', [], { gaps: [], reason: 'the last Debug pass\'s refresh failed' }), {
+          repair: fixed({ refresh: { ran: true, exitCode: 1 } }),
+        });
+        expect(judgeAt(agent, 2).prompt).toContain('"refreshFailed":false');
+        expect(judgeAt(agent, 3).prompt).toContain('"refreshFailed":true');
+        expect(labelsOf(agent, 'judge')).toHaveLength(4);
+        expect(result.outcome).toBe('setup-failure');
+        expect(result.setup.problems).toEqual([expect.objectContaining({ problem: expect.stringContaining('refresh failed') })]);
+      });
+
+      it('no repair when round 1\'s action is an unbuilt or setup-failure exit, even with a caught id', async () => {
+        for (const action of ['exit-unbuilt', 'exit-setup-failure']) {
+          const { agent, result } = await repairJourney(exitWith(action, [bd('FS-1', 'regressed')], { gaps: ['FS-1'], unbuilt: action === 'exit-unbuilt' ? ['FS-1'] : [] }), proven1);
+          expect(labelsOf(agent, 'debug')).toHaveLength(1);
+          expect(result.regression.rounds).toHaveLength(1);
+          expect(result.regression.rounds[0]).not.toHaveProperty('debug');
+        }
+      });
+
+      it('the repair Debug records a change record flagged regression: 1 at the exit iteration, and rounds keep that iteration', async () => {
+        const { result } = await repairJourney(failing(), proven1);
+        expect(result.regression.rounds.map((r) => r.iteration)).toEqual([2, 2]);
+        expect(result.iterations).toBe(2);
+      });
+    });
+
+    it('a state-sync agent that returns nothing is logged, not thrown', async () => {
+      const { result, logs } = await journey(reproven, { extra: () => null });
+      expect(result.outcome).toBe('satisfied');
+      expect(logs.join('\n')).toMatch(/state-sync agent returned nothing/);
+    });
+  });
+
   it('AC 9: no state-sync agent runs on an iteration where the script corrected nothing; a replaced causeKey runs one', async () => {
-    const clean = await run([remediate([bd('FS-1', 'k'), bd('FS-2'), met('FS-3')]), exitWith('exit-satisfied', [met('FS-1'), met('FS-2')], { gaps: [] })], {
+    const clean = await run([exitWith('exit-satisfied', [met('FS-1'), met('FS-2')], { gaps: [] })], { args: { criteria: [criterion('FS-1'), criterion('FS-2')], cap: 3 } });
+    expect(labelsOf(clean.agent, 'state-sync')).toHaveLength(0);
+    // A missing key is the script's own default, not a correction: after a Debug pass the only write is
+    // the exit's own (regression pass D18b), and it patches no kind or key.
+    const afterDebug = await run([remediate([bd('FS-1', 'k'), bd('FS-2'), met('FS-3')]), exitWith('exit-satisfied', [met('FS-1'), met('FS-2')], { gaps: [] })], {
       debug: debugOk(['FS-1', 'FS-2']),
       args: { criteria: [criterion('FS-1'), criterion('FS-2'), criterion('FS-3')], cap: 3 },
     });
-    expect(labelsOf(clean.agent, 'state-sync')).toHaveLength(0); // a missing key is the script's own default, not a correction
+    expect(labelsOf(afterDebug.agent, 'state-sync')).toHaveLength(1);
+    expect(labelsOf(afterDebug.agent, 'state-sync')[0].prompt).not.toMatch(/"causeKey":"criterion:/);
 
     const replaced = await run([exitWith('exit-stuck', [bd('FS-1', 'UPPER'), bd('FS-2', 'fine')])], { args: { criteria: [criterion('FS-1'), criterion('FS-2')], cap: 3 } });
     expect(labelsOf(replaced.agent, 'state-sync')).toHaveLength(1);

@@ -1727,7 +1727,7 @@ just-regenerated definition (a check the section no longer selects, or a design 
 longer resolves) and every entry for a criterion carrying an owner comment (D18) — so it is
 walked again this run instead of staying settled on a verdict the comment disputes. Pass what
 remains as `resume: { iteration, criteria, gapsClosed }` (D13), and adds `exercised` to it by
-name, only when the state file has it (D18): the array of `{ iteration, ids, confirmation? }`
+name, only when the state file has it (D18): the array of `{ iteration, ids, confirmation?, regression? }`
 entries the targeted inner loop records. `exercised` is not filtered by id — it is an audit
 history of what each iteration walked, not a verdict, so a criterion the regenerated definition
 dropped needs no removal from it. The workflow reads it leniently and drops a malformed value
@@ -1940,6 +1940,19 @@ The derivation lives in this step and nowhere else: `verify-functional.js` must 
 clock-free (`Date.now()` is forbidden in workflow source by a source-level test) and
 `checkEvidence()` must stay pure, so only the resulting number crosses either interface.
 
+**Derive `criterionCovers` first, from the definition as it now stands** (after `success-definition.md`
+exists and any check rows are appended, before the dispatch). It is what the regression pass reads
+to decide which met criteria a Debug edit could have broken:
+
+```bash
+node .claude/lib/live-evidence.js derive-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md
+```
+
+It prints `{"<id>": ["<path>", ...]}` for every criterion it can map; a criterion it cannot map
+(a check-derived row among them) is absent and is re-walked whenever a Debug pass changed
+anything. A non-zero exit passes `{}` and is one ISSUES line, never STUCK: `{}` widens the
+regression pass's scope, it never narrows it.
+
 ```javascript
 Workflow({ name: "verify-functional", args: {
   criteria,                                                    // §8.1
@@ -1963,6 +1976,7 @@ Workflow({ name: "verify-functional", args: {
   coverageFloor,                                                 // §8.1a -- verification.md §5a as a fraction, or null when none is declared
   setupTargets,                                                  // §8.1a step 7 -- the environments the setup check looks at; [] when none (no setup check runs)
   liveEvidence,                                                  // `node .claude/lib/live-evidence.js read --state-dir .trd-state/<feature>` -- what [LIVE] tasks recorded; [] when none
+  criterionCovers,                                               // `node .claude/lib/live-evidence.js derive-criteria` (see above) -- { "<id>": ["<path>", ...] } the files each criterion covers; {} for a sweep file or when the derive fails
   checks,                                                        // §8.1b -- { "<skill>": "<SKILL.md text>" } for each selected check; {} when none
   checkComments,                                                 // §8.1b -- open threads on each check's published page (D18); [] when none
   pagesDir,                                                       // §8.1b -- ".trd-state/<feature>/verification-artifacts"; always set, even with no checks selected

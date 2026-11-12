@@ -303,8 +303,15 @@ preclassified id that is not in `criteria`).
 
 ### 4. Dispatch
 
-All 28 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
+All 29 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
 command's own resolution (Steps 1–3c), not copied from `/implement-trd`:
+
+`criterionCovers` is derived first, from the definition as it now stands (after Step 3 or 3a
+and the check rows Step 3b appends), by
+`node .claude/lib/live-evidence.js derive-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md`
+(the same command and flags as `/implement-trd` §8.3). A sweep file has no TRD: pass `{}`. A
+non-zero exit passes `{}` and is one ISSUES line, never STUCK. Under `--criteria` derive over the
+whole definition (the workflow ignores ids outside the subset) and pass the same value on the retry.
 
 ```javascript
 Workflow({ name: "verify-functional", args: {
@@ -329,6 +336,7 @@ Workflow({ name: "verify-functional", args: {
   coverageFloor,                                                 // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §5a as a fraction, or null when none is declared
   setupTargets,                                                  // resolved per implement-trd.md §8.1a step 7 (step 3c here) -- the environments the setup check looks at; [] when none (no setup check runs)
   liveEvidence,                                                  // `node .claude/lib/live-evidence.js read --state-dir .trd-state/<feature>` -- what [LIVE] tasks recorded; [] when none
+  criterionCovers,                                               // `node .claude/lib/live-evidence.js derive-criteria` (see above) -- { "<id>": ["<path>", ...] } the files each criterion covers; {} for a sweep file or when the derive fails
   checks,                                                        // resolved per implement-trd.md §8.1b (step 3b here) -- { "<skill>": "<SKILL.md text>" }; {} when none
   checkComments,                                                 // resolved per implement-trd.md §8.1b (step 3b here) -- open threads on each check's published page; [] when none
   pagesDir,                                                       // resolved per implement-trd.md §8.1b (step 3b here) -- ".trd-state/<feature>/verification-artifacts"; always set
@@ -346,7 +354,7 @@ under `.trd-state/<feature>/reverify/`, `cap` is `1`, `criteria` is the filtered
 and `preclassified` is `[]` (a subset is not the whole definition).
 After this dispatch, the "`--criteria`" section's one retry may dispatch the workflow once more
 into `.trd-state/<feature>/reverify/retry/`.
-No field is added or removed: the list stays the 28 fields.
+`criterionCovers` is the one field the regression pass added: the list is the 29 fields.
 
 ### 5. Report
 
@@ -514,7 +522,7 @@ belong to its full run, so a subset must never overwrite them. Under it:
   `node .claude/lib/functional-verification.js reproof-retry-set .trd-state/<feature>/reverify/verification-state.json`.
   An empty `retry` list means no retry: report as today. Otherwise remove
   `.trd-state/<feature>/reverify/retry/` left by any earlier re-proof, then dispatch the
-  `verify-functional` workflow once more, with the same 28 fields except: `criteria` is the
+  `verify-functional` workflow once more, with the same 29 fields except: `criteria` is the
   retry set, `mustPassIds` is restricted to it, `resume: null`, `preclassified: []`, `statePath`, `reportPath`,
   `evidenceDir` and `pagesDir` all sit under `.trd-state/<feature>/reverify/retry/`, and
   `since` recomputed as the later of the HEAD commit time and the retry's own start. `cap` stays

@@ -1,0 +1,332 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/one-full-regression-pass-at-the-end.md",
+  "trd_hash": "d7abf6da6efd8cb3bb6b99aae18e2c3896fd57a04788a4f5a3d8e7bd7d0bddf9",
+  "branch": "feature/30-one-full-regression-pass-at-the-end",
+  "strategy": "tdd",
+  "phase_cursor": 5,
+  "tasks": {
+    "REGR-B001": {
+      "description": "live-evidence.js: deriveCriterionCovers accepts ids: null meaning every id in the definition's id column; new CLI subcommand derive-criteria --state-dir D --trd T --definition P prints {id: [paths]} (",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/live-evidence.js",
+        "packages/core/lib/live-evidence.test.js",
+        ".claude/lib/live-evidence.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T10:26:30.735Z",
+      "completed_at": "2026-11-12T10:31:09.285Z",
+      "last_advanced": "2026-11-12T10:28:31.365Z"
+    },
+    "REGR-B002": {
+      "description": "functional-verification.js renderReport: the ## Regression pass section and the Proven at / Not Met row wording (D14), from the record in §3.2. Mirror.",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js",
+        ".claude/lib/functional-verification.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T10:26:30.736Z",
+      "completed_at": "2026-11-12T10:31:09.288Z",
+      "last_advanced": "2026-11-12T10:28:31.365Z"
+    },
+    "REGR-B003": {
+      "description": "custody.js: export coverMatcher (no behaviour change). custody.test.js: a reverified state written in the regression pass's shape (one id met at iteration 1 then caught, not_met with regression: 1; on",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/custody.js",
+        "packages/core/lib/custody.test.js",
+        ".claude/lib/custody.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T10:26:30.736Z",
+      "completed_at": "2026-11-12T10:31:09.288Z",
+      "last_advanced": "2026-11-12T10:28:31.365Z"
+    },
+    "REGR-B004": {
+      "description": "Inputs, scope and round 1. criterionCovers read and validated (D3); filesChanged in DEBUG_SCHEMA and buildDebugPrompt, and debugChanges recorded per in-loop Debug pass with the D2 normalisation; inlin",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        "docs/TRD/functional-verification.md",
+        "packages/core/workflows/verify-functional-trd-sync.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T10:35:59.118Z",
+      "completed_at": "2026-11-12T11:07:01.807Z",
+      "last_advanced": "2026-11-12T11:06:56.873Z"
+    },
+    "REGR-B005": {
+      "description": "Repair round, round 2, record. The D9 Debug round and round 2 (-regression-2 suffix, previousGaps = round 1's gaps, final action); the regression record (§3.2) with notRewalked, unclaimedChanges and g",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        "docs/TRD/functional-verification.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T10:35:59.119Z",
+      "completed_at": "2026-11-12T11:07:01.807Z",
+      "last_advanced": "2026-11-12T11:06:56.874Z"
+    },
+    "REGR-B006": {
+      "description": "Commands: implement-trd.md §8.3 and verify-build.md §4 add criterionCovers after liveEvidence with its derive step (derive-criteria; {} for a sweep file; {} plus an ISSUES line on a non-zero exit) — 2",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        "packages/core/commands/verify-build-criteria.test.js",
+        ".claude/commands/implement-trd.md",
+        ".claude/commands/verify-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T11:11:16.962Z",
+      "completed_at": "2026-11-12T11:15:22.067Z",
+      "last_advanced": "2026-11-12T11:15:17.145Z"
+    },
+    "REGR-D001": {
+      "description": "Documentation (D16): the contract's \"awaiting\" and \"When a cause closes\" paragraphs describe the regression pass (scope reasons, fresh capture, one repair round) instead of the confirmation pass, keep",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/functional-verification.md",
+        ".claude/contracts/functional-verification.md",
+        "docs/reference/verification.md",
+        "docs/TRD/targeted-inner-loop-by-shared-cause.md",
+        "docs/TRD/functional-verification.md",
+        "docs/TRD/verification-convergence.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T11:11:16.962Z",
+      "completed_at": "2026-11-12T11:15:22.067Z",
+      "last_advanced": "2026-11-12T11:15:17.147Z"
+    },
+    "REGR-T001": {
+      "description": "Add test/smoke/scenarios/verify-regression-pass.sh (D17); register it in test/smoke/run-smoke.sh (LLM_OPT_IN_SCENARIOS and a SCENARIO_TIMEOUT entry) and test/smoke/README.md (table row and tree line).",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": "live run INCONCLUSIVE: Debug did not edit the covered file, so the regression pass was not exercised live",
+      "retry_count": 0,
+      "files_changed": [
+        "test/smoke/scenarios/verify-regression-pass.sh",
+        "test/smoke/run-smoke.sh",
+        "test/smoke/README.md",
+        "test/smoke/scenarios/verify-inner-loop-causes.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T11:17:34.649Z",
+      "completed_at": "2026-11-12T11:28:29.719Z",
+      "last_advanced": "2026-11-12T11:28:19.325Z"
+    },
+    "AMEND-001": {
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "last_advanced": "2026-11-12T11:55:16.055Z",
+      "files_changed": [
+        "packages/core/workflows/verify-functional.test.js"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-12T11:57:03.859Z"
+    },
+    "AMEND-002": {
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "last_advanced": "2026-11-12T11:55:16.056Z",
+      "files_changed": [
+        "packages/core/lib/custody.test.js"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-12T11:57:03.861Z"
+    },
+    "AMEND-003": {
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "last_advanced": "2026-11-12T11:55:16.056Z",
+      "files_changed": [
+        "test/smoke/scenarios/verify-regression-pass.sh"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-12T11:57:03.861Z"
+    },
+    "AMEND-004": {
+      "description": "AMEND-004",
+      "phase": 4,
+      "retry_count": 0,
+      "files_changed": [
+        "test/smoke/README.md"
+      ],
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-12T12:12:44.665Z",
+      "last_advanced": "2026-11-12T12:13:12.391Z",
+      "current_problem": null,
+      "completed_at": "2026-11-12T12:13:13.518Z"
+    },
+    "AMEND-005": {
+      "description": "AMEND-005",
+      "phase": 4,
+      "retry_count": 1,
+      "files_changed": [
+        "packages/core/commands/verify-command-surface.test.js",
+        "packages/core/commands/verify-build-criteria.test.js"
+      ],
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-12T12:12:44.666Z",
+      "last_advanced": "2026-11-12T12:13:12.391Z",
+      "current_problem": null,
+      "completed_at": "2026-11-12T12:15:22.856Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "78e37e61",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T10:35:54.022Z"
+    },
+    {
+      "phase": 2,
+      "commit": "f03b1259",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T11:11:10.775Z"
+    },
+    {
+      "phase": 3,
+      "commit": "df3740ee",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T11:17:27.785Z"
+    },
+    {
+      "phase": 4,
+      "commit": "4973d137",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T11:28:37.634Z"
+    },
+    {
+      "phase": 4,
+      "commit": "06ce45e8",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T11:57:56.235Z"
+    },
+    {
+      "phase": 4,
+      "commit": "f66a9507",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T12:15:23.650Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "f66a9507",
+    "last_checkpoint_timestamp": "2026-11-12T12:15:23.650Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/plan/one-full-regression-pass-at-the-end.investigation.md",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI installed; scaffold-project.sh present"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh installed; not needed by this feature"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    },
+    "fix": {
+      "plan": ".trd-state/one-full-regression-pass-at-the-end/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1,
+        "errors": []
+      },
+      "rounds": [
+        {
+          "round": 1,
+          "tasksPromoted": [
+            "AMEND-001",
+            "AMEND-002",
+            "AMEND-003"
+          ],
+          "criteriaClosed": [
+            "FS-1",
+            "FS-12"
+          ],
+          "criteriaOpen": [
+            "FS-19"
+          ],
+          "buildable": []
+        }
+      ],
+      "stopped": true
+    }
+  }
+}
