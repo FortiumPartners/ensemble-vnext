@@ -4,7 +4,7 @@
   "trd_hash": "58e48d0b7c9510a3b599d6b255327d5b0fd91a9e280f45e278f1425d0a4c64c8",
   "branch": "feature/40-a-ci-fix-sized-to-the-failure",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "FIX-001",
@@ -73,10 +73,19 @@
       "last_advanced": "2026-11-11T23:18:40.222Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "1bb9e1280cd31c071384b26608fa3dddc9f21730",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-11T23:47:41.884Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "1bb9e1280cd31c071384b26608fa3dddc9f21730",
+    "last_checkpoint_timestamp": "2026-11-11T23:47:41.884Z",
     "interrupted": false,
     "interrupt_reason": null
   },
