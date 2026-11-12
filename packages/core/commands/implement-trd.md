@@ -183,7 +183,14 @@ this guard and runs on, with no `### 1.3` branch switch, no `### 1.3a` write and
 left exactly as it is; the run stays on the current branch. A lone `--shipping` — without
 `--reconcile` and `--chained` both — gets no exception and meets this guard like any other run. `<feature>` is the TRD's
 basename without its extension (the rule `/close-feature`'s §3.2 shares with `router.py`'s
-`derive_feature()`). If `.trd-state/<feature>/closed.json` exists:
+`derive_feature()`). First restore the feature's records if this worktree lacks them, so a
+closed feature reads as closed on a fresh checkout:
+
+```bash
+node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
+```
+
+Any outcome but `present` or `restored` means no record: carry on as today. A `failed` outcome is one ISSUES line, "records ref could not be fetched". Then, if `.trd-state/<feature>/closed.json` exists:
 
 - Ordinarily, end the run:
   ```
@@ -1719,8 +1726,13 @@ the right frame. Read `.trd-state/<feature>/verification-state.json`, and before
 just-regenerated definition (a check the section no longer selects, or a design input that no
 longer resolves) and every entry for a criterion carrying an owner comment (D18) — so it is
 walked again this run instead of staying settled on a verdict the comment disputes. Pass what
-remains as `resume: { iteration, criteria, gapsClosed }` (D13) — `outcome` is read by Step
-3.6's gate, not passed to the workflow, which derives its own. On a fresh run (no prior state
+remains as `resume: { iteration, criteria, gapsClosed }` (D13), and adds `exercised` to it by
+name, only when the state file has it (D18): the array of `{ iteration, ids, confirmation? }`
+entries the targeted inner loop records. `exercised` is not filtered by id — it is an audit
+history of what each iteration walked, not a verdict, so a criterion the regenerated definition
+dropped needs no removal from it. The workflow reads it leniently and drops a malformed value
+with a log line. `outcome` is read by Step 3.6's gate, not passed to the workflow, which
+derives its own. On a fresh run (no prior state
 file, or a terminal one), `resume` is `null`.
 
 **After resolving `criteria` here, this path also runs §8.1's `must-pass-coverage` call** (the

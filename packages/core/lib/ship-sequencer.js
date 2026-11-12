@@ -79,6 +79,7 @@ const path = require('path');
 const { maskFencedLines, parseTrd } = require('./trd-parser');
 const implementState = require('./implement-state');
 const recordDirs = require('./ship-record-dir');
+const recordRef = require('./record-ref');
 
 const STATE_FILE = 'shipped.json';
 const DEFAULT_ROUNDS = 2;
@@ -550,6 +551,9 @@ function parseState(file) {
  * names. A pointer to a missing or not-detached record is the ordinary "run start first" error.
  */
 function loadState(stateDir) {
+  // Worktree -> records ref -> detached record. `ensure` is a no-op when the folder already holds
+  // records, and never throws; "no record" and "failed" both leave the next fallback to run.
+  recordRef.ensure({ stateDir });
   let { state, err } = parseState(statePath(stateDir));
   let fromExternal = false;
   if (err && err.code === 'ENOENT') {
@@ -653,6 +657,9 @@ function matchingDetached(stateDir, work) {
  */
 function start({ stateDir, policyPath, fallback, work, contractsDir, resume = false }) {
   if (!stateDir) return { ok: false, status: null, errors: ['start needs a state directory'] };
+  // Only --resume may continue an earlier run, so only it may restore one from the ref; a plain
+  // start must never find a restored shipped.json and turn into a resume.
+  if (resume) recordRef.ensure({ stateDir, branch: work && work.branch });
   if (fs.existsSync(statePath(stateDir))) {
     const existing = loadState(stateDir);
     if (!existing.state) return { ok: false, status: null, errors: [existing.error] };

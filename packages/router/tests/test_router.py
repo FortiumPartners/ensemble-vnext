@@ -1065,6 +1065,129 @@ class TestFeatureInFlightTerminator:
         assert feature_in_flight(cwd) == "closed-feature"
 
 
+RECORD_REF_JS = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+    "packages", "core", "lib", "record-ref.js",
+)
+
+
+class TestFeatureInFlightRecordsRefFallback:
+    """FIX-008: with no record file in the feature's folder, `feature_in_flight` reads
+    closed.json / implement.json from the LOCAL ref `refs/ensemble/records/<slug>` -- after
+    an identity check -- and every git problem reads as "no record" (today's answer)."""
+
+    SLUG = "feat"
+
+    @staticmethod
+    def _git(cwd, *args):
+        subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True,
+                       env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"})
+
+    def _repo(self, tmp_path, monkeypatch, files, forge_id=None):
+        """A real repo whose records ref holds `files`, with the worktree folder removed."""
+        if forge_id:
+            monkeypatch.setenv("FORGE_FEATURE_ID", forge_id)
+        else:
+            monkeypatch.delenv("FORGE_FEATURE_ID", raising=False)
+        repo = str(tmp_path)
+        self._git(repo, "init", "-q", "-b", "main")
+        self._git(repo, "commit", "-q", "--allow-empty", "-m", "init")
+        folder = os.path.join(repo, ".trd-state", self.SLUG)
+        os.makedirs(folder)
+        for name, content in files.items():
+            with open(os.path.join(folder, name), "w") as f:
+                f.write(json.dumps(content))
+        os.makedirs(os.path.join(repo, ".trd-state"), exist_ok=True)
+        with open(os.path.join(repo, ".trd-state", "current.json"), "w") as f:
+            json.dump({"trd": f"docs/TRD/{self.SLUG}.md"}, f)
+        r = subprocess.run(
+            ["node", RECORD_REF_JS, "write", "--state-dir", f".trd-state/{self.SLUG}",
+             "--command", "test", "--step", "test", "--no-push"],
+            cwd=repo, capture_output=True, text=True)
+        assert '"ok":true' in r.stdout.replace(" ", ""), r.stdout + r.stderr
+        import shutil
+        shutil.rmtree(folder)
+        return repo
+
+    def test_closed_json_on_ref_closes_the_hint(self, tmp_path, monkeypatch):
+        repo = self._repo(tmp_path, monkeypatch, {"closed.json": {"closed": True}})
+        assert feature_in_flight(repo) == ""
+
+    def test_all_success_implement_json_on_ref_closes_the_hint(self, tmp_path, monkeypatch):
+        repo = self._repo(tmp_path, monkeypatch,
+                          {"implement.json": {"tasks": {"A": {"status": "success"}}}})
+        assert feature_in_flight(repo) == ""
+
+    def test_pending_task_on_ref_is_in_flight(self, tmp_path, monkeypatch):
+        repo = self._repo(tmp_path, monkeypatch, {"implement.json": {
+            "tasks": {"A": {"status": "success"}, "B": {"status": "pending"}}}})
+        assert feature_in_flight(repo) == self.SLUG
+
+    def test_ref_with_neither_file_is_in_flight(self, tmp_path, monkeypatch):
+        repo = self._repo(tmp_path, monkeypatch, {"prompts.md": "x"})
+        assert feature_in_flight(repo) == self.SLUG
+
+    def test_ref_of_another_branch_is_ignored(self, tmp_path, monkeypatch):
+        repo = self._repo(tmp_path, monkeypatch, {"closed.json": {"closed": True}})
+        self._git(repo, "checkout", "-q", "-b", "other")
+        assert feature_in_flight(repo) == self.SLUG
+
+    def test_forge_feature_id_decides_when_both_ids_present(self, tmp_path, monkeypatch):
+        repo = self._repo(tmp_path, monkeypatch, {"closed.json": {"closed": True}}, forge_id="f-1")
+        self._git(repo, "checkout", "-q", "-b", "other")  # branch differs, id matches
+        assert feature_in_flight(repo) == ""
+        monkeypatch.setenv("FORGE_FEATURE_ID", "f-2")
+        assert feature_in_flight(repo) == self.SLUG
+
+    def test_folder_with_records_never_consults_the_ref(self, tmp_path, monkeypatch):
+        repo = self._repo(tmp_path, monkeypatch, {"closed.json": {"closed": True}})
+        folder = os.path.join(repo, ".trd-state", self.SLUG)
+        os.makedirs(folder)
+        with open(os.path.join(folder, "implement.json"), "w") as f:
+            json.dump({"tasks": {"B": {"status": "pending"}}}, f)
+        assert feature_in_flight(repo) == self.SLUG  # worktree is authoritative
+
+    def test_folder_with_only_dispatch_jsonl_still_falls_back(self, tmp_path, monkeypatch):
+        repo = self._repo(tmp_path, monkeypatch, {"closed.json": {"closed": True}})
+        folder = os.path.join(repo, ".trd-state", self.SLUG)
+        os.makedirs(folder)
+        with open(os.path.join(folder, "dispatch.jsonl"), "w") as f:
+            f.write("{}\n")
+        assert feature_in_flight(repo) == ""
+
+    def test_unsafe_slug_makes_no_git_call(self, tmp_path, monkeypatch):
+        import router
+        cwd = str(tmp_path)
+        os.makedirs(os.path.join(cwd, ".trd-state"))
+        with open(os.path.join(cwd, ".trd-state", "current.json"), "w") as f:
+            json.dump({"trd": "docs/TRD/bad slug.md"}, f)
+        calls = []
+        monkeypatch.setattr(router.subprocess, "run", lambda *a, **k: calls.append(a))
+        assert feature_in_flight(cwd) == "bad slug"
+        assert calls == []
+
+    def test_git_missing_from_path_gives_todays_answer(self, tmp_path, monkeypatch):
+        repo = self._repo(tmp_path, monkeypatch, {"closed.json": {"closed": True}})
+        monkeypatch.setenv("PATH", str(tmp_path / "nowhere"))
+        assert feature_in_flight(repo) == self.SLUG
+
+    def test_remote_only_ref_is_not_fetched(self, tmp_path, monkeypatch):
+        work = tmp_path / "work"
+        work.mkdir()
+        repo = self._repo(work, monkeypatch, {"closed.json": {"closed": True}})
+        bare = str(tmp_path / "origin.git")
+        subprocess.run(["git", "init", "-q", "--bare", bare], check=True)
+        self._git(repo, "remote", "add", "origin", bare)
+        ref = f"refs/ensemble/records/{self.SLUG}"
+        self._git(repo, "push", "-q", "origin", ref)
+        self._git(repo, "update-ref", "-d", ref)
+        assert feature_in_flight(repo) == self.SLUG
+        listed = subprocess.run(["git", "for-each-ref", "refs/ensemble/"], cwd=repo,
+                                capture_output=True, text=True).stdout
+        assert listed.strip() == ""
+
+
 class TestFrameworkHintNamesCloseFeature:
     """D3 / §3.4: FRAMEWORK_HINT's FLOW bullet names /close-feature after /audit-build
     as the owner's post-merge step -- discoverability for a command nothing else

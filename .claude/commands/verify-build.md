@@ -103,6 +103,15 @@ at the next bridge". The owner answers it in `/refine-verification`, not mid-run
 
 ### 3. Read the inputs from disk
 
+First restore the feature's records if this worktree lacks them (`--resume` needs
+`verification-state.json`):
+
+```bash
+node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
+```
+
+Any outcome but `present` or `restored` means no record: carry on as today. A `failed` outcome is one ISSUES line, "records ref could not be fetched".
+
 Exactly the inputs §8.1–§8.3 assemble. Read those sections for how each is derived rather than
 restating the derivations here.
 
@@ -605,7 +614,11 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    a discovery field such as `kind: 'gap'`). Where `kind` is absent (a state file from before
    kinds) the cause decides: `judged-failed` or `not-built` is buildable. A non-null
    `kindOf(cause)` outranks a disagreeing stored `kind` (D20); where `kindOf(cause)` is null the
-   stored kind stands. Every other kind is re-verified next round and never built. For each
+   stored kind stands. Every other kind is re-verified next round and never built. An entry carrying `awaiting` (its cause was
+   closed through the cause's representative and it has not been re-checked yet; D21) is
+   `kind: 'build-defect'` but is not buildable: it records no failing row, is not in the active
+   slice, and is walked again next round like any criterion that is not `met`, because a member
+   of a fixed cause is probably fixed and a build task would rebuild a fixed thing. For each
    criterion still open and buildable which no `## Accepted as not verifiable` ruling in the plan
    covers: record a failing row (`kind: 'gap', foundBy: 'verify-build --fix', blocksFeature:
    true, status: 'not_met' | 'unbuilt', ref: '<criterion id>', evidence: '<cause>: <reason>'`
@@ -652,7 +665,8 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    <k>/<maxRounds> COMPLETE → <closed> closed, <open> open`. Then run `node
    .claude/lib/functional-verification.js decide-fix-round --file <payload>` (§3.5) with this
    round's `round`, `maxRounds` and `closedBelow` (from the stop rule read at step 0),
-   `closedThisRound` and `buildableOpen` (from this round's own counts). `action: 'continue'`
+   `closedThisRound` and `buildableOpen` (from this round's own counts); `awaiting` entries are not counted in `buildable` or `buildableOpen`, so
+   a round whose only open criteria are awaiting ones reads as nothing left to build. `action: 'continue'`
    returns to step 2 for round k+1. `action: 'stop'` — for any reason, including "nothing left
    to build" — falls through to step 6, and sets `functional_verification.fix.stopped = true`.
 
@@ -663,7 +677,9 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    composed from the first of these that applies: `setup failure: <problem>` (this round's
    verify outcome was `setup-failure` and the criterion is still open; `<problem>` is the
    workflow's `setup.problems` entry for its environment, with its fix; D12 — no other branch
-   exists for a setup failure, and steps 4 and 5 run as for any outcome); `not checkable
+   exists for a setup failure, and steps 4 and 5 run as for any outcome); `awaiting re-check: its cause was fixed through <representative>`
+   (an entry carrying `awaiting`; the representative id is not on the entry, read it from the state file's
+   top-level `causes`, the cause whose `members` include the criterion; D16, D21); `not checkable
    here: <reason>` (kind `not-checkable-here`; D25 checks this before the next form);
    `evidence gap — definition problem: <reason>` (kind `evidence-gap` with `settled:
    'definition-problem'`; checked before any cause-based form); `not verifiable

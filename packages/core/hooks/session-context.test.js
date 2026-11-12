@@ -173,3 +173,134 @@ describe('session-context.js closed-feature banner', () => {
     expect(ctx).not.toContain('Closed:');
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Ref fallback: with no .trd-state/<slug>/ folder, the banner reads the local records ref.
+// ---------------------------------------------------------------------------------------------
+
+const { spawnSync } = require('child_process');
+const recordRef = require('../lib/record-ref');
+
+describe('session-context.js falls back to the local records ref', () => {
+  const SLUG = 'ref-feature';
+  const REF = `refs/ensemble/records/${SLUG}`;
+  let repo;
+  let savedForge;
+
+  const git = (cwd, args) => {
+    const env = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' };
+    for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE']) delete env[k];
+    const r = spawnSync('git', args, { cwd, encoding: 'utf8', env });
+    return { status: r.status, out: (r.stdout || '').trim() };
+  };
+
+  // A repo whose records ref holds `files`, with the worktree folder then removed.
+  function repoWithRef(files) {
+    const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sc-ref-')));
+    git(dir, ['init', '-q', '-b', 'main']);
+    git(dir, ['config', 'user.name', 'T']);
+    git(dir, ['config', 'user.email', 't@example.com']);
+    git(dir, ['config', 'commit.gpgsign', 'false']);
+    fs.writeFileSync(path.join(dir, 'README.md'), 'x\n');
+    git(dir, ['add', '.']);
+    git(dir, ['commit', '-q', '-m', 'init']);
+    const folder = path.join(dir, '.trd-state', SLUG);
+    fs.mkdirSync(folder, { recursive: true });
+    for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(folder, name), body);
+    const w = recordRef.write({ stateDir: `.trd-state/${SLUG}`, command: 'test', step: 'x', push: false, cwd: dir });
+    expect(w.ok).toBe(true);
+    fs.rmSync(folder, { recursive: true, force: true });
+    fs.writeFileSync(
+      path.join(dir, '.trd-state', 'current.json'),
+      JSON.stringify({ trd: `docs/TRD/${SLUG}.md`, status: `.trd-state/${SLUG}/implement.json` })
+    );
+    return dir;
+  }
+
+  async function bannerFor(dir) {
+    const saved = tmpDir;
+    tmpDir = dir;
+    try {
+      return await runMain();
+    } finally {
+      tmpDir = saved;
+    }
+  }
+
+  beforeEach(() => {
+    savedForge = process.env.FORGE_FEATURE_ID;
+    delete process.env.FORGE_FEATURE_ID;
+  });
+
+  afterEach(() => {
+    if (savedForge === undefined) delete process.env.FORGE_FEATURE_ID;
+    else process.env.FORGE_FEATURE_ID = savedForge;
+    if (repo) fs.rmSync(repo, { recursive: true, force: true });
+    repo = null;
+  });
+
+  it('(a) a ref holding closed.json gives the Closed: line', async () => {
+    repo = repoWithRef({
+      'closed.json': JSON.stringify({ closedAt: '2026-10-01T00:00:00Z', closedBy: 'owner', note: 'done' }),
+    });
+    const ctx = await bannerFor(repo);
+    expect(ctx).toContain('Closed: 2026-10-01 by owner: done');
+    expect(fs.existsSync(path.join(repo, '.trd-state', SLUG))).toBe(false);
+  });
+
+  it('(a) a ref holding implement.json instead gives the Impl: line', async () => {
+    repo = repoWithRef({ 'implement.json': JSON.stringify({ tasks: { A: { status: 'success' }, B: { status: 'pending' } } }) });
+    const ctx = await bannerFor(repo);
+    expect(ctx).toContain('Impl:   1/2 tasks complete');
+    expect(ctx).not.toContain('Closed:');
+  });
+
+  it('(a2) a ref owned by a different feature gives no Closed: line and creates no folder', async () => {
+    repo = repoWithRef({
+      'closed.json': JSON.stringify({ closedAt: '2026-10-01T00:00:00Z', closedBy: 'owner', note: 'done' }),
+    });
+    git(repo, ['checkout', '-q', '-b', 'other-feature']);
+    const ctx = await bannerFor(repo);
+    expect(ctx).toContain(`TRD:    docs/TRD/${SLUG}.md`);
+    expect(ctx).not.toContain('Closed:');
+    expect(fs.existsSync(path.join(repo, '.trd-state', SLUG))).toBe(false);
+  });
+
+  it('(b) neither a folder nor a ref: output is the same as without the fallback', async () => {
+    repo = repoWithRef({ 'implement.json': '{}' });
+    git(repo, ['update-ref', '-d', REF]);
+    const ctx = await bannerFor(repo);
+    expect(ctx).toContain(`TRD:    docs/TRD/${SLUG}.md`);
+    expect(ctx).not.toContain('Closed:');
+    expect(ctx).not.toContain('Impl:');
+  });
+
+  it('(c) a bare origin holding the ref, local ref absent: no Closed: line and no fetch', async () => {
+    repo = repoWithRef({ 'closed.json': JSON.stringify({ closedAt: '2026-10-01T00:00:00Z', closedBy: 'owner' }) });
+    const origin = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sc-origin-')));
+    git(origin, ['init', '-q', '--bare', '-b', 'main']);
+    git(repo, ['remote', 'add', 'origin', origin]);
+    expect(git(repo, ['push', '-q', 'origin', `${REF}:${REF}`]).status).toBe(0);
+    git(repo, ['update-ref', '-d', REF]);
+    try {
+      const ctx = await bannerFor(repo);
+      expect(ctx).not.toContain('Closed:');
+      expect(git(repo, ['rev-parse', '--verify', '-q', REF]).status).not.toBe(0);
+    } finally {
+      fs.rmSync(origin, { recursive: true, force: true });
+    }
+  });
+
+  it('(e) never throws when git is not on PATH', async () => {
+    repo = repoWithRef({ 'closed.json': JSON.stringify({ closedAt: '2026-10-01T00:00:00Z', closedBy: 'owner' }) });
+    const savedPath = process.env.PATH;
+    process.env.PATH = '/nonexistent';
+    try {
+      const ctx = await bannerFor(repo);
+      expect(typeof ctx).toBe('string');
+      expect(ctx).not.toContain('Closed:');
+    } finally {
+      process.env.PATH = savedPath;
+    }
+  });
+});

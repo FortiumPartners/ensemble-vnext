@@ -2425,6 +2425,41 @@ describe('triage by kind: command wiring (TRIAGE-B008, D14, D20, D24, D25)', () 
     expect(t).toMatch(/by cause: <cause in words> — re-verified each round, never built/);
   });
 
+  test('CAUSE-B005 (D18): §8.2 passes exercised by name, only when present, unfiltered by id', () => {
+    const t = flat(impl().split('### 8.2 The `--resume` composition')[1].split('**After resolving `criteria` here')[0]);
+    expect(t).toMatch(/resume: \{ iteration, criteria, gapsClosed \}/);
+    expect(t).toMatch(/adds `exercised` to it by name, only when the state file has it/);
+    expect(t).toMatch(/`exercised` is not filtered by id/);
+  });
+
+  test('CAUSE-B005 (D18): /verify-build --resume gains no exercised composition', () => {
+    const t = flat(vb().split('### `--resume`')[1].split('\n### ')[0]);
+    expect(t).not.toMatch(/exercised/);
+  });
+
+  test('CAUSE-B005 (D21): step 2 records no failing row for an awaiting entry', () => {
+    const t = step(2);
+    expect(t).toMatch(/An entry carrying `awaiting`[^]*is `kind: 'build-defect'` but is not buildable/);
+    expect(t).toMatch(/records no failing row/);
+    expect(t).toMatch(/not in the active slice/);
+  });
+
+  test('CAUSE-B005 (D21): step 5 counts exclude awaiting entries from buildableOpen', () => {
+    const t = step(5);
+    expect(t).toMatch(/`awaiting` entries are not counted in `buildable` or `buildableOpen`/);
+  });
+
+  test('CAUSE-B005 (D21): step 6 gives the awaiting stop reason after setup failure, before not verifiable here', () => {
+    const t = step(6);
+    const iSetup = t.indexOf('setup failure: <problem>');
+    const iAw = t.indexOf('awaiting re-check: its cause was fixed through <representative>');
+    const iNv = t.indexOf("not verifiable here: <the Judge's reason>");
+    expect(iAw).toBeGreaterThan(-1);
+    expect(iSetup).toBeLessThan(iAw);
+    expect(iAw).toBeLessThan(iNv);
+    expect(t).toMatch(/top-level `causes`/);
+  });
+
   test('D24: definition problems reach ISSUES and route NEXT to /refine-verification', () => {
     expect(vb()).toMatch(/settled: 'definition-problem'/);
     expect(impl()).toMatch(/settled: 'definition-problem'/);

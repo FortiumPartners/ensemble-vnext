@@ -49,6 +49,14 @@ command and asks nothing.
 
 ## Inputs
 
+First restore the feature's records if this worktree lacks them:
+
+```bash
+node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
+```
+
+Any outcome but `present` or `restored` means no record: carry on as today. A `failed` outcome is one ISSUES line, "records ref could not be fetched".
+
 | Input | Where it comes from | Required / optional |
 |---|---|---|
 | Latest verification report, with its Diagnosis block (a `setup-failure` report has none; its `**Setup**:` lines are the diagnosis) | `.trd-state/<feature>/verification-report.md` | required |
@@ -85,7 +93,10 @@ identifier.
 
 - **Blockers** — one task-sized change per gap of kind `build-defect` the diagnosis
   confirms (when `kind` is absent, per `judged-failed` or `not-built` gap). A criterion with
-  `settled: 'definition-problem'` is never a Blocker. **Read the kind this way:** a non-null
+  `settled: 'definition-problem'` is never a Blocker. A criterion carrying `awaiting` (its cause was
+  fixed through the cause's representative and it has not been re-checked yet) is
+  `kind: 'build-defect'` but is neither a Blocker nor a ruling: list it as "awaiting re-check"
+  (D21), and leave it out of the Slices. **Read the kind this way:** a non-null
   `kindOf(cause)` wins over a disagreeing stored `kind`; where `kindOf(cause)` is null the
   stored `kind` stands; a `not_met` entry with neither reads as `build-defect`; order them via each row's `After` column. A confirmed gap is built — that is what
   `--fix` is for.
