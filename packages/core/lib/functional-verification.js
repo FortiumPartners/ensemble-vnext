@@ -1329,6 +1329,46 @@ function renderReport(input) {
   const causeRows = Array.isArray(input.causes) ? input.causes : [];
   const awaitingMark = (c) => (c.awaiting === 'regression' ? ' — awaiting the regression pass, not re-checked' : '');
 
+  // Regression pass rendering (one-full-regression-pass-at-the-end D14) is gated on the input
+  // carrying a `regression` object, so an older input renders byte-identically. The record is
+  // hand-composed by the sync agent and not schema-checked, so every list is tolerated as a
+  // non-array and every string goes through escapeCell where it is printed.
+  const regression =
+    input.regression !== null && typeof input.regression === 'object' && !Array.isArray(input.regression)
+      ? input.regression
+      : null;
+  const listOf = (v) => (Array.isArray(v) ? v : []);
+  const regressionRounds = regression ? listOf(regression.rounds).filter((r) => r && typeof r === 'object') : [];
+  // Ids a round caught. No iteration number is shown for them: an open not_met entry carries
+  // no provenAt, and a carried one belongs to an earlier invocation (D14).
+  const caughtIds = new Set(regressionRounds.flatMap((r) => listOf(r.caught)).map(String));
+  // A `cause-member` was never met: it was open, waiting on a cause the run fixed, so the
+  // "was met earlier" wording would misstate its history.
+  const causeMemberIds = new Set(
+    regressionRounds
+      .flatMap((r) => listOf(r.scope))
+      .filter((e) => e && typeof e === 'object' && e.reason === 'cause-member')
+      .map((e) => String(e.id))
+  );
+  const caughtMark = (c) => {
+    if (!regression || c.status !== 'not_met' || !caughtIds.has(String(c.id))) return '';
+    return causeMemberIds.has(String(c.id))
+      ? ' — still failing in the regression pass (its cause was fixed while it was not re-checked)'
+      : ' — caught by the regression pass (was met earlier in the run)';
+  };
+  const provenAtCell = (c) => {
+    const hasIteration = c.provenAt !== undefined && c.provenAt !== null;
+    if (regression && (c.regression === 1 || c.regression === 2)) {
+      return `${hasIteration ? `iteration ${c.provenAt} ` : ''}(regression pass ${c.regression})`.trim();
+    }
+    return hasIteration ? c.provenAt : '';
+  };
+  // Captures a round could not make (D10): shown in the Regression pass section, never in the
+  // definition-problems list.
+  const uncheckedByPass = regression
+    ? criteria.filter((c) => c.status === 'not_met' && c.settled === 'regression-unchecked')
+    : [];
+
   const lines = [];
   lines.push(`# Functional Verification Report: ${feature}`);
   lines.push('');
@@ -1550,7 +1590,7 @@ function renderReport(input) {
     lines.push('| ID | Statement | Artifact | Proven at |');
     lines.push('|----|-----------|----------|-----------|');
     for (const c of met) {
-      const provenAt = c.provenAt === undefined || c.provenAt === null ? '' : c.provenAt;
+      const provenAt = provenAtCell(c);
       // The flag is appended after escaping: it is ours, not Judge text.
       const flag = images.flaggedSet.has(c) ? UI_NO_SCREENSHOT_FLAG : '';
       lines.push(
@@ -1585,7 +1625,7 @@ function renderReport(input) {
         .map((a) => `iter ${a.iteration}: ${a.result}`)
         .join('; ');
       lines.push(
-        `| ${c.id} | ${escapeCell(c.statement)} | ${kindGate ? `${kindWords(c)} | ` : ''}${escapeCell(c.tier1 ?? '')} | ${escapeCell(c.reason)}${awaitingMark(c)} | ${escapeCell(c.blocker)} | ${escapeCell(attempts)} |`
+        `| ${c.id} | ${escapeCell(c.statement)} | ${kindGate ? `${kindWords(c)} | ` : ''}${escapeCell(c.tier1 ?? '')} | ${escapeCell(c.reason)}${awaitingMark(c)}${caughtMark(c)} | ${escapeCell(c.blocker)} | ${escapeCell(attempts)} |`
       );
     }
   }
@@ -1624,6 +1664,67 @@ function renderReport(input) {
     }
   }
   lines.push('');
+
+  // After the Not Verifiable table and before `## Evidence gaps` / `## Evidence`: `## Evidence`
+  // must stay the report's last section (/verify-build step 6 appends `## Fix run` after it,
+  // and report-publish-plan scans the lines under it).
+  if (regression) {
+    const ids = (v) => listOf(v).map((x) => escapeCell(x)).join(', ');
+    lines.push('## Regression pass');
+    lines.push('');
+    lines.push(
+      'After the loop exited, the criteria whose covered files changed (or whose coverage was unknown) were re-checked against the finished build.'
+    );
+    lines.push('');
+    if (regressionRounds.length === 0) {
+      lines.push('_No round ran._');
+      lines.push('');
+    }
+    for (const r of regressionRounds) {
+      lines.push(`### Round ${escapeCell(r.round)} (iteration ${escapeCell(r.iteration)})`);
+      lines.push('');
+      const scope = listOf(r.scope).filter((e) => e && typeof e === 'object');
+      if (scope.length === 0) {
+        lines.push('Re-checked: _none._');
+      } else {
+        lines.push('| ID | Why re-checked | Changed files |');
+        lines.push('|----|----------------|---------------|');
+        for (const e of scope) {
+          lines.push(`| ${escapeCell(e.id)} | ${escapeCell(e.reason)} | ${ids(e.files)} |`);
+        }
+      }
+      lines.push('');
+      const caught = listOf(r.caught);
+      lines.push(`Caught: ${caught.length > 0 ? ids(caught) : '_none._'}`);
+      if (r.debug && typeof r.debug === 'object') {
+        const files = Array.isArray(r.debug.filesChanged) ? ids(r.debug.filesChanged) : 'unknown';
+        lines.push(`Repair round: causes ${listOf(r.debug.causes).length > 0 ? ids(r.debug.causes) : '_none_'}; files changed: ${files}`);
+      }
+      lines.push('');
+    }
+    const notRewalked = listOf(regression.notRewalked);
+    lines.push(`Not re-walked (covered files unchanged): ${notRewalked.length > 0 ? ids(notRewalked) : '_none._'}`);
+    lines.push('');
+    const unclaimed = listOf(regression.unclaimedChanges);
+    lines.push(`Changed files no criterion covers: ${unclaimed.length > 0 ? ids(unclaimed) : '_none._'}`);
+    lines.push('');
+    if (regression.gateBeforeEdits === true) {
+      lines.push(
+        'The full-environment gate ran before the repair round\'s edits, so it did not measure the repaired code.'
+      );
+      lines.push('');
+    }
+    if (uncheckedByPass.length > 0) {
+      lines.push('Captures the pass could not make (recorded, not retried):');
+      lines.push('');
+      lines.push('| ID | Statement | Reason |');
+      lines.push('|----|-----------|--------|');
+      for (const c of uncheckedByPass) {
+        lines.push(`| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.reason)} |`);
+      }
+      lines.push('');
+    }
+  }
 
   // Before `## Evidence`: images.gate makes that the report's last section (/verify-build step 6
   // appends `## Fix run` after it).

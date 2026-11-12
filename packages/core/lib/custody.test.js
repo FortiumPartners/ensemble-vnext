@@ -454,6 +454,74 @@ describe('reconcile: change classes and ensemble.reproof', () => {
     });
   });
 
+  describe('a state written by the regression pass (one caught, one re-proven)', () => {
+    // FS-1 was met at iteration 1, then the end-of-run pass caught it; FS-2 was re-proven by the pass.
+    // The caught entry carries no artifact, so no live-evidence covers can speak for it.
+    const regressionState = (s, fs1) => fs.writeFileSync(path.join(s.stateDir, 'verification-state.json'), JSON.stringify({
+      criteria: [
+        fs1,
+        { id: 'FS-2', status: 'met', artifact: null, provenAt: 3, regression: 1 },
+      ],
+    }));
+    const CAUGHT = { id: 'FS-1', status: 'not_met', artifact: null, regression: 1 };
+    const reverifiedFile = (s, criteria) => {
+      const p = path.join(s.root, 'reverify-state.json');
+      fs.writeFileSync(p, JSON.stringify({ criteria }));
+      return p;
+    };
+
+    test('the caught id is not proven: its old covers record is not used, a met id keeps its own', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      s.commit('fix', { 'src/b.js': 'b3' });
+      // Control: while FS-1 stands met, its record (src/a.js) says the change cannot affect it.
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-2'], reused: ['FS-1'] });
+      regressionState(s, CAUGHT);
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'], reused: [] });
+    });
+
+    test('FS-12: a re-proven entry\'s artifact covers decide its re-proof, not only its status', () => {
+      // src/c.js must exist when recorded (live-evidence hashes it), so it joins the anchoring commit.
+      const s = twoCriteria({ recA: ['src/a.js'], extra: { 'src/c.js': 'c1' } });
+      fs.mkdirSync(path.join(s.stateDir, 'evidence'), { recursive: true });
+      const artifact = path.join(s.stateDir, 'evidence', 'FS-2.txt');
+      fs.writeFileSync(artifact, 'proof');
+      liveEvidence.record(s.stateDir, { task: 'T', artifact, covers: [path.join(s.repo, 'src/c.js')] });
+      fs.writeFileSync(path.join(s.stateDir, 'verification-state.json'), JSON.stringify({
+        criteria: [
+          { id: 'FS-1', status: 'met', artifact: null },
+          { id: 'FS-2', status: 'met', artifact, provenAt: 3, regression: 1 },
+        ],
+      }));
+      s.commit('fix', { 'src/c.js': 'c2' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-2'], reused: ['FS-1'] });
+    });
+
+    test('--reverified refuses while the caught id is still not met, naming it; a round-2 met moves', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      regressionState(s, CAUGHT);
+      const before = s.readCustody().anchor.commit;
+      const head = s.commit('fix', { 'src/b.js': 'b3' });
+
+      const refused = reconcile(s.args({
+        reverifiedPath: reverifiedFile(s, [
+          { id: 'FS-1', status: 'not_met', regression: 1 },
+          { id: 'FS-2', status: 'met', regression: 1 },
+        ]),
+      }));
+      expect(refused.action).toBe('refused');
+      expect(refused.reason).toMatch(/FS-1/);
+      expect(s.readCustody().anchor.commit).toBe(before);
+
+      const moved = reconcile(s.args({
+        reverifiedPath: reverifiedFile(s, [
+          { id: 'FS-1', status: 'met', provenAt: 3, regression: 2 },
+          { id: 'FS-2', status: 'met', provenAt: 3, regression: 1 },
+        ]),
+      }));
+      expect(moved).toMatchObject({ action: 'moved', anchor: head, ids: ['FS-1', 'FS-2'] });
+    });
+  });
+
   describe('shipped changes re-prove by covers', () => {
     test('a change to a file in A\'s record re-proves A only (B\'s record names another file)', () => {
       const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
