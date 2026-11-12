@@ -79,6 +79,12 @@ describe('verify-build.md --criteria (D13)', () => {
     expect(text()).toMatch(/`criterionCovers` is the one field the regression pass added: the list is the 29 fields/);
   });
 
+  test('names the derive-criteria command, the sweep-file {} and the failure fallback (REGR-B006)', () => {
+    expect(text()).toContain('node .claude/lib/live-evidence.js derive-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md');
+    expect(text()).toMatch(/A sweep file has no TRD: pass `\{\}`/);
+    expect(text()).toMatch(/A non-zero exit passes `\{\}` and is one ISSUES line, never STUCK/);
+  });
+
   describe('the one re-proof retry', () => {
     test('retries only the not-met criteria, once, chosen by reproof-retry-set', () => {
       const s = criteria();
@@ -117,5 +123,31 @@ describe('verify-build.md --criteria (D13)', () => {
       expect(t).toMatch(/the list is the 29 fields/);
       expect(t).toContain('`RETURN → setup-failure, <met> of <total> met`');
     });
+  });
+});
+
+describe('verify-build.md derives criterionCovers (REGR-B006)', () => {
+  const derive = () => text().split('`criterionCovers` is derived first')[1].split('```javascript')[0];
+
+  test('names the same derive-criteria command as implement-trd.md 8.3', () => {
+    const cmd = 'node .claude/lib/live-evidence.js derive-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md';
+    expect(derive()).toContain(cmd);
+    expect(flat(read(IMPLEMENT))).toContain(cmd);
+  });
+
+  test('a sweep file passes {}', () => {
+    expect(derive()).toMatch(/A sweep file has no TRD: pass `\{\}`/);
+  });
+
+  test('a non-zero exit passes {} and is one ISSUES line, never STUCK', () => {
+    expect(derive()).toMatch(/A non-zero exit passes `\{\}` and is one ISSUES line, never STUCK/);
+  });
+
+  test('under --criteria it derives over the whole definition and reuses the value on the retry', () => {
+    expect(derive()).toMatch(/Under `--criteria` derive over the whole definition.*pass the same value on the retry/);
+  });
+
+  test('the dispatch-block comment says {} for a sweep file or when the derive fails', () => {
+    expect(text()).toMatch(/criterionCovers,\s+\/\/ `node \.claude\/lib\/live-evidence\.js derive-criteria`.*\{\} for a sweep file or when the derive fails/);
   });
 });

@@ -270,6 +270,13 @@ describe('both dispatch blocks carry the same 29 fields in the same order (VSET-
     expect(fields.slice(-7)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered', 'verificationDigest', 'preclassified']);
   });
 
+  test('implement-trd.md §8.3 names the derive-criteria command, the sweep-file {} and the failure fallback (REGR-B006)', () => {
+    const t = flat(read(CORE_IMPLEMENT));
+    expect(t).toContain('node .claude/lib/live-evidence.js derive-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md');
+    expect(t).toMatch(/A non-zero exit passes `\{\}` and is one ISSUES line, never STUCK/);
+    expect(t).toMatch(/criterionCovers, +\/\/ `node \.claude\/lib\/live-evidence\.js derive-criteria`.*?\{\} for a sweep file/);
+  });
+
   test('verify-build.md §4 lists the identical 29 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
@@ -2475,5 +2482,30 @@ describe('triage by kind: command wiring (TRIAGE-B008, D14, D20, D24, D25)', () 
     for (const t of [impl(), vb()]) {
       expect(t).toMatch(/leads with counts by kind/);
     }
+  });
+});
+
+describe('implement-trd.md §8.3 derives criterionCovers with derive-criteria (REGR-B006)', () => {
+  const derive = () => {
+    const t = flat(read(CORE_IMPLEMENT));
+    return t.split('**Derive `criterionCovers` first')[1].split('Workflow({ name: "verify-functional"')[0];
+  };
+  const block = () => flat(read(CORE_IMPLEMENT)).split('**Derive `criterionCovers` first')[1].split('Workflow({ name: "verify-functional"')[1];
+
+  test('names the derive-criteria command with its three flags', () => {
+    expect(derive()).toContain('node .claude/lib/live-evidence.js derive-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md');
+  });
+
+  test('a non-zero exit passes {} and is one ISSUES line, never STUCK', () => {
+    expect(derive()).toMatch(/A non-zero exit passes `\{\}` and is one ISSUES line, never STUCK/);
+  });
+
+  test('an unmappable criterion is absent and re-walked; {} widens, never narrows', () => {
+    expect(derive()).toMatch(/is absent and is re-walked whenever a Debug pass changed anything/);
+    expect(derive()).toMatch(/`\{\}` widens the regression pass's scope, it never narrows it/);
+  });
+
+  test('the dispatch-block comment for criterionCovers says {} for a sweep file', () => {
+    expect(block()).toMatch(/criterionCovers,\s+\/\/ `node \.claude\/lib\/live-evidence\.js derive-criteria`.*\{\} for a sweep file or when the derive fails/);
   });
 });

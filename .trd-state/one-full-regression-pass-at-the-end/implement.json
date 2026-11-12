@@ -184,6 +184,35 @@
       ],
       "current_problem": null,
       "completed_at": "2026-11-12T11:57:03.861Z"
+    },
+    "AMEND-004": {
+      "description": "AMEND-004",
+      "phase": 4,
+      "retry_count": 0,
+      "files_changed": [
+        "test/smoke/README.md"
+      ],
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-12T12:12:44.665Z",
+      "last_advanced": "2026-11-12T12:13:12.391Z",
+      "current_problem": null,
+      "completed_at": "2026-11-12T12:13:13.518Z"
+    },
+    "AMEND-005": {
+      "description": "AMEND-005",
+      "phase": 4,
+      "retry_count": 1,
+      "files_changed": [
+        "packages/core/commands/verify-command-surface.test.js",
+        "packages/core/commands/verify-build-criteria.test.js"
+      ],
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-12T12:12:44.666Z",
+      "last_advanced": "2026-11-12T12:13:12.391Z",
+      "current_problem": null,
+      "completed_at": "2026-11-12T12:15:22.856Z"
     }
   },
   "checkpoints": [
