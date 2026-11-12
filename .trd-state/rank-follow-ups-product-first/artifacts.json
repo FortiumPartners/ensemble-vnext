@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/rank-follow-ups-product-first.md",
+    "url": "https://claude.ai/artifact/Hx7Crgeux8gnD1Sditdquy",
+    "updated_at": "2026-11-12T04:06:26.516Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/rank-follow-ups-product-first/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-12T04:13:56.351Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/rank-follow-ups-product-first/verification-report.md",
+    "url": "https://claude.ai/artifact/KNo1ECPZKzCiPuK5oLHYAr",
+    "updated_at": "2026-11-12T04:18:50.027Z",
+    "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/rank-follow-ups-product-first/audit-build-report.md",
+    "url": "https://claude.ai/artifact/LEVJukTxhR7WZu8oqEaZFe",
+    "updated_at": "2026-11-12T04:22:30.066Z",
+    "command": "/audit-build"
+  }
+}

@@ -68,15 +68,21 @@ describe('verify-build.md --criteria (D13)', () => {
     expect(t.split('## Output discipline')[1]).toMatch(/Under `--chained` \(a sweep file, or a TRD with `--criteria`\) none of the rest of this section applies/);
   });
 
-  test('step 4 still lists the same fields as implement-trd.md 8.3 (26), none added', () => {
+  test('step 4 still lists the same fields as implement-trd.md 8.3 (29)', () => {
     const fields = (src, marker, end) => {
       const block = src.split(marker)[1].split(end)[0];
       return [...block.matchAll(/^\s{2}([A-Za-z]+),?\s|^\s{2}([A-Za-z]+):/gm)].map((m) => m[1] || m[2]);
     };
     const v = fields(read(CORE), 'Workflow({ name: "verify-functional", args: {', '} })');
-    expect(v.length).toBe(26);
+    expect(v.length).toBe(29);
     expect(read(IMPLEMENT)).toContain('verify-functional');
-    expect(text()).toMatch(/No field is added or removed: the list stays the 26 fields/);
+    expect(text()).toMatch(/`criterionCovers` is the one field the regression pass added: the list is the 29 fields/);
+  });
+
+  test('names the derive-criteria command, the sweep-file {} and the failure fallback (REGR-B006)', () => {
+    expect(text()).toContain('node .claude/lib/live-evidence.js derive-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md');
+    expect(text()).toMatch(/A sweep file has no TRD: pass `\{\}`/);
+    expect(text()).toMatch(/A non-zero exit passes `\{\}` and is one ISSUES line, never STUCK/);
   });
 
   describe('the one re-proof retry', () => {
@@ -111,11 +117,37 @@ describe('verify-build.md --criteria (D13)', () => {
       expect(s).toMatch(/`reverify\/verification-report\.md` stays the first run's report/);
       expect(s).toMatch(/`reverify\/retry\/verification-report\.md` is the retry's/);
     });
-    test('step 4 override names the retry and keeps 26 fields; RETURN line unchanged', () => {
+    test('step 4 override names the retry and keeps 29 fields; RETURN line unchanged', () => {
       const t = text();
       expect(t).toMatch(/\*\*Under `--criteria`\*\*.*retry.*reverify\/retry\//);
-      expect(t).toMatch(/the list stays the 26 fields/);
+      expect(t).toMatch(/the list is the 29 fields/);
       expect(t).toContain('`RETURN → setup-failure, <met> of <total> met`');
     });
+  });
+});
+
+describe('verify-build.md derives criterionCovers (REGR-B006)', () => {
+  const derive = () => text().split('`criterionCovers` is derived first')[1].split('```javascript')[0];
+
+  test('names the same derive-criteria command as implement-trd.md 8.3', () => {
+    const cmd = 'node .claude/lib/live-evidence.js derive-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md';
+    expect(derive()).toContain(cmd);
+    expect(flat(read(IMPLEMENT))).toContain(cmd);
+  });
+
+  test('a sweep file passes {}', () => {
+    expect(derive()).toMatch(/A sweep file has no TRD: pass `\{\}`/);
+  });
+
+  test('a non-zero exit passes {} and is one ISSUES line, never STUCK', () => {
+    expect(derive()).toMatch(/A non-zero exit passes `\{\}` and is one ISSUES line, never STUCK/);
+  });
+
+  test('under --criteria it derives over the whole definition and reuses the value on the retry', () => {
+    expect(derive()).toMatch(/Under `--criteria` derive over the whole definition.*pass the same value on the retry/);
+  });
+
+  test('the dispatch-block comment says {} for a sweep file or when the derive fails', () => {
+    expect(text()).toMatch(/criterionCovers,\s+\/\/ `node \.claude\/lib\/live-evidence\.js derive-criteria`.*\{\} for a sweep file or when the derive fails/);
   });
 });

@@ -92,6 +92,7 @@ const implementState = require('./implement-state');
 const recordDirs = require('./ship-record-dir');
 const { isRecordFile } = require('./record-files');
 const { globToRegex } = require('./ci-baseline');
+const recordRef = require('./record-ref');
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
 const COMMIT_ID = /^[0-9a-f]{4,40}$/i;
@@ -559,6 +560,10 @@ function resolveRef(ref, cwd) {
  */
 function reconcile(args) {
   const { stateDir, trdPath = null, reason, reverifiedPath, cwd = process.cwd() } = args;
+  // A re-created worktree has no state folder: bring it back from the records ref before any read.
+  // Never throws; any outcome other than a restore reads as "no record", exactly as before.
+  // stateDir is read below relative to process.cwd(), so resolve it the same way here.
+  recordRef.ensure({ stateDir: typeof stateDir === 'string' && stateDir ? path.resolve(stateDir) : stateDir, cwd });
   const closedPath = args.closedPath || path.join(stateDir, 'closed.json');
   const localHead = headSha(cwd);
   if (!localHead) return { action: 'refused', anchor: '', reason: 'cannot read HEAD' };
@@ -759,6 +764,7 @@ function judgeLink(link, sha, anchor, trdRel, cwd, label) {
  */
 function check(args) {
   const { stateDir, link, trdPath = null, cwd = process.cwd() } = args;
+  recordRef.ensure({ stateDir: typeof stateDir === 'string' && stateDir ? path.resolve(stateDir) : stateDir, cwd }); // see reconcile: restore the folder before reading the anchor
   const fail = (reason, observed = null, differing = []) => ({ ok: false, link, observed, differing, reason });
   if (!['pr-head', 'merge', 'deploy'].includes(link)) return fail(`unknown link ${link}`);
   const custody = readCustody(stateDir);
@@ -887,4 +893,4 @@ function main(argv) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { reconcile, check, detach, classifyPath, resolveCommit, compare, main };
+module.exports = { reconcile, check, detach, classifyPath, resolveCommit, compare, coverMatcher, main };

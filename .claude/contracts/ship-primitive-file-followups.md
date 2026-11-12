@@ -53,31 +53,38 @@ is an outward act nothing authorized.
    ship's own state directory) and each `/task` directory step 1 printed. This primitive reads no
    row of the sweep ledger and marks none of it: that ledger cannot tell one sweep's rows from
    another's (D39). The work's ledger is also the record of unfixed review findings (AC-F9.7).
-3. **Which rows.** Every open non-blocking row (`discovered.readAll(dir, { open: true })`)
-   except `[below-bar]` rows and `[review:<label>]` rows whose label D17 puts below the bar
+3. **Which rows.** Read them through the ranking library, passing each of step 2's ledgers as
+   a repeated `--state-dir`:
+   `node .claude/lib/followup-rank.js open --state-dir <dir> [--state-dir <dir> ...]`. It prints
+   every open row of those ledgers, merged and in rank order (product, host, tooling, paperwork,
+   not-verifiable), each carrying `class` and `dir`. Take every open non-blocking row of that
+   output except `[below-bar]` rows and `[review:<label>]` rows whose label D17 puts below the bar
    (`minor`, `low`, `nit`, `nitpick`, `trivial`, `info`); those are filed only with
    `below-bar=yes`, otherwise named with the ledger path. A `[review-pending]` row is a review
    whose findings never arrived: report it as a gap, never file it. A `[flaky-capped]` row is
    reported, never filed: its job's one issue is the `[flaky-ci]` row (`ref: "flaky:<job>"`).
    A label D17 does not know is filed, since there is no judge here.
-4. **File.** Issue body: the work, TRD, branch, PR URL, ledger path and row key. GitHub through
+4. **File,** the selected rows in that order (product first). Issue body: the work, TRD, branch, PR URL, ledger path and row key. GitHub through
    `gh issue create`; Linear and Jira through their skills. Then `discovered.resolve(dir, row,
-   "filed <url>")`, so a re-run files nothing twice, and add `{ summary, url }` for that row to
-   `data.filed`: the row's own summary and the URL its own call returned. Two rows given the same
+   "filed <url>")` against its own `dir` (the one the row came back with), so a re-run files nothing twice, and add
+   `{ summary, url, class }` for that row to `data.filed`: the row's own summary and the URL its own call returned. Two rows given the same
    URL are both named in `data.issues` (the tracker did not create distinct issues).
 5. **What could not be filed (AC-F9.5).** No tracker, or a failed call: file nothing for that row
-   and leave it open. Then put in `data.issues` one line per item, each naming the row by its
-   summary and its ledger path, never folded into a count:
+   and leave it open. Then put in `data.issues` one line per item, each naming the row by its summary and its ledger path, never folded into a
+   count. Row lines come in one rank order across all the kinds listed below (not grouped by
+kind), each starting with the row's class
+   (`product · <summary> — <ledger path> — <why>`):
    - every row step 3 selected that was not filed, with why (`no tracker declared in stack.md`,
      or the call's error), the imported `[not-verifiable]`, `[task-followup]` and `[flaky-ci]` rows included;
    - every below-bar row step 3 left unfiled (`below the bar; filed only with below-bar=yes`);
    - every `[review-pending]` gap and every `[flaky-capped]` row;
    - and one line naming the record of unfixed review findings, `<work.stateDir>/discovered.jsonl`,
-     whenever any review row in it was left unfiled.
+     whenever any review row in it was left unfiled; the line naming the record of unfixed review
+     findings names no row, so it goes last.
 
 ## Result
 
-`filed`, with `data`: `{ filed: [{ summary, url }], unfiled: [row summaries], issues }`. One
+`filed`, with `data`: `{ filed: [{ summary, url, class }], unfiled: [row summaries, in rank order], issues }`. One
 `filed` entry per filed row, never a bare count or a bare URL list: the readout lists each row
 with its issue (AC-F5.8), a `[below-critical]` row from a final pass included.
 

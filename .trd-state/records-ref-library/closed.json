@@ -1,0 +1,13 @@
+{
+  "feature": "records-ref-library",
+  "trd": "docs/TRD/records-ref-library.md",
+  "closedAt": "2026-11-12T10:18:15Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; untested: a ref write's commit message (O4); untested: `branch` is null on a detached HEAD (O3); Forge-side contract citations unverified from this repo; Claude Code Web push/fetch of the ref unverifiable here",
+    "report": ".trd-state/records-ref-library/audit-build-report.md",
+    "auditedCommit": "64e9466297682995fa1531754baad46a8beaa870",
+    "anchorCommit": "bcc5e64ba2406b0a255304090d1a64e145387ca8"
+  }
+}

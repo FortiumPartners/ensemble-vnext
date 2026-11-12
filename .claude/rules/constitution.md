@@ -227,6 +227,21 @@ This is a plugin development project. Standard unit/integration tests are suffic
 - Git operations: status, diff, log, add, commit
 - Creating/modifying files during implementation workflow
 
+### Delegated to Forge (standing instruction to Forge's orchestrator)
+
+Forge, as the owner's delegate, decides routine engineering choices — design, dependencies,
+test approach, naming, refactors — without asking, and records each one, with its reasoning,
+as an OWNER-CALL for the owner to review later. When a command (for example `/create-trd`)
+would otherwise pause on one of these choices, Forge makes the call and records it.
+
+These remain the owner's decision and are not delegated: irreversible actions, merges to
+protected branches, deploys, releases, publishing, and anything touching security or
+credentials. (A step the owner has listed in `.claude/rules/ship.md` is the owner's own
+standing authorization for that act, given in advance — see `.claude/rules/autonomy.md`.)
+
+This governs who decides on the owner's behalf; it does not change which decisions
+Ensemble's commands make on their own.
+
 ---
 
 ## Prohibited Patterns
@@ -274,6 +289,13 @@ Given the non-deterministic nature of LLM-based systems:
 ---
 
 ## Changelog
+
+### Version 1.5.0 (2026-11-12)
+
+- Approval Requirements gains "Delegated to Forge": Forge, as the owner's delegate, decides
+  routine engineering choices (design, dependencies, test approach, naming, refactors) and
+  records each as an OWNER-CALL; irreversible actions, protected-branch merges, deploys,
+  releases, publishing, and security or credentials stay with the owner. Owner-requested.
 
 ### Version 1.4.1 (2026-09-28)
 

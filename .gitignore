@@ -70,14 +70,20 @@ test/.env
 # implement-trd lock (session-scoped)
 .trd-state/*/implement.lock
 
-# Verifier findings are per-run scratch (create-prd / create-trd verify wave)
-.trd-state/*/findings/
+# Verifier findings are per-run scratch (create-prd / create-trd verify wave).
+# `**` also reaches nested folders such as reverify/ and reverify/retry/.
+.trd-state/**/findings/
 
 # Functional-verification evidence artifacts are per-run scratch (functional-verification
 # TRD §3.7/D10) -- the Exercise stage's screenshots/transcripts/logs, reproducible by
 # re-running the loop. verification-state.json and verification-report.md are NOT ignored:
 # they are the durable record (D10) and stay tracked like implement.json.
-.trd-state/*/evidence/
+# The loop's per-iteration payloads (judge-*, record-*, setup-decide-*) are scratch too: written
+# and read inside one verification iteration by verify-functional.js.
+.trd-state/**/evidence/
+.trd-state/**/judge-*.json
+.trd-state/**/record-*.json
+.trd-state/**/setup-decide-*.json
 
 # Agent worktrees (transient, per-agent isolated checkouts)
 .claude/worktrees/

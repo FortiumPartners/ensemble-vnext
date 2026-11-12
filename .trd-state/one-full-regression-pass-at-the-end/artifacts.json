@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/one-full-regression-pass-at-the-end.md",
+    "url": "https://claude.ai/artifact/R6AD5h8SGtCr52ifa6mqRY",
+    "updated_at": "2026-11-12T10:25:02.219Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/one-full-regression-pass-at-the-end/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-12T12:03:39.584Z",
+    "command": "/verify-build"
+  },
+  "verification-report": {
+    "path": ".trd-state/one-full-regression-pass-at-the-end/verification-report.md",
+    "url": "https://claude.ai/artifact/YNqwPRnjLXF1TPKh7G1pV3",
+    "updated_at": "2026-11-12T12:03:54.487Z",
+    "command": "/verify-build"
+  },
+  "verification-plan": {
+    "path": ".trd-state/one-full-regression-pass-at-the-end/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-11-12T11:47:40.101Z",
+    "command": "/refine-verification"
+  },
+  "audit-build": {
+    "path": ".trd-state/one-full-regression-pass-at-the-end/audit-build-report.md",
+    "url": "https://claude.ai/artifact/GLyriTTfe4GUrrFPGxwuGE",
+    "updated_at": "2026-11-12T12:15:52.156Z",
+    "command": "/audit-build"
+  }
+}

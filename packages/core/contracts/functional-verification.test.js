@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { KIND_BY_CAUSE } = require('../lib/functional-verification');
 
 const CORE_PATH = path.join(__dirname, 'functional-verification.md');
 const MIRROR_PATH = path.join(__dirname, '..', '..', '..', '.claude', 'contracts', 'functional-verification.md');
@@ -71,9 +72,67 @@ describe('functional-verification contract', () => {
     expect(coreText).toMatch(/including crashing or erroring during capture/);
   });
 
+  test('the cause table has a Kind column and every cause row names the kind KIND_BY_CAUSE gives it (D17)', () => {
+    const section = coreText.split('## The cause vocabulary (D3, §3.1)')[1].split('\n---\n')[0];
+    expect(section).toMatch(/\| Cause \| Kind \|/);
+    for (const [cause, kind] of Object.entries(KIND_BY_CAUSE)) {
+      const row = section.split('\n').find((l) => l.startsWith(`| \`${cause}\` |`));
+      expect(row).toBeDefined();
+      expect(row.split('|')[2].trim()).toBe(`\`${kind}\``);
+    }
+  });
+
+  test('states the one-re-capture rule and what settled: definition-problem means (D17)', () => {
+    expect(coreText).toMatch(/re-captured exactly once/);
+    expect(coreText).toMatch(/`settled: 'definition-problem'`/);
+    expect(coreText).toMatch(/only `build-defect` gaps are handed to the debugger/);
+  });
+
   test("states the debugger's brief: fix in place, do not re-verify, do not implement absent capability", () => {
     expect(coreText).toMatch(/Does not re-verify/);
     expect(coreText).toMatch(/Does not implement absent capability/);
+  });
+
+  describe('cause keys (D1-D4, D20)', () => {
+    const flat = (t) => t.replace(/\s+/g, ' ');
+    const section = () => flat(coreText.split('## Cause keys (D1-D4, D20)')[1].split('\n---\n')[0]);
+
+    test('the section sits after the cause vocabulary and before the debugger brief', () => {
+      const vocab = coreText.indexOf('## The cause vocabulary (D3, §3.1)');
+      const keys = coreText.indexOf('## Cause keys (D1-D4, D20)');
+      const brief = coreText.indexOf("## The debugger's brief");
+      expect(vocab).toBeGreaterThan(-1);
+      expect(keys).toBeGreaterThan(vocab);
+      expect(brief).toBeGreaterThan(keys);
+    });
+
+    test('quotes the same key pattern as the workflow source, verbatim', () => {
+      const src = fs.readFileSync(path.join(__dirname, '..', 'workflows', 'verify-functional.js'), 'utf8');
+      const m = src.match(/const CAUSE_KEY_PATTERN_SOURCE = '([^']+)'/);
+      expect(m).not.toBeNull();
+      expect(coreText).toContain('`' + m[1] + '`');
+    });
+
+    test('states the reuse rule, the fallback key, the representative rule and awaiting', () => {
+      const s = section();
+      expect(s).toMatch(/Same root cause, same key; reuse a listed key/);
+      expect(s).toMatch(/`criterion:<id>`/);
+      expect(s).toMatch(/representative/);
+      expect(s).toMatch(/does not start with `check:`/);
+      expect(s).toMatch(/`awaiting: "regression"`/);
+      expect(s).toMatch(/never rule it/);
+    });
+
+    test('the debugger brief is per cause, runs pre-checks after the refresh, and no longer says per gap', () => {
+      const brief = flat(coreText.slice(coreText.indexOf("## The debugger's brief"), coreText.indexOf('## The notes file')));
+      expect(brief).toMatch(/one gap per open cause/);
+      expect(brief).toMatch(/one cause at a time/);
+      expect(brief).toMatch(/\*\*Returns\*\*, per cause/);
+      expect(brief).toMatch(/Pre-checks run after the refresh and change no code/);
+      expect(brief).toMatch(/Brings the environment to the new code before returning/);
+      expect(brief).not.toMatch(/one gap at a time/);
+      expect(brief).not.toMatch(/Returns\*\*, per gap/);
+    });
   });
 
   test('states the credential rule (S-1): location, never value', () => {

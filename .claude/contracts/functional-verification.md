@@ -358,7 +358,7 @@ The judge assigns exactly one of four statuses to each criterion:
 | Status | Means | Ever a gap? |
 |---|---|---|
 | `met` | The evidence, having passed the deterministic gate, actually shows the criterion is satisfied | No |
-| `not_met` | The capability exists and was exercised, but the evidence shows it does not do what the criterion requires | **Yes** — handed to the debugger |
+| `not_met` | The capability exists and was exercised, but the evidence shows it does not do what the criterion requires | **Only when its kind is `build-defect`** — only `build-defect` gaps are handed to the debugger (see the cause vocabulary below) |
 | `not_verifiable` | The project has no way to exercise this criterion — no harness matches its stack, or nothing in the project's own docs authorizes a target | No — this is not a gap and is never handed to the debugger |
 | `unbuilt` | The capability the criterion names is **absent**, not misbehaving — there is nothing here to debug, only something to build | No — this is not a gap in the debugger's sense; it ends the loop |
 
@@ -392,16 +392,16 @@ gap is worth building against or is just the capture step misbehaving. So alongs
 status, the judge assigns every criterion that is not `met` exactly one **cause**, from this
 fixed set (never invented, never a free-text substitute):
 
-| Cause | Assigned when | Buildable |
-|---|---|---|
-| `evidence-missing` | Tier 1 failed with `missing`, `empty`, `not-a-file` or `no-artifact`, and nothing seen shows the build misbehaving | No |
-| `evidence-stale` | Tier 1 failed with `stale`, including a reuse rejected because a covered file changed | No |
-| `locator-not-found` | Tier 1 failed with `no-locator` or `locator-not-found` | No |
-| `never-exercised` | No claim reached the judge for this criterion | No |
-| `judged-failed` | The build was reached and did the wrong thing, **including crashing or erroring during capture**; also a check row the judge ruled `deviates` | Yes |
-| `not-built` | Status is `unbuilt`, or a check row is `not_met` with reason `not built` | Yes |
-| `environment-unreachable` | `not_verifiable` because the needed environment is undeclared, unusable, or "must not be touched" (`verification.md` §1) | No — never promoted |
-| `capability-absent` | `not_verifiable` because tooling or a capability the criterion needs is absent (`verification.md` §4/§5) | No — never promoted |
+| Cause | Kind | Assigned when | Buildable |
+|---|---|---|---|
+| `evidence-missing` | `evidence-gap` | Tier 1 failed with `missing`, `empty`, `not-a-file` or `no-artifact`, and nothing seen shows the build misbehaving | No |
+| `evidence-stale` | `evidence-gap` | Tier 1 failed with `stale`, including a reuse rejected because a covered file changed | No |
+| `locator-not-found` | `evidence-gap` | Tier 1 failed with `no-locator` or `locator-not-found` | No |
+| `never-exercised` | `evidence-gap` | No claim reached the judge for this criterion | No |
+| `judged-failed` | `build-defect` | The build was reached and did the wrong thing, **including crashing or erroring during capture**; also a check row the judge ruled `deviates` | Yes |
+| `not-built` | `build-defect` | Status is `unbuilt`, or a check row is `not_met` with reason `not built` | Yes |
+| `environment-unreachable` | `not-checkable-here` | `not_verifiable` because the needed environment is undeclared, unusable, or "must not be touched" (`verification.md` §1) | No — never promoted |
+| `capability-absent` | `not-checkable-here` | `not_verifiable` because tooling or a capability the criterion needs is absent (`verification.md` §4/§5) | No — never promoted |
 
 `met` criteria always carry `cause: null`. A report input carrying no `cause` for a non-`met`
 criterion (an older input, from before this vocabulary existed) is counted as `unrecorded`,
@@ -419,20 +419,101 @@ next round"; the debugger would never see it. Only assign a mechanics cause
 observed suggests the build did anything wrong — the capture apparatus is what fell short,
 not the system under test.
 
-**Buildable is a property of the cause, not a judgment call made per criterion.** `judged-failed`
-and `not-built` are the two causes a later `--fix` round may turn into a task; the other six
+**Kind and Buildable are the same partition, and kind is the one that routes.** Kind is a
+function of the cause, as the table gives it, and `Buildable` is `Yes` exactly for kind
+`build-defect`. The kinds mean: `build-defect` is code to fix; `evidence-gap` is a capture
+that did not produce usable evidence, not a defect in the build; `not-checkable-here` is a
+criterion this environment cannot check at all. Alongside `cause` the judge returns `kind`,
+and the script uses the cause-derived kind when the two disagree. `judged-failed` and
+`not-built` are the two causes a later `--fix` round may turn into a task; the other six
 are re-verified next round (or, for the two `not_verifiable` causes, never promoted at all) —
 see D4 for why a mechanics failure never mints a task no implementer could act on.
+
+**One re-capture, then settled.** An `evidence-gap` criterion is re-captured exactly once per
+invocation: the next Exercise pass is told to capture it again. If the judge still rules it an
+`evidence-gap` after that re-capture, the criterion is settled as `not_met` with
+`settled: 'definition-problem'`. It means the criterion asks for evidence this build does not
+produce, so the fix is to change the criterion or the build's outputs, not to debug. A settled
+definition problem is never handed to the debugger and is not walked again in that invocation.
+A re-capture that did not actually happen (Exercise skipped, a dead slice, a claim the script
+synthesised) does not count and is not settled as one.
+
+---
+
+## Cause keys (D1-D4, D20)
+
+The cause vocabulary above says WHY a criterion is not `met`. A **cause key** says WHICH root
+cause: several `build-defect` criteria often fail because of one defect, and the loop fixes that
+defect once. So alongside `cause` and `kind`, the judge returns a `causeKey` on every `not_met`
+criterion whose kind is `build-defect`. It returns none on any other entry; the script drops one
+that appears there.
+
+**Format.** A key matches `^[a-z0-9][a-z0-9._-]{0,63}$`: lower-case letters, digits, dots,
+underscores and hyphens, starting with a letter or digit, at most 64 characters. A key that is
+missing or does not match makes the criterion its own cause, `criterion:<id>`. The colon puts
+that fallback outside any key you can write, and the script logs it.
+
+**Same root cause, same key; reuse a listed key.** The prompt lists every cause still open, each
+with its key, a representative statement, its member ids and its last reason. When a failing
+criterion has the same root cause as a listed one, use that key. Invent a new key only for a root
+cause that is not in the list. Two criteria in the same file are not necessarily one cause: group
+by the defect, not by the file. A key that drifts from one iteration to the next hides whether the
+fix worked, because the loop reads "the representative now fails under a different key" as
+progress.
+
+**The representative.** Each cause has one representative, the member the loop re-captures to
+find out whether the cause is fixed. A cause keeps its previous representative while that
+criterion is still a member and still eligible. Otherwise it is the first member in definition
+order whose derivation does not start with `check:`, or the first member when all of them are
+check-derived. A check-derived member is the costlier one to re-capture, so it is chosen last.
+
+**When a cause closes.** After a Debug pass, the next Exercise pass walks only the representative
+of each cause that pass addressed, the representative of any cause awaiting its confirmation, and
+the evidence gaps owed their one re-capture. The other members of a closed cause wait for the
+regression pass at the end of the run (below). A cause closes when its representative is ruled
+`met`, or `not_met` with a valid key different from the cause's own. A representative that
+returns with the fallback key `criterion:<id>` does not close it: a missing key is not a finding
+about the root cause.
+
+**`awaiting`.** When a cause closes, its other members keep their last verdict (`not_met`, with
+their `causeKey`) and are marked `awaiting: "regression"`. They are not handed to Exercise, the
+judge or the debugger inside the loop, and they are not gaps for `decide-next`. They are not
+`met` either: the regression pass at the end of the run re-checks them (they are in its scope as
+`cause-member`), and a member that still fails keeps the run from `satisfied`. Copy a criterion
+marked "open, not re-checked this iteration" into the state file and the report input exactly as
+given; never rule it.
+
+**The regression pass.** When the loop exits on anything but `unbuilt` or a broken environment,
+the script re-checks the criteria that something done in this run may have broken, and only those.
+It works out the scope itself from the debugger's `filesChanged` (below) and each criterion's
+covered files: a settled `met` criterion is re-checked when a changed file falls inside what it
+covers (`covers-changed`), when a debugger could not say what it changed (`changes-unknown`), or
+when it has no covers record and a debugger changed something after the criterion was proven
+(`no-covers`); each member awaiting a closed cause is re-checked too (`cause-member`). A criterion
+whose covered files did not change keeps its proof and is not walked again. Each re-checked
+criterion is captured afresh into `regression-<round>/` under the evidence directory: an artifact
+from earlier in the run predates the fix and does not count. A re-checked criterion that now
+fails is a regression: you give it a cause key like any other `build-defect`. When a round catches
+one, one more debugger repairs just those causes, and a second and final round re-checks them
+and anything the repair touched. There is never a third. A capture a round cannot make is recorded
+as `settled: "regression-unchecked"`, not retried and not sent to the debugger, and it is not a
+definition problem. The full-environment gate ran once, at the exit, and is not run again; the
+report says so when a repair round followed it. Rulings made in a regression round are marked
+`regression: 1 | 2` in the state file, which also gains a top-level `regression` record.
 
 ---
 
 ## The debugger's brief
 
-**Given:** every `not_met` gap — its criterion id, functional statement, the judge's stated
-reason, the evidence artifact path, and the implicated source files — plus the verifier's
-notes and the stack hints.
+**Given:** one gap per open cause (only `build-defect` gaps are handed to the debugger, and a
+cause is a set of them that share a root; see Cause keys above). A gap is the cause key, the
+representative's criterion id, functional statement, the judge's stated reason, the evidence
+artifact path and the implicated source files, plus the cause's other members (id, statement,
+reason) and the union of their implicated files. The verifier's notes and the stack hints come
+with it.
 
-**Does:** fixes the code in place, one gap at a time. Nothing else.
+**Does:** fixes the code in place, one cause at a time, so a defect shared by several criteria is
+fixed once. Nothing else.
 
 **Brings the environment to the new code before returning — and this is not optional.**
 
@@ -459,6 +540,13 @@ now. A live verification loop that cannot bring its target to the code it just w
 correction loop at all. What governs deploys is §2 of `verification.md` — the owner's
 explicit per-environment answer — not an inference.
 
+**Pre-checks run after the refresh and change no code.** A debugger may name a cheap targeted
+check for a cause, such as one unit test or one Playwright spec, and run it once the refresh has
+landed, so it tests the new build. It reports the command and its exit code on that cause's
+result. A failing pre-check, or one with no recorded exit code, means that cause's representative
+is not re-captured next iteration. A passing one is only a hint to the exerciser: it never makes a
+criterion `met`, and the judge is never shown it.
+
 **Does not re-verify its own fix.** The next iteration's Exercise and Judge stages are the
 check, running seconds later against a fresh boot of the system. A debugger that tries to
 confirm its own fix is re-creating the self-certification problem the judge exists to avoid
@@ -471,10 +559,21 @@ other missing-feature request. It does not build the feature to close the gap. I
 what was never delivered is implementation work, routed through the phase loop, not something
 a debug round absorbs quietly.
 
-**Returns**, per gap: what was changed, or why it could not be fixed. It does not write to any
-TRD and it does not render a phase — there is no remediation phase or task graph in this loop;
-one debugger fixing gaps sequentially cannot collide with itself on a file, so the machinery
-that exists solely to prevent that collision has nothing to do here.
+**Returns**, per cause: whether it addressed the cause, what was changed or why it could not be
+fixed, `unbuilt` when the cause is absent capability (every member of that cause is then unbuilt),
+and the pre-check it ran, if any. A cause it returns nothing for counts as not addressed. It also
+returns its refresh result, and `filesChanged`: the files it changed, measured rather than
+recalled. As its first act it takes a tree id with a temporary index
+(`GIT_INDEX_FILE=<fresh temp path> git add -A -- . && git write-tree`, the temp path a copy of the
+real index at a path that did not exist before, the state and pages folders excluded by pathspec),
+as its last act, after the refresh, it takes another the same way, and it returns `git -c core.quotePath=false diff
+--no-renames --name-only <before> <after>` (`--no-renames` so a moved file lists its old path too), leaving out anything under the run's state and pages folders, which
+other agents write at the same time. It returns `null` when either git step fails. The regression
+pass reads this to decide what to re-check, and `null` widens that scope instead of narrowing it.
+It does not write to any TRD and it does not render a phase — there
+is no remediation phase or task graph in this loop; one debugger fixing causes sequentially cannot
+collide with itself on a file, so the machinery that exists solely to prevent that collision has
+nothing to do here.
 
 ---
 
@@ -559,7 +658,9 @@ resolves to either, so a later iteration re-walks only what is still open — a 
 reported status can be the one an *earlier* iteration produced, stamped with when it was
 proven, not necessarily the final iteration's own reading. The report does not need to
 disambiguate a carried-forward status from a fresh one; it only needs to render whichever one
-the criterion actually carries.
+the criterion actually carries. The one exception is the regression pass at the end of the run: it
+can re-open a settled `met` once, and its ruling then replaces the earlier proof, stamped with the
+exit iteration and a `regression` marker.
 
 **The loop's own exit carries one of seven outcomes: `satisfied`, `unbuilt`, `stalled`,
 `stuck`, `insufficient-coverage`, `must-pass-unproven`, or `setup-failure`.** The first four are the ordinary shape — every gap

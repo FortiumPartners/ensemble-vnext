@@ -6,6 +6,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const custody = require('./custody');
 const liveEvidence = require('./live-evidence');
+const recordRef = require('./record-ref');
 
 const { reconcile, check, classifyPath } = custody;
 const LIB = path.join(__dirname, 'custody.js');
@@ -450,6 +451,74 @@ describe('reconcile: change classes and ensemble.reproof', () => {
       s.commit('docs', { 'docs/g.md': 'g' });
       reconcile(s.args());
       expect(s.readCustody().moves[0].rule).toBe('no-success-definition');
+    });
+  });
+
+  describe('a state written by the regression pass (one caught, one re-proven)', () => {
+    // FS-1 was met at iteration 1, then the end-of-run pass caught it; FS-2 was re-proven by the pass.
+    // The caught entry carries no artifact, so no live-evidence covers can speak for it.
+    const regressionState = (s, fs1) => fs.writeFileSync(path.join(s.stateDir, 'verification-state.json'), JSON.stringify({
+      criteria: [
+        fs1,
+        { id: 'FS-2', status: 'met', artifact: null, provenAt: 3, regression: 1 },
+      ],
+    }));
+    const CAUGHT = { id: 'FS-1', status: 'not_met', artifact: null, regression: 1 };
+    const reverifiedFile = (s, criteria) => {
+      const p = path.join(s.root, 'reverify-state.json');
+      fs.writeFileSync(p, JSON.stringify({ criteria }));
+      return p;
+    };
+
+    test('the caught id is not proven: its old covers record is not used, a met id keeps its own', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      s.commit('fix', { 'src/b.js': 'b3' });
+      // Control: while FS-1 stands met, its record (src/a.js) says the change cannot affect it.
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-2'], reused: ['FS-1'] });
+      regressionState(s, CAUGHT);
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'], reused: [] });
+    });
+
+    test('FS-12: a re-proven entry\'s artifact covers decide its re-proof, not only its status', () => {
+      // src/c.js must exist when recorded (live-evidence hashes it), so it joins the anchoring commit.
+      const s = twoCriteria({ recA: ['src/a.js'], extra: { 'src/c.js': 'c1' } });
+      fs.mkdirSync(path.join(s.stateDir, 'evidence'), { recursive: true });
+      const artifact = path.join(s.stateDir, 'evidence', 'FS-2.txt');
+      fs.writeFileSync(artifact, 'proof');
+      liveEvidence.record(s.stateDir, { task: 'T', artifact, covers: [path.join(s.repo, 'src/c.js')] });
+      fs.writeFileSync(path.join(s.stateDir, 'verification-state.json'), JSON.stringify({
+        criteria: [
+          { id: 'FS-1', status: 'met', artifact: null },
+          { id: 'FS-2', status: 'met', artifact, provenAt: 3, regression: 1 },
+        ],
+      }));
+      s.commit('fix', { 'src/c.js': 'c2' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-2'], reused: ['FS-1'] });
+    });
+
+    test('--reverified refuses while the caught id is still not met, naming it; a round-2 met moves', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      regressionState(s, CAUGHT);
+      const before = s.readCustody().anchor.commit;
+      const head = s.commit('fix', { 'src/b.js': 'b3' });
+
+      const refused = reconcile(s.args({
+        reverifiedPath: reverifiedFile(s, [
+          { id: 'FS-1', status: 'not_met', regression: 1 },
+          { id: 'FS-2', status: 'met', regression: 1 },
+        ]),
+      }));
+      expect(refused.action).toBe('refused');
+      expect(refused.reason).toMatch(/FS-1/);
+      expect(s.readCustody().anchor.commit).toBe(before);
+
+      const moved = reconcile(s.args({
+        reverifiedPath: reverifiedFile(s, [
+          { id: 'FS-1', status: 'met', provenAt: 3, regression: 2 },
+          { id: 'FS-2', status: 'met', provenAt: 3, regression: 1 },
+        ]),
+      }));
+      expect(moved).toMatchObject({ action: 'moved', anchor: head, ids: ['FS-1', 'FS-2'] });
     });
   });
 
@@ -1197,5 +1266,79 @@ describe('CLI', () => {
     const s = setup();
     expect(cli(s.repo, ['nope']).json.reason).toMatch(/usage/);
     expect(cli(s.repo, ['reconcile', '--state-dir', s.stateDir, '--trd', TRD, '--reason', 'oops']).json.action).toBe('refused');
+  });
+});
+
+describe('reconcile and check: fall back to the records ref', () => {
+  const origPath = process.env.PATH;
+  beforeAll(() => {
+    const bin = path.join(tmp(), 'bin-ref');
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, 'gh'), '#!/bin/sh\necho "$STUB_PR_JSON"\n', { mode: 0o755 });
+    process.env.PATH = `${bin}${path.delimiter}${origPath}`;
+  });
+  afterAll(() => {
+    process.env.PATH = origPath;
+    delete process.env.STUB_PR_JSON;
+  });
+
+  /** Writes closed.json + custody.json to the ref, then deletes the folder's files. */
+  function refOnly() {
+    const s = setup();
+    const anchor = s.commit('audited', { 'src/a.js': 'a2' });
+    fs.writeFileSync(path.join(s.stateDir, 'closed.json'), JSON.stringify({ audit: { anchorCommit: anchor } }));
+    fs.writeFileSync(
+      path.join(s.stateDir, 'custody.json'),
+      JSON.stringify({ version: 1, anchor: { commit: anchor, source: 'audited' }, moves: [] }),
+    );
+    const w = recordRef.write({ stateDir: s.stateDir, command: 'c', step: 's', cwd: s.repo });
+    expect(w.ok).toBe(true);
+    fs.rmSync(s.stateDir, { recursive: true, force: true });
+    return { s, anchor };
+  }
+
+  test('reconcile --set-only restores the ref and keeps its anchor', () => {
+    const { s, anchor } = refOnly();
+    const r = reconcile(s.args({ setOnly: true }));
+    expect(r).toMatchObject({ action: 'none', anchor });
+    expect(fs.existsSync(path.join(s.stateDir, 'closed.json'))).toBe(true);
+  });
+
+  test('check --link pr-head resolves the ref anchor', () => {
+    const { s, anchor } = refOnly();
+    process.env.STUB_PR_JSON = JSON.stringify({ state: 'OPEN', headRefOid: anchor });
+    const r = check({ stateDir: s.stateDir, link: 'pr-head', pr: 1, trdPath: TRD, cwd: s.repo });
+    expect(r.ok).toBe(true);
+    expect(r.observed).toBe(anchor);
+  });
+
+  test('a ref owned by a different feature is no record: reconcile sets a fresh anchor, check finds none', () => {
+    // Identity is the Forge feature id when both sides have one, else the branch. Pin it to the
+    // branch rule so an ambient FORGE_FEATURE_ID cannot make the two sessions "the same feature".
+    const savedId = process.env.FORGE_FEATURE_ID;
+    delete process.env.FORGE_FEATURE_ID;
+    try {
+      const { s, anchor } = refOnly();
+      git(s.repo, 'checkout', '-q', '-b', 'other-feature');
+      expect(git(s.repo, 'rev-parse', 'HEAD')).toBe(anchor); // same commit, so only the identity check can differ
+      const r = reconcile(s.args({ setOnly: true }));
+      expect(r.action).toBe('set');
+      expect(fs.existsSync(path.join(s.stateDir, 'closed.json'))).toBe(false); // the ref's closed.json was not restored
+      fs.rmSync(s.stateDir, { recursive: true, force: true });
+      expect(check({ stateDir: s.stateDir, link: 'pr-head', pr: 1, trdPath: TRD, cwd: s.repo }))
+        .toMatchObject({ ok: false, reason: 'no anchor' });
+      expect(fs.existsSync(s.stateDir)).toBe(false);
+    } finally {
+      if (savedId !== undefined) process.env.FORGE_FEATURE_ID = savedId;
+    }
+  });
+
+  test('neither folder nor ref: behaves as the no-closed.json case', () => {
+    const s = setup();
+    const head = git(s.repo, 'rev-parse', 'HEAD');
+    fs.rmSync(s.stateDir, { recursive: true, force: true });
+    expect(reconcile(s.args())).toMatchObject({ action: 'set', anchor: head });
+    expect(check({ stateDir: path.join(s.repo, '.trd-state', 'gone'), link: 'pr-head', pr: 1, trdPath: TRD, cwd: s.repo }))
+      .toMatchObject({ ok: false, reason: 'no anchor' });
   });
 });

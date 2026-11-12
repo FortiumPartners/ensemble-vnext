@@ -883,7 +883,7 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   Reader: `node .claude/lib/spec-scope.js objectives --trd <trd>`.
 - [ran] No server is needed. `node .claude/lib/functional-verification.js` subcommands `decide-next`,
   `render-report` and `must-pass-coverage --trd <trd> --definition <def>` exercise every criterion;
-  `decide-next` requires `mustPass` and `mustPassUncovered` arrays and `coverageFloor` as a fraction (0.6).
+  `decide-next` requires `mustPass`, `mustPassUncovered`, `settledEvidenceGaps`, `causes`, `previousCauses` (array or null) and `awaitingRegression` arrays and `coverageFloor` as a fraction (0.6).
 
 ## Exercising docs-audit-assemble skip logic (audit-docs-moved-trd-skip, 2026-10-06, iteration 1)
 
@@ -1343,3 +1343,69 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 
 - [ran] `custody.js` `reconcile({stateDir, trd, cwd, branch})` can be driven from a plain `node` script against a temp git repo with a local bare origin (see `.trd-state/custody-anchor-after-audit-fixes/evidence/probe-script.js`); faster than jest's 1-7 min full file. `npx jest packages/core/lib/custody.test.js -t 'audit.anchorCommit|audited commit'` runs 4 tests in ~16s (watchman warning is harmless).
 - [ran] With no success definition, a `reconcile` that anchors at A then immediately "moves" (rule `no-success-definition`); read the original anchor from `moves[0].from`, not `anchor.commit`.
+
+## Exercising triage-unmet-results-by-kind (2026-11-11, iteration 1)
+
+- [ran] Workflow-run criteria (routing by kind, re-capture, settle, resume digest, preclassified) are provable with no live session: a node script using `readScript`/`runWorkflow`/`makeAgentStub` from `packages/core/workflows/test-harness.js`. A stub Judge `remediate` result must carry `debugGaps` for each not_met gap: re-capture/retry routing is keyed to `debugGaps`, so a stub without them never settles an evidence gap (it looks like a missing feature but is a stub omission).
+- [ran] `decideNext` needs `refreshFailed`, `mustPass`, `mustPassUncovered`, `settledEvidenceGaps`, `causes`, `previousCauses` and `awaitingRegression` all present (it throws on absence), so a lib call needs the full input shape.
+- [ran] `verification-digest` prints `{"digest":"<hex>"}` (not a bare hash) and hashes whitespace/CRLF-normalised content: a file `hello\n` gives the sha256 of `hello`, not of the raw bytes; an absent path prints `{"digest":""}`.
+- [ran] A design-structure criterion id is `ST-<board id>` (the board is `id` minus `ST-`); a payload with other ids is silently skipped by `preclassify`. The parts-board reason reads "parts board <id>: the structure check does not run".
+- [ran] Mirror check: `cmp packages/core/<p> .claude/<p>` is empty for the workflow, lib and verify-build/implement-trd/refine-verification commands.
+## Exercising follow-up ranking (2026-11-12 run, `rank-follow-ups-product-first`)
+
+- [ran] `classOf`/`rank`/`openRanked` from `.claude/lib/followup-rank.js` are exercised with a plain `node` script; build fixture ledgers with `discovered.record(dir, {ref, summary, blocking:false, rankClass?})` (rows carry `blocksFeature:false`) and close one with `discovered.resolve(dir, row, "filed <stub url>")`, then run `node .claude/lib/followup-rank.js open --state-dir a --state-dir b`.
+- [inferred] A "file-followups run record" is played from contract steps 3-5 over `openRanked` output with a stub URL (see `.trd-state/rank-follow-ups-product-first/evidence/fs910.js`); no real filing happens.
+
+- [ran] Shared-cause targeting (targeted-inner-loop-by-shared-cause): the two full-file transcripts `npx jest packages/core/workflows/verify-functional.test.js --verbose` (255 pass) and `npx jest packages/core/lib/functional-verification.test.js --verbose` (438 pass) cover every criterion; no filtered -t run is needed.
+
+## Exercising targeted-inner-loop-by-shared-cause FS-25 (2026-11-12, iteration 1)
+
+- [ran] `SMOKE_PROJECT_DIR=<repo>/.trd-state/<feature>/evidence/live/work/slot-1 SMOKE_EVIDENCE_DIR=<evidence>/FS-25-live bash test/smoke/scenarios/verify-inner-loop-causes.sh` ran in about 5.5 minutes, 12 of 12 assertions passed; no folder-trust prompt step was needed for `claude --print` with bypassPermissions.
+- [ran] No jest test builds a resume snapshot "with and without" exercised/causes and compares; the nearest are the `AC 6: resume.exercised (D18)` tests in verify-functional.test.js, whose resume fixture carries `causes` and `extra` keys that the workflow ignores.
+- [ran] FS-25 re-capture (iteration 2): the compact-JSON locator missed because verification-state.json is pretty-printed; use a single-line literal such as `"closedAt": 2` or `"representative": "FS-1",`, or put a `jq -c` extraction in the artifact. The with/without resume comparison needs no new jest test: a scratch node script requiring `packages/core/workflows/test-harness` (`readScript`, `runWorkflow`, `makeAgentStub`) runs verify-functional.js with `resume` = {iteration,criteria,gapsClosed} vs. plus exercised/causes vs. the whole state file; all three gave identical dispatches and results (cap 6, 6 criteria).
+- [ran] stop-run-record-dumps-on-main (2026-11-11): `scaffold-project.sh --git-files .` and `--refresh --plugin-dir <abs packages/full> .` are provable in `mktemp -d` git repos in seconds (script `.trd-state/stop-run-record-dumps-on-main/evidence/fs1-5-run.sh`); the 313 untracked files of Ensemble's own repo are read from the `D` entries of `git show --name-status 234abbfc`, and all are still on disk.
+
+## Exercising the end-of-run regression pass (one-full-regression-pass-at-the-end, 2026-11-12)
+
+- [ran] Every regression-pass criterion is provable without a model session: `npx jest --no-watchman packages/core/workflows/verify-functional.test.js` (330 pass, <1s), `packages/core/lib/custody.test.js` (164 pass, ~85s) and `packages/core/lib/functional-verification.test.js -t egression` (13 pass). Use `--json --outputFile` and print `status | fullName` for per-test names; build one-line evidence files from `grep -n -F` of the test source so locators sit on one physical line.
+- [read] No workflow test drives a cap-reached exit through to a regression Exercise and Judge (only the exit-satisfied and exit-stuck-from-Judge journeys do), and the custody regression fixtures carry `artifact: null`. Both are recorded in the FS-1 and FS-12 evidence for the judge.
+
+## Exercising verify-regression-pass (one-full-regression-pass-at-the-end, FS-19, 2026-11-12)
+
+- [ran] Re-running `SMOKE_PROJECT_DIR=<abs empty slot> SMOKE_EVIDENCE_DIR=<dir> bash test/smoke/scenarios/verify-regression-pass.sh` (about 4 min) gave the same INCONCLUSIVE twice (03:26 and 03:34): iteration 1 met FS-2..4, FS-1 not met, Debug left `src/money/format.js` unchanged, outcome `stalled`, no `## Regression pass` section. The script needs the slot absent or empty, so remove the preserved slot (`rm -rf`) before each rerun.
+- [ran] Why Debug does not edit: the live model's final readout says the shared formatter fix would break the receipt (`$5` to `$5.00`) and the clean fix is in `src/money/invoice.js`, which the fixture marks FROZEN; it reports an owner decision instead of editing. The fixture does not force a Debug edit to the shared file, so FS-19 is not producible by this scenario as built. Evidence: `.trd-state/one-full-regression-pass-at-the-end/evidence/fs19-rerun/` (final-text.txt, verification-state.json, verification-report.md).
+
+## Exercising the regression pass (one-full-regression-pass-at-the-end, iteration 2)
+
+- [ran] No existing Jest case drives the iteration-cap exit through the regression pass: the only cap case (`at the cap the replacement is exit-stuck`, verify-functional.test.js ~4481) uses `debugOk`, whose `filesChanged` is `[]`, so it dispatches 0 regression Exercise/Judge calls (a throwaway copy of the test file printed the counts; copy deleted). Custody's regression-state fixtures (custody.test.js ~456) write `artifact: null` for every entry, so custody's reading of a regression entry's artifact is never asserted. Both are test gaps, recorded in `.trd-state/one-full-regression-pass-at-the-end/evidence/it2-FS-1-cap-reached.txt`.
+
+## Exercising verify-regression-pass FS-19 (one-full-regression-pass-at-the-end, iteration 2)
+
+- [ran] A third live run of `test/smoke/scenarios/verify-regression-pass.sh` (`SMOKE_PROJECT_DIR=<evidence>/live/work/slot-fs19c SMOKE_EVIDENCE_DIR=<evidence>/fs19-run3`, about 4.5 min) ended INCONCLUSIVE exactly as the two before it: `src/money/format.js` unchanged, outcome stalled, no regression pass. The live Debug declines to edit the shared formatter because `invoice.js` is marked FROZEN and a two-decimal fix would break FS-2; it reports the conflict for the owner instead. Three of three runs: the fixture's FROZEN guard makes the model refuse the very edit the scenario needs. Evidence: `evidence/fs19-run3/`, `evidence/fs19-run3-run.log`.
+
+## Exercising verify-regression-pass FS-19 (one-full-regression-pass-at-the-end, iteration 3)
+
+- [ran] A fourth attempt at `test/smoke/scenarios/verify-regression-pass.sh` never reached the model: `scaffold-project.sh --plugin-dir packages/full` failed in "Framework Skills" with `cp: chmod: <slot>/.claude/skills/verify-design-comparison/__tests__: Operation not permitted` (and the skill dir itself), in a slot under the evidence dir and in a scratchpad folder alike (3 tries, 04:00-04:01, 0 assertions run). A manual `chmod u+w` on the copied dir succeeds, so the failure is the `cp` of the setgid source dirs (`drwxrwsr-x`, group devteam) in this sandboxed session. Not a fixture or scenario defect; the live run needs a session where that cp can set modes.
+## Exercising `record-ref.js` (2026-11-12 run, `records-ref-library`, Exercise iteration 1)
+
+- [ran] Every `record-ref.js` verb can be exercised in a scratch repo under `mktemp -d "${TMPDIR:-/var/tmp}/x-XXXXXX"` with a bare `origin`, `GIT_CONFIG_GLOBAL=/dev/null` and fixed author env vars; copy `.claude/lib/record-ref.js` into the scratch `.claude/lib/` and run `node .claude/lib/record-ref.js <verb>` there. No server or `claude` session needed. A refused push is a bare-origin `hooks/pre-receive` rejecting `refs/ensemble/*`.
+- [ran] A CLI race needs two worktrees of one repo AND the same `FORGE_FEATURE_ID` in both; with differing branches and no id the second writer treats the tip as a different feature and drops its files (that is the same-feature rule, not a lost swap).
+- [ran] `jest --verbose` prints nothing per test under this repo's jest config; use `--json --outputFile=<path>` and list `assertionResults[].fullName` to get per-test names as evidence.
+- [ran] An unwritable `objects/` makes BOTH the ref write and the branch-commit fallback fail, so the outcome is `failed` (exit 0, no throw), not `fallback`; a held `refs/ensemble/records/<slug>.lock` is what yields `fallbackReason: ref-write-failed`. In a refused-push fallback the JSON `commit` is the ref commit, not the branch commit (`HEAD` differs).
+- [ran] Live CI probe (2026-11-12, `github-live-test`): re-ran with the post-review `record-ref.js`; `FORGE_FEATURE_ID` is set in the agent env and must be unset for `write`. A leading `sleep N` is blocked by the Bash tool; wait with `until [ $(date -u +%s) -ge $T ]; do sleep 2; done`. Evidence: `.trd-state/records-ref-library/evidence/fs22-24-live-probe-transcript.txt`.
+- [ran] records-ref-library FS-9/FS-10 (iteration 2): a rejecting `pre-receive` bare origin gives `"outcome":"fallback"`, exit 0, `git show --stat HEAD` confined to `.trd-state/demo/` (ignored paths force-added). With `chmod -R a-w .git/objects` the CLI prints `"outcome":"failed"` (`fallbackReason":"ref-write-failed"`, both `refError` and `fallbackError` set), exit 0, no stack trace: no branch commit is possible when objects/ is unwritable, so FS-10's "falls back to a branch commit" wording and the jest test (c) (expects `failed`) disagree. Evidence: `.trd-state/records-ref-library/evidence/fs9-10-iter2-transcript.txt`.
+- [ran] records-ref-library FS-10 (iteration 3): with `chmod -R a-w .git/objects` the outcome depends on whether the state files are already committed. A NEW uncommitted state file gives `"outcome":"failed"` (both `refError` and `fallbackError`), exit 0, HEAD unchanged (matches R1 and jest test (c)); a state file already committed and unchanged gives `"outcome":"fallback","committed":false,"commit":null,"detail":"could not store record.json"`, ok:true, exit 0 (nothing to commit, so the fallback "succeeds" without recording anything). Evidence: `.trd-state/records-ref-library/evidence/fs10-iter3-transcript.txt`, `fs10-iter3-jest.json`.
+
+## Exercising the ref-fallback readers (2026-11-12 run, `readers-fall-back-to-the-ref`, Exercise iteration 1)
+
+- [ran] Fixture recipe, no service: `mktemp -d` repo + local bare `origin`, branch `feature/<slug>`, `FORGE_FEATURE_ID` exported (the same value for write and read, else the identity check falls to the branch rule), records built with the real CLIs (`artifacts.js record`, `custody.js reconcile --set-only --trd none`, `ship-sequencer.js start --policy <file with ## Ship>`), then `record-ref.js write --no-push`, `git push origin refs/ensemble/records/<slug>` to the local bare, then `rm -rf .trd-state/<slug>`. Driver scripts: the scratchpad `fx.sh`, `run1.sh`..`run3.sh` of that run; evidence in `.trd-state/readers-fall-back-to-the-ref/evidence/`.
+- [ran] `GIT_TRACE=1` shows nothing for a hook: the readers spawn git with captured stderr, so the trace is swallowed. Use `GIT_TRACE=<absolute file>`; a control `record-ref.js read` (no `--local`) writes `git fetch --no-tags ... origin +refs/ensemble/records/<slug>` into that file, so a missing fetch line is meaningful.
+- [ran] "main's copy" of the readers: `git archive origin/main .claude/lib .claude/hooks .claude/contracts packages/router/hooks | tar -x -C <dir>`. Without `.claude/contracts`, `ship-sequencer.js start` fails with "contracts directory unreadable" and looks like a behaviour difference. To compare branch and main on identical state, `tar` the fixture repo, run one, remove, untar, run the other.
+- [ran] `precompact.js` with neither folder nor ref differs from main only in WHERE it writes its checkpoint (branch: `.trd-state/_session-log.md`; main: creates `.trd-state/<slug>/session-log.md`); stdout `{}` is identical. With the ref present it restores the folder (`ensure`, local only). `status.js` runs no git at all and never touches the folder.
+- [ran] `ship-sequencer.js start --resume` prints only `{"ok":true,"status":"running","errors":[],"resumed":true}`; the loaded record is shown by the follow-up `status` call and the restored `shipped.json`.
+- [ran] `custody.js check` and `reconcile` print no "closed" verdict; closed.json is visible only via its `audit.anchorCommit` seeding an anchor when custody.json is absent.
+
+## Exercising `record-ref.js ensure` (readers-fall-back-to-the-ref, FS-17..19, iteration 1)
+
+- [ran] `record-ref.js write` needs `--command <name> --step <text>` besides `--state-dir` (without them: `refused`). Fixture: `git init --bare` origin, feature branch, `FORGE_FEATURE_ID` exported, write `--no-push`, `git push origin refs/ensemble/records/<slug>`, snapshot, `rm -rf` the folder; `ensure` then prints `restored`, then `present`; with no ref it prints `no-record` and creates no `.trd-state`. Under zsh, loop over `name line` pairs with `while read`, not an unquoted `$p` word list (it builds a bogus filename).
+- [ran] `cp -R .claude/lib` into a fixture prints "chmod: Operation not permitted" (setgid) but the files copy and the CLI works.

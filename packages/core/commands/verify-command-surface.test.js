@@ -260,23 +260,33 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 26 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
-  test('implement-trd.md §8.3 lists 26 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered, with setupTargets after coverageFloor', () => {
+describe('both dispatch blocks carry the same 29 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
+  test('implement-trd.md §8.3 lists 29 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered/verificationDigest/preclassified, with setupTargets after coverageFloor', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(26);
+    expect(fields).toHaveLength(29);
+    expect(fields.indexOf('criterionCovers')).toBe(fields.indexOf('liveEvidence') + 1);
     expect(fields.indexOf('setupTargets')).toBe(fields.indexOf('coverageFloor') + 1);
-    expect(fields.slice(-5)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered']);
+    expect(fields.slice(-7)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered', 'verificationDigest', 'preclassified']);
   });
 
-  test('verify-build.md §4 lists the identical 26 fields in the identical order', () => {
+  test('implement-trd.md §8.3 names the derive-criteria command, the sweep-file {} and the failure fallback (REGR-B006)', () => {
+    const t = flat(read(CORE_IMPLEMENT));
+    expect(t).toContain('node .claude/lib/live-evidence.js derive-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md');
+    expect(t).toMatch(/A non-zero exit passes `\{\}` and is one ISSUES line, never STUCK/);
+    expect(t).toMatch(/criterionCovers, +\/\/ `node \.claude\/lib\/live-evidence\.js derive-criteria`.*?\{\} for a sweep file/);
+  });
+
+  test('verify-build.md §4 lists the identical 29 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 26 fields, not 25, 23, 22, 21 or 18', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 26 fields/);
+  test('verify-build.md §4 intro says 29 fields, not 28, 26, 25, 23, 22, 21 or 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 29 fields/);
+    expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 28 fields/);
+    expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 26 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 25 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 23 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 22 fields/);
@@ -713,7 +723,7 @@ describe('verify-build.md `--fix` uses the names code and implement-trd.md defin
 
   test('the synthesised resume uses verify-functional.js\'s snapshot fields', () => {
     expect(fixSection()).toMatch(
-      /iteration: 0, criteria: <the latest state file's entries with status\s*'met'>, gapsClosed: \[\]/
+      /iteration: 0, criteria: <the latest state file's entries with status\s*'met', plus those whose `kind` is `not-checkable-here`>, gapsClosed: \[\]/
     );
   });
 });
@@ -954,7 +964,7 @@ describe('[LIVE] tasks feed the verification loop (verification-reuses-evidence)
   test('the contract names the reuse path in the freshness bullet and the evidence-stale row', () => {
     const c = flat(read(CORE_CONTRACT));
     expect(c).toMatch(/unless it qualifies for reuse/);
-    expect(c).toMatch(/\| `evidence-stale` \|[^|]*reuse[^|]*\|/);
+    expect(c).toMatch(/\| `evidence-stale` \| `evidence-gap` \|[^|]*reuse[^|]*\|/);
   });
 
   test.each([
@@ -2343,5 +2353,159 @@ describe('ship-build: audit-build full audited commit and NEXT', () => {
     for (const n of ['audit-build', 'implement-trd']) {
       expect(read(path.join(REPO, `.claude/commands/${n}.md`))).toBe(read(path.join(REPO, `packages/core/commands/${n}.md`)));
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TRIAGE-B008: kind-keyed triage wiring (digest, preclassify, fix loop reads kind)
+// ---------------------------------------------------------------------------
+
+describe('triage by kind: command wiring (TRIAGE-B008, D14, D20, D24, D25)', () => {
+  const impl = () => read(CORE_IMPLEMENT);
+  const vb = () => read(CORE_VERIFY_BUILD);
+  const s81a = () => flat(impl().split('### 8.1a Resolve criteria to environments and lanes')[1].split('### 8.3 Assemble')[0]);
+  const fixLoop = () => vb().split('### The fix loop')[1].split('## Output discipline')[0];
+  const step = (n) => {
+    const t = fixLoop();
+    return flat(t.split(new RegExp(`\\n${n}\\. \\*\\*`))[1].split(/\n\d\. \*\*/)[0]);
+  };
+
+  test('§8.1a runs both CLI calls through the owner-rules path, never the raw path', () => {
+    const t = s81a();
+    expect(t).toContain('node .claude/lib/functional-verification.js verification-digest "$(node .claude/lib/owner-rules.js path verification.md)"');
+    expect(t).toMatch(/functional-verification\.js preclassify --file \.trd-state\/<feature>\/preclassify-input\.json \\ --verification "\$\(node \.claude\/lib\/owner-rules\.js path verification\.md\)"/);
+    expect(t).toMatch(/--design-map/);
+    expect(t).toMatch(/`verificationDigest`/);
+    expect(t).toMatch(/`preclassified`/);
+  });
+
+  test('§8.1b records the design-map paths it resolved', () => {
+    expect(impl()).toMatch(/design-map\.json/);
+  });
+
+  test('the dispatch blocks comment the two new fields', () => {
+    expect(impl()).toMatch(/verificationDigest,\s+\/\//);
+    expect(impl()).toMatch(/preclassified,\s+\/\//);
+    expect(vb()).toMatch(/verificationDigest,\s+\/\//);
+    expect(vb()).toMatch(/preclassified,\s+\/\//);
+  });
+
+  test('--criteria and the re-proof retry pass preclassified: [] (D25)', () => {
+    const t = vb();
+    expect(t).toMatch(/`mustPassUncovered: \[\]`, `preclassified: \[\]`/);
+    expect(t).toMatch(/`resume: null`, `preclassified: \[\]`/);
+  });
+
+  test('--resume prose: not-checkable-here entries carry forward on a digest match, no longer "only met"', () => {
+    const t = vb();
+    expect(t).not.toMatch(/Only the file's `met` entries carry forward/);
+    expect(t).toMatch(/`not-checkable-here`/);
+    expect(t).toMatch(/the workflow alone applies the digest/);
+  });
+
+  test('step 2 keys buildability on the criterion\'s kind, with a cause fallback', () => {
+    const t = step(2);
+    expect(t).toMatch(/`kind: 'build-defect'`/);
+    expect(t).toMatch(/the criterion's `kind` in the state file/);
+    expect(t).toMatch(/`kind` is absent/);
+    expect(t).toMatch(/`judged-failed`/);
+    expect(t).toMatch(/kindOf\(cause\)/);
+  });
+
+  test('step 4 synthesised resume carries met and not-checkable-here entries', () => {
+    const t = step(4);
+    expect(t).toMatch(/status 'met'/);
+    expect(t).toMatch(/`not-checkable-here`/);
+    expect(t).not.toMatch(/<the latest state file's entries with status\s+'met'>/);
+  });
+
+  test('step 6 checks the new forms before the old ones, keeping the pinned phrases', () => {
+    const t = step(6);
+    const iEv = t.indexOf('evidence gap — definition problem: <reason>');
+    const iNc = t.indexOf('not checkable here: <reason>');
+    const iSetup = t.indexOf('setup failure: <problem>');
+    const iNv = t.indexOf("not verifiable here: <the Judge's reason>");
+    expect(iEv).toBeGreaterThan(-1);
+    expect(iNc).toBeGreaterThan(-1);
+    expect(iSetup).toBeGreaterThan(-1);
+    expect(iNc).toBeLessThan(iNv);
+    expect(iEv).toBeLessThan(t.indexOf('not buildable by cause'));
+    expect(iSetup).toBeLessThan(iNv);
+    expect(t).toMatch(/by cause: <cause in words> — re-verified each round, never built/);
+  });
+
+  test('CAUSE-B005 (D18): §8.2 passes exercised by name, only when present, unfiltered by id', () => {
+    const t = flat(impl().split('### 8.2 The `--resume` composition')[1].split('**After resolving `criteria` here')[0]);
+    expect(t).toMatch(/resume: \{ iteration, criteria, gapsClosed \}/);
+    expect(t).toMatch(/adds `exercised` to it by name, only when the state file has it/);
+    expect(t).toMatch(/`exercised` is not filtered by id/);
+  });
+
+  test('CAUSE-B005 (D18): /verify-build --resume gains no exercised composition', () => {
+    const t = flat(vb().split('### `--resume`')[1].split('\n### ')[0]);
+    expect(t).not.toMatch(/exercised/);
+  });
+
+  test('CAUSE-B005 (D21): step 2 records no failing row for an awaiting entry', () => {
+    const t = step(2);
+    expect(t).toMatch(/An entry carrying `awaiting`[^]*is `kind: 'build-defect'` but is not buildable/);
+    expect(t).toMatch(/records no failing row/);
+    expect(t).toMatch(/not in the active slice/);
+  });
+
+  test('CAUSE-B005 (D21): step 5 counts exclude awaiting entries from buildableOpen', () => {
+    const t = step(5);
+    expect(t).toMatch(/`awaiting` entries are not counted in `buildable` or `buildableOpen`/);
+  });
+
+  test('CAUSE-B005 (D21): step 6 gives the awaiting stop reason after setup failure, before not verifiable here', () => {
+    const t = step(6);
+    const iSetup = t.indexOf('setup failure: <problem>');
+    const iAw = t.indexOf('awaiting re-check: its cause was fixed through <representative>');
+    const iNv = t.indexOf("not verifiable here: <the Judge's reason>");
+    expect(iAw).toBeGreaterThan(-1);
+    expect(iSetup).toBeLessThan(iAw);
+    expect(iAw).toBeLessThan(iNv);
+    expect(t).toMatch(/top-level `causes`/);
+  });
+
+  test('D24: definition problems reach ISSUES and route NEXT to /refine-verification', () => {
+    expect(vb()).toMatch(/settled: 'definition-problem'/);
+    expect(impl()).toMatch(/settled: 'definition-problem'/);
+  });
+
+  test('D20: readers trust a non-null kindOf(cause) over a disagreeing stored kind', () => {
+    expect(vb()).toMatch(/non-null `kindOf\(cause\)`/);
+  });
+
+  test('readout Diagnosis leads with kind counts, not "exactly as renderReport counts them" alone', () => {
+    for (const t of [impl(), vb()]) {
+      expect(t).toMatch(/leads with counts by kind/);
+    }
+  });
+});
+
+describe('implement-trd.md §8.3 derives criterionCovers with derive-criteria (REGR-B006)', () => {
+  const derive = () => {
+    const t = flat(read(CORE_IMPLEMENT));
+    return t.split('**Derive `criterionCovers` first')[1].split('Workflow({ name: "verify-functional"')[0];
+  };
+  const block = () => flat(read(CORE_IMPLEMENT)).split('**Derive `criterionCovers` first')[1].split('Workflow({ name: "verify-functional"')[1];
+
+  test('names the derive-criteria command with its three flags', () => {
+    expect(derive()).toContain('node .claude/lib/live-evidence.js derive-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md');
+  });
+
+  test('a non-zero exit passes {} and is one ISSUES line, never STUCK', () => {
+    expect(derive()).toMatch(/A non-zero exit passes `\{\}` and is one ISSUES line, never STUCK/);
+  });
+
+  test('an unmappable criterion is absent and re-walked; {} widens, never narrows', () => {
+    expect(derive()).toMatch(/is absent and is re-walked whenever a Debug pass changed anything/);
+    expect(derive()).toMatch(/`\{\}` widens the regression pass's scope, it never narrows it/);
+  });
+
+  test('the dispatch-block comment for criterionCovers says {} for a sweep file', () => {
+    expect(block()).toMatch(/criterionCovers,\s+\/\/ `node \.claude\/lib\/live-evidence\.js derive-criteria`.*\{\} for a sweep file or when the derive fails/);
   });
 });

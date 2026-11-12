@@ -103,6 +103,15 @@ at the next bridge". The owner answers it in `/refine-verification`, not mid-run
 
 ### 3. Read the inputs from disk
 
+First restore the feature's records if this worktree lacks them (`--resume` needs
+`verification-state.json`):
+
+```bash
+node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
+```
+
+Any outcome but `present` or `restored` means no record: carry on as today. A `failed` outcome is one ISSUES line, "records ref could not be fetched".
+
 Exactly the inputs §8.1–§8.3 assemble. Read those sections for how each is derived rather than
 restating the derivations here.
 
@@ -275,7 +284,9 @@ criterion exercisable / not-verifiable against those results (nothing is asked h
 either; step 2 asked nothing), then derive `exerciseLanes`, `refreshCommand`,
 `fullRunCommand` and `coverageFloor` from `verification.md` §1a/§2/§5a exactly as §8.1a
 documents — `coverageFloor` via `read-coverage-floor`, `null` on an `invalid` line, named in
-ISSUES with the same D9 wording.
+ISSUES with the same D9 wording. Also `verificationDigest` and `preclassified`, via the two CLI
+calls §8.1a step 8 documents (the design-map paths come from step 3b here, as §8.1b step 3
+records them).
 
 **Must-pass coverage — identical to `/implement-trd` §8.1; read that section and follow it.** For
 a TRD, run `node .claude/lib/functional-verification.js must-pass-coverage --trd <TRD> --definition
@@ -287,11 +298,20 @@ sweep file has no TRD and declares no must-pass (D19): skip the call and use `[]
 whole definition, so a floor measured over it is meaningless: `coverageFloor` is `null`,
 `mustPassIds` is the must-pass-coverage `criteria` restricted to the named ids, and
 `mustPassUncovered` is `[]`. `fullRunCommand` is `""` (no end-of-run full deploy).
+`preclassified` is `[]` (D25: a subset is not the whole definition, and the workflow throws on a
+preclassified id that is not in `criteria`).
 
 ### 4. Dispatch
 
-All 26 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
+All 29 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
 command's own resolution (Steps 1–3c), not copied from `/implement-trd`:
+
+`criterionCovers` is derived first, from the definition as it now stands (after Step 3 or 3a
+and the check rows Step 3b appends), by
+`node .claude/lib/live-evidence.js derive-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md`
+(the same command and flags as `/implement-trd` §8.3). A sweep file has no TRD: pass `{}`. A
+non-zero exit passes `{}` and is one ISSUES line, never STUCK. Under `--criteria` derive over the
+whole definition (the workflow ignores ids outside the subset) and pass the same value on the retry.
 
 ```javascript
 Workflow({ name: "verify-functional", args: {
@@ -316,21 +336,25 @@ Workflow({ name: "verify-functional", args: {
   coverageFloor,                                                 // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §5a as a fraction, or null when none is declared
   setupTargets,                                                  // resolved per implement-trd.md §8.1a step 7 (step 3c here) -- the environments the setup check looks at; [] when none (no setup check runs)
   liveEvidence,                                                  // `node .claude/lib/live-evidence.js read --state-dir .trd-state/<feature>` -- what [LIVE] tasks recorded; [] when none
+  criterionCovers,                                               // `node .claude/lib/live-evidence.js derive-criteria` (see above) -- { "<id>": ["<path>", ...] } the files each criterion covers; {} for a sweep file or when the derive fails
   checks,                                                        // resolved per implement-trd.md §8.1b (step 3b here) -- { "<skill>": "<SKILL.md text>" }; {} when none
   checkComments,                                                 // resolved per implement-trd.md §8.1b (step 3b here) -- open threads on each check's published page; [] when none
   pagesDir,                                                       // resolved per implement-trd.md §8.1b (step 3b here) -- ".trd-state/<feature>/verification-artifacts"; always set
   mustPassIds,                                                   // must-pass-coverage's `criteria`, unchanged (step 3c here); [] for a sweep file or when none is declared
   mustPassUncovered,                                             // must-pass-coverage's `uncovered` ([{id, text}]), unchanged (step 3c here); [] for a sweep file or when none
+  verificationDigest,                                            // resolved per implement-trd.md §8.1a step 8 (step 3c here) -- verification-digest's `digest`; "" when verification.md is absent
+  preclassified,                                                 // resolved per implement-trd.md §8.1a step 8 (step 3c here) -- preclassify's output; [] when none
 } })
 ```
 
 **Under `--criteria`**, apply the "`--criteria`" section's overrides to the fields above:
 `feature` stays `<feature>`, but `evidenceDir`, `statePath`, `reportPath` and `pagesDir` sit
 under `.trd-state/<feature>/reverify/`, `cap` is `1`, `criteria` is the filtered subset, and
-`checks`, `fullRunCommand`, `coverageFloor`, `mustPassIds` and `mustPassUncovered` are as above.
+`checks`, `fullRunCommand`, `coverageFloor`, `mustPassIds` and `mustPassUncovered` are as above,
+and `preclassified` is `[]` (a subset is not the whole definition).
 After this dispatch, the "`--criteria`" section's one retry may dispatch the workflow once more
 into `.trd-state/<feature>/reverify/retry/`.
-No field is added or removed: the list stays the 26 fields.
+`criterionCovers` is the one field the regression pass added: the list is the 29 fields.
 
 ### 5. Report
 
@@ -377,7 +401,10 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 section may be "none". No section for what was dispatched or which stages ran: that is in the
 transcript and does not change what the owner does next.
 
-**NEXT follows one rule, stated once here (O4): outcome `satisfied` → `/audit-build`. Outcome
+**NEXT follows one rule, stated once here (O4): outcome `satisfied` → `/audit-build`, except that
+a `satisfied` run with any criterion carrying `settled: 'definition-problem'` (D24) → 
+`/refine-verification`, then `/verify-build`, and ISSUES names each such criterion (in words,
+with its reason) with the owner as the one who acts. Outcome
 `setup-failure` is the one exception (D11): the environment, not the code, is broken, and
 `/refine-verification` writes a build plan with nothing to build, so NEXT is (1) the fix for
 each problem, as plain text, (2) `/verify-build`. Any other outcome (`stalled`, `stuck`,
@@ -390,9 +417,13 @@ first and is not a slash command (a merge, a deploy) leads as plain text, not a 
 **When the outcome is `stalled`, `stuck`, `unbuilt`, `insufficient-coverage` or `must-pass-unproven` — never `setup-failure`,
 whose report carries no Diagnosis line** (D3, D15;
 verification-fix-loop TRD §3.1): STATE carries a Diagnosis line, counted over `criteria`'s
-non-`met` entries exactly as `renderReport` counts them for the report — descending by count,
-in words, cause-less entries as "unrecorded". Never re-derive the verdict here; this is a
-count, not a second judgement. NEXT's explaining line is `renderReport`'s own exact wording
+non-`met` entries and leads with counts by kind, then the cause counts, matching how
+`renderReport` words them for the report: kinds first ("2 build defects, 1 evidence gap, 1 not
+checkable here"), then causes descending by count, in words, cause-less entries as
+"unrecorded". Read a criterion's kind from a non-null `kindOf(cause)` when the stored `kind`
+disagrees with it (D20); where `kindOf(cause)` is null the stored kind stands, and a `not_met`
+entry with neither is a build defect. A state with no `kind` anywhere keeps the cause-only
+line. Never re-derive the verdict here; this is a count, not a second judgement. NEXT's explaining line is `renderReport`'s own exact wording
 per O4, above: "refine the plan with `/refine-verification` (add `--auto` to let an agent
 answer), then run `/verify-build`" — followed by `/refine-verification` and `/verify-build`,
 each in its own fenced block, in that order; never both commands inline as the only NEXT.
@@ -484,14 +515,15 @@ belong to its full run, so a subset must never overwrite them. Under it:
   stop rule are ignored and the run still builds nothing.
 - **Only the named criteria**: read the feature's `success-definition.md` (present, as for any
   run), then filter `criteria` to the named ids. Restrict `mustPassIds` to them,
-  `mustPassUncovered: []`, `coverageFloor: null` (no coverage floor).
+  `mustPassUncovered: []`, `preclassified: []` (D25: a subset is not the whole definition; D12
+  throws on an id outside `criteria`), `coverageFloor: null` (no coverage floor).
 - **One retry, no Debug**: a re-proof can fail on a flaky first look, so it gets at most once
   more chance, for only the criteria that were not met. After the first dispatch, run
   `node .claude/lib/functional-verification.js reproof-retry-set .trd-state/<feature>/reverify/verification-state.json`.
   An empty `retry` list means no retry: report as today. Otherwise remove
   `.trd-state/<feature>/reverify/retry/` left by any earlier re-proof, then dispatch the
-  `verify-functional` workflow once more, with the same 26 fields except: `criteria` is the
-  retry set, `mustPassIds` is restricted to it, `resume: null`, `statePath`, `reportPath`,
+  `verify-functional` workflow once more, with the same 29 fields except: `criteria` is the
+  retry set, `mustPassIds` is restricted to it, `resume: null`, `preclassified: []`, `statePath`, `reportPath`,
   `evidenceDir` and `pagesDir` all sit under `.trd-state/<feature>/reverify/retry/`, and
   `since` recomputed as the later of the HEAD commit time and the retry's own start. `cap` stays
   `1` and `--no-fix` holds: no Debug pass, no code edit and no build. Then run
@@ -543,8 +575,11 @@ Re-enters at the next iteration from `verification-state.json`, seeding `previou
 state file's `outcome` key decides: `null` means the run stopped mid-loop and is resumable;
 any of the seven outcome strings (`satisfied`, `unbuilt`, `stalled`, `stuck`,
 `insufficient-coverage`, `must-pass-unproven`, `setup-failure`) means it finished and `--resume` starts a fresh run instead.
-Only the file's `met` entries carry forward into the resumed run — `not_verifiable` and
-`unbuilt` entries do not, so they are walked again this run. The iteration cap (`--cap N`,
+The file's `met` entries carry forward into the resumed run, and so do `not_verifiable`
+entries whose `kind` is `not-checkable-here` when their recorded `verificationDigest` equals the
+current one (non-empty both sides). Every other `not_verifiable` entry, and every `unbuilt`
+entry, is walked again this run. Pass the entries through unfiltered: the workflow alone
+applies the digest rule, so it is not written a second time here. The iteration cap (`--cap N`,
 default 3) is a total budget across every resume of one run, not a fresh budget each time
 `--resume` is passed.
 
@@ -582,17 +617,25 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
 
 2. **Round k ≥ 1 — record.** From the latest `verification-state.json`: for each criterion now
    `met` that carries an earlier ref'd discovery row, record a `met` row for that same `ref`
-   (retiring the earlier failure, promoting nothing new). For each criterion still open whose
-   cause is buildable (`judged-failed` or `not-built` — D4; every other cause is re-verified
-   next round and never built) and which no `## Accepted as not verifiable` ruling in the plan
+   (retiring the earlier failure, promoting nothing new). A criterion is **buildable** when the
+   criterion's `kind` in the state file reads `kind: 'build-defect'` (D14; this is the entry's `kind`, not
+   a discovery field such as `kind: 'gap'`). Where `kind` is absent (a state file from before
+   kinds) the cause decides: `judged-failed` or `not-built` is buildable. A non-null
+   `kindOf(cause)` outranks a disagreeing stored `kind` (D20); where `kindOf(cause)` is null the
+   stored kind stands. Every other kind is re-verified next round and never built. An entry carrying `awaiting` (its cause was
+   closed through the cause's representative and it has not been re-checked yet; D21) is
+   `kind: 'build-defect'` but is not buildable: it records no failing row, is not in the active
+   slice, and is walked again next round like any criterion that is not `met`, because a member
+   of a fixed cause is probably fixed and a build task would rebuild a fixed thing. For each
+   criterion still open and buildable which no `## Accepted as not verifiable` ruling in the plan
    covers: record a failing row (`kind: 'gap', foundBy: 'verify-build --fix', blocksFeature:
    true, status: 'not_met' | 'unbuilt', ref: '<criterion id>', evidence: '<cause>: <reason>'`
    — §3.2), but only for criteria in the plan's **active slice** — the
    first `## Slices` row, in order, that still has an open buildable criterion (D11). Slicing
    limits what is BUILT this round, never what is VERIFIED: step 4 below still walks every
    open criterion regardless of slice, so a regression outside the active slice is still seen.
-   **Never recorded as a failing row, in any round:** a `not_verifiable` criterion (its causes,
-   `environment-unreachable` and `capability-absent`, are never promoted — D4), and the run's
+   **Never recorded as a failing row, in any round:** a `not_verifiable` criterion (its kind, `not-checkable-here`, or on an older
+   state its causes `environment-unreachable` and `capability-absent`, is never promoted — D4), and the run's
    outcome itself, `insufficient-coverage` and `must-pass-unproven` included, and `setup-failure` too. A coverage shortfall is made of criteria
    nobody could check, not of code that failed; no build task can raise it, so it is reported
    in the readout and never turned into one. The same holds for `must-pass-unproven`: the
@@ -612,8 +655,10 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
 
 4. **Verify.** Step 4's dispatch (above), unchanged, with `resume` synthesised instead of read
    from disk (D8): `{ iteration: 0, criteria: <the latest state file's entries with status
-   'met'>, gapsClosed: [] }`, dropping any criterion carrying an owner comment first — the same
-   filter `/implement-trd` §8.2 already applies on its own `--resume` path. `iteration: 0`
+   'met', plus those whose `kind` is `not-checkable-here`>, gapsClosed: [] }`, dropping any criterion carrying an owner comment first — the same
+   filter `/implement-trd` §8.2 already applies on its own `--resume` path. The
+   `not-checkable-here` entries are passed unfiltered: the workflow alone applies the digest, so
+   one whose recorded `verificationDigest` no longer matches `verification.md` is walked again. `iteration: 0`
    gives this round its own inner cap; passing the real state file as `resume` instead would
    read as an already-exhausted budget and return `stuck` at once. Because those `met` entries
    arrive as settled, **this round re-verifies only criteria still open**: a criterion already
@@ -628,7 +673,8 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    <k>/<maxRounds> COMPLETE → <closed> closed, <open> open`. Then run `node
    .claude/lib/functional-verification.js decide-fix-round --file <payload>` (§3.5) with this
    round's `round`, `maxRounds` and `closedBelow` (from the stop rule read at step 0),
-   `closedThisRound` and `buildableOpen` (from this round's own counts). `action: 'continue'`
+   `closedThisRound` and `buildableOpen` (from this round's own counts); `awaiting` entries are not counted in `buildable` or `buildableOpen`, so
+   a round whose only open criteria are awaiting ones reads as nothing left to build. `action: 'continue'`
    returns to step 2 for round k+1. `action: 'stop'` — for any reason, including "nothing left
    to build" — falls through to step 6, and sets `functional_verification.fix.stopped = true`.
 
@@ -639,17 +685,24 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    composed from the first of these that applies: `setup failure: <problem>` (this round's
    verify outcome was `setup-failure` and the criterion is still open; `<problem>` is the
    workflow's `setup.problems` entry for its environment, with its fix; D12 — no other branch
-   exists for a setup failure, and steps 4 and 5 run as for any outcome); `not verifiable
-   here: <the Judge's reason>` (status `not_verifiable`); `accepted as not verifiable: <the plan's ruling>`; `not buildable
+   exists for a setup failure, and steps 4 and 5 run as for any outcome); `awaiting re-check: its cause was fixed through <representative>`
+   (an entry carrying `awaiting`; the representative id is not on the entry, read it from the state file's
+   top-level `causes`, the cause whose `members` include the criterion; D16, D21); `not checkable
+   here: <reason>` (kind `not-checkable-here`; D25 checks this before the next form);
+   `evidence gap — definition problem: <reason>` (kind `evidence-gap` with `settled:
+   'definition-problem'`; checked before any cause-based form); `not verifiable
+   here: <the Judge's reason>` (status `not_verifiable`, the fallback for a state without
+   `kind`); `accepted as not verifiable: <the plan's ruling>`; `not buildable
    by cause: <cause in words> — re-verified each round, never built` (a cause other than
-   `judged-failed`/`not-built`); `outside the active slice`; `stop rule reached: <decide-fix-round's
+   `judged-failed`/`not-built`, the fallback for a state without `kind`); `outside the active slice`; `stop rule reached: <decide-fix-round's
    reason>`. The renderer prints `no stop reason recorded` for a blank one so an omission is
    visible, but a blank one is a defect in this step, never an acceptable row. Emit the readout: STATE
    carries the Diagnosis counts (above, unchanged); ISSUES names each `verification.md` need
    recorded at step 2, "the owner, at the next bridge" (D13); NEXT follows O4, above:
    `/refine-verification`, then `/verify-build`, when the outcome is anything but `satisfied`
    (`stalled`, `stuck`, `unbuilt`, `insufficient-coverage` or `must-pass-unproven`) or anything
-   buildable or blocked remains, otherwise `/audit-build`; a `setup-failure` outcome is the
+   buildable or blocked remains or any criterion carries `settled: 'definition-problem'`
+   (D24; ISSUES names each), otherwise `/audit-build`; a `setup-failure` outcome is the
    exception and routes to the fix then `/verify-build` (above) — keyed to the outcome, so a
    `must-pass-unproven` run with nothing buildable still routes to `/refine-verification`. Exactly **one** `═══
    COMMAND COMPLETE: /verify-build ═══` banner for the whole run — never one per round —

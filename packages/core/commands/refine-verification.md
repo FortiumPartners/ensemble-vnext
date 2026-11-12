@@ -49,6 +49,14 @@ command and asks nothing.
 
 ## Inputs
 
+First restore the feature's records if this worktree lacks them:
+
+```bash
+node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
+```
+
+Any outcome but `present` or `restored` means no record: carry on as today. A `failed` outcome is one ISSUES line, "records ref could not be fetched".
+
 | Input | Where it comes from | Required / optional |
 |---|---|---|
 | Latest verification report, with its Diagnosis block (a `setup-failure` report has none; its `**Setup**:` lines are the diagnosis) | `.trd-state/<feature>/verification-report.md` | required |
@@ -59,7 +67,9 @@ command and asks nothing.
 | `.claude/rules/verification.md` and `.claude/verification-notes.md` | project root | required — environments, resource capacity, instance-naming notes |
 | The framework skill list | `.claude/skills/framework-skills.txt` (falling back to `packages/skills/framework-skills.txt` in this checkout) | required — extra checks are restricted to `check`-role rows |
 
-This command does not apply to a run that ended `satisfied` with nothing open, and it never
+This command does not apply to a run that ended `satisfied` with nothing open. A `satisfied`
+run that carries definition problems (an entry with `settled: 'definition-problem'`) is not
+"nothing open": it applies, and those criteria go under Owner rulings. It never
 diagnoses on its own initiative — the diagnosis it reads was already written by the
 functional-verification loop; this command's job starts after that.
 
@@ -71,8 +81,8 @@ functional-verification loop; this command's job starts after that.
 environment, not the code" (D13):** the report has no Diagnosis line, so its `**Setup**:`
 lines are the diagnosis — name each problem and its fix, and say the software was not
 checked. Every criterion that run left open is `never-exercised`; none is a Blocker (nothing
-failed) and none is Accepted as not verifiable (that rule takes only `environment-unreachable`
-and `capability-absent`). The plan says they are re-verified by the next `/verify-build`, and
+failed) and none is Accepted as not verifiable (that rule takes only kind `not-checkable-here`, or,
+when `kind` is absent, causes `environment-unreachable` and `capability-absent`). The plan says they are re-verified by the next `/verify-build`, and
 NEXT also tells the owner to fix the environment first. Otherwise: the outcome and proven/total. When the TRD marks must-pass
 objectives, name first every unproven must-pass criterion, each with its statement in plain
 words (never an id alone), and every must-pass objective no criterion covers. Then the causes
@@ -81,13 +91,19 @@ identifier.
 
 **2. Work out every section of `verification-plan.md` from the evidence, without asking:**
 
-- **Blockers** — one task-sized change per `judged-failed` or `not-built` gap the diagnosis
-  confirms; order them via each row's `After` column. A confirmed gap is built — that is what
+- **Blockers** — one task-sized change per gap of kind `build-defect` the diagnosis
+  confirms (when `kind` is absent, per `judged-failed` or `not-built` gap). A criterion with
+  `settled: 'definition-problem'` is never a Blocker. A criterion carrying `awaiting` (its cause was
+  fixed through the cause's representative and it has not been re-checked yet) is
+  `kind: 'build-defect'` but is neither a Blocker nor a ruling: list it as "awaiting re-check"
+  (D21), and leave it out of the Slices. **Read the kind this way:** a non-null
+  `kindOf(cause)` wins over a disagreeing stored `kind`; where `kindOf(cause)` is null the
+  stored `kind` stands; a `not_met` entry with neither reads as `build-defect`; order them via each row's `After` column. A confirmed gap is built — that is what
   `--fix` is for.
 - **Slices** — the open, buildable criteria grouped by the resource or surface they need,
   scarcest resource first (`verification.md` §1a); a criterion with no group is its own slice.
-- **Accepted as not verifiable** — every criterion whose cause is `environment-unreachable` or
-  `capability-absent` (never buildable; a `never-exercised` criterion left open by a
+- **Accepted as not verifiable** — every criterion of kind `not-checkable-here` (when `kind` is
+  absent, whose cause is `environment-unreachable` or `capability-absent`) (never buildable; a `never-exercised` criterion left open by a
   `setup-failure` is neither), with the diagnosis's reason, and any criterion the TRD
   already assigns to a later or production-only task. **Never a must-pass criterion** (one whose
   `Must pass` cell in the success definition names an objective — the ids the report's
@@ -98,7 +114,13 @@ identifier.
 - **Owner rulings** — a criterion that contradicts a decision already written in the PRD or TRD
   is aligned with that decision and recorded here as a ruling, citing it. That is not a
   question: the owner made the call when they approved the document.
-  A must-pass criterion whose cause is `environment-unreachable` or `capability-absent` is also
+  A criterion with `settled: 'definition-problem'` (an evidence gap that stayed an evidence
+  gap after its one re-capture) is also an owner ruling, recorded as a definition problem: the
+  criterion asks for evidence the build does not produce, so the ruling changes the criterion
+  or the build's outputs. Under `--auto`, record it as an `OWNER-CALL` row marked
+  `decided by: agent (--auto)`. An evidence gap without that marker (a `never-exercised`
+  criterion left open by a `setup-failure`) stays neither Blocker nor ruling.
+  A must-pass criterion of kind `not-checkable-here` (or, when `kind` is absent, whose cause is `environment-unreachable` or `capability-absent`) is also
   an owner ruling, never an acceptance. Interactive, ask the owner; under `--auto`, record it
   as an `OWNER-CALL` row marked `decided by: agent (--auto)`. Either way the ruling names the
   two ways out: declare an environment that reaches it (via `/verification-setup`, since

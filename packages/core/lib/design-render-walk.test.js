@@ -2,7 +2,7 @@
 
 // AC-F3.5, AC-N3: the committed walk boards render with the pinned runtime and default arguments.
 // Needs Chromium (`npx playwright install chromium`; CI installs it). The boards are committed under
-// an ignored folder with `git add -f` (DQ-P001, D17), so this reads tracked files on a fresh clone.
+// test/fixtures/design/walk/boards (copied from the former ignored evidence folder), so this reads tracked files on a fresh clone.
 
 const fs = require('fs');
 const os = require('os');
@@ -11,7 +11,7 @@ const render = require('./design-render');
 
 jest.setTimeout(90000);
 
-const BOARDS = path.join(__dirname, '..', '..', '..', '.trd-state', 'task-dorch-t001-live-walk', 'evidence', 'boards');
+const BOARDS = path.join(__dirname, '..', '..', '..', 'test', 'fixtures', 'design', 'walk', 'boards');
 const DIR = path.join(BOARDS, 'trips-refresh');
 const tmp = (p = 'dwalk-') => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), p)));
 const run = (d) => render.render({ dir: DIR, out: path.join(d, 'out'), offline: true }); // no runtime: the pinned default

@@ -1798,8 +1798,11 @@ ensure_gitignore() {
         [[ "$untrack" == "untrack" ]] || continue
         # :(glob) gives the pathspec .gitignore's semantics (`*` never crosses
         # `/`), so only paths the line actually ignores are untracked. Quoted:
-        # the glob is git's to expand, never the shell's.
+        # the glob is git's to expand, never the shell's. A glob pathspec that
+        # ends in `/` and holds a wildcard matches nothing, so a directory line
+        # gets `**` on the pathspec only; the .gitignore line stays as written.
         local spec=":(glob)$line"
+        [[ "$line" == */ ]] && spec="${spec}**"
         if [[ -n "$(git ls-files -- "$spec" 2>/dev/null || true)" ]]; then
             if git rm --cached -r --quiet --ignore-unmatch -- "$spec" >/dev/null 2>&1; then
                 info "Untracked $line (index only); commit this removal on the base branch"

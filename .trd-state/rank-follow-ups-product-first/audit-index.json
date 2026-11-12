@@ -1,0 +1,145 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "Every follow-up row has a rank class, one of product, host, tooling, paperwork, not-verifiable; a legacy row with no recorded class gets one from its summary prefix ([not-verifiable] to not-verifiable, [flaky-ci] to tooling, [review:<label>] to product, and so on). Must pass.",
+      "source": "TRD Objectives O1",
+      "served_by": [
+        "FIX-001",
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "file-followups files and lists rows in rank order (product, host, tooling, paperwork, not-verifiable) across every ledger it reads, and records each row's class with it. Must pass.",
+      "source": "TRD Objectives O2",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "/ship-build's readout lists filed and unfiled follow-ups in that same order with the class shown, so product items are read first. Not marked must pass.",
+      "source": "TRD Objectives O3",
+      "served_by": [
+        "FIX-002",
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "IC-1",
+      "statement": "A new library packages/core/lib/followup-rank.js owns the five classes and their order; classOf(row) returns a recorded rankClass when valid, otherwise a class derived from prefix and status; rank(rows) stable-sorts into class order carrying class; its CLI 'open --state-dir <dir> [...]' prints merged, ranked open rows each with class and dir.",
+      "source": "TRD Intended Change, bullet 1",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "IC-2",
+      "statement": "discovered.record keeps a valid rankClass field on a new row; no existing producer changes.",
+      "source": "TRD Intended Change, bullet 2",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "IC-3",
+      "statement": "file-followups step 3 reads rows through the followup-rank CLI; step 4 files in that order and records { summary, url, class } per filed row; step 5 writes data.issues row lines in that order, each starting with the class; data.unfiled lists summaries in that order.",
+      "source": "TRD Intended Change, bullet 3",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "IC-4",
+      "statement": "/ship-build's readout states the order and shows the class on every filed, unfiled and recorded-not-yet-filed follow-up line.",
+      "source": "TRD Intended Change, bullet 4",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "IC-5",
+      "statement": "docs/guides/ship-build.md's file-followups row says rows are filed product first.",
+      "source": "TRD Intended Change, bullet 5",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "IC-6",
+      "statement": "Prefix precedence: recorded rankClass, then status not_verifiable, then prefix, then kind stale-grounding, then product. Unknown rows rank product.",
+      "source": "TRD Intended Change (precedence paragraph) and Decision",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "AC-FIX-001",
+      "statement": "npx jest packages/core/lib/followup-rank.test.js packages/core/lib/discovered.test.js passes; legacy prefix/kind rows classed correctly; recorded rankClass overrides prefix; invalid rankClass dropped by record; rank orders mixed list with ledger order kept within class; CLI merges two ledgers and tags dir; .claude/lib/followup-rank.js byte-identical to core file; packages/full/lib/followup-rank.js is a symlink to core file.",
+      "source": "TRD Master Task List, FIX-001 Acceptance Criteria",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "AC-FIX-002",
+      "statement": "ship-primitives.test.js new cases pass: contract reads rows through followup-rank.js open, files in rank order, records class in data.filed, writes class-led data.issues lines in rank order; ship-build.md names the order product, host, tooling, paperwork, not-verifiable and shows class on filed, unfiled and recorded-not-yet-filed lines; mirrors byte-identical.",
+      "source": "TRD Master Task List, FIX-002 Acceptance Criteria",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "AC-FIX-003",
+      "statement": "npx jest packages/core/contracts/ship-primitives.test.js packages/core/lib/ship-build.seam.test.js passes with new cases; the cases fail against ledger order (rows recorded deliberately out of rank order).",
+      "source": "TRD Master Task List, FIX-003 Acceptance Criteria",
+      "served_by": [
+        "FIX-003"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "Add followup-rank.js (classes, classOf, rank, open CLI) with unit tests; add RANK_CLASSES and rankClass persistence to discovered.js; mirror both to .claude/lib/ and symlink followup-rank.js in packages/full/lib/. Serves O1, O2.",
+      "touches": [
+        "packages/core/lib/followup-rank.js",
+        "packages/core/lib/followup-rank.test.js",
+        "packages/core/lib/discovered.js",
+        ".claude/lib/followup-rank.js",
+        ".claude/lib/discovered.js",
+        "packages/full/lib/followup-rank.js"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "Rewrite file-followups steps 1, 3, 4, 5 and Result, and ship-build Step 6 STATE/ISSUES follow-up lines, to rank through the library and show the class; mirror both to .claude/; update ship-tracker.test.js pinned data shape. Serves O2, O3. Depends on FIX-001.",
+      "touches": [
+        "packages/core/contracts/ship-primitive-file-followups.md",
+        ".claude/contracts/ship-primitive-file-followups.md",
+        "packages/core/commands/ship-build.md",
+        ".claude/commands/ship-build.md",
+        "packages/core/contracts/ship-primitives.test.js",
+        "packages/core/contracts/ship-tracker.test.js",
+        "docs/guides/ship-build.md"
+      ]
+    },
+    {
+      "id": "FIX-003",
+      "description": "Seam test cases in ship-build.seam.test.js: play the lead over a mixed ledger of product, host, tooling, paperwork and not-verifiable rows (some legacy prefix-only), file through the CLI order, assert filed and unfiled lists come out product first with each row's class. Serves O1, O2, O3. Depends on FIX-001, FIX-002.",
+      "touches": [
+        "packages/core/lib/ship-build.seam.test.js"
+      ]
+    }
+  ],
+  "could_not_verify": [
+    "The class split in issue #113 (about 12 product, 9 host or tooling, 7 paperwork, 9 not-verifiable) is from the product repo's issue #105, which was not read; no producer in this repo yet emits host rows — that class is reached only through a recorded rankClass; paperwork is reached through kind: \"stale-grounding\" or a recorded rankClass.",
+    "A live /ship-build run filing against a real tracker is not exercised; the seam test stubs the tracker."
+  ],
+  "open_questions": [
+    "none"
+  ]
+}
