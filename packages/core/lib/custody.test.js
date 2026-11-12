@@ -126,6 +126,47 @@ describe('reconcile: setting the anchor', () => {
     expect(r.action).toBe('moved');
   });
 
+  describe('audit.anchorCommit (post-fix head)', () => {
+    function history(anchorCommit) {
+      const s = setup();
+      const A = s.commit('audited', { 'src/a.js': 'a2' });
+      s.commit('fix run', { 'src/b.js': 'b2' });
+      const F = s.commit('fix run 2', { 'src/a.js': 'a3' });
+      const closed = { audit: { auditedCommit: A } };
+      if (anchorCommit !== undefined) closed.audit.anchorCommit = anchorCommit === 'F' ? F : anchorCommit;
+      fs.writeFileSync(path.join(s.stateDir, 'closed.json'), JSON.stringify(closed));
+      git(s.repo, 'add', '-A');
+      git(s.repo, 'commit', '-m', 'close');
+      return { s, A, F };
+    }
+
+    test('anchors at the post-fix head (audit-fixed); a second reconcile is none', () => {
+      const { s, F } = history('F');
+      expect(reconcile(s.args())).toMatchObject({ action: 'set', anchor: F });
+      expect(s.readCustody().anchor).toEqual({ commit: F, source: 'audit-fixed' });
+      expect(reconcile(s.args()).action).toBe('none');
+    });
+
+    test('a null anchorCommit falls back to the audited commit', () => {
+      const { s, A } = history(null);
+      const r = reconcile(s.args());
+      // The anchor starts at A (then moves, as today), so read where it began from the first move.
+      const c = s.readCustody();
+      expect(c.anchor.source).toBe('audited');
+      expect(c.moves.length).toBeGreaterThan(0);
+      expect(c.moves[0].from).toBe(A);
+      expect(['set', 'none']).not.toContain(r.action);
+    });
+
+    test('an anchorCommit that names no commit is refused, naming it', () => {
+      const { s } = history('deadbee');
+      const r = reconcile(s.args());
+      expect(r.action).toBe('refused');
+      expect(r.reason).toMatch(/audit anchor commit deadbee/);
+      expect(fs.existsSync(path.join(s.stateDir, 'custody.json'))).toBe(false);
+    });
+  });
+
   test('an ambiguous short id is refused with that reason and sets no anchor', () => {
     const s = setup();
     const tree = git(s.repo, 'rev-parse', 'HEAD^{tree}');

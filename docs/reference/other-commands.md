@@ -478,7 +478,7 @@ command never runs `/sync-design` itself.
 | `feature`, `trd`, `closedAt` | identity and when |
 | `closedBy` | `owner` (this command), `audit` (a passing `/audit-build`) or `task` (`/task`, which also adds `reason`, `outputs` and `followups`) |
 | `note` | your note, verbatim, or null |
-| `audit` | `{verdict, report, auditedCommit}` for an audit close; null for an owner close |
+| `audit` | `{verdict, report, auditedCommit, anchorCommit}` for an audit close; null for an owner close. `anchorCommit` is nullable: the head after the audit's own fix run finished (its end-of-run review edits committed), set only when a fix run was chained, did not end STUCK and the round closed; otherwise null. `/ship-build`'s custody check starts there in preference to `auditedCommit` |
 
 No script validates this shape. **Presence of the file is the signal**; the fields are for
 display.
