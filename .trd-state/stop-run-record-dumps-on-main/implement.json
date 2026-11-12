@@ -1,0 +1,96 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/stop-run-record-dumps-on-main.md",
+  "trd_hash": "d5a43adc2542a34e1ad2f25eeeaf99349be4aedfb4a3ccf95f22b93e28178f53",
+  "branch": "feature/0-stop-run-record-dumps-on-main",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "template lines + header + ensure_gitignore pathspec",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/templates/gitignore-framework.txt",
+        "packages/core/scripts/scaffold-project.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T07:04:55.048Z",
+      "completed_at": "2026-11-12T07:29:04.326Z",
+      "last_advanced": "2026-11-12T07:08:42.693Z"
+    },
+    "FIX-002": {
+      "description": "BATS tests",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T07:04:55.048Z",
+      "completed_at": "2026-11-12T07:29:04.327Z",
+      "last_advanced": "2026-11-12T07:08:42.693Z"
+    },
+    "FIX-003": {
+      "description": "Ensemble .gitignore + untrack + walk-board fixture relocation",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".gitignore",
+        "packages/core/lib/design-render-walk.test.js",
+        "test/fixtures/design/walk/boards/README.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T07:04:55.048Z",
+      "completed_at": "2026-11-12T07:29:04.327Z",
+      "last_advanced": "2026-11-12T07:08:42.693Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": "59773e9c2f51795b58aeb00a70be4c232d29169f",
+    "last_checkpoint_timestamp": "2026-11-12T07:04:55.048Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/stop-run-record-dumps-on-main.md § Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "jest, bats, node installed; working tree"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI and scaffold script present"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login present"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "verification.md §1: must not be touched"
+      }
+    }
+  }
+}

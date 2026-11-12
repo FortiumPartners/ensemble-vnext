@@ -2794,12 +2794,14 @@ PY
     [ "${lines[${#lines[@]}-1]%% *}" = "REFRESH_SUMMARY" ]
 }
 
-@test "git files: scaffold writes four ignore lines and three union lines; second run changes nothing" {
+@test "git files: scaffold writes nine ignore lines and three union lines; second run changes nothing" {
     local plugin_dir
     plugin_dir="$(_get_plugin_dir)"
     run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
     [ "$status" -eq 0 ]
-    for l in '.trd-state/current.json' '.trd-state/_dispatch.jsonl' '.trd-state/*/dispatch.jsonl' '.trd-state/_command-runs/'; do
+    for l in '.trd-state/current.json' '.trd-state/_dispatch.jsonl' '.trd-state/*/dispatch.jsonl' '.trd-state/_command-runs/' \
+        '.trd-state/**/evidence/' '.trd-state/**/findings/' '.trd-state/**/judge-*.json' \
+        '.trd-state/**/record-*.json' '.trd-state/**/setup-decide-*.json'; do
         grep -qxF -- "$l" "$TEST_DIR/.gitignore"
     done
     grep -qxF '.trd-state/_session-log.md merge=union' "$TEST_DIR/.gitattributes"
@@ -2841,6 +2843,109 @@ PY
     [ "$(git log --oneline | wc -l | tr -d ' ')" -eq 1 ]
 }
 
+# stop-run-record-dumps-on-main FIX-002: bulky verification scratch is untracked and ignored;
+# durable records are not.
+_scratch_paths() {
+    local d
+    for d in .trd-state/feat .trd-state/feat/reverify .trd-state/feat/reverify/retry; do
+        echo "$d/evidence/a.png"
+        echo "$d/evidence/deep/b.txt"
+        echo "$d/findings/f.json"
+        echo "$d/findings/grounding/g.json"
+        echo "$d/judge-state-1.json"
+        echo "$d/record-3.json"
+        echo "$d/setup-decide-2.json"
+    done
+}
+
+_durable_paths() {
+    local d f
+    for d in .trd-state/feat .trd-state/feat/reverify; do
+        for f in closed.json shipped.json custody.json verification-state.json implement.json \
+                 artifacts.json success-definition.md verification-report.md verification-plan.md \
+                 audit-build-report.md audit-trd-report.md; do
+            echo "$d/$f"
+        done
+    done
+}
+
+_seed_paths() {
+    local f
+    while IFS= read -r f; do
+        mkdir -p "$(dirname "$f")"
+        echo x > "$f"
+    done
+}
+
+@test "git files: scaffold writes the five scratch ignore lines once; second run adds nothing" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    for l in '.trd-state/**/evidence/' '.trd-state/**/findings/' '.trd-state/**/judge-*.json' \
+             '.trd-state/**/record-*.json' '.trd-state/**/setup-decide-*.json'; do
+        [ "$(grep -cxF -- "$l" "$TEST_DIR/.gitignore")" -eq 1 ]
+    done
+    local before; before="$(cat "$TEST_DIR/.gitignore")"
+    run "$SCAFFOLD_SCRIPT" --git-files "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ "$before" = "$(cat "$TEST_DIR/.gitignore")" ]
+}
+
+@test "git files: --git-files untracks tracked scratch at every level, keeps files, stages removal, commits nothing" {
+    cd "$TEST_DIR"
+    git init -q . && git config user.email t@t && git config user.name t
+    _scratch_paths | _seed_paths
+    git add .trd-state && git commit -qm init
+    [ "$(git ls-files .trd-state | wc -l | tr -d ' ')" -eq 21 ]
+    run "$SCAFFOLD_SCRIPT" --git-files "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -z "$(git ls-files .trd-state)" ]
+    local f
+    while IFS= read -r f; do
+        [ -f "$f" ]
+    done < <(_scratch_paths)
+    [ "$(git diff --cached --name-only --diff-filter=D | wc -l | tr -d ' ')" -eq 21 ]
+    [ "$(git log --oneline | wc -l | tr -d ' ')" -eq 1 ]
+}
+
+@test "git files: durable run records are never ignored and stay tracked after --git-files" {
+    cd "$TEST_DIR"
+    git init -q . && git config user.email t@t && git config user.name t
+    { _durable_paths; _scratch_paths; } | _seed_paths
+    git add .trd-state && git commit -qm init
+    run "$SCAFFOLD_SCRIPT" --git-files "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    local f
+    while IFS= read -r f; do
+        run git check-ignore -q -- "$f"
+        [ "$status" -eq 1 ]
+        [ -n "$(git ls-files -- "$f")" ]
+    done < <(_durable_paths)
+}
+
+@test "git files: --refresh adds the scratch lines to an existing .gitignore and leaves the index unchanged" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+    cd "$TEST_DIR"
+    git init -q . && git config user.email t@t && git config user.name t
+    mkdir -p .trd-state/feat/evidence
+    echo p > .trd-state/feat/evidence/a.png
+    echo '{}' > .trd-state/feat/judge-state-1.json
+    printf 'node_modules/\n' > .gitignore
+    git add .trd-state .gitignore && git commit -qm init
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    for l in '.trd-state/**/evidence/' '.trd-state/**/findings/' '.trd-state/**/judge-*.json' \
+             '.trd-state/**/record-*.json' '.trd-state/**/setup-decide-*.json'; do
+        [ "$(grep -cxF -- "$l" .gitignore)" -eq 1 ]
+    done
+    [ -n "$(git ls-files .trd-state/feat/evidence/a.png)" ]
+    [ -n "$(git ls-files .trd-state/feat/judge-state-1.json)" ]
+    [ -z "$(git diff --cached --name-only)" ]
+    [ "${lines[${#lines[@]}-1]%% *}" = "REFRESH_SUMMARY" ]
+}
+
 @test "git files: --git-files outside a git repo exits 0; rejects combination" {
     run "$SCAFFOLD_SCRIPT" --git-files "$TEST_DIR"
     [ "$status" -eq 0 ]
@@ -2874,14 +2979,14 @@ PY
 @test "git files: --git-files untracks only what the ignore line covers, not deeper nested paths" {
     cd "$TEST_DIR"
     git init -q . && git config user.email t@t && git config user.name t
-    mkdir -p .trd-state/feat .trd-state/feat/evidence/x
+    mkdir -p .trd-state/feat .trd-state/feat/notes/x
     echo a > .trd-state/feat/dispatch.jsonl
-    echo b > .trd-state/feat/evidence/x/dispatch.jsonl
+    echo b > .trd-state/feat/notes/x/dispatch.jsonl
     git add .trd-state && git commit -qm init
     run "$SCAFFOLD_SCRIPT" --git-files "$TEST_DIR"
     [ "$status" -eq 0 ]
     [ -z "$(git ls-files .trd-state/feat/dispatch.jsonl)" ]
-    [ -n "$(git ls-files .trd-state/feat/evidence/x/dispatch.jsonl)" ]
+    [ -n "$(git ls-files .trd-state/feat/notes/x/dispatch.jsonl)" ]
 }
 
 # re-prove-only-what-a-change-can-affect FIX-004: scaffold never writes ensemble.reproof (absent

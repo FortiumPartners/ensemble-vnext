@@ -1,8 +1,19 @@
 # Files the framework itself writes: shared per-session working state that
 # differs on every branch and so clashes at merge time. Per-feature state under
-# .trd-state/<feature>/ is deliberately not listed here, except each feature's
-# dispatch log, which is per-session working state like the shared one.
+# .trd-state/<feature>/ is not listed here, with these exceptions: each
+# feature's dispatch log (per-session working state like the shared one), and
+# the bulky per-run scratch of the verification loop (evidence/, findings/,
+# judge-*, record-* and setup-decide-* files). That scratch is reproducible by
+# re-running the loop and holds no decision. The durable records stay tracked:
+# closed.json, shipped.json, custody.json, verification-state.json,
+# implement.json, artifacts.json, success-definition.md, verification-report.md,
+# verification-plan.md, audit-build-report.md and the other audit-* reports.
 .trd-state/current.json
 .trd-state/_dispatch.jsonl
 .trd-state/*/dispatch.jsonl
 .trd-state/_command-runs/
+.trd-state/**/evidence/
+.trd-state/**/findings/
+.trd-state/**/judge-*.json
+.trd-state/**/record-*.json
+.trd-state/**/setup-decide-*.json
