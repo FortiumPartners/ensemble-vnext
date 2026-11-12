@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/K8o6Qk77G8r6SyadEhemxD",
     "updated_at": "2026-11-12T17:04:45.673Z",
     "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/block-only-on-material-failures/audit-build-report.md",
+    "url": "https://claude.ai/artifact/SYgLARSf1rty6sUxRV517C",
+    "updated_at": "2026-11-12T17:23:59.223Z",
+    "command": "/audit-build"
   }
 }
