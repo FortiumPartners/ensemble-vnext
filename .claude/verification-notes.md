@@ -1383,3 +1383,8 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] `precompact.js` with neither folder nor ref differs from main only in WHERE it writes its checkpoint (branch: `.trd-state/_session-log.md`; main: creates `.trd-state/<slug>/session-log.md`); stdout `{}` is identical. With the ref present it restores the folder (`ensure`, local only). `status.js` runs no git at all and never touches the folder.
 - [ran] `ship-sequencer.js start --resume` prints only `{"ok":true,"status":"running","errors":[],"resumed":true}`; the loaded record is shown by the follow-up `status` call and the restored `shipped.json`.
 - [ran] `custody.js check` and `reconcile` print no "closed" verdict; closed.json is visible only via its `audit.anchorCommit` seeding an anchor when custody.json is absent.
+
+## Exercising `record-ref.js ensure` (readers-fall-back-to-the-ref, FS-17..19, iteration 1)
+
+- [ran] `record-ref.js write` needs `--command <name> --step <text>` besides `--state-dir` (without them: `refused`). Fixture: `git init --bare` origin, feature branch, `FORGE_FEATURE_ID` exported, write `--no-push`, `git push origin refs/ensemble/records/<slug>`, snapshot, `rm -rf` the folder; `ensure` then prints `restored`, then `present`; with no ref it prints `no-record` and creates no `.trd-state`. Under zsh, loop over `name line` pairs with `while read`, not an unquoted `$p` word list (it builds a bogus filename).
+- [ran] `cp -R .claude/lib` into a fixture prints "chmod: Operation not permitted" (setgid) but the files copy and the CLI works.
