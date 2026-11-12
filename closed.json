@@ -1,0 +1,13 @@
+{
+  "feature": "writers-move-to-the-ref",
+  "trd": "docs/TRD/writers-move-to-the-ref.md",
+  "closedAt": "2026-11-12T14:14:09Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; four of the delivered behaviours are correct but no automated test would catch them regressing (the phase checkpoint's commit-then-record-then-write order, ensure-before-write in /close-feature and /audit-build, the push step writing the ref before the branch push, and a writers test too loose to catch one removed write line); two live paths remain unverifiable here (Claude Code Web pushing refs/ensemble/*, and the ship-resume workflow on a real GitHub runner)",
+    "report": ".trd-state/writers-move-to-the-ref/audit-build-report.md",
+    "auditedCommit": "5a11e98acbb7b5eb8c32b9b58d8c7f297148ca06",
+    "anchorCommit": "28f4a9140995df4283dda755f15c2ef8186eb149"
+  }
+}
