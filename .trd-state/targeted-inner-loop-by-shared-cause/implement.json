@@ -134,6 +134,21 @@
       "started_at": "2026-11-12T08:33:04.888Z",
       "completed_at": "2026-11-12T08:41:55.180Z",
       "last_advanced": "2026-11-12T08:35:19.624Z"
+    },
+    "AMEND-001": {
+      "description": "FS-4 resumed-run exercise-set test",
+      "phase": 4,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.test.js"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-12T09:11:24.977Z",
+      "current_problem": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "last_advanced": "2026-11-12T09:11:20.353Z"
     }
   },
   "checkpoints": [
@@ -168,11 +183,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-12T08:43:24.911Z"
+    },
+    {
+      "phase": 4,
+      "commit": "759e95a5f4b9bf170585a0c87c2736072619b451",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T09:12:57.487Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "a8849a6feebb4ba00f61f1a4ebe456470b4ed8d1",
-    "last_checkpoint_timestamp": "2026-11-12T08:43:24.911Z",
+    "last_healthy_checkpoint": "759e95a5f4b9bf170585a0c87c2736072619b451",
+    "last_checkpoint_timestamp": "2026-11-12T09:12:57.487Z",
     "interrupted": false,
     "interrupt_reason": null
   },
