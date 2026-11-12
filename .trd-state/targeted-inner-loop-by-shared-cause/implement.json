@@ -1,0 +1,137 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/targeted-inner-loop-by-shared-cause.md",
+  "trd_hash": "fde984629d9dfb02f661b330441d5af9cc52e5dc4019571d4ee96bfbc70e319c",
+  "branch": "feature/20-targeted-inner-loop-by-shared-cause",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "CAUSE-B001": {
+      "description": "functional-verification.js: add causes, previousCauses and awaitingRegression to decideNext with validation after settledEvidenceGaps; return closedCauses; extend the stall rule (§3.1). Add the ## Cau",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        ".claude/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T07:41:17.441Z",
+      "completed_at": "2026-11-12T07:46:18.841Z",
+      "last_advanced": "2026-11-12T07:46:11.339Z"
+    },
+    "CAUSE-B002": {
+      "description": "Cause map and targeting: causeKey in JUDGE_CRITERION_SCHEMA and the Judge prompt (D1, D2); causeGroups (D3); openEntries replacing lastRulings (D6); the Exercise set (D5) driving slicing, the setup fi",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "CAUSE-B003": {
+      "description": "Debug per cause: per-cause gaps (D7) to the one app-debugger per iteration, as today (D8, an OWNER-CALL); per-cause DEBUG_SCHEMA with refresh kept, preCheck: { command, exitCode } and unbuilt per caus",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "CAUSE-B004": {
+      "description": "How a cause ends: closure and awaiting (D4), including the different-key case, the fallback-key rule and the departure route (pendingConfirmation); awaiting members kept out of Exercise, the Judge's o",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "CAUSE-B005": {
+      "description": "Command readers: implement-trd.md Step 8.2 passes exercised in the resume it composes (D18); verify-build.md --resume needs no change for it, because it passes the whole state file. verify-build.md fi",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "CAUSE-D001": {
+      "description": "Documentation: the contract's \"Cause keys\" section (D20), and its debugger brief reworded from per gap (\"one gap at a time\", \"Returns, per gap\") to per cause, with the named pre-checks run after the r",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "CAUSE-T001": {
+      "description": "Add test/smoke/scenarios/verify-inner-loop-causes.sh (D23); register it in test/smoke/run-smoke.sh (the LLM_OPT_IN_SCENARIOS line and a SCENARIO_TIMEOUT entry) and in test/smoke/README.md (the scenari",
+      "phase": 4,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/plan/targeted-inner-loop-by-shared-cause.investigation.md",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI installed; scaffold-project.sh present"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh installed; not needed by this feature"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}

@@ -62,8 +62,8 @@ After this change:
   keeps a cause map in the script, and picks one representative per cause deterministically:
   the first member in definition order that is not check-derived, else the first member.
 - Debug receives one gap per open cause (the representative's evidence plus the members'
-  statements). Causes are partitioned into Debug batches by shared implicated files; each batch
-  is one `app-debugger`, batches run in parallel. Debug returns, per cause, whether it addressed
+  statements). One `app-debugger` per iteration fixes every open cause (parallel Debug agents are
+  permitted by the PM's wording but not built; TRD D8). Debug returns, per cause, whether it addressed
   it and optionally a pre-check `{command, exitCode}`.
 - The iteration after a Debug pass exercises only: the representatives of causes Debug
   addressed whose pre-check did not fail, plus F-1's evidence-gap re-captures. Every other open
@@ -164,5 +164,5 @@ not absorbed: moving design checks to `/sync-design` — out of the roadmap's fe
 |----|----------|----------------|------------|
 | OQ-1 | Until item 3 lands, how are a closed cause's other members re-checked? | One confirmation pass over only those members at exit, outside the cap, no Debug after it (Decision 4). Item 3 replaces it. | |
 | OQ-2 | Does a resumed run or `/verify-build` fix round keep the previous invocation's targeting? | No: its first iteration walks the whole open set (Decision 6). | |
-| OQ-3 | How many Debug agents may run in parallel? | At most 4 per iteration, matching the fixtures pool size in `verification.md` §1a; batches beyond that run in sequence. | |
+| OQ-3 | How many Debug agents may run in parallel? | One per iteration (TRD D8, an engineering OWNER-CALL): the PM's instruction permits parallel Debug but does not require it, and one agent avoids two writers on one working tree. | |
 | OQ-4 | A representative that now fails under a different cause key: does its old cause close? | Yes: the old cause closes, its other members await the regression pass, and the representative joins the new cause (Decision 3). | |
