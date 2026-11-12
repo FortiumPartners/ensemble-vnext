@@ -6,7 +6,8 @@
  *
  * WHY A SCRIPT: "is this the same code" is deterministic, and a prompt would re-derive it
  * differently each run. One anchor commit is held in `<stateDir>/custody.json` (or, once the run
- * detaches at the merge, beside its detached record: see ship-record-dir.js); three links
+ * detaches at the merge, in `custody.json` on the records ref `refs/ensemble/records/<slug>`,
+ * stamped with the run's startedAt, or beside a legacy detached record: see ship-record-dir.js); three links
  * (pr-head, merge, deploy) are each compared to it.
  *
  * CODE EQUALITY (D9, D10): `git diff --no-renames --name-only -z <a> <b>`, each path classified,
@@ -235,43 +236,55 @@ function compare(a, b, trdRel, cwd, baseCommit) {
 // custody.json
 // ---------------------------------------------------------------------------
 
-// The anchor's file: tracked until the run detaches, then outside the tree (ship-record-dir.js).
-const custodyPath = recordDirs.custodyPath;
-
-function readCustody(stateDir) {
-  try {
-    const c = JSON.parse(fs.readFileSync(custodyPath(stateDir), 'utf8'));
-    if (c && c.anchor && typeof c.anchor.commit === 'string') return c;
-  } catch {
-    /* absent or unreadable: no anchor */
-  }
-  return null;
-}
+// Where the anchor lives is ship-record-dir.js's rule: the tracked file until the run detaches,
+// then the records ref (`custody.json` stamped with the run's startedAt) for a ref-held run, or the
+// detached folder file for a legacy one.
+const readCustody = (stateDir) => recordDirs.readCustody(stateDir);
 
 function writeCustody(stateDir, custody) {
-  const file = custodyPath(stateDir);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  implementState.save(file, custody);
+  const r = recordDirs.writeCustody(stateDir, custody);
+  // Losing a move of the anchor silently would let a later link compare against a stale commit.
+  if (!r.ok) throw new Error(`cannot write the custody anchor: ${r.reason || r.refError || 'unknown'}`);
+  return r;
 }
 
 /**
- * Copies the tracked custody.json out of the tree, beside the run's detached record, so the merged
- * branch is not left with a file that keeps changing. The tracked copy stays and is never written
- * again (deleting it would dirty the merged branch). No-op when the copy exists or nothing is tracked.
+ * Moves the tracked custody.json out of the tree's way at the merge, so the merged branch is not
+ * left with a file that keeps changing. For a run held on the records ref (the sequencer writes the
+ * run record there before calling this) the tracked anchor is written to the ref, stamped with
+ * `startedAt`; otherwise it is copied beside the run's detached record in the git directory. The
+ * tracked copy stays and is never written again (deleting it would dirty the merged branch). No-op
+ * when the anchor is already out or nothing is tracked.
  * @returns {{ok: boolean, action: 'detached'|'none', path: string|null, reason: string}}
  */
 function detach({ stateDir, startedAt }) {
   if (!startedAt) return { ok: false, action: 'none', path: null, reason: 'detach needs a startedAt' };
+  const trackedAnchor = () => {
+    try {
+      return JSON.parse(fs.readFileSync(path.join(stateDir, 'custody.json'), 'utf8'));
+    } catch {
+      return null;
+    }
+  };
+  if (recordDirs.refRun(stateDir, { startedAt })) {
+    const there = recordDirs.custodyPath(stateDir);
+    const held = recordDirs.readCustody(stateDir);
+    if (held && held.startedAt === startedAt) return { ok: true, action: 'none', path: there, reason: 'already detached' };
+    const tracked = trackedAnchor();
+    if (!tracked) return { ok: true, action: 'none', path: there, reason: 'no tracked anchor' };
+    const w = recordDirs.writeCustody(stateDir, tracked, { step: 'custody detach' });
+    if (!w.ok) return { ok: false, action: 'none', path: w.path, reason: `cannot write the custody anchor: ${w.reason || w.refError || 'unknown'}` };
+    return {
+      ok: true, action: 'detached', path: w.path,
+      reason: w.where === 'ref' ? 'custody anchor written to the records ref' : `custody anchor copied out of the tree (ref write failed: ${w.refError})`,
+    };
+  }
   const dir = recordDirs.recordDir(stateDir);
   if (!dir) return { ok: true, action: 'none', path: null, reason: 'not inside a git directory' };
   const dest = path.join(dir, `${recordDirs.safeName(startedAt)}.custody.json`);
   if (fs.existsSync(dest)) return { ok: true, action: 'none', path: dest, reason: 'already detached' };
-  let tracked;
-  try {
-    tracked = JSON.parse(fs.readFileSync(path.join(stateDir, 'custody.json'), 'utf8'));
-  } catch {
-    return { ok: true, action: 'none', path: dest, reason: 'no tracked anchor' };
-  }
+  const tracked = trackedAnchor();
+  if (!tracked) return { ok: true, action: 'none', path: dest, reason: 'no tracked anchor' };
   try {
     fs.mkdirSync(dir, { recursive: true });
     implementState.save(dest, tracked);

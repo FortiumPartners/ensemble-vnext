@@ -363,10 +363,17 @@ the setting.
 
 The gate commits and pushes nothing before the act it guards: the re-anchor in `custody.json`
 stays uncommitted, so the PR head stays the one CI checked and `--match-head-commit` matches.
-After the merge, `shipped.json` is written under the git directory (see the sequencer's detached
-record), not to the tracked state directory, and the custody anchor is copied beside it: every
-later reconcile or check reads and writes that copy (`ship-sequencer.js status` reports it as
-`custodyPath`).
+After the merge, `shipped.json` is written to the feature's records ref
+(`refs/ensemble/records/<feature>`), not to the tracked state directory, and the custody anchor
+(`custody.json`) goes beside it: every later reconcile or check reads and writes that copy, and the
+ref is pushed with it when there is an origin. `ship-sequencer.js status` reports them as
+`recordPath` and `custodyPath`, which then read `<ref>:shipped.json` and `<ref>:custody.json`; read
+them with `git show <that value>`. Only if a ref write fails does the old file under the git common
+directory (`<git common dir>/ensemble/ship/<feature>/`) and its pointer hold them, as before. Runs
+started before this change keep loading from that folder, after the ref. `ship-sequencer.js start`
+restores the state folder from the records ref itself, a plain start included; a plain start drops
+a restored `shipped.json` (and a restored `custody.json` stamped with an earlier run) and begins a
+fresh run. `shipped.json` also carries `work.forge_feature_id`.
 
 **Check** proves three links against the anchor:
 
@@ -388,9 +395,9 @@ returned reverify>' --reverified <path> --started-at <ISO time taken before /ver
 unchanged, when there is no record, the run is done, the custody value is not JSON or lacks
 `action` or an `ids` list, or `--started-at` is not a time. The block is reporting, not proof.
 
-After a merge the record, and so this block, lives in the detached file under the git directory
-that `ship-sequencer.js status` reports as `recordPath`; read it there, not in the tracked state
-directory.
+After a merge the record, and so this block, lives on the records ref as `<ref>:shipped.json`
+(or, if a ref write failed, in the old file under the git directory); `ship-sequencer.js status`
+reports it as `recordPath`; read it there with `git show`, not in the tracked state directory.
 
 | Field | Meaning |
 |---|---|

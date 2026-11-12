@@ -720,6 +720,84 @@ describe('detach: custody follows the run out of the tree', () => {
   });
 });
 
+describe('detach: a run held on the records ref', () => {
+  const dirs = require('./ship-record-dir');
+  const STARTED = '2026-11-08T10:00:00.000Z';
+  const REF = 'refs/ensemble/records/f';
+  const origPath = process.env.PATH;
+  const savedId = process.env.FORGE_FEATURE_ID;
+  beforeAll(() => {
+    // Pin identity to the branch rule so an ambient FORGE_FEATURE_ID cannot change the match.
+    delete process.env.FORGE_FEATURE_ID;
+    const bin = path.join(tmp(), 'bin-held');
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, 'gh'), '#!/bin/sh\necho "$STUB_PR_JSON"\n', { mode: 0o755 });
+    process.env.PATH = `${bin}${path.delimiter}${origPath}`;
+  });
+  afterAll(() => {
+    process.env.PATH = origPath;
+    delete process.env.STUB_PR_JSON;
+    if (savedId !== undefined) process.env.FORGE_FEATURE_ID = savedId;
+  });
+
+  /** Anchor A tracked, tracked shipped.json for run S, and a detached copy of it on the ref. */
+  function held() {
+    const s = setup();
+    const anchorA = s.commit('work', { 'src/a.js': 'a2' });
+    reconcile(s.args());
+    const run = { startedAt: STARTED, updatedAt: STARTED, detached: true, work: { kind: 'feature', id: 'f', branch: 'feature/x', forge_feature_id: null } };
+    fs.writeFileSync(path.join(s.stateDir, 'shipped.json'), JSON.stringify({ ...run, detached: false }));
+    const w = recordRef.writeFiles({
+      cwd: s.repo, slug: 'f', files: [{ rel: 'shipped.json', content: JSON.stringify(run) }],
+      identity: { branch: 'feature/x', forge_feature_id: null }, command: 'ship-build', step: 'merge',
+    });
+    expect(w.ok).toBe(true);
+    return { s, anchorA };
+  }
+  const onRef = (s, file) => JSON.parse(git(s.repo, 'show', `${REF}:${file}`));
+
+  test('detach writes the tracked anchor to the ref, stamped with startedAt; no folder file appears', () => {
+    const { s, anchorA } = held();
+    const r = custody.detach({ stateDir: s.stateDir, startedAt: STARTED });
+    expect(r).toMatchObject({ ok: true, action: 'detached', path: `${REF}:custody.json` });
+    expect(onRef(s, 'custody.json')).toMatchObject({ startedAt: STARTED, anchor: { commit: anchorA } });
+    expect(fs.existsSync(path.join(dirs.recordDir(s.stateDir)))).toBe(false);
+    expect(custody.detach({ stateDir: s.stateDir, startedAt: STARTED })).toMatchObject({ ok: true, action: 'none', reason: 'already detached' });
+  });
+
+  test('detach with no tracked anchor is a no-op', () => {
+    const { s } = held();
+    fs.rmSync(path.join(s.stateDir, 'custody.json'));
+    expect(custody.detach({ stateDir: s.stateDir, startedAt: STARTED })).toMatchObject({ ok: true, action: 'none', reason: 'no tracked anchor' });
+  });
+
+  test('merge and deploy links resolve the ref anchor while the tracked custody.json names another commit', () => {
+    const { s, anchorA } = held();
+    custody.detach({ stateDir: s.stateDir, startedAt: STARTED });
+    const b = s.commit('more', { 'src/b.js': 'b2' }); // commit B: shipped code differs from A
+    const tracked = s.readCustody();
+    fs.writeFileSync(path.join(s.stateDir, 'custody.json'), JSON.stringify({ ...tracked, anchor: { ...tracked.anchor, commit: b } }));
+
+    process.env.STUB_PR_JSON = JSON.stringify({ state: 'MERGED', baseRefName: 'main', headRefOid: anchorA });
+    const m = check(s.args({ link: 'merge', pr: 1, base: 'main' }));
+    expect(m).toMatchObject({ ok: true });
+    const d = check(s.args({ link: 'deploy', identityOutput: `build ${anchorA.slice(0, 8)}` }));
+    expect(d).toMatchObject({ ok: true, observed: anchorA });
+    // against B the same output would differ in shipped code, so the ref anchor is what was used
+    expect(check(s.args({ link: 'deploy', identityOutput: `build ${b.slice(0, 8)}` })).ok).toBe(false);
+  });
+
+  test('a reconcile move lands on the ref, not the tracked file', () => {
+    const { s, anchorA } = held();
+    custody.detach({ stateDir: s.stateDir, startedAt: STARTED });
+    const moved = s.commit('docs only', { 'README.md': 'r2' });
+    expect(reconcile(s.args({ trdPath: 'none' })).action).toBe('moved');
+    const stored = onRef(s, 'custody.json');
+    expect(stored).toMatchObject({ startedAt: STARTED, anchor: { commit: moved } });
+    expect(s.readCustody().anchor.commit).toBe(anchorA);
+  });
+});
+
 describe('check: pr-head link (stub gh)', () => {
   const origPath = process.env.PATH;
   beforeAll(() => {
