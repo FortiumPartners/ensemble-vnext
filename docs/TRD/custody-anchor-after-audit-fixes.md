@@ -17,7 +17,7 @@ before step 3 chains `/implement-trd <trd> --reconcile --chained`
 (`packages/core/commands/audit-build.md` "Writing the audit report" and "After the workflow
 returns", step 3). The close (step 4) copies that header value into `closed.json`
 `audit.auditedCommit`. When no `custody.json` exists, `custody.js reconcile` reads
-`auditedCommitOf(closed.json)` and anchors there with `source: 'audited'`
+`auditedCommitOf(closed.json)` (as built, generalised to `auditCommitOf(audit, field)`) and anchors there with `source: 'audited'`
 (`packages/core/lib/custody.js` `reconcile`, the `if (!custody)` block). The fix run's own
 commits then sit after the anchor, so the first ship's reconcile sees shipped differences and
 asks for re-verification (or moves with `no-success-definition`), re-proving work the audit
@@ -108,7 +108,7 @@ none
 
 ### FIX-001
 - **Touches:** `packages/core/lib/custody.js`, `.claude/lib/custody.js`, `packages/core/lib/custody.test.js`
-- **Reuse:** `auditedCommitOf(closedPath)` (custody.js ~244) reads `closed.json` defensively — generalise it to read a named field, or add a sibling reader; `resolveCommit` already resolves and refuses short/ambiguous/missing ids [read]. Tests reuse `setup()`, `s.commit`, `s.args()`, `s.readCustody()` from `custody.test.js` and mirror "a unique short audited id resolves…" [read]
+- **Reuse:** `auditedCommitOf(closedPath)` (custody.js ~244 before this change; as built it is `auditCommitOf(audit, field)` at ~248) reads `closed.json` defensively — generalise it to read a named field, or add a sibling reader; `resolveCommit` already resolves and refuses short/ambiguous/missing ids [read]. Tests reuse `setup()`, `s.commit`, `s.args()`, `s.readCustody()` from `custody.test.js` and mirror "a unique short audited id resolves…" [read]
 - **Replaces:** the single-source `if (audited)` branch in `reconcile`'s `if (!custody)` block [read]
 - **Follow:** every expected failure returns `refused` with a reason, never throws; header comment documents the rule; `.claude/lib/custody.js` is a byte copy of the package file (currently identical, `diff -q` clean) [ran]
 - **Careful:** `.trd-state/**` and the TRD are `ignored` paths, so the record-file commit after F must be under `.trd-state/` (where the test's stateDir lives) for the second reconcile to read `none`; check `stateDir` in `setup()` is inside the repo. Don't change the `pushed` path or the `setOnly` path's semantics [inferred]
@@ -117,11 +117,14 @@ none
 - **Touches:** `packages/core/commands/audit-build.md`, `.claude/commands/audit-build.md`, `packages/core/commands/verify-command-surface.test.js`, `docs/reference/other-commands.md`
 - **Reuse:** the `[review-pending]` row and its resolution (`implement-trd.md` §7.2 steps 1–3, `discovered.resolve`) to tell whether the review's edits are committed; step 4's existing close sentence (`"audit": { "verdict": …, "report": …, "auditedCommit": "<the header's value>" }`) — extend it in place; the RETURN line contract (`implement-trd.md` ~1066 and ~1074: success vs `RETURN → STUCK: <reason>`) [read]
 - **Replaces:** nothing; adds one field and its rule [read]
-- **Follow:** the describe block "audit-build owns the fix run and the round decision" (verify-command-surface.test.js ~785) uses `flat(read(...))` and regex `toMatch` on prose — add the new tests there; the test at ~878 asserts the vendored command copy is identical [read]
+- **Follow:** the describe block "audit-build owns the fix run and the round decision" (verify-command-surface.test.js ~785) uses `flat(read(...))` and regex `toMatch` on prose — add the new tests there; the test "the mirrors are byte-identical" (~878 before this change, ~909 as built) asserts the vendored command copy is identical [read]
 - **Careful:** existing tests pin exact phrasing of the close sentence and the `previous`/`record` lines that mention `auditedCommit` (lines ~829–836) — do not reword those; the re-audit's `previous.auditedCommit` must stay the ledger's audited commit, not the anchor [read]
 
 ## Could Not Verify
 
-- A live `/audit-build` then `/ship-build` on `github-live-test` showing the first custody check asks for no re-proof — deferred by the plan; it waits on this build.
-- The wait for the fix run's background review is prose the model follows; if the model closes before the review returns, the rule degrades to `anchorCommit: null` (today's behaviour), not to a wrong anchor — but that degradation is itself only checked by contract tests.
-- Whether the model running `/audit-build` reliably distinguishes a STUCK RETURN line from a successful one is prose-following, checked only by contract tests here.
+After `/audit-build` on 2026-11-11 (five of five verifiers reported; every FIX-001 and FIX-002 acceptance criterion found built and tested):
+
+- **No PRD exists for this change**, so the audit checked the delivered code against this TRD only. Whether the TRD itself fully and faithfully captures `ship-cost-reduction` roadmap item 1 was not checked by this audit.
+- A live `/audit-build` then `/ship-build` on `github-live-test` showing the first custody check asks for no re-proof — deferred by the plan; it waits on this build. Out of scope: the audit reads code and tests, it runs no live session.
+- The wait for the fix run's background review is prose the model follows; if the model closes before the review returns, the rule degrades to `anchorCommit: null` (today's behaviour), not to a wrong anchor — but that degradation is itself only checked by contract tests, which prove the prose says it, not that a model obeys it.
+- Whether the model running `/audit-build` reliably distinguishes a STUCK RETURN line from a successful one is prose-following, checked only by contract tests here; the same limit applies.
