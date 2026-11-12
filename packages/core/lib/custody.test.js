@@ -51,10 +51,8 @@ const DEFINITION = [
  * Returns the full sha when it has no letter at all.
  */
 function tokenOf(sha, n) {
-  for (let len = n; len < sha.length; len++) {
-    if (/[a-f]/.test(sha.slice(0, len))) return sha.slice(0, len);
-  }
-  return sha;
+  const i = sha.search(/[a-f]/);
+  return i < 0 ? sha : sha.slice(0, Math.max(n, i + 1));
 }
 
 describe('tokenOf', () => {
