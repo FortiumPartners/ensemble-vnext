@@ -171,7 +171,7 @@
       "phase": 5,
       "status": "success",
       "cycle_position": "complete",
-      "current_problem": "O8 partial: live run shows build-defect and not-checkable-here on the right criteria; the evidence-gap fixture was ruled build-defect by the live Judge",
+      "current_problem": null,
       "retry_count": 1,
       "files_changed": [
         "test/smoke/scenarios/verify-triage-kinds.sh",
@@ -214,6 +214,19 @@
       "started_at": "2026-11-12T05:55:45.152Z",
       "completed_at": "2026-11-12T06:03:05.163Z",
       "last_advanced": "2026-11-12T05:59:38.008Z"
+    },
+    "AMEND-003": {
+      "description": "Refile O8 passing fixture run under evidence/live/TRIAGE-T001 and its manifest",
+      "phase": 6,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/triage-unmet-results-by-kind/evidence/live/TRIAGE-T001/verification-report.md",
+        ".trd-state/triage-unmet-results-by-kind/evidence/live-manifest.jsonl"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-12T06:12:25.847Z"
     }
   },
   "checkpoints": [

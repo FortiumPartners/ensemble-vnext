@@ -417,6 +417,7 @@ which must stay byte-identical.
 | TRIAGE-T001 [LIVE] | Add `test/smoke/scenarios/verify-triage-kinds.sh`, following `test/smoke/lib/project.sh` and the existing `verify-fix.sh` scenario. It scaffolds a fixture slot (`verification.md` §1a's create command), seeds a feature with a success definition of three criteria (one the fixture's code breaks, one whose evidence the build never writes, and one needing an environment the fixture's own `verification.md` marks as not reachable from this host), and runs `/verify-build` headless. Run it once in the `fixtures` environment. | O8 (D19) | | TRIAGE-B002, TRIAGE-B005, TRIAGE-B006, TRIAGE-B008 | The fixture's `verification-report.md` shows one `build defect`, one `evidence gap` (in the definition-problems section) and one `not checkable here`. Its `verification-state.json` carries the three kinds. The report, state file and session transcript are saved under `.trd-state/triage-unmet-results-by-kind/evidence/live/TRIAGE-T001/` and listed in `live-manifest.jsonl`. The slot folder is removed afterwards. |
 | AMEND-001 | [test-gap] O5 / TRIAGE-B007 acceptance case 2: no test proves a preclassified criterion's setup target is left out of the setup check — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/workflows/verify-functional.js:1955 filters SETUP_TARGETS on the settled map; verify-functional.test.js:3776-3783 checks only the Exercise prompt and Judge open set; no test passes preclassified together with setupTargets.) | amendment — no objective recorded |  | None | [test-gap] O5 / TRIAGE-B007 acceptance case 2: no test proves a preclassified criterion's setup target is left out of the setup check no longer holds |
 | AMEND-002 | [defect] TRIAGE-B004 / D21: a not-met gap whose debugGaps item has no matching criteria entry is routed as a build defect but not logged, as D21 requires — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/workflows/verify-functional.js:2171 `const kind = entry ? entry.kind ?? 'build-defect' : 'build-defect'` has no log in the no-entry branch; only the null-cause case is logged, in reconcileJudgeKinds (~line 1437).) | amendment — no objective recorded |  | None | [defect] TRIAGE-B004 / D21: a not-met gap whose debugGaps item has no matching criteria entry is routed as a build defect but not logged, as D21 requires no longer holds |
+| AMEND-003 | [defect] O8's passing fixture run (13/13 assertions; report and state show build-defect, evidence-gap, not-checkable-here) is saved only under evidence/fs30/. TRIAGE-T001's acceptance requires it under evidence/live/TRIAGE-T001/ and listed in live-manifest.jsonl. Copy the fs30 report, state file and transcript there, add manifest rows describing the passing run, and clear implement.json TRIAGE-T00 — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: .trd-state/triage-unmet-results-by-kind/evidence/live/TRIAGE-T001/run.log ('ASSERTIONS: 11 passed, 2 failed'; line 8 FS-2 expected evidence-gap, got build-defect); evidence/fs30/run.log ('ASSERTIONS: 13 passed, 0 failed'); evidence/live-manifest.jsonl 3 rows, all 'FS-2 ... ruled build-defect by the live Judge'; implement.json:174 current_problem 'O8 partial...'; docs/TRD/triage-unmet-results-by-ki) | amendment — no objective recorded |  | None | [defect] O8's passing fixture run (13/13 assertions; report and state show build-defect, evidence-gap, not-checkable-here) is saved only under evidence/fs30/. TRIAGE-T001's acceptance requires it under evidence/live/TRIAGE-T001/ and listed in live-manifest.jsonl. Copy the fs30 report, state file and transcript there, add manifest rows describing the passing run, and clear implement.json TRIAGE-T00 no longer holds |
 
 ## 5. Execution Plan
 
@@ -680,6 +681,10 @@ an API or store: it changes the verification loop's own library, workflow and co
 - **Touches:** `packages/core/workflows/verify-functional.js`, `.claude/workflows/verify-functional.js` (mirror), `packages/core/workflows/verify-functional.test.js`
 - **Careful:** Touches filled in by the fix run from the audit's evidence; both AMEND tasks share these files, so they serialize.
 
+### AMEND-003
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
 ## Open Questions
 
 | ID | Question | What I assumed | Why it matters | If I'm wrong |
@@ -695,17 +700,22 @@ an API or store: it changes the verification loop's own library, workflow and co
 
 ## Could Not Verify
 
-State after `/audit-build` on 2026-11-11 (5 of 5 verifiers reported; source investigation
-`docs/plan/triage-unmet-results-by-kind.investigation.md` supplied; 12 requirements and 10
-tasks indexed). The two claims this section held after `/audit-trd` were checked against the
-saved live-run evidence and are removed. Both held in the run of the committed fixture scenario
-saved at `.trd-state/triage-unmet-results-by-kind/evidence/fs30/`: the seeded build defect FS-1
-was still open when the run ended (report Diagnosis: "3 open — 1 build defect, 1 evidence gap,
-1 not checkable here"), and the live Judge gave the intended causes (FS-1 `judged-failed`, FS-2
-`evidence-missing` settled as a definition problem, FS-3 `capability-absent`). Where that run's
-evidence is recorded, compared with where TRIAGE-T001 says it goes, is an audit finding, not an
-entry here.
+State after the `/audit-build` re-audit on 2026-11-11 (5 of 5 verifiers reported; source
+investigation `docs/plan/triage-unmet-results-by-kind.investigation.md` supplied; 14
+requirements and 12 tasks indexed). The re-audit was limited to whether the previous round's
+three defects are fixed and to the files changed since commit `c8aeb339`; it took no fresh
+sample. The two code defects from that round (the setup-check test for preclassified criteria,
+AMEND-001, and the D21 log for a gap with no criterion entry, AMEND-002) were checked and are
+fixed. The third, where the passing fixture run's evidence is recorded compared with where
+TRIAGE-T001 says it goes, is still open and is an audit finding, not an entry here.
+
+O8 itself was checked against the saved run of the committed fixture scenario at
+`.trd-state/triage-unmet-results-by-kind/evidence/fs30/`: its report's Diagnosis reads "3 open
+— 1 build defect, 1 evidence gap, 1 not checkable here", FS-2 sits in the "Evidence gaps
+(definition problems)" section, and its state file carries one each of `build-defect`,
+`evidence-gap` and `not-checkable-here`.
 
 | Claim | Why this audit did not check it | How to check it |
 |-------|---------------------------------|-----------------|
+| Every requirement other than O8, and every task other than TRIAGE-T001, AMEND-001 and AMEND-002, is still implemented and tested as the first `/audit-build` round found | Out of scope: this re-audit checked only the previous round's defects and the files changed since `c8aeb339`, and took no fresh sample | Run `/audit-build` without the re-audit limit |
 | A live Judge rules the committed fixture's three seeded criteria with the intended kinds on repeated runs, not only once | Only one run of the committed scenario exists (the two earlier runs used the fixture before its FS-2 was reworked, and in both the live Judge ruled FS-2 a build defect). The Judge is a live model, and an audit runs no model session | Run `test/smoke/scenarios/verify-triage-kinds.sh` several more times in the `fixtures` environment and count how often FS-2 comes back `evidence-gap` |
