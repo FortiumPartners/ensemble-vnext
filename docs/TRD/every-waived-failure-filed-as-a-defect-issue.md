@@ -19,7 +19,7 @@
 Today (after PR #125), under `Blocking: must-pass only`, a non-must-pass criterion still failing
 after the fix loop is returned as `nonBlocking` and written to `discovered.jsonl` as a
 `[non-blocking] <id>: <reason>` row (`recordNonBlockingFollowups`,
-`packages/core/lib/functional-verification.js:1582`). It reaches a tracker only if `ship.md` lists
+`packages/core/lib/functional-verification.js:1621`). It reaches a tracker only if `ship.md` lists
 the outward `file-followups` step, so a waived failure can end as a ledger row nobody sees.
 
 After this change:
@@ -110,7 +110,7 @@ written (applied here: rows-before-tracker, records write on refusal, a manual e
 "never twice", lazy requires, a rendered report line instead of a patch, reopening on a refused
 re-audit, non-atomic filing), not new scope, so the weight stands. One finding was rejected:
 sweeps cannot waive anything, because the workflow's waiver is active only with at least one
-must-pass criterion (`BLOCKING_ACTIVE`, `verify-functional.js:156`) and a sweep declares none.
+must-pass criterion (`BLOCKING_ACTIVE`, `verify-functional.js:168`) and a sweep declares none.
 
 absorbed:     `recordNonBlockingFollowups` re-records a row once it is resolved — the "never twice" objective cannot hold without it  [BLOCKS]
 not absorbed: #126, giving a criterion a priority or tolerance — owner queued it for later
@@ -150,6 +150,7 @@ None apply — this is library, command-prose and template work with no UI, no r
 | FIX-005 | `file-followups` files a `[non-blocking]` row only through `waived-defects.js gate` and never refiles a row with a recorded URL; `close-issue` gains the sentence that a waived-defect issue is never closed by the feature that waived it, only when a later feature cites it as its source | O3, O4 | FIX-001 | `npx jest packages/core/contracts/ship-primitives.test.js packages/core/contracts/ship-tracker.test.js` passes, with new cases asserting both sentences in the contracts |
 | FIX-006 | Owner-facing text: `verification.md` §5c template (both copies), `/verification-setup` SKILL.md question sentence, `docs/reference/verification.md`, `contracts/functional-verification.md`, and the `Must pass` guidance in `plan.md`, `create-trd.md`, `trd-authoring.md` say a waived failure is filed as a defect issue and that `must-pass only` needs a declared tracker | O5 | FIX-002 | `npx jest packages/skills/verification-setup/__tests__/skill-md.test.js packages/core/commands` passes; `grep -rn "listed and filed as" packages/core .claude` returns nothing AND `grep -rln "defect issue" ` finds every one of the FIX-006 Touches files; the §5c template says `must-pass only` needs a declared tracker; `.claude/` mirrors byte-identical |
 | FIX-007 | [LIVE] Headless fixture run: a scaffolded fixture slot with `Blocking: must-pass only`, a `## Issue Tracker` naming a GitHub project, a local stub `gh` on PATH that logs calls, and a feature ledger with one `[non-blocking]` row; run `/close-feature` headless and capture that the issue was filed before `closed.json` was written | O1 | FIX-004 | Evidence under `.trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/live/`: the stub's call log shows one `issue create --label defect` for the row; the ledger row carries a `filed <url>` marker; `closed.json` exists and its mtime is after the stub's log entry; a second run, on a FRESH feature with its own fresh waived row and the stub set to fail `issue create`, shows no `closed.json` and a STUCK banner naming the row |
+| AMEND-001 | [test-gap] Both close commands say STATE lists each filed waived-defect issue URL with its criterion; no test asserts it — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/commands/close-feature.md:74 and packages/core/commands/audit-build.md:337 carry the sentence; waived-defects-close-prose.test.js has no STATE assertion) | amendment — no objective recorded | None | [test-gap] Both close commands say STATE lists each filed waived-defect issue URL with its criterion; no test asserts it no longer holds |
 
 ## Task Grounding
 
@@ -157,15 +158,15 @@ None apply — this is library, command-prose and template work with no UI, no r
 - **Touches:** `packages/core/lib/waived-defects.js`, `packages/core/lib/waived-defects.test.js`, `.claude/lib/waived-defects.js`
 - **Reuse:** `discovered.readAll`, `discovered.latestPerRef`, `discovered.resolve` (`packages/core/lib/discovered.js:86,585,609`) [read]; `readDefinitionRows` (`functional-verification.js:847`, export it if not exported) for the criterion statement from `<stateDir>/success-definition.md`; `<stateDir>/verification-state.json` `criteria[]` (`id`, `status`, `reason`, `artifact`) for failure and evidence [ran]; `## Issue Tracker` format: `Tracker:` (`github`|`linear`|`jira`|`none`) and `Project:` lines (`packages/core/templates/stack.md.template`) [read]
 - **Replaces:** nothing — no library parses `## Issue Tracker` today (only contract prose) [ran]
-- **Follow:** spawnSync with array args (CLAUDE.md "Command Injection Prevention"); the body goes through `--body-file` (a temp file), never `--body` inline; the CLI prints one JSON line and exits 0 on a refusal (the caller reads `ok`), non-zero only on bad usage; a waived row is one whose summary starts `[non-blocking] ` (`functional-verification.js:1605`); a recorded URL is the `filed <url>` summary of the resolve marker naming it — read the raw ledger lines to get the marker summary, since `readAll` returns only `resolvedAt`
+- **Follow:** spawnSync with array args (CLAUDE.md "Command Injection Prevention"); the body goes through `--body-file` (a temp file), never `--body` inline; the CLI prints one JSON line and exits 0 on a refusal (the caller reads `ok`), non-zero only on bad usage; a waived row is one whose summary starts `[non-blocking] ` (`functional-verification.js:1643,1657`); a recorded URL is the `filed <url>` summary of the resolve marker naming it — read the raw ledger lines to get the marker summary, since `readAll` returns only `resolvedAt`
 - **Careful:** never `gh issue create` to probe (`ship-primitive-file-followups.md` "Never create an issue to find out whether the tracker works"); reachability is `gh repo view <project> --json name` only; tests inject the runner and never touch the network
 
 ### FIX-002
 - **Touches:** `packages/core/lib/functional-verification.js`, `packages/core/lib/functional-verification.test.js`, `.claude/lib/functional-verification.js`
-- **Reuse:** `recordNonBlockingFollowups` (`:1582`) [read]; `read-blocking-policy` CLI (`:3195`) [read]; `waived-defects.js` `readTracker` / `trackerReachable` from FIX-001; report line `**Not blocking**` (`:1780`) [read]
+- **Reuse:** `recordNonBlockingFollowups` (`:1621`) [read]; `read-blocking-policy` CLI (`:3248`) [read]; `waived-defects.js` `parseTracker` / `readTracker` from FIX-001 (reachability is the `gh repo view` probe inside `gate`, `waived-defects.js:236`, and `applyTrackerGate`, `functional-verification.js:1197`); report line `**Not blocking**` (`:1833`) [read]
 - **Replaces:** `recordNonBlockingFollowups`'s `readAll(stateDir, { open: true })` read — the open-only read is what re-records a filed row [read]
 - **Follow:** `readBlockingPolicy` stays pure (content in, result out); the downgrade lives in the CLI branch so the pure function's existing tests are unchanged; existing output keys keep their meaning, new keys (`declared`, `waiverRefused`) appear only on a downgrade
-- **Careful:** the existing `readBlockingPolicy` / CLI / FIX-003 tests (`functional-verification.test.js:2475,2535,5294`) must still pass unchanged except for the "Not blocking" wording
+- **Careful:** the existing `readBlockingPolicy` / CLI / FIX-003 tests (`functional-verification.test.js:2475,2535,5366`) must still pass unchanged except for the "Not blocking" wording
 
 ### FIX-003
 - **Touches:** `packages/core/commands/implement-trd.md`, `packages/core/commands/verify-build.md`, `packages/core/commands/verify-command-surface.test.js`, `.claude/commands/implement-trd.md`, `.claude/commands/verify-build.md`, `packages/core/workflows/verify-functional.js`, `packages/core/workflows/verify-functional.test.js`, `.claude/workflows/verify-functional.js`
@@ -202,7 +203,23 @@ None apply — this is library, command-prose and template work with no UI, no r
 - **Follow:** `verification.md` §1 `fixtures` row and §1a (one slot, `slot-1`); destroy the slot after capture
 - **Careful:** the stub `gh` must be first on PATH inside the headless session; nothing may reach real GitHub
 
+### AMEND-001
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
 ## Could Not Verify
 
-- Reachability for Linear and Jira is assumed from the declaration alone; a declared but unreachable Linear/Jira tracker is caught only when the close tries to file, which then refuses to close (the safe direction).
-- A real GitHub issue is not filed in any test: the fixture uses a stub `gh`. The `gh issue create` / `gh label` argument shapes are checked against `gh --help`, not against a live repo.
+After `/audit-build` on 2026-11-12. Items this audit confirmed as built and tested are removed;
+its findings are in the audit readout, not here.
+
+- **No PRD was checked.** This TRD has no source PRD (it comes from an owner ruling and a `/plan`
+  instruction), so the audit checked only TRD-to-code traceability. Whether the objectives
+  faithfully capture the owner's ruling, and whether anything in it was left out, was not checked.
+- **Linear and Jira reachability is assumed from the declaration alone.** No read-only probe
+  exists without their skills (Non-Goals). A declared but unreachable Linear or Jira tracker is
+  caught only when the close tries to file the issue, and then the close refuses (the safe
+  direction). Out of scope: no test or fixture exercises a Linear or Jira tracker.
+- **No real GitHub issue was filed.** The unit tests and the headless fixture run (FIX-007,
+  `evidence/live/FIX-007/`) use a stub `gh`. The `gh issue create` and `gh label` argument shapes
+  were checked against `gh --help`, not against a live repo. Out of scope: `github-live-test` is
+  authorized only for `/ship-build` merge-order behaviour (`verification.md` §1).

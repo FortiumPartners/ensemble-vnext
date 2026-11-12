@@ -71,6 +71,40 @@ describe('waived-defect close gate prose', () => {
     expect(flat(closeFeature)).toContain('**Already closed** (`.trd-state/<feature>/closed.json` exists): change nothing');
   });
 
+  // Owner-facing promises that the readout shows each filed issue URL. These are the sentences an
+  // owner relies on to see what was filed, so each is pinned within its own section.
+  test.each([
+    ['close-feature', closeFeature.slice(closeFeature.indexOf('## The close step'))],
+    ['audit-build', auditClose],
+  ])('%s close step says STATE lists each filed issue URL with its criterion', (_n, t) => {
+    expect(flat(t)).toMatch(/STATE lists each (`filed` |filed )?(issue )?URL with its criterion/);
+  });
+
+  test.each(['implement-trd', 'verify-build'])(
+    '%s Not blocking readout line says each is filed as a defect issue when the feature closes',
+    (n) => {
+      const t = flat(read(`packages/core/commands/${n}.md`));
+      const at = t.indexOf('Not blocking: {n} criteria failed but are not must-pass');
+      expect(at).toBeGreaterThan(-1);
+      expect(t.slice(at, at + 500)).toMatch(
+        /each is filed as a defect issue in the project's tracker when the feature closes/
+      );
+    }
+  );
+
+  test('ship-build STATE lists each filed follow-up one by one with its issue URL, never only a count', () => {
+    const f = flat(read('packages/core/commands/ship-build.md'));
+    const at = f.indexOf('Filed follow-ups are listed one by one');
+    expect(at).toBeGreaterThan(-1);
+    const para = f.slice(at, at + 700);
+    expect(para).toMatch(/its issue URL/);
+    expect(para).toMatch(/A count \([^)]*\) may precede them, never replace them/);
+  });
+
+  test.each(['implement-trd', 'verify-build', 'ship-build'])('.claude mirror of %s is byte-identical', (n) => {
+    expect(read(`.claude/commands/${n}.md`)).toBe(read(`packages/core/commands/${n}.md`));
+  });
+
   test.each(['audit-build', 'close-feature'])('.claude mirror of %s is byte-identical', (n) => {
     expect(read(`.claude/commands/${n}.md`)).toBe(read(`packages/core/commands/${n}.md`));
   });
