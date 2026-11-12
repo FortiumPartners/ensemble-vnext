@@ -52,3 +52,4 @@ ISSUES
 NEXT
 1. Ship it:
    /ship-build docs/TRD/cutover-for-existing-projects.md
+2. Merge pull request #124 (https://github.com/FortiumPartners/ensemble-vnext/pull/124) once you have reviewed it.
