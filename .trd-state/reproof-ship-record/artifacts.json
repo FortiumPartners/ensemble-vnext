@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/reproof-ship-record.md",
+    "url": "https://claude.ai/artifact/4dtaNQ7i6946nMoh724Uqn",
+    "updated_at": "2026-11-12T01:03:37.140Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/reproof-ship-record/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-12T01:29:22.591Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/reproof-ship-record/verification-report.md",
+    "url": "https://claude.ai/artifact/Rrr2gMzuyQpnr32BpJ6orU",
+    "updated_at": "2026-11-12T01:41:18.690Z",
+    "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/reproof-ship-record/audit-build-report.md",
+    "url": "https://claude.ai/artifact/EvZpqnbzB5qhPiqBNAhCeZ",
+    "updated_at": "2026-11-12T01:48:05.785Z",
+    "command": "/audit-build"
+  }
+}

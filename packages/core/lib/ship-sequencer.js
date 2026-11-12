@@ -29,7 +29,9 @@
  * that failed after its outward act landed still moves the record out of the tree.
  *
  * STATE: `<stateDir>/shipped.json` (TRD 3.4). This module is its only writer. It holds the
- * step snapshot taken at `start`, so a resume never re-reads `ship.md`.
+ * step snapshot taken at `start`, so a resume never re-reads `ship.md`, and a `reproof` block
+ * (`{count, runs[]}`, empty at `start`) that `reproof` appends to: one entry per custody re-proof,
+ * outside the step cursor.
  * Once a result listed in a contract's `detach-on` (or data under `detach-on-data`) is recorded,
  * the record is written to `<git common dir>/ensemble/ship/<state dir name>/<startedAt>.json`
  * instead (an untracked file that survives the branch being deleted), the tracked file is never
@@ -53,6 +55,9 @@
  *          kind, id and branch, if any)
  *   next   --state-dir <dir> [--contracts <dir>] [--autonomy <file>] [--settings <file>]
  *   record --state-dir <dir> --step <id> --result <word> [--data '<json>'] [--reason <text>]
+ *   reproof --state-dir <dir> --custody '<reconcile JSON line>' --reverified <file> --started-at <ISO time>
+ *          [--outcome <word>]
+ *          (append one re-proof entry to the record's `reproof` block; see recordReproof)
  *   status --state-dir <dir>
  *
  * `next` returns `{action: 'run', step}` (a step handed out again after `wait` or `stop` is
@@ -619,6 +624,7 @@ function start({ stateDir, policyPath, fallback, work, contractsDir, resume = fa
     startedAt: t,
     updatedAt: t,
     shippedAt: null,
+    reproof: { count: 0, runs: [] },
   };
   saveState(stateDir, state);
   recordDirs.writePointer(stateDir, { startedAt: t, work: { kind: work.kind, id: work.id, branch: work.branch || null } });
@@ -825,6 +831,83 @@ function record(stateDir, { step, result, data, reason }, opts = {}) {
   return { ok: true, recordPath: recordPathOf(stateDir, state), status: state.status, shipped: state.shipped, ...(state.reason ? { reason: state.reason } : {}), ...(custodyDetach ? { custodyDetach } : {}) };
 }
 
+/**
+ * Append one re-proof entry to the record's `reproof` block (created if the record predates it).
+ * A re-proof happens inside a step, not as one, so this never touches the cursor or results.
+ * Everything is computed here from the raw reconcile line and the reverified state file:
+ * criteria = the line's `ids`; met = those with status `met` in the file (a missing, unreadable
+ * or older-than-startedAt file counts as absent, so `[]`); classes = the distinct custody classes
+ * of `differing`, plus `base` when `excused` is non-empty. The step fields name whichever step is
+ * handed out (null when none): the record is reporting, not proof.
+ * @returns {{ok: true, count: number, entry: object} | {ok: false, reason: string}}
+ */
+function recordReproof(stateDir, { custody, reverifiedPath, startedAt, outcome } = {}) {
+  const loaded = loadState(stateDir);
+  if (loaded.error) return { ok: false, reason: loaded.error };
+  const { state } = loaded;
+  if (state.status === 'done') return { ok: false, reason: 'the run is already done' };
+  let line;
+  try {
+    line = typeof custody === 'string' ? JSON.parse(custody) : custody;
+  } catch {
+    return { ok: false, reason: 'custody is not valid JSON' };
+  }
+  if (!line || typeof line !== 'object' || typeof line.action !== 'string' || !Array.isArray(line.ids)) {
+    return { ok: false, reason: 'custody needs an action and an ids array' };
+  }
+  const startMs = Date.parse(startedAt);
+  if (!startedAt || Number.isNaN(startMs)) return { ok: false, reason: 'started-at is not a parseable time' };
+
+  // The reverified file counts only if written since the run began: a leftover from an earlier
+  // re-proof (this run wrote none) must not be read as this run's result.
+  let reverified = null;
+  try {
+    if (reverifiedPath && fs.statSync(reverifiedPath).mtimeMs >= startMs) {
+      reverified = JSON.parse(fs.readFileSync(reverifiedPath, 'utf8'));
+    }
+  } catch {
+    reverified = null;
+  }
+  // Last entry per id wins, as custody.js reconcile reads the same file, so the two never disagree.
+  const judged = new Map(
+    (reverified && Array.isArray(reverified.criteria) ? reverified.criteria : []).filter((c) => c).map((c) => [c.id, c]),
+  );
+  const met = line.ids
+    .map((id) => judged.get(id))
+    .filter((c) => c && c.status === 'met')
+    .map((c) => ({ id: c.id, retried: c.retried === true }));
+
+  // Lazy: custody.js is only needed here, as in record().
+  const { classifyPath } = require('./custody');
+  const trd = state.work && state.work.trd;
+  const trdRel = trd && trd !== 'none' ? path.relative(process.cwd(), path.resolve(trd)).split(path.sep).join('/') : null;
+  const differing = Array.isArray(line.differing) ? line.differing : [];
+  const excused = Array.isArray(line.excused) ? line.excused : [];
+  const classes = [...new Set(differing.map((p) => classifyPath(p, trdRel)))];
+  if (excused.length) classes.push('base');
+
+  const h = state.handedOut;
+  const handed = h ? locate(state, h.step) : null;
+  const ended = now();
+  const entry = {
+    step: h ? h.step : null,
+    primitive: handed ? handed.step.primitive : null,
+    pass: h ? h.pass : null,
+    criteria: line.ids,
+    met,
+    outcome: outcome || (reverified && reverified.outcome) || null,
+    custody: { action: line.action, classes, differing, excused },
+    startedAt,
+    endedAt: ended,
+    durationSeconds: Math.max(0, Math.round((Date.parse(ended) - startMs) / 1000)),
+  };
+  if (!state.reproof) state.reproof = { count: 0, runs: [] };
+  state.reproof.runs.push(entry);
+  state.reproof.count = state.reproof.runs.length;
+  saveState(stateDir, state);
+  return { ok: true, count: state.reproof.count, entry };
+}
+
 function status(stateDir) {
   const loaded = loadState(stateDir);
   if (loaded.error) return { status: null, error: loaded.error };
@@ -870,7 +953,7 @@ function argValue(argv, flag) {
 }
 
 const USAGE =
-  'usage: ship-sequencer.js parse --policy <file> | authorization --policy <file> | start --state-dir <d> --policy <f> --fallback <s> --kind <k> --id <id> [--trd <p>] [--branch <b>] | next --state-dir <d> | record --state-dir <d> --step <id> --result <r> [--data <json>] [--reason <t>] | status --state-dir <d>   (all: [--contracts <dir>] [--autonomy <f>] [--settings <f>])\n';
+  'usage: ship-sequencer.js parse --policy <file> | authorization --policy <file> | start --state-dir <d> --policy <f> --fallback <s> --kind <k> --id <id> [--trd <p>] [--branch <b>] | next --state-dir <d> | record --state-dir <d> --step <id> --result <r> [--data <json>] [--reason <t>] | reproof --state-dir <d> --custody <json> --reverified <f> --started-at <iso> [--outcome <w>] | status --state-dir <d>   (all: [--contracts <dir>] [--autonomy <f>] [--settings <f>])\n';
 
 function main(argv) {
   const [cmd] = argv;
@@ -925,6 +1008,17 @@ function main(argv) {
     emit(record(stateDir, { step: arg('--step'), result: arg('--result'), data, reason: arg('--reason') }, opts));
     return 0;
   }
+  // A missing --custody or --started-at is refused as ok:false (never a usage exit): the gate
+  // treats a refused re-proof record as a readout line, not a stop.
+  if (cmd === 'reproof' && stateDir) {
+    emit(recordReproof(stateDir, {
+      custody: arg('--custody'),
+      reverifiedPath: arg('--reverified'),
+      startedAt: arg('--started-at'),
+      outcome: arg('--outcome'),
+    }));
+    return 0;
+  }
   if (cmd === 'status' && stateDir) {
     emit(status(stateDir));
     return 0;
@@ -943,5 +1037,6 @@ module.exports = {
   start,
   next,
   record,
+  recordReproof,
   status,
 };
