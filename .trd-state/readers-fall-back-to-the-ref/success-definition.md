@@ -3,7 +3,7 @@
 **Source**: docs/TRD/readers-fall-back-to-the-ref.md §Intended Change
 **Source kind**: intended-change
 **Derived**: 2026-11-12T10:49:49Z
-**Criteria**: 16
+**Criteria**: 19
 
 Common setup for every "ref present" row (After item 1): a fixture repo whose
 `.trd-state/<slug>/` holds `implement.json`, `closed.json`, `custody.json`, `shipped.json` and
@@ -31,16 +31,14 @@ command on the same fixture with the folder still present, or with `main`'s copy
 | FS-14 | A hook run in a repo with no local `refs/ensemble/records/<slug>` and an `origin` that holds one does not fetch it: the local ref is still absent after the hook | §Intended Change, After item 3 | For each of `session-context.js`, `status.js`, `precompact.js` and `router.py`: `git show-ref` output before and after the hook run, with no `refs/ensemble/records/<slug>` line after, plus a `GIT_TRACE=1` log of the run containing no `fetch` | [read] | locator | | O5 |
 | FS-15 | A ref whose `record.json` names a different `forge_feature_id` is never used: the reader answers "no record" | §Intended Change, After item 4 ("other `forge_feature_id`") | With the folder deleted and the ref's `record.json` edited to another `forge_feature_id`: `load` output (ENOENT) and `artifacts.js get` output (empty), each matching the no-folder, no-ref answers from FS-10 and FS-11 | [read] | locator | | |
 | FS-16 | A ref whose `record.json` carries no `forge_feature_id` and names a different branch is never used: the reader answers "no record" | §Intended Change, After item 4 ("no id and a different branch") | With the folder deleted and the ref's `record.json` stripped of `forge_feature_id` and naming another branch: `load` output (ENOENT) and `artifacts.js get` output (empty), each matching FS-10 and FS-11 | [read] | locator | | |
+| FS-17 | In `/implement-trd` (before the closed-feature guard's `closed.json` check), `/amend`, `/task`, `/verify-build`, `/refine-verification` and `/ship-build`, `record-ref.js ensure --state-dir .trd-state/<feature>` precedes the first `.trd-state/<feature>/` read; `/plan` reads its stored link only through `artifacts.js get` (proven by FS-4) | Objectives O3 (TRD:13); FIX-009 acceptance (TRD:196); ruling R1 of verification-plan.md (OWNER-CALL by the owner's delegate, not yet owner-reviewed) | A passing run of `packages/core/commands/records-ref-readers-prose.test.js`; per command file, the line number of `ensure` against the line number of the first `.trd-state/<feature>/` read, `ensure` lower; `cmp` showing each `.claude/commands/` copy byte-identical to its `packages/core/commands/` source | [read] | locator | | O3 |
+| FS-18 | On the fixture with the folder deleted and the ref holding it, `node .claude/lib/record-ref.js ensure --state-dir .trd-state/<slug>` prints `restored` and the folder comes back holding the ref's files; a second call prints `present` | Objectives O3 (TRD:13); FIX-009 acceptance (TRD:196); ruling R1 of verification-plan.md (OWNER-CALL by the owner's delegate, not yet owner-reviewed) | Stdout of both calls, and an empty `diff -r` between the restored folder and a snapshot taken before deletion | [read] | locator | | O3 |
+| FS-19 | On the fixture with neither the folder nor the ref, `node .claude/lib/record-ref.js ensure --state-dir .trd-state/<slug>` prints `no-record` and creates no folder | Objectives O3 (TRD:13); FIX-009 acceptance (TRD:196); ruling R1 of verification-plan.md (OWNER-CALL by the owner's delegate, not yet owner-reviewed) | Stdout and exit code of the call, plus `ls` showing no `.trd-state/<slug>/` | [read] | locator | | O3 |
 
 ## Must-pass objectives this source does not fully reach
 
 Recorded so the run reports the gap rather than reading it as covered.
 
-- **O3, the resume path of /implement-trd, /amend, /plan, /task, /verify-build,
-  /refine-verification and /ship-build: uncovered.** The source names
-  only `ship-sequencer.js start --resume` (FS-3) and the library call `implement-state.load`
-  (FS-1). It says nothing about the seven commands' resume paths, so no criterion was written
-  for them, and marking FS-3 alone as O3 would read seven commands as proven by one.
 - **O1, "else fetched from origin": not covered by any row.** The source exercises only a
   local ref written by `record-ref.js write`. No line asks a command reader to fetch the ref
   from `origin`, so no criterion tests that path. FS-1 to FS-8 prove only the local-ref half
