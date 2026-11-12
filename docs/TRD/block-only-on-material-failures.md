@@ -242,10 +242,14 @@ design handoff and no designed screen-to-screen journey.
 - **Touches:** `test/smoke/scenarios/verify-blocking-policy.sh`, `test/smoke/run-smoke.sh`, `test/smoke/README.md`
 - **Reuse:** `test/smoke/scenarios/verify-regression-pass.sh` and `verify-triage-kinds.sh` (pre-seeded success definition, fixture TRD, one live `/verify-build`, state-file assertions, named INCONCLUSIVE), `test/smoke/lib/project.sh` (`smoke_scaffold_project`, `smoke_claude`) [read]
 - **Replaces:** nothing
-- **Follow:** registration in `LLM_OPT_IN_SCENARIOS` and `SCENARIO_TIMEOUT` (`run-smoke.sh` ~:138-197) and the README table row and tree line, as `verify-regression-pass` is registered [read]
+- **Follow:** registration in `LLM_OPT_IN_SCENARIOS` and `SCENARIO_TIMEOUT` (`run-smoke.sh` ~:138-148 and :202) and the README table row and tree line, as `verify-regression-pass` is registered [read]
 - **Careful:** to keep the non-must-pass defect open past Debug, make its fix out of the debugger's reach in a way the fixture states plainly (for example a vendored file the fixture's `verification-notes.md` marks read-only); a Debug that fixes it anyway is INCONCLUSIVE, not a failure. Write the policy into the fixture's own `verification.md`, never this repository's
 
 ## Could Not Verify
 
-- FIX-010 depends on a live Debug leaving the non-must-pass defect open; a Debug that fixes it gives INCONCLUSIVE, not proof.
-- `recommendCoverageFloor` (~:1132) learns from runs that ended `satisfied`; a converted run that still carries `not_met` criteria lowers the share it learns from, so `/verification-setup` may recommend a lower floor in a project that sets `must-pass only`. Reported, not changed here.
+State after `/audit-build` (2026-11-12). Five of five verifiers reported. Two gaps it found are in its readout, not here: the live fixture scenario for O9 has never been run, and an unreadable `verification.md` crashes `read-blocking-policy` rather than reading as `all` (O2).
+
+- **Validation against product requirements was not checked.** This TRD has no PRD; its source is the PM's instruction of 2026-11-12 (issue #113), which was not supplied to the audit. Only traceability between this TRD and the delivered code was checked, so whether the TRD itself omits or distorts something the instruction asked for is unchecked.
+- **Promises stated only in prose were not traced.** The audit indexed requirements from Objectives, the Master Task List, Task Grounding, Open Questions and this section; a checkable promise stated only in Intended Change, Decision or Non-Goals was not traced to code or tests.
+- **FIX-010 (the live fixture scenario) can come back inconclusive.** It relies on a live Debug leaving the non-must-pass defect open; a Debug that fixes it gives INCONCLUSIVE, not proof. Not checked by the audit, because the scenario has not been run yet.
+- **The coverage-floor recommendation may drift lower under `must-pass only`.** `recommendCoverageFloor` (`packages/core/lib/functional-verification.js` ~:1196) learns from runs that ended `satisfied`; a converted run that still carries `not_met` criteria lowers the share it learns from, so `/verification-setup` may recommend a lower floor in such a project. Reported, not changed here; out of the audit's scope because no objective covers it.
