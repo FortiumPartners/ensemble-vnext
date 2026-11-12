@@ -49,6 +49,9 @@ const KINDS = ['bug', 'scope-conflict', 'stale-grounding', 'gap', 'risk'];
 // A verification-outcome record (a functional-verification criterion, recorded through this
 // same channel) carries a `status` alongside the usual fields. Only these ever promote --
 // `met` and `not_verifiable` are deliberately absent below.
+// Ranking classes for follow-up filing order (see followup-rank.js, which re-exports this).
+// Lives here so `record` can validate `rankClass` without a circular require.
+const RANK_CLASSES = ['product', 'host', 'tooling', 'paperwork', 'not-verifiable'];
 const VERIFICATION_STATUSES = ['met', 'not_met', 'not_verifiable', 'unbuilt', 'stalled'];
 const PROMOTABLE_STATUSES = ['not_met', 'stalled', 'unbuilt'];
 
@@ -514,6 +517,8 @@ function record(stateDir, entry, nowIso) {
   }
   if (entry.evidence) row.evidence = String(entry.evidence).slice(0, 400);
   if (VERIFICATION_STATUSES.includes(entry.status)) row.status = entry.status;
+  // Optional follow-up ranking class; short and fixed, so the ladder never needs to trim it.
+  if (RANK_CLASSES.includes(entry.rankClass)) row.rankClass = entry.rankClass;
   // D5: the criterion id (or `plan:<blocker id>`) this record is an observation OF. Optional
   // -- an ordinary bug/gap discovery carries none of this. Added here, before the truncation
   // ladder below, so both fields count toward MAX_LINE_BYTES like `file`/`files` do; like
@@ -661,4 +666,4 @@ function render(stateDir, { phase = null } = {}) {
 module.exports = {
   promotable,
   promoteToTrd, record, resolve, readAll, render, ledgerPath, KINDS, MAX_LINE_BYTES,
-  VERIFICATION_STATUSES, PROMOTABLE_STATUSES };
+  VERIFICATION_STATUSES, PROMOTABLE_STATUSES, RANK_CLASSES };

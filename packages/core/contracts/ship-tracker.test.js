@@ -127,7 +127,7 @@ describe('no tracker declared: close-issue and file-followups degrade, they do n
     // The no-tracker path is not a separate result: the primitive returns `filed` with
     // `filed: []` and the unfiled rows in `data.issues`.
     expect(contracts.get('file-followups').results).toEqual(['filed']);
-    expect(flat(fileFollowups)).toMatch(/`filed`, with `data`: `\{ filed: \[\{ summary, url \}\], unfiled: \[row summaries\], issues \}`/);
+    expect(flat(fileFollowups)).toMatch(/`filed`, with `data`: `\{ filed: \[\{ summary, url, class \}\], unfiled: \[row summaries, in rank order\], issues \}`/);
   });
 
   test('the sequencer treats a recorded `none` from close-issue as non-blocking: the run completes', () => {

@@ -24,6 +24,7 @@ const CUSTODY = path.join(__dirname, 'custody.js');
 const MERGE_UP = path.join(__dirname, 'merge-up.js');
 const RECORD_FILES = path.join(__dirname, 'record-files.js');
 const LIVE_EVIDENCE = path.join(__dirname, 'live-evidence.js');
+const RANK = path.join(__dirname, 'followup-rank.js');
 const AUTH_SENTENCE = 'A step listed in `.claude/rules/ship.md` is the owner\'s standing authorization for that act.';
 
 const TRD = 'docs/TRD/f.md';
@@ -298,6 +299,63 @@ describe('a finding filed once is not filed on a re-run', () => {
     expect(discovered.resolve(dir, open1[0], 'filed https://example.test/issues/1')).toBe(true);
     // The re-run reads the same ledger and finds nothing left to file.
     expect(discovered.readAll(dir, { open: true })).toHaveLength(0);
+  });
+});
+
+describe('file-followups files product items first (issue #113)', () => {
+  const openRows = (...dirs) => {
+    const r = spawnSync('node', [RANK, 'open', ...dirs.flatMap((d) => ['--state-dir', d])], { encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    return JSON.parse(r.stdout);
+  };
+  const rec = (dir, summary, extra = {}) => discovered.record(dir, { kind: 'gap', foundBy: 'FIX-003', phase: 1, summary, file: 'src/a.js', evidence: 'e', ...extra });
+
+  test('a mixed work + task ledger is filed and reported product, host, tooling, paperwork, not-verifiable', () => {
+    const s = setup();
+    const work = s.abs(s.stateDir);
+    const task = s.abs('.trd-state/task-x');
+    // Recorded deliberately OUT of rank order: ledger order would put not-verifiable first.
+    expect(rec(work, '[not-verifiable] cannot reach staging', { status: 'not_verifiable' })).toBe(true);
+    expect(rec(work, 'stale Touches in F-001', { kind: 'stale-grounding' })).toBe(true);
+    expect(rec(task, '[flaky-ci] lint job flaked')).toBe(true);
+    expect(rec(work, 'paperwork row', { rankClass: 'paperwork' })).toBe(true);
+    expect(rec(task, 'host row', { rankClass: 'host' })).toBe(true);
+    expect(rec(work, '[below-bar] nit about naming')).toBe(true);
+    expect(rec(task, '[review:major] missing null check')).toBe(true);
+    expect(rec(work, 'product row')).toBe(true);
+
+    const rows = openRows(work, task);
+    const selected = rows.filter((r) => !r.summary.startsWith('[below-bar]'));
+    const unfiled = rows.filter((r) => r.summary.startsWith('[below-bar]')).map((r) => r.summary);
+    const filed = [];
+    selected.forEach((row, i) => {
+      const url = `https://example.test/issues/${i + 1}`;
+      expect(discovered.resolve(row.dir, row, `filed ${url}`)).toBe(true);
+      filed.push({ summary: row.summary, url, class: row.class });
+    });
+
+    expect(filed.map((f) => f.class)).toEqual(['product', 'product', 'host', 'tooling', 'paperwork', 'paperwork', 'not-verifiable']);
+    expect(filed.map((f) => f.summary).slice(0, 2).sort()).toEqual(['[review:major] missing null check', 'product row']);
+    const byClass = Object.fromEntries(filed.map((f) => [f.summary, f.class]));
+    expect(byClass['[not-verifiable] cannot reach staging']).toBe('not-verifiable');
+    expect(byClass['[flaky-ci] lint job flaked']).toBe('tooling');
+    expect(byClass['[review:major] missing null check']).toBe('product');
+    expect(byClass['stale Touches in F-001']).toBe('paperwork');
+    expect(unfiled).toEqual(['[below-bar] nit about naming']);
+    // The below-bar row is still open and keeps its class; filed rows are not filed again.
+    const again = openRows(work, task);
+    expect(again.map((r) => r.summary)).toEqual(['[below-bar] nit about naming']);
+    expect(again[0].class).toBe('product');
+  });
+
+  test('a legacy row with only a summary prefix gets its class from the CLI', () => {
+    const s = setup();
+    const work = s.abs(s.stateDir);
+    rec(work, '[flaky-capped] job capped');
+    const rows = openRows(work);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ class: 'tooling', dir: work });
+    expect(rows[0].rankClass).toBeUndefined();
   });
 });
 
