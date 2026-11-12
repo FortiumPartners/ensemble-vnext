@@ -2168,6 +2168,9 @@ for (; iteration <= CAP; iteration++) {
   const retries = []
   for (const g of judgeResult.debugGaps || []) {
     const entry = entryById.get(g.id)
+    // D21: no entry, or an entry reconcileJudgeKinds left without a kind, is a build defect and is logged.
+    if (!entry) log(`iteration ${iteration}: ${g.id} is in debugGaps with no matching criterion -- treating it as a build defect (it goes to Debug)`)
+    else if (entry.kind == null) log(`iteration ${iteration}: ${g.id} is in debugGaps but its criterion carries no kind -- treating it as a build defect (it goes to Debug)`)
     const kind = entry ? entry.kind ?? 'build-defect' : 'build-defect'
     if (kind === 'build-defect') buildGaps.push(g)
     else if (kind === 'evidence-gap') retries.push({ id: g.id, cause: entry.cause ?? null, failure: g.reason ?? entry.reason ?? null })

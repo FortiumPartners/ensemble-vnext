@@ -3641,6 +3641,27 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
     expect(logs.join('\n')).toMatch(/FS-1 is not_met with no usable cause/);
   });
 
+  it('a debugGaps item with no matching criterion is a build defect: it reaches Debug and is logged (D21)', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return claimsFor('FS-1', 'FS-2');
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        if (judgeCalls > 1) return satisfiedJudge();
+        return remediateJudge({
+          debugGaps: [{ id: 'FS-9', statement: 'statement for FS-9', reason: 'no artifact', artifact: null, files: [] }],
+        });
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-9', result: 'fixed' }] };
+      return null;
+    });
+    const { logs } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+    const debugs = agent.calls.filter((c) => c.opts.label === 'debug');
+    expect(debugs).toHaveLength(1);
+    expect(debugs[0].prompt).toContain('"id":"FS-9"');
+    expect(logs.join('\n')).toMatch(/FS-9 is in debugGaps with no matching criterion -- treating it as a build defect \(it goes to Debug\)/);
+  });
+
   it('a not_met gap whose cause is not-checkable is re-statused not_verifiable and never reaches Debug (D21)', async () => {
     let judgeCalls = 0;
     const agent = makeAgentStub((prompt, opts) => {
@@ -3787,6 +3808,30 @@ describe('verify-functional: digest-persisted and preclassified not-checkable en
     const resume = resumeWith({ status: 'met', artifact: 'x', reason: null, tier1: 'pass', provenAt: 1 });
     const { prompts } = await run({ ...two, preclassified: pre, resume }, () => satisfiedJudge({ criteria: [] }));
     expect(settledFrom(prompts.judge[0]).find((c) => c.id === 'FS-2')).toMatchObject({ status: 'not_verifiable', provenAt: 0 });
+  });
+
+  it('a setup target whose criteria are all preclassified is not checked; one holding an open criterion still is', async () => {
+    const pre = [{ id: 'FS-2', status: 'not_verifiable', kind: 'not-checkable-here', cause: 'capability-absent', reason: 'parts board', preclassified: true }];
+    const targets = [setupTarget({ environment: 'settled-env', criteria: ['FS-2'] }), setupTarget({ environment: 'open-env', criteria: ['FS-1'] })];
+    const { agent } = await run({ ...two, preclassified: pre, setupTargets: targets }, () => satisfiedJudge({ criteria: [metC('FS-1')] }));
+    const setupCalls = agent.calls.filter((c) => c.opts.label === 'setup');
+    expect(setupCalls).toHaveLength(1);
+    expect(setupCalls[0].prompt).toContain('"environment":"open-env"');
+    expect(setupCalls[0].prompt).not.toContain('"environment":"settled-env"');
+  });
+
+  it('dispatches no setup agent at all when every setup target is wholly preclassified', async () => {
+    const pre = [{ id: 'FS-2', status: 'not_verifiable', kind: 'not-checkable-here', cause: 'capability-absent', reason: 'parts board', preclassified: true }];
+    const { agent } = await run({ ...two, preclassified: pre, setupTargets: [setupTarget({ environment: 'settled-env', criteria: ['FS-2'] })] }, () => satisfiedJudge({ criteria: [metC('FS-1')] }));
+    expect(agent.calls.filter((c) => c.opts.label === 'setup')).toHaveLength(0);
+  });
+
+  it('a target holding one preclassified and one open criterion is still checked', async () => {
+    const pre = [{ id: 'FS-2', status: 'not_verifiable', kind: 'not-checkable-here', cause: 'capability-absent', reason: 'parts board', preclassified: true }];
+    const { agent } = await run({ ...two, preclassified: pre, setupTargets: [setupTarget({ environment: 'mixed-env', criteria: ['FS-1', 'FS-2'] })] }, () => satisfiedJudge({ criteria: [metC('FS-1')] }));
+    const setupCalls = agent.calls.filter((c) => c.opts.label === 'setup');
+    expect(setupCalls).toHaveLength(1);
+    expect(setupCalls[0].prompt).toContain('"environment":"mixed-env"');
   });
 
   it('rejects bad argument shapes before any dispatch', async () => {
