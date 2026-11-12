@@ -55,6 +55,32 @@ test('the 4.7b report names where the untracked files came from and how to list 
   expect(md).toMatch(/files untracked \(staged, not committed\) from </);
 });
 
+describe('4.7b report (objective O7)', () => {
+  const report = step.slice(step.indexOf('Report:'), step.indexOf('A non-zero exit'));
+  const flat = report.replace(/\s+/g, ' ');
+  test('names the folders untracked files came from, or the shared logs', () => {
+    expect(flat).toContain('from <each `.trd-state/<folder>/` they came from, or the shared logs>');
+    expect(flat).toMatch(/name the folders, not every file/);
+  });
+  test('names each seeded ref with its branch and whether it was pushed or kept local', () => {
+    expect(flat).toContain('refs seeded: <slug> on <branch> (pushed or kept local)');
+  });
+  test('names skipped in-flight features with the reason', () => {
+    expect(flat).toContain('skipped: <slug> (why)');
+  });
+  test('counts finished and branch-mismatch skips rather than naming them', () => {
+    expect(flat).toMatch(/count the `finished` and `branch-mismatch` skips rather than naming them/);
+  });
+  test('tells the owner to commit the removal on the base branch', () => {
+    expect(flat).toMatch(/If any file was untracked: "Commit this removal on the base branch/);
+  });
+  test('sends failed or unexplained skips to ISSUES', () => {
+    const tail = step.replace(/\s+/g, ' ');
+    expect(tail).toMatch(/each seed that failed or was skipped for a reason other than `finished`, `branch-mismatch`/);
+    expect(tail).toContain('`ref-exists`, also goes under ISSUES');
+  });
+});
+
 describe('Rollback', () => {
   test('names git restore --staged .trd-state', () => {
     expect(rollback).toContain('git restore --staged .trd-state');
