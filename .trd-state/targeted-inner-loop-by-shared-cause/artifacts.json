@@ -5,5 +5,11 @@
     "url": "https://claude.ai/artifact/RkDdTi9KTFCrSvE6CRqEcp",
     "updated_at": "2026-11-12T07:39:53.040Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/targeted-inner-loop-by-shared-cause/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-12T08:50:29.823Z",
+    "command": "/implement-trd"
   }
 }

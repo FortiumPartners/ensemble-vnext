@@ -1355,3 +1355,11 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 
 - [ran] `classOf`/`rank`/`openRanked` from `.claude/lib/followup-rank.js` are exercised with a plain `node` script; build fixture ledgers with `discovered.record(dir, {ref, summary, blocking:false, rankClass?})` (rows carry `blocksFeature:false`) and close one with `discovered.resolve(dir, row, "filed <stub url>")`, then run `node .claude/lib/followup-rank.js open --state-dir a --state-dir b`.
 - [inferred] A "file-followups run record" is played from contract steps 3-5 over `openRanked` output with a stub URL (see `.trd-state/rank-follow-ups-product-first/evidence/fs910.js`); no real filing happens.
+
+- [ran] Shared-cause targeting (targeted-inner-loop-by-shared-cause): the two full-file transcripts `npx jest packages/core/workflows/verify-functional.test.js --verbose` (255 pass) and `npx jest packages/core/lib/functional-verification.test.js --verbose` (438 pass) cover every criterion; no filtered -t run is needed.
+
+## Exercising targeted-inner-loop-by-shared-cause FS-25 (2026-11-12, iteration 1)
+
+- [ran] `SMOKE_PROJECT_DIR=<repo>/.trd-state/<feature>/evidence/live/work/slot-1 SMOKE_EVIDENCE_DIR=<evidence>/FS-25-live bash test/smoke/scenarios/verify-inner-loop-causes.sh` ran in about 5.5 minutes, 12 of 12 assertions passed; no folder-trust prompt step was needed for `claude --print` with bypassPermissions.
+- [ran] No jest test builds a resume snapshot "with and without" exercised/causes and compares; the nearest are the `AC 6: resume.exercised (D18)` tests in verify-functional.test.js, whose resume fixture carries `causes` and `extra` keys that the workflow ignores.
+- [ran] FS-25 re-capture (iteration 2): the compact-JSON locator missed because verification-state.json is pretty-printed; use a single-line literal such as `"closedAt": 2` or `"representative": "FS-1",`, or put a `jq -c` extraction in the artifact. The with/without resume comparison needs no new jest test: a scratch node script requiring `packages/core/workflows/test-harness` (`readScript`, `runWorkflow`, `makeAgentStub`) runs verify-functional.js with `resume` = {iteration,criteria,gapsClosed} vs. plus exercised/causes vs. the whole state file; all three gave identical dispatches and results (cap 6, 6 criteria).
