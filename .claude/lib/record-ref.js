@@ -50,6 +50,7 @@ const NET_TIMEOUT_MS = 60 * 1000;
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg)$/i;
 const TMP_FILE_RE = /\.tmp\.\d+\.\d+$/; // implement-state.js atomic-save temp files
 const CHUNK = 200;
+const LCS_MAX_CELLS = 4 * 1024 * 1024; // above this the shared-log base falls back to prefix + suffix
 
 // ---------------------------------------------------------------------------------------------
 // git plumbing
@@ -96,14 +97,25 @@ const refused = (reason, extra) => ({ ok: false, outcome: 'refused', reason, ...
 const toPosix = (p) => p.split(path.sep).join('/');
 const nonEmpty = (v) => (typeof v === 'string' && v !== '' ? v : null);
 
+function realOr(p) {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return p;
+  }
+}
+
+function isSymlink(p) {
+  try {
+    return fs.lstatSync(p).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 function topLevel(cwd) {
   const r = git(['rev-parse', '--show-toplevel'], { cwd });
-  if (!r.ok || !r.out) return null;
-  try {
-    return fs.realpathSync(r.out);
-  } catch {
-    return r.out;
-  }
+  return r.ok && r.out ? realOr(r.out) : null;
 }
 
 /** The commit a ref points at, or null. */
@@ -183,12 +195,14 @@ function referencedImages(text, slug) {
   };
   for (const m of text.matchAll(/!\[[^\]]*\]\(\s*(<[^>\n]*>|[^)\s]+)/g)) add(m[1]);
   const slugRe = String(slug || '').replace(/[.[\]\\^$*+?(){}|-]/g, '\\$&');
-  const bare = new RegExp('(?:^|[\\s"\'`(\\[<]|\\./|\\.trd-state/' + slugRe + '/)(evidence/[^\\s"\'`<>()\\[\\]]+)', 'gm');
+  // The optional `./` or `.trd-state/<slug>/` prefix must itself start at a boundary, so
+  // `../evidence/x.png` (outside this folder) is not read as `evidence/x.png`.
+  const bare = new RegExp('(?:^|[\\s"\'`(\\[<])(?:\\./|\\.trd-state/' + slugRe + '/)?(evidence/[^\\s"\'`<>()\\[\\]]+)', 'gm');
   for (const m of text.matchAll(bare)) add(m[1]);
   return [...out];
 }
 
-function walkFiles(dir, base, out) {
+function walkFiles(dir, base, out, skipEvidence) {
   let ents;
   try {
     ents = fs.readdirSync(dir, { withFileTypes: true });
@@ -199,25 +213,50 @@ function walkFiles(dir, base, out) {
   for (const e of ents) {
     if (e.isSymbolicLink()) continue; // never followed out of the folder
     const rel = base ? `${base}/${e.name}` : e.name;
-    if (e.isDirectory()) walkFiles(path.join(dir, e.name), rel, out);
+    if (e.isDirectory()) {
+      // evidence/ can hold whole fixture repos; only referenced images are looked up (evidenceLookup).
+      if (skipEvidence && rel === 'evidence') continue;
+      walkFiles(path.join(dir, e.name), rel, out, false);
+    }
     else if (e.isFile()) out.push(rel);
   }
+}
+
+/**
+ * Resolves an `evidence/...` path to a regular file inside the folder (no symlink on the way,
+ * at most MAX_FILE_BYTES), or null. A too-large image is listed in `skipped` once.
+ */
+function evidenceLookup(folderAbs, skipped) {
+  const seen = new Map();
+  return (rel) => {
+    if (!seen.has(rel)) {
+      let abs = null;
+      const p = path.join(folderAbs, ...rel.split('/'));
+      try {
+        const st = fs.lstatSync(p);
+        if (st.isFile() && fs.realpathSync(p) === p) {
+          if (st.size > MAX_FILE_BYTES) skipped.push({ path: rel, reason: 'too-large' });
+          else abs = p;
+        }
+      } catch {
+        /* absent */
+      }
+      seen.set(rel, abs);
+    }
+    return seen.get(rel);
+  };
 }
 
 /** Everything in a state folder except what must not ride a ref (see ## Decision). */
 function selectFolder(folderAbs) {
   const all = [];
-  walkFiles(folderAbs, '', all);
+  walkFiles(folderAbs, '', all, true);
   const files = [];
-  const evidence = new Map(); // evidence/<rel> -> abs
   const skipped = [];
+  const evidence = evidenceLookup(folderAbs, skipped); // evidence/<rel> -> abs | null
   for (const rel of all) {
     const name = rel.split('/').pop();
     const abs = path.join(folderAbs, ...rel.split('/'));
-    if (rel.startsWith('evidence/')) {
-      evidence.set(rel, abs);
-      continue;
-    }
     if (rel === 'record.json') continue; // the writer's own is authoritative
     if (name === 'dispatch.jsonl' || name === 'implement.lock' || name === '.DS_Store') continue;
     if (rel.startsWith('findings/') || TMP_FILE_RE.test(name)) continue;
@@ -250,20 +289,56 @@ function selectShared(stateRootAbs) {
       /* absent */
     }
   }
-  return { files, evidence: new Map(), skipped: [] };
+  return { files, evidence: () => null, skipped: [] };
 }
 
 // ---------------------------------------------------------------------------------------------
 // building a commit
 // ---------------------------------------------------------------------------------------------
 
-/** Longest run of leading lines two texts share (an append-only log's common history). */
-function commonLeadingLines(a, b) {
+/** Longest common subsequence of two line arrays (classic DP; callers bound the size). */
+function lcsLines(a, b) {
+  const n = a.length;
+  const m = b.length;
+  const w = m + 1;
+  const t = new Uint32Array((n + 1) * w);
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      t[i * w + j] = a[i] === b[j] ? t[(i + 1) * w + j + 1] + 1 : Math.max(t[(i + 1) * w + j], t[i * w + j + 1]);
+    }
+  }
+  const out = [];
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) {
+      out.push(a[i]);
+      i++;
+      j++;
+    } else if (t[(i + 1) * w + j] >= t[i * w + j + 1]) i++;
+    else j++;
+  }
+  return out;
+}
+
+/**
+ * The merge base for two copies of an append-only log: the lines both copies hold, in order
+ * (common prefix + LCS of the differing middle + common suffix). A prefix-only base re-adds,
+ * on every write, the lines one copy holds that the other gained through an earlier union
+ * (two worktrees writing `_shared` would duplicate them each time). Above LCS_MAX_CELLS the
+ * middle is left out, which can duplicate but never drops a line.
+ */
+function logBase(a, b) {
   const la = a.split(/(?<=\n)/);
   const lb = b.split(/(?<=\n)/);
-  let i = 0;
-  while (i < la.length && i < lb.length && la[i] === lb[i]) i++;
-  return la.slice(0, i).join('');
+  let pre = 0;
+  while (pre < la.length && pre < lb.length && la[pre] === lb[pre]) pre++;
+  let suf = 0;
+  while (suf < la.length - pre && suf < lb.length - pre && la[la.length - 1 - suf] === lb[lb.length - 1 - suf]) suf++;
+  const ma = la.slice(pre, la.length - suf);
+  const mb = lb.slice(pre, lb.length - suf);
+  const mid = ma.length && mb.length && ma.length * mb.length <= LCS_MAX_CELLS ? lcsLines(ma, mb) : [];
+  return [...la.slice(0, pre), ...mid, ...la.slice(la.length - suf)].join('');
 }
 
 /** Three-way union of the tip's copy and the writer's copy of an append-only log, or null on error. */
@@ -274,7 +349,7 @@ function unionLog(ctx, tipBuf, mineBuf) {
     fs.writeFileSync(p, buf);
     return p;
   };
-  const base = commonLeadingLines(tipBuf.toString('utf8'), mineBuf.toString('utf8'));
+  const base = logBase(tipBuf.toString('utf8'), mineBuf.toString('utf8'));
   const r = git(['merge-file', '--union', '-p', f('ours', tipBuf), f('base', base), f('theirs', mineBuf)], { cwd: ctx.top, buffer: true });
   return r.ok ? r.raw : null;
 }
@@ -323,7 +398,10 @@ function commitOn(ctx, overlayTip, parents) {
       reportText = b ? b.toString('utf8') : null;
     }
     keep = referencedImages(reportText, ctx.slug);
-    for (const k of keep) if (ctx.evidence.has(k)) toWrite.push({ rel: k, abs: ctx.evidence.get(k) });
+    for (const k of keep) {
+      const abs = ctx.evidence(k);
+      if (abs) toWrite.push({ rel: k, abs });
+    }
   }
   const herr = hashFiles(ctx, toWrite.map((f) => f.abs));
   if (herr) return { error: herr };
@@ -363,7 +441,7 @@ function commitOn(ctx, overlayTip, parents) {
       if (!rm.ok) return { error: `git update-index failed: ${rm.err}` };
     }
     const haveSet = new Set(have);
-    missingImages = keep.filter((k) => !haveSet.has(k) && !ctx.evidence.has(k));
+    missingImages = keep.filter((k) => !haveSet.has(k) && !ctx.evidence(k));
   }
 
   const wt = run(['write-tree']);
@@ -509,6 +587,9 @@ function writeInner(opts) {
     }
     const rel = path.relative(top, folderAbs);
     if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return refused('state folder is outside the repository');
+    // Only `.trd-state/<slug>`: anything else would put product files on a ref, and the fold
+    // would then untrack them from the branch.
+    if (path.posix.dirname(toPosix(rel)) !== STATE_ROOT) return refused(`state folder must be ${STATE_ROOT}/<slug>`);
     slug = path.basename(folderAbs);
     if (!isSafeSlug(slug)) return refused(`"${slug}" is not a slug Forge reads (letters, digits, . _ -; starts alphanumeric; no "..")`);
   }
@@ -546,7 +627,7 @@ function writeInner(opts) {
   // Paths the fallback commits: every selected file plus the report's images that exist here.
   const fallbackPaths = [
     ...sel.files.map((f) => repoPrefix + f.rel),
-    ...referencedImages(reportText, slug).filter((k) => sel.evidence.has(k)).map((k) => repoPrefix + k),
+    ...referencedImages(reportText, slug).filter((k) => sel.evidence(k)).map((k) => repoPrefix + k),
   ];
 
   try {
@@ -699,9 +780,14 @@ function restore({ stateDir, cwd } = {}) {
     const top = topLevel(wd);
     if (!top) return refused('not a git work tree');
     if (!stateDir) return refused('restore needs --state-dir');
-    const dest = path.resolve(wd, stateDir);
+    // `top` is a realpath, so resolve `dest` the same way (a symlinked cwd such as macOS /tmp
+    // must not read as "outside the repository"); the folder itself may not exist yet.
+    let dest = path.resolve(realOr(wd), stateDir);
+    dest = path.join(realOr(path.dirname(dest)), path.basename(dest));
     const rel = path.relative(top, dest);
     if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return refused('state folder is outside the repository');
+    if (path.posix.dirname(toPosix(rel)) !== STATE_ROOT) return refused(`state folder must be ${STATE_ROOT}/<slug>`);
+    if (isSymlink(dest)) return refused('state folder is a symlink; restore never writes through one');
     const slug = path.basename(dest);
     if (!isSafeSlug(slug)) return refused(`"${slug}" is not a slug Forge reads`);
     if (fs.existsSync(dest) && fs.readdirSync(dest).length) return refused('state folder already holds files; restore never overwrites');

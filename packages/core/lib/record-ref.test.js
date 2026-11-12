@@ -193,6 +193,18 @@ describe('write: refusals', () => {
     expect(recordRef.write({ stateDir: '.trd-state/none', command: 'c', step: 's', cwd: repo }).outcome).toBe('refused');
   });
 
+  test('a folder that is not .trd-state/<slug> is refused, and its tracked files stay tracked', () => {
+    const repo = initRepo();
+    put(repo, 'src/a.js', 'x\n');
+    put(repo, '.trd-state/outer/inner/implement.json', '{}\n');
+    sh(repo, ['add', 'src/a.js']);
+    sh(repo, ['commit', '-q', '-m', 'src']);
+    expect(recordRef.write({ stateDir: 'src', command: 'c', step: 's', cwd: repo }).outcome).toBe('refused');
+    expect(recordRef.write({ stateDir: '.trd-state/outer/inner', command: 'c', step: 's', cwd: repo }).outcome).toBe('refused');
+    expect(sh(repo, ['ls-files', 'src'])).toBe('src/a.js');
+    expect(sh(repo, ['for-each-ref', 'refs/ensemble/'])).toBe('');
+  });
+
   test('missing --command or --step is refused', () => {
     const repo = initRepo();
     put(repo, `${STATE}/implement.json`, '{}\n');
@@ -231,6 +243,16 @@ describe('write: record selection', () => {
     expect(showBlob(repo, REF, 'evidence/shot.png')).toBe('PNG-A');
   });
 
+  test('a referenced image over the 10 MB cap is skipped, not written', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/verification-report.md`, '![big](evidence/big.png)\n');
+    put(repo, `${STATE}/evidence/big.png`, Buffer.alloc(10 * 1024 * 1024 + 1));
+    const r = doWrite(repo);
+    expect(r.outcome).toBe('ref');
+    expect(treeFiles(repo, REF)).not.toContain('evidence/big.png');
+    expect(r.skipped).toEqual(expect.arrayContaining([{ path: 'evidence/big.png', reason: 'too-large' }]));
+  });
+
   test('an image referenced but absent is listed in missingImages', () => {
     const repo = initRepo();
     put(repo, `${STATE}/verification-report.md`, '![gone](evidence/gone.png)\n');
@@ -248,6 +270,7 @@ describe('write: record selection', () => {
       '![nonimg](evidence/notes.txt)',
       '![out](other/x.png)',
       '![url](https://example.com/evidence/y.png)',
+      'sibling ../evidence/up.png and other/./evidence/mid.png',
     ].join('\n');
     const got = recordRef.referencedImages(text, 'feat').sort();
     expect(got).toEqual(['evidence/bare.webp', 'evidence/enc oded.JPG', 'evidence/with space.png']);
@@ -599,6 +622,27 @@ describe('write --shared', () => {
     expect(merged.indexOf('entry B')).toBeLessThan(merged.indexOf('entry A')); // ours (tip), then theirs
   });
 
+  test('two worktrees writing diverged logs never duplicate a line on later writes', () => {
+    const repo = initRepo();
+    const wt = path.join(mkTmp('wtparent'), 'wt2');
+    sh(repo, ['worktree', 'add', '-q', '-b', 'second', wt]);
+    const shared = (cwd) => recordRef.write({ shared: true, command: 'c', step: 's', cwd, push: false }).outcome;
+
+    put(repo, LOG, 'A\nB\nC\n');
+    put(wt, LOG, 'A\nB\nD\n');
+    expect(shared(repo)).toBe('ref');
+    expect(shared(wt)).toBe('ref'); // tip now A B C D
+    put(wt, LOG, 'A\nB\nD\nE\n');
+    expect(shared(wt)).toBe('ref');
+    put(wt, LOG, 'A\nB\nD\nE\nF\n');
+    expect(shared(wt)).toBe('ref');
+    put(repo, LOG, 'A\nB\nC\nG\n');
+    expect(shared(repo)).toBe('ref');
+
+    const merged = showBlob(repo, SHARED_REF, '_session-log.md').split('\n');
+    expect(merged.sort()).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G']);
+  });
+
   test('a shared write overlays the tip: a file only the tip has is kept', () => {
     const repo = initRepo();
     put(repo, LOG, 'x\n');
@@ -713,6 +757,19 @@ describe('read, list, restore', () => {
     const repo = initRepo();
     expect(recordRef.restore({ stateDir: '.trd-state/ghost', cwd: repo }).outcome).toBe('no-record');
     expect(recordRef.restore({ stateDir: '.trd-state/_bad', cwd: repo }).outcome).toBe('refused');
+    expect(recordRef.restore({ stateDir: 'docs/feat', cwd: repo }).outcome).toBe('refused');
+  });
+
+  test('restore through a symlinked cwd still resolves inside the repository', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/implement.json`, '{"a":1}\n');
+    doWrite(repo);
+    fs.rmSync(path.join(repo, STATE), { recursive: true, force: true });
+    const link = path.join(mkTmp('link'), 'repo');
+    fs.symlinkSync(repo, link);
+    const r = recordRef.restore({ stateDir: STATE, cwd: link });
+    expect(r.outcome).toBe('restored');
+    expect(fs.readFileSync(path.join(repo, STATE, 'implement.json'), 'utf8')).toBe('{"a":1}\n');
   });
 
   test('restore through the CLI fetches from origin into an empty clone', () => {

@@ -79,8 +79,9 @@ instead of present files) — the brief's race criterion asks for no lost file.
 `_sweep/discovered.jsonl` are append-only and are union-merged on the branch today (#102). On the
 `_shared` ref, when the tip's copy differs from this writer's, the written blob is a three-way
 `git merge-file --union -p <ours> <base> <theirs>` — the same tool and "ours, then theirs" order
-`record-files.js` uses — with `<base>` the longest common run of leading lines of the two copies (an
-append-only log's shared history). A line-set comparison was rejected: it drops repeated lines (blank
+`record-files.js` uses — with `<base>` the lines both copies hold, in order (common prefix, longest common subsequence of
+the differing middle, common suffix); a prefix-only base re-added, on every later write, the lines a
+worktree had already received through an earlier union. A line-set comparison was rejected: it drops repeated lines (blank
 lines, `---`, identical headings) and splits multi-line entries. The `_shared` ref always overlays
 (it belongs to no feature).
 
