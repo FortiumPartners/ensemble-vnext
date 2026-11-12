@@ -33,7 +33,7 @@ agent instructions are `packages/core/contracts/functional-verification.md` ("th
 | `/refine-verification [--auto]` | After a run ended `stalled` / `stuck` / `unbuilt` / `insufficient-coverage` / `must-pass-unproven`. After `setup-failure` the readouts route you to fixing the environment, then `/verify-build`; `/refine-verification` still reads that report correctly if you run it | Agrees the recovery plan the next `/verify-build` round runs — interactively, or `--auto` for an unattended answer | `refine-verification.md` |
 | `verification-setup` skill | New project, or a readout names a missing section | Interviews you and writes `.claude/rules/verification.md` | `packages/skills/verification-setup/SKILL.md` |
 
-Both commands dispatch the **same** workflow with the same 26 arguments
+Both commands dispatch the **same** workflow with the same 28 arguments
 (`implement-trd.md` §8.3, `verify-build.md` §4).
 
 ### `/verify-build` flags
@@ -306,9 +306,11 @@ exerciser or debugger is recorded and the loop continues.
 
 **Settled criteria are not re-walked.** After each Judge return the workflow moves every `met`,
 `not_verifiable` and `unbuilt` verdict into a `settled` map; only `not_met` stays open. A later
-Judge entry for a settled id is ignored, so the open set only shrinks. Across a `--resume`, only
-`met` is carried in: `not_verifiable` gets another try because you may have fixed the
-environment since (`verify-functional.js`, "settled/open").
+Judge entry for a settled id is ignored, so the open set only shrinks. A `not_met` evidence gap
+(kind `evidence-gap`) is re-captured once, then settled as a definition problem rather than held
+open. Across a `--resume`, `met` is carried in, and so is a `not-checkable-here` entry whose
+recorded `verificationDigest` matches the current `verification.md`; any other `not_verifiable`
+gets another try because you may have fixed the environment since (`verify-functional.js`, "settled/open").
 
 **While the loop runs, its gaps are not the orchestrator's to fix** (`implement-trd.md` §8.5):
 a concurrent edit races the debugger, and makes a fixed gap look like the debugger's success.
@@ -344,7 +346,7 @@ Four statuses (contract, "The four judge statuses"):
 | Status | Means | Goes to Debug? |
 |---|---|---|
 | `met` | Evidence passed tier 1 (or was judge-only) and shows the criterion satisfied | no |
-| `not_met` | Built and exercised, but wrong | **yes** |
+| `not_met` | Built and exercised, but wrong | **yes** for kind `build-defect` only; an `evidence-gap` is re-captured once, then settled |
 | `not_verifiable` | No authorised way to exercise it here | no |
 | `unbuilt` | The capability is absent. Ends the loop | no |
 
@@ -352,7 +354,7 @@ Every non-`met` criterion also gets exactly one **cause**, which says *why*, and
 fix-loop round may turn it into a build task (`CAUSES` in `functional-verification.js`,
 duplicated as an enum in the workflow's `JUDGE_CRITERION_SCHEMA`):
 
-| Cause | Assigned when | Buildable |
+| Cause | Assigned when | Buildable (kind: `build-defect` only) |
 |---|---|---|
 | `evidence-missing` | Tier 1 failed (`missing`/`empty`/`not-a-file`/`no-artifact`) and nothing seen shows the build misbehaving | no |
 | `evidence-stale` | Tier 1 failed `stale`, including a reuse rejected because a covered file changed | no |
@@ -376,7 +378,7 @@ next round, never built against.
 | Order | Condition | Action → outcome |
 |---|---|---|
 | 1 | any criterion `unbuilt` | `exit-unbuilt` → **unbuilt** (wins even over zero gaps) |
-| 2 | no `not_met` gaps | `exit-satisfied` → **satisfied** |
+| 2 | no `not_met` gaps (after removing `settledEvidenceGaps`, a required input) | `exit-satisfied` → **satisfied** |
 | 3 | `refreshFailed`: the last Debug pass's refresh ran and exited non-zero | `exit-setup-failure` → **setup-failure** |
 | 4 | last iteration had gaps and this one closed none | `exit-stalled` → **stalled** |
 | 5 | `iteration >= cap` (default 3; `--cap N` on `/verify-build`) | `exit-stuck` → **stuck** |
