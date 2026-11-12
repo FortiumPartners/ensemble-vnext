@@ -4,7 +4,7 @@
   "trd_hash": "fa1536bd2bc79337fb85a81e728bfe793019fada0bae76f1b47df0e0a19dbc9e",
   "branch": "feature/10-records-ref-library",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "record-ref.js library + vendoring + CHANGELOG",
@@ -55,10 +55,19 @@
       "last_advanced": "2026-11-12T09:25:28.930Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "3795942c1f2dba0523149addfc6720c6961a0cc8",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T09:31:20.684Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "9e047667",
-    "last_checkpoint_timestamp": "2026-11-12T09:17:15.253Z",
+    "last_healthy_checkpoint": "3795942c1f2dba0523149addfc6720c6961a0cc8",
+    "last_checkpoint_timestamp": "2026-11-12T09:31:20.684Z",
     "interrupted": false,
     "interrupt_reason": null
   },
