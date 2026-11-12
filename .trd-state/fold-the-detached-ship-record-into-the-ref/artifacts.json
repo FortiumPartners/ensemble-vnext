@@ -11,5 +11,11 @@
     "url": "",
     "updated_at": "2026-11-12T12:58:04.384Z",
     "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/fold-the-detached-ship-record-into-the-ref/verification-report.md",
+    "url": "https://claude.ai/artifact/K3qWTg2PwwYdpbwRRAJo6t",
+    "updated_at": "2026-11-12T13:05:26.929Z",
+    "command": "/implement-trd"
   }
 }
