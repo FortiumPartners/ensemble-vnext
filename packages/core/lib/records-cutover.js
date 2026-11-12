@@ -139,17 +139,19 @@ function seedInner(opts) {
       if (!implement && !shipped) continue; // no records of a run: nothing to seed
       const skip = (reason) => skipped.push({ slug, worktree: wt.dir, reason });
 
+      const recorded = str(implement && implement.branch) || str(shipped && shipped.work && shipped.work.branch);
+      // The cheap string check first: every worktree carries the base branch's legacy folders, and
+      // `isUnfinished` spawns git (resolveRun) for each closed one.
+      if (recorded && recorded !== wt.branch) {
+        skip('branch-mismatch');
+        continue;
+      }
       if (!isUnfinished(folder, shipped)) {
         skip('finished');
         continue;
       }
-      const recorded = str(implement && implement.branch) || str(shipped && shipped.work && shipped.work.branch);
       if (!recorded) {
         skip('no-branch');
-        continue;
-      }
-      if (recorded !== wt.branch) {
-        skip('branch-mismatch');
         continue;
       }
       if (taken.has(slug)) {
@@ -175,7 +177,8 @@ function seedInner(opts) {
         taken.add(slug);
         seeded.push({ slug, worktree: wt.dir, branch: wt.branch, ref: recordRef.REF_PREFIX + slug, commit: w.commit, push: w.push });
       } else {
-        skip(w.reason || w.refError || w.outcome || 'write failed');
+        const why = w.reason || w.refError || w.outcome || 'write failed';
+        skip(w.detail ? `${why}: ${w.detail}` : why);
       }
     }
   }

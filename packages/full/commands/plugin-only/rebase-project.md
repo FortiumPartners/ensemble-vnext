@@ -1104,7 +1104,7 @@ Report:
 
 #### 4.7a Framework git files (always)
 
-Runs in every mode that applies changes, just before 4.8. It makes sure the framework's own
+Runs in every mode that applies changes, just before 4.7b. It makes sure the framework's own
 write-clash files are ignored and its merge-union lines are present, so parallel feature
 branches stop conflicting on them:
 
@@ -1149,12 +1149,15 @@ records. The ref is pushed best effort; a failed push keeps it local and is not 
 
 Report:
 - "Records cutover: N files untracked (staged, not committed); refs seeded: <slug> on <branch> (pushed or kept local), ...; skipped: <slug> (why), ..."
+  (count the `finished` and `branch-mismatch` skips rather than naming them: every worktree carries
+  the base branch's old folders, so they repeat once per worktree)
 - If any file was untracked: "Commit this removal on the base branch so every feature branch stops
   carrying the records; until it lands there, branches still clash."
 
 A non-zero exit goes under ISSUES with the stderr line. The script warns rather than failing, so
 each `[WARN]` line it prints, and each seed that failed or was skipped for a reason other than
-`finished` or `ref-exists`, also goes under ISSUES.
+`finished`, `branch-mismatch` (an old folder, or a feature whose branch has no worktree, which
+crosses over on its own next write) or `ref-exists`, also goes under ISSUES.
 
 #### 4.8 Stamp the version (always)
 
@@ -1257,7 +1260,8 @@ Everything above was written to a git-tracked tree that was clean before the run
 ```bash
 git diff --stat .claude/          # what this rebase changed
 git diff .claude/rules/           # e.g. just the framework rules
-git restore .claude/              # undo the whole rebase
+git restore .claude/              # undo the rebase's runtime changes
+git restore --staged .trd-state   # undo the records cutover's untracking (Step 4.7b)
 git restore .claude/agents/foo.md # undo one file
 ```
 
