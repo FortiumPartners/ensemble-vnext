@@ -816,7 +816,15 @@ function writeFilesInner(opts) {
       const tip = resolveRef(top, ref);
       // Checked before building: commitOn skips the overlay on a mismatch and would silently
       // build a tree without the tip's files.
-      if (tip && !sameFeature(identityAt(top, tip), identity)) return refused(`${ref} belongs to another feature`, { slug, ref });
+      const tipIdentity = tip ? identityAt(top, tip) : null;
+      if (tip && !sameFeature(tipIdentity, identity)) return refused(`${ref} belongs to another feature`, { slug, ref });
+      // Same feature: keep what the tip's record.json knew that the run does not (a run started
+      // without FORGE_FEATURE_ID must not strip the feature id Forge matches the ref by).
+      ctx.identity = {
+        forge_feature_id: identity.forge_feature_id || (tipIdentity && tipIdentity.forge_feature_id) || null,
+        branch: identity.branch || (tipIdentity && tipIdentity.branch) || null,
+        slug,
+      };
       const b = commitOn(ctx, tip, tip ? [tip] : []);
       if (b.error) return { ok: false, outcome: 'failed', reason: b.error, slug, ref };
       if (b.unchanged) {

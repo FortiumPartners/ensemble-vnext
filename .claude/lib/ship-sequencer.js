@@ -56,7 +56,8 @@
  * (a plain start still restores the state folder from the ref, so custody anchors at the audited
  * commit, but removes the restored `shipped.json`). With no git directory the tracked file is
  * kept. `record` and `status` report `recordPath`; `record` reports `custodyDetach` after a
- * detach; `status` reports `custodyPath`.
+ * detach, and `recordPushError` / `recordRefError` when a detached save did not reach origin or
+ * fell back to the folder; `status` reports `custodyPath`.
  *
  * CLI (one JSON line per call; exit 0, except exit 2 on a usage error -- the convention of
  * `pull-request.js`):
@@ -568,7 +569,8 @@ function loadState(stateDir) {
 function saveState(stateDir, state, opts = {}) {
   state.updatedAt = now();
   if (state.detached) {
-    if (recordDirs.writeRunRecord(stateDir, state, { localOnly: opts.localOnly }).ok) return;
+    const w = recordDirs.writeRunRecord(stateDir, state, { localOnly: opts.localOnly });
+    if (w.ok) return w;
     // Nowhere else to put it: keep the record rather than lose it.
     delete state.recordRef;
     state.recordPath = statePath(stateDir);
@@ -576,6 +578,17 @@ function saveState(stateDir, state, opts = {}) {
   const file = recordPathOf(stateDir, state);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   implementState.save(file, state);
+  return null;
+}
+
+/** What `record` reports about a detached save that did not reach origin cleanly, or {}. */
+function writeIssues(w) {
+  if (!w) return {};
+  // writeRunRecord sets pushError only when the ref commit could not reach origin.
+  return {
+    ...(w.pushError ? { recordPushError: w.pushError } : {}),
+    ...(w.refError ? { recordRefError: w.refError } : {}),
+  };
 }
 
 /** Leaf steps in execution order, each with where it sits. */
@@ -650,23 +663,41 @@ function start({ stateDir, policyPath, fallback, work, contractsDir, resume = fa
   if (!stateDir) return { ok: false, status: null, errors: ['start needs a state directory'] };
   const hadShipped = fs.existsSync(statePath(stateDir));
   const sameWork = (w) => w && w.kind === work.kind && w.id === work.id && (w.branch ?? null) === (work.branch ?? null);
+  const custodyFile = path.join(stateDir, 'custody.json');
+  // A custody.json stamped with a startedAt is an earlier run's post-merge anchor.
+  const dropStampedCustody = () => {
+    const c = parseState(custodyFile).state;
+    if (c && c.startedAt) fs.rmSync(custodyFile, { force: true });
+  };
+  // A tracked shipped.json marked detached was restored from the records ref (by this start or by
+  // any earlier `ensure`: a hook, artifacts.js, loadState), since the tracked file is never written
+  // after the detach. Dropping it loses nothing while the ref holds that run; `keep` spares one.
+  const dropRestoredRun = (keep) => {
+    const t = parseState(statePath(stateDir)).state;
+    if (!t || !t.detached || !t.startedAt || (keep && keep(t))) return;
+    if (!recordDirs.refRun(stateDir, { startedAt: t.startedAt })) return;
+    fs.rmSync(statePath(stateDir), { force: true });
+    dropStampedCustody();
+  };
   if (resume) {
     // The ref is read with a fetch here (and only here): a fresh clone has no local ref yet.
     const held = hadShipped ? null : recordDirs.resolveRun(stateDir, null, { local: false });
-    if (held && held.state.detached && sameWork(held.state.work)) {
+    if (held && held.state.detached && held.state.version === 2 && sameWork(held.state.work)) {
       return { ok: true, status: held.state.status, errors: [], resumed: true };
     }
     recordRef.ensure({ stateDir, branch: work && work.branch });
+    // Only this work's own detached run may be resumed, never another's restored record.
+    dropRestoredRun((t) => sameWork(t.work));
   } else {
     // A plain start restores the folder's other records (closed.json, custody.json) so custody
     // anchors at the audited commit, but stays a fresh run: only --resume continues an earlier one.
     const e = recordRef.ensure({ stateDir, branch: work && work.branch });
     if (e.outcome === 'restored') {
-      if (!hadShipped) fs.rmSync(statePath(stateDir), { force: true });
-      // A custody.json stamped with a startedAt is an earlier run's post-merge anchor.
-      const cf = path.join(stateDir, 'custody.json');
-      const c = parseState(cf).state;
-      if (c && c.startedAt) fs.rmSync(cf, { force: true });
+      // ensure restores only into a folder without records, so any shipped.json now is restored.
+      fs.rmSync(statePath(stateDir), { force: true });
+      dropStampedCustody();
+    } else {
+      dropRestoredRun();
     }
   }
   if (fs.existsSync(statePath(stateDir))) {
@@ -818,7 +849,8 @@ function next(stateDir, opts = {}) {
     state.reason = reason;
     state.handedOut = null;
     state.results.push({ step: entry.step.id, pass: state.cursor.pass, result: 'stop', data: {}, reason, at: now() });
-    saveState(stateDir, state, { localOnly: true });
+    // Not local-only: the run ends STUCK here and no `record` follows to carry this save to origin.
+    saveState(stateDir, state);
     return { action: 'stop', step: { id: entry.step.id, primitive: contract.primitive }, reason };
   }
 
@@ -950,7 +982,7 @@ function record(stateDir, { step, result, data, reason }, opts = {}) {
       detachedNow = true;
     }
   }
-  saveState(stateDir, state);
+  const saved = saveState(stateDir, state);
   let custodyDetach;
   if (detachedNow) {
     try {
@@ -960,7 +992,7 @@ function record(stateDir, { step, result, data, reason }, opts = {}) {
       custodyDetach = { ok: false, action: 'none', path: null, reason: e.message };
     }
   }
-  return { ok: true, recordPath: recordPathOf(stateDir, state), status: state.status, shipped: state.shipped, ...(state.reason ? { reason: state.reason } : {}), ...(custodyDetach ? { custodyDetach } : {}) };
+  return { ok: true, recordPath: recordPathOf(stateDir, state), status: state.status, shipped: state.shipped, ...(state.reason ? { reason: state.reason } : {}), ...(custodyDetach ? { custodyDetach } : {}), ...writeIssues(saved) };
 }
 
 /**

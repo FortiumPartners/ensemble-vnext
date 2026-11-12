@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * ship-record-dir.js -- where a /ship-build run's post-merge records live, and which run is current.
  *
@@ -326,8 +328,9 @@ const hasAnchor = (c) => Boolean(c && c.anchor && typeof c.anchor.commit === 'st
 
 /**
  * Where the custody anchor is read from and written to. `read` is the first copy that holds an
- * anchor: the ref's `custody.json` stamped with this run's `startedAt`, else the detached
- * `<startedAt>.custody.json`, else the tracked file. `write` is the ref for a ref-held run
+ * anchor: the ref's `custody.json` stamped with this run's `startedAt` (unless the detached
+ * `<startedAt>.custody.json` carries a later `savedAt`: a ref write fell back to it), else the
+ * detached file, else the tracked file. `write` is the ref for a ref-held run
  * (`refRun`), else the detached file when it or the run's detached record exists there (so a
  * first anchor set after the detach still lands outside the tree), else the tracked file.
  */
@@ -335,7 +338,22 @@ function custodyPlaces(stateDir, local) {
   const tracked = path.join(stateDir, CUSTODY_FILE);
   const target = refTarget(stateDir);
   const dir = recordDir(stateDir); // one `git rev-parse` per call
-  const startedAt = dir || target ? currentStartedAt(stateDir, dir) : null;
+  // currentStartedAt's rule, inlined so the ref's run record is read once, not twice.
+  let startedAt = null;
+  let held = null;
+  if (dir || target) {
+    const t = trackedRun(stateDir);
+    if (t && typeof t.startedAt === 'string' && t.startedAt) startedAt = t.startedAt;
+    else if (target) {
+      held = refRun(stateDir, { local });
+      if (held) startedAt = held.state.startedAt;
+    }
+    if (!startedAt) {
+      const p = readPointer(stateDir, dir);
+      startedAt = p ? p.startedAt : null;
+    }
+  }
+  if (target && startedAt && !held) held = refRun(stateDir, { startedAt, local });
   const stem = dir && startedAt ? path.join(dir, safeName(startedAt)) : null;
   const folderCustody = stem ? `${stem}.custody.json` : null;
 
@@ -344,12 +362,15 @@ function custodyPlaces(stateDir, local) {
     const got = readRefJson(target, CUSTODY_FILE, local);
     if (got && got.json.startedAt === startedAt && hasAnchor(got.json)) onRef = got.json;
   }
-  const held = target && startedAt ? refRun(stateDir, { startedAt, local }) : null;
   const refPath = target ? `${target.ref}:${CUSTODY_FILE}` : null;
+  const folder = folderCustody && fs.existsSync(folderCustody) ? readJson(folderCustody) : null;
+  // A ref write that failed fell back to the folder file: its later `savedAt` beats the ref's
+  // older copy. An unstamped (legacy) folder copy never beats a ref copy.
+  const folderNewer = Boolean(onRef && hasAnchor(folder) && String(folder.savedAt || '') > String(onRef.savedAt || ''));
 
   let read;
-  if (onRef) read = { kind: 'ref', path: refPath, custody: onRef };
-  else if (folderCustody && fs.existsSync(folderCustody)) read = { kind: 'file', path: folderCustody, custody: readJson(folderCustody) };
+  if (onRef && !folderNewer) read = { kind: 'ref', path: refPath, custody: onRef };
+  else if (folderCustody && fs.existsSync(folderCustody)) read = { kind: 'file', path: folderCustody, custody: folder };
   else read = { kind: 'tracked', path: tracked, custody: readJson(tracked) };
 
   let write;
@@ -374,8 +395,8 @@ function custodyPath(stateDir, opts = {}) {
 
 /**
  * The custody anchor, or null. Precedence: the ref's `custody.json` when stamped with the run's
- * `startedAt` (an unstamped or other run's copy is ignored), else the detached
- * `<startedAt>.custody.json`, else the tracked `<stateDir>/custody.json`. A copy without
+ * `startedAt` (an unstamped or other run's copy is ignored) unless the detached
+ * `<startedAt>.custody.json` was saved later (its `savedAt`), else that detached file, else the tracked `<stateDir>/custody.json`. A copy without
  * `anchor.commit` is no anchor. Local read; never fetches unless `opts.local === false`.
  * @returns {object|null} the stored object (a ref copy includes its `startedAt` stamp)
  */
@@ -392,19 +413,20 @@ function readCustody(stateDir, opts = {}) {
  * Writes the custody anchor where `custodyPlaces().write` says. For a ref-held run that is one
  * `writeFiles` commit of `custody.json` stamped with the run's `startedAt` (identity from the
  * run record; pushed unless `opts.push === false`); if the ref write fails the anchor is written
- * to the detached folder file instead, so a move is never lost (a folder copy loses to an older
- * stamped ref copy on read -- the ref is read first). Otherwise it is the file write as before.
+ * to the detached folder file instead, so a move is never lost. Both copies carry `savedAt`, and
+ * on read a folder copy saved later than the ref's wins. Otherwise it is the file write as before.
  * @returns {{ok: boolean, where: 'ref'|'file', path: string|null, push?: string, refError?: string, reason?: string}}
  */
 function writeCustody(stateDir, custody, opts = {}) {
   try {
     const { write, folderCustody, startedAt } = custodyPlaces(stateDir, true);
     let refError = null;
+    const stamped = write.kind === 'ref' ? { ...custody, startedAt, savedAt: new Date().toISOString() } : custody;
     if (write.kind === 'ref') {
       const r = recordRef.writeFiles({
         cwd: write.target.top,
         slug: write.target.slug,
-        files: [{ rel: CUSTODY_FILE, content: JSON.stringify({ ...custody, startedAt }, null, 2) }],
+        files: [{ rel: CUSTODY_FILE, content: JSON.stringify(stamped, null, 2) }],
         identity: identityOf(write.state),
         command: COMMAND,
         step: opts.step || 'custody anchor',
@@ -416,7 +438,7 @@ function writeCustody(stateDir, custody, opts = {}) {
     const file = write.kind === 'ref' ? folderCustody : write.path;
     if (!file) return { ok: false, where: 'file', path: null, ...(refError ? { refError } : {}), reason: 'no place to write the anchor' };
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    implementState.save(file, custody);
+    implementState.save(file, stamped);
     return { ok: true, where: 'file', path: file, ...(refError ? { refError } : {}) };
   } catch (e) {
     return { ok: false, where: 'file', path: null, reason: e && e.message };
