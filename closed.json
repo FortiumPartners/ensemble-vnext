@@ -1,0 +1,13 @@
+{
+  "feature": "cutover-for-existing-projects",
+  "trd": "docs/TRD/cutover-for-existing-projects.md",
+  "closedAt": "2026-11-12T15:59:12Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; the readout's \"skipped features, with why\" line (objective O7) is built but no test pins it; two out-of-scope checks remain open in Could Not Verify (a Claude Code Web session's ref push/fetch, and whether Forge needs finished records in main's tree or only its history)",
+    "report": ".trd-state/cutover-for-existing-projects/audit-build-report.md",
+    "auditedCommit": "4b6eee57dd1357221157441db2a0e2686a8a3265",
+    "anchorCommit": "b60e4393d8495759c8ed87d4419fd8aa1779884a"
+  }
+}
