@@ -150,6 +150,20 @@
       "started_at": "2026-11-12T18:28:10.498Z",
       "completed_at": "2026-11-12T18:38:38.206Z",
       "last_advanced": "2026-11-12T18:33:41.642Z"
+    },
+    "AMEND-001": {
+      "description": "[test-gap] close commands STATE lists filed issue URLs; add a test",
+      "phase": 1,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/waived-defects-close-prose.test.js"
+      ],
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-12T20:44:00.342Z",
+      "last_advanced": "2026-11-12T20:45:40.135Z",
+      "current_problem": null,
+      "completed_at": "2026-11-12T20:45:50.121Z"
     }
   },
   "checkpoints": [
@@ -160,11 +174,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-12T18:46:06.185Z"
+    },
+    {
+      "phase": 1,
+      "commit": "480cad8cc67027a2a9762a3aac8a06908caa5214",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T20:45:50.491Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "14510fb4f8f507fcff26f5e21ff12cab671ef60c",
-    "last_checkpoint_timestamp": "2026-11-12T18:46:06.185Z",
+    "last_healthy_checkpoint": "480cad8cc67027a2a9762a3aac8a06908caa5214",
+    "last_checkpoint_timestamp": "2026-11-12T20:45:50.491Z",
     "interrupted": false,
     "interrupt_reason": null
   },
