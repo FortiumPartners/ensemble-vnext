@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/K3qWTg2PwwYdpbwRRAJo6t",
     "updated_at": "2026-11-12T13:05:26.929Z",
     "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/fold-the-detached-ship-record-into-the-ref/audit-build-report.md",
+    "url": "https://claude.ai/artifact/VoXqeGVdE8nNryaVTx7JXd",
+    "updated_at": "2026-11-12T13:11:06.071Z",
+    "command": "/audit-build"
   }
 }
