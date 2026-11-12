@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "slug": "verification-targeted-loop",
+  "name": "Verification loop: targeted fixes, one full run at the end",
+  "source": {
+    "command": "/plan-feature",
+    "artifact": "docs/plans/verification-targeted-loop/roadmap.md"
+  },
+  "repo": "/Users/james/dev/fortium/ensemble-vnext",
+  "base_branch": "main",
+  "rigor": "standard",
+  "spec_first": true,
+  "features": [
+    {
+      "name": "Triage unmet results by kind",
+      "description": "Triage unmet results by kind - feature F-1 of workplan verification-targeted-loop.\nIn the verify-functional workflow (`packages/core/workflows/verify-functional.js`) and its decide-next library (`packages/core/lib/functional-verification.js`), give every unmet criterion one kind: `build-defect`, `evidence-gap` or `not-checkable-here`, returned by the Judge, recorded in the verification state file and shown in the report. Only `build-defect` reaches Debug. An `evidence-gap` gets exactly one re-capture in the run (today it is retried every iteration until the cap, `verify-functional.js:434` and `:1866`); if the re-capture still fails it is settled as an evidence gap with its reason and stops counting as an open gap for the stalled and cap rules. A `not-checkable-here` result is settled once with its reason and is not re-opened by a later invocation unless `verification.md` has changed since it was recorded (today a resume re-opens every not-verifiable verdict, `verify-functional.js:1580`). `/verify-build`'s fix rounds and `/refine-verification` read the kind instead of re-deriving it. Who benefits: an owner whose run today loops on captures and host limits no code change can fix.\nAcceptance: `npx jest packages/core/workflows/verify-functional.test.js packages/core/lib/functional-verification.test.js packages/core/commands/verify-build-criteria.test.js` with new cases: an evidence gap re-captured once then settled; a not-checkable result not re-opened on resume when `verification.md` is unchanged and re-opened when it changed; only build defects in the Debug prompt. Plus one headless fixture run of `/verify-build` (the `fixtures` environment in `verification.md`) on a fixture seeded with one defect, one missing capture and one host-only criterion, showing all three kinds in the report.\nBuilds on: none.\nDesign: docs/plans/verification-targeted-loop/roadmap.md item 1; source GitHub issue FortiumPartners/ensemble-vnext#113.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 10,
+      "dependencies": [],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    },
+    {
+      "name": "Targeted inner loop by shared cause",
+      "description": "Targeted inner loop by shared cause - feature F-2 of workplan verification-targeted-loop.\nAfter each Debug pass in the verify-functional workflow, re-exercise and re-judge only the build-defect criteria whose cause that pass addressed, not every open criterion (today every `not_met` criterion is re-walked each iteration, `verify-functional.js:1652-1656`). The Judge groups build-defect criteria by shared root cause (one cause key per group, for example \"Looks good is a bar, not a button\" across many screen states); Debug fixes one cause once, independent causes may be fixed in parallel, and the next pass re-checks that cause's criteria, starting with one representative criterion per group and the rest only once the representative passes. Criteria of an unaddressed cause stay open untouched. Expensive check-derived criteria (`derivation: check:<skill>`, such as design comparison) take part only through their cause group, so a passing or set-aside design check is never re-captured in the inner loop. The stalled rule counts closed causes as well as closed criteria. Builds on the triage kinds from the item \"Triage unmet results by kind\".\nAcceptance: `npx jest packages/core/workflows/verify-functional.test.js packages/core/lib/functional-verification.test.js` with new cases: an iteration after Debug dispatches Exercise only for the addressed cause's criteria; a 20-criterion cause re-checks one representative first; an unaddressed cause is not re-walked. Plus a headless fixture run (`fixtures` environment) with two seeded causes spread over at least six criteria, whose state file shows the second iteration exercising only the fixed cause's criteria.\nBuilds on: Triage unmet results by kind.\nDesign: docs/plans/verification-targeted-loop/roadmap.md item 2; source GitHub issue FortiumPartners/ensemble-vnext#113.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 20,
+      "dependencies": [
+        {
+          "name": "Triage unmet results by kind",
+          "reason": "code_or_schema"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    },
+    {
+      "name": "One full regression pass at the end",
+      "description": "One full regression pass at the end - feature F-3 of workplan verification-targeted-loop.\nWhen the inner loop has no build defect left (or reaches its cap), the verify-functional workflow runs one full pass: every criterion is exercised and judged again, including those settled `met` earlier in the run (today a criterion settled in iteration 1 is never re-checked after later Debug edits, `verify-functional.js:1825-1843`). That pass is the proof: the verdicts recorded in the state file and report, and the `provenAt` that custody anchors on, are the final pass's. If it surfaces new build defects, only those go back to the inner loop, followed by at most one more full pass; no open-ended rounds. Evidence gaps and not-checkable results from the final pass are recorded, not looped. The existing full-deploy gate (`computeFinalRun`, `FULL_RUN_COMMAND`) stays as it is and runs with the final pass. 4.17.5's re-proof retry and scoped re-proof at ship are kept unchanged and read the final pass's verdicts. Builds on the item \"Targeted inner loop by shared cause\".\nAcceptance: `npx jest packages/core/workflows/verify-functional.test.js packages/core/lib/custody.test.js` with new cases: a criterion `met` in iteration 1 that a later Debug edit breaks is caught by the final pass; a final-pass regression gets one inner-loop round and one more full pass, never a third; custody reads `provenAt` from the final pass. Plus a headless fixture run (`fixtures` environment) where a fix for one cause breaks an earlier-met criterion, and the report shows the final pass catching it.\nBuilds on: Targeted inner loop by shared cause.\nDesign: docs/plans/verification-targeted-loop/roadmap.md item 3; source GitHub issue FortiumPartners/ensemble-vnext#113.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 30,
+      "dependencies": [
+        {
+          "name": "Targeted inner loop by shared cause",
+          "reason": "code_or_schema"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    },
+    {
+      "name": "Accepted gaps for not-checkable must-pass criteria",
+      "description": "Accepted gaps for not-checkable must-pass criteria - feature F-4 of workplan verification-targeted-loop.\nA must-pass criterion triaged `not-checkable-here` no longer holds the run at `must-pass-unproven` forever. It is recorded as an accepted gap: its reason and the environment that does prove it (for example \"GitHub CI\"), written to the verification state file and shown in its own \"Accepted gaps\" section of the report. `applyMustPassRecheck` (`verify-functional.js:1259`) does not turn a run unproven for an accepted gap alone; `/refine-verification` (today \"Never a must-pass criterion\" at `refine-verification.md:92`, test `refine-verification-must-pass.test.js`, decision D16) may accept one only for this kind and only with a named proving environment; custody (`packages/core/lib/custody.js`) does not ask to re-prove an accepted gap, and `/ship-build`'s readout names each one so the owner sees what shipped unproven here. A build defect or evidence gap on a must-pass criterion is never accepted. Builds on the triage kinds and on the final pass's recorded verdicts (custody anchors on them), from the item \"One full regression pass at the end\"; built after it because both change the must-pass recheck and custody in the same files.\nAcceptance: `npx jest packages/core/workflows/verify-functional.test.js packages/core/lib/custody.test.js packages/core/lib/refine-verification-must-pass.test.js` with new and updated cases: a must-pass not-checkable criterion with a proving environment ends `satisfied` with an accepted gap listed; one with no proving environment still ends `must-pass-unproven`; a must-pass build defect is never accepted; custody's re-proof list excludes accepted gaps. Plus a headless fixture run (`fixtures` environment) with one host-only must-pass criterion, whose report shows the accepted-gap section.\nBuilds on: Triage unmet results by kind, One full regression pass at the end.\nDesign: docs/plans/verification-targeted-loop/roadmap.md item 4; source GitHub issue FortiumPartners/ensemble-vnext#113.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 40,
+      "dependencies": [
+        {
+          "name": "Triage unmet results by kind",
+          "reason": "code_or_schema"
+        },
+        {
+          "name": "One full regression pass at the end",
+          "reason": "code_or_schema"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    },
+    {
+      "name": "Block only on material failures",
+      "description": "Block only on material failures - feature F-5 of workplan verification-targeted-loop.\nA build-defect criterion carries a materiality verdict from the Judge: material when it breaks a main user flow, loses or corrupts data, exposes private data, or charges money or AI spend wrongly; otherwise non-material (cosmetic, edge case, flaky, design nit). Only material failures block `satisfied`, the must-pass recheck and custody; a non-material failure is still reported, is not looped on past the inner loop's cap, and is written to the work's follow-up ledger (`discovered.jsonl`) as a product follow-up. A must-pass criterion's build defect is always material. The definition is a framework default stated once in the functional-verification contract (`packages/core/contracts/functional-verification.md`). Builds on the triage kinds and on the must-pass recheck as changed by the item \"Accepted gaps for not-checkable must-pass criteria\"; built after it because both change `applyMustPassRecheck` and custody.\nAcceptance: `npx jest packages/core/workflows/verify-functional.test.js packages/core/lib/functional-verification.test.js packages/core/lib/custody.test.js` with new cases: a run whose only open failures are non-material ends `satisfied` and records each as a follow-up row; one material failure blocks; a must-pass build defect is material whatever the Judge says. Plus a headless fixture run (`fixtures` environment) with one material and one cosmetic seeded defect.\nBuilds on: Accepted gaps for not-checkable must-pass criteria.\nDecisions: Materiality definition: the four-part definition from issue #113 (main user flow, data loss or corruption, private data exposure, wrong money or AI spend) as the framework default, with no per-project override in this plan (owner's call, default taken under auto, 2026-11-11).\nDesign: docs/plans/verification-targeted-loop/roadmap.md item 5; source GitHub issue FortiumPartners/ensemble-vnext#113.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 50,
+      "dependencies": [
+        {
+          "name": "Accepted gaps for not-checkable must-pass criteria",
+          "reason": "code_or_schema"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    },
+    {
+      "name": "Rank follow-ups, product items first",
+      "description": "Rank follow-ups, product items first - feature F-6 of workplan verification-targeted-loop.\nGive every follow-up row a rank class: `product` (the app does something wrong, including non-material failures), then `host` (a host limit such as audio or a minified build), `tooling` (a check or tool limit, flaky CI), `paperwork` (record or document mismatch) and `not-verifiable` notes last. `file-followups` (`packages/core/contracts/ship-primitive-file-followups.md`) files and lists rows in that order, and `/ship-build`'s readout (`packages/core/commands/ship-build.md:217-244`) lists filed and unfiled follow-ups in the same order with the class shown, so the few product items are read first. Rows recorded before this change get a class from their existing summary prefix (`[not-verifiable]` to not-verifiable, `[flaky-ci]` to tooling, `[review:<label>]` to product, and so on). The classes come from the follow-up list in issue #113 (about 12 product items, 9 host or tooling, 7 paperwork, 9 not-verifiable).\nAcceptance: `npx jest packages/core/contracts/ship-primitives.test.js packages/core/lib/ship-build.seam.test.js` with new cases: a mixed ledger of product, host, tooling, paperwork and not-verifiable rows is filed and listed product first; a legacy row with only a summary prefix gets its class.\nBuilds on: none.\nRelated: Block only on material failures: non-material failures from it become product follow-ups this feature ranks; neither needs the other built.\nDesign: docs/plans/verification-targeted-loop/roadmap.md item 6; source GitHub issue FortiumPartners/ensemble-vnext#113.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 60,
+      "dependencies": [
+        {
+          "name": "Block only on material failures",
+          "reason": "related"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    }
+  ]
+}
