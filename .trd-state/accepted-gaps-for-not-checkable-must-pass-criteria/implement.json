@@ -103,14 +103,19 @@
     "OHP-D001": {
       "description": "Documents (D18). docs/reference/verification.md: (1) a paragraph on the TRD Objectives Off-host proof column and its join through the definition's Must pass cell, beside the must-pass-marks paragraph ",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "docs/reference/verification.md",
+        "docs/guides/PROCESS.md",
+        "docs/TRD/verification-must-pass.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-12T14:00:16.877Z",
+      "completed_at": "2026-11-12T14:01:13.376Z",
+      "last_advanced": "2026-11-12T14:01:08.672Z"
     },
     "OHP-T002": {
       "description": "[LIVE] Headless fixture scenario test/smoke/scenarios/verify-off-host-proof.sh in the fixtures environment per D17: the host-only criterion reaches not-checkable through the Judge and the fold; the fi",

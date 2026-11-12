@@ -414,7 +414,9 @@ uncovered when no criterion names it. If either exists:
 
 The workflow repeats this check after every Judge exit with its own copy of the must-pass ids
 (from `must-pass-coverage`, so the model never parses the table), so a Judge that reports
-`satisfied` over an unproven core item is overridden. It only ever blocks, never un-blocks. On
+`satisfied` over an unproven core item is overridden. It blocks, and it un-blocks in exactly one case: when an off-host proof (§10a) settles the
+last unproven must-pass criterion, `exit-must-pass-unproven` becomes `exit-satisfied`, but only
+after the same checks are repeated over the criteria as they now stand and all pass. On
 an override it dispatches one `reconcile-outcome` agent so the state file and the report agree
 with the returned outcome.
 
@@ -425,7 +427,7 @@ with the returned outcome.
 | `stalled` | A debug round closed nothing | same |
 | `stuck` | The cap ran out with gaps open, or a `--resume` arrived with no budget left | same |
 | `insufficient-coverage` | Too little was proven to call it either way. When must-pass items were also unproven, the reason names them | same |
-| `must-pass-unproven` | Everything judged was met and the coverage floor (if any) was cleared, but a core item the TRD marked must-pass was not proven, or has no criterion at all. The reason names each. A must-pass criterion that can only be `not verifiable` here is never accepted as such: it needs an environment that reaches it, or the marking removed from the TRD | same |
+| `must-pass-unproven` | Everything judged was met and the coverage floor (if any) was cleared, but a core item the TRD marked must-pass was not proven, or has no criterion at all. The reason names each. A must-pass criterion that can only be `not verifiable` here is never accepted as such. It has three ways out: an environment that reaches it, a CI job declared in the TRD's `Off-host proof` column whose run on `HEAD` is green (it then settles `met`; §10a), or the marking removed from the TRD | same |
 | `setup-failure` | The environment, not the code, is broken: the setup check before Exercise found a declared stack unreachable, running an old build or held by another checkout, or the last Debug pass's refresh failed. Never handed to the debugger and never `stalled`. On a setup-check failure nothing is judged and the report's `**Setup**:` lines name each problem and its fix | fix the environment, then `/verify-build` |
 | `not run: no success definition derivable` | No PRD and no source section | fix the source |
 | `not run: no definition produced` | The derive agent wrote nothing | re-run `/verify-build` |
@@ -449,6 +451,7 @@ without calling the workflow (`implement-trd.md` §8.1). Only the five short out
 | **Setup** | Only under `setup-failure`: one line per problem, "environment — problem; fix: …" |
 | **Criteria**, **Coverage** | Counts per status; "K of N proven — uncovered: ids" |
 | **Must pass** | Only when the TRD declares any (otherwise the report is unchanged): "K of N proven", then "unproven: id (status)", then "no criterion for: objective id" for each objective nothing covers |
+| **Proven off-host** | Only when a criterion was proven by a CI job: `id — workflow#job, run <runId> (<url>)`, comma-separated, directly after the `Must pass` row's line. Absent otherwise, so earlier reports are unchanged |
 | **Diagnosis**, **Next** | Only on stalled, stuck, unbuilt, insufficient-coverage and must-pass-unproven (`DIAGNOSIS_OUTCOMES`); never on `setup-failure`, which has no cause counts because nothing was judged. Diagnosis counts open criteria by cause, most common first, in words — "14 open — 6 evidence missing, 5 judged failed, 3 not built"; no cause counts as `unrecorded`. Next names `/refine-verification` then `/verify-build`. The readout repeats both and never re-judges |
 | Unrecognised Status | Any status that is none of the four, so a typo cannot hide a criterion |
 | Unbuilt / Met / Not Met / Not Verifiable | One table each. Met shows *proven at* iteration; Not Met shows tier 1, reason, blocker, and the debugger's attempt per iteration |
@@ -457,7 +460,7 @@ without calling the workflow (`implement-trd.md` §8.1). Only the five short out
 | `## Fix run` | Appended by the fix loop only (`renderFixSummary()`); each criterion still open carries its stop reason, `setup failure: <problem>` first |
 
 `verification-state.json` (Judge STEP 4) has exactly six keys, plus a seventh, `regression`, written only when a regression pass ran (the script writes it after the last round; see "The regression pass" above): `iteration`, `criteria` (every
-criterion: `id`, `status`, `tier1`, `artifact`, `reason`, `cause`, `provenAt`, plus `causeKey` and `awaiting` where they apply), `gapsClosed`
+criterion: `id`, `status`, `tier1`, `artifact`, `reason`, `cause`, `provenAt`, plus `causeKey`, `awaiting` and `proof` where they apply; `proof` is `{kind: 'off-host', workflow, job, runId, url, commit}` on a criterion a CI job proved), `gapsClosed`
 (an audit list; nothing reads it back), `causes` (one record per cause: key, representative,
 members, `open` or `closed`, `closedAt`), `exercised` (per iteration, the ids that iteration
 exercised; an audit history that a resume reads leniently and the loop never steers by), and **`outcome`** — `null` means "stopped mid-loop,
@@ -486,6 +489,8 @@ previous publish carried that the report no longer embeds — so no file list is
 | `decide-fix-round` | Continue or stop the fix loop (§12) |
 | `render-fix-summary` | The `## Fix run` section |
 | `must-pass-coverage` | Reads the TRD and the definition: must-pass criterion ids, must-pass objectives with no criterion, cell ids that are not declared must-pass objectives |
+| `off-host-proofs` | `--trd <path> --definition <path> [--covers <json file>] [--ids a,b]`: joins the TRD's `Off-host proof` cells to the definition's must-pass criteria and looks each declared job up on `HEAD` with `gh`. Prints `{proofs, ignored}`; each proof has a `status` of `green` (job succeeded; the only status that proves anything), `red` (completed, any other conclusion), `pending` (run or job not finished; **not waited for**, a later `/verify-build` settles it), `missing` (no run of that workflow for `HEAD`, or no job of that name), `dirty` (an uncommitted path matching the criterion's covers, or with no covers record any shipped-class path, which CI never saw) or `error` (`git`/`gh` failed or returned unparseable output), plus `runId`, `url`, `commit` and a `reason`. `ignored` lists declarations dropped as not must-pass, malformed, or not declared for every named objective. Exit 0 even with `gh` absent (each entry reads `error`); exit 1 only for bad input. Run fresh before every `verify-functional` dispatch, never reused |
+| `off-host-proven` | `--state-dir <dir>`: the criteria `met` with an off-host `proof`, from `verification-state.json` overlaid by `reverify/verification-state.json`: `[{id, statement, workflow, job, runId, url, commit}]` (what `/ship-build` reads) |
 | `report-publish-plan` | The publish batches for a report and its images (§10) |
 | `check-verification-unfilled` | Is `verification.md` still a shipped template, and which sections it lacks (§3) |
 | `read-coverage-floor` | Parses §5a |
@@ -499,6 +504,23 @@ dropping any whose covered files changed since capture (it says how many on stde
 `spec-scope.js` reads must-pass marks from **every** Objectives table in a TRD (the first,
 then each later one whose first column is `ID`), so marks in per-feature tables reach
 verification (4.15.0).
+
+**Off-host proof (a must-pass criterion no reachable environment can exercise).** A TRD
+Objectives table may carry an `Off-host proof` column whose cell is `<workflow file>#<job
+name>`, for example `.github/workflows/ci.yml#read-aloud`. It is the only place a proof is
+declared (written by the TRD author or an owner ruling, never by a model step), and it joins to
+the success definition through each criterion's `Must pass` cell: criterion, then objective,
+then job. `offHostDeclarations` does the join (**code**) and counts a criterion as declared
+only when every must-pass objective its cell names declares the same job; a cell on a
+non-must-pass objective or a malformed one (a non-YAML workflow, an empty job, a leading `-`)
+is ignored and reported. Before each `verify-functional` dispatch, `off-host-proofs` looks each
+declared job up on `HEAD` (**code**). A `green` job settles a criterion that was `not
+verifiable` here as `met`, with a `proof` recording the run, and the workflow upgrades
+`exit-must-pass-unproven` to `exit-satisfied` if the recheck's other checks then pass. `red`,
+`missing`, `pending`, `dirty` and `error` leave it unproven, and the reason says which; a run
+still in progress is not waited for. Custody treats a CI-proven criterion like any other `met`
+one (reuse or re-proof by its covers), so a change classed `test-only` or `ci-config` moves the
+anchor without re-proof under the default tiers.
 
 ---
 
@@ -569,7 +591,8 @@ and TRD and any existing plan, then:
    PRD/TRD already records, written back with a dated changelog line), **Accepted as not
    verifiable** (the two never-buildable causes, plus anything the TRD assigns to a
    production-only task; never a must-pass criterion, which becomes an owner ruling naming the
-   two ways out: an environment that reaches it, or removing its marking from the TRD),
+   three ways out: an environment that reaches it, a CI job declared in the TRD's `Off-host proof`
+   column, or removing its marking from the TRD),
    **Extra checks** (check-role skills only), **Stop rule**
    (`max-rounds: 3`, `stop-when-closed-below: 1`).
 3. Interactively, asks one question per item left over: a criterion change no document
