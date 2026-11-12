@@ -2999,6 +2999,53 @@ PY
     [ "$status" -eq 1 ]
 }
 
+_cutover_fixture() {
+    cd "$TEST_DIR"
+    git init -q -b main . && git config user.email t@t && git config user.name t
+    git checkout -q -b feature/live
+    mkdir -p .trd-state/live .trd-state/done .trd-state/_docs-audit
+    echo '{"branch":"feature/live","tasks":[]}' > .trd-state/live/implement.json
+    echo '{"branch":"feature/done"}' > .trd-state/done/implement.json
+    echo '{"closed":true}' > .trd-state/done/closed.json
+    echo '{}' > .trd-state/_docs-audit/last-run.json
+    echo x > .trd-state/_session-log.md
+    git add -f .trd-state && git commit -qm init
+}
+
+@test "cutover: --records-cutover seeds the in-flight ref, untracks ignored records, commits nothing" {
+    _cutover_fixture
+    run "$SCAFFOLD_SCRIPT" --records-cutover --no-push "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    git show refs/ensemble/records/live:implement.json | cmp - .trd-state/live/implement.json
+    [ -z "$(git for-each-ref refs/ensemble/records/done)" ]
+    [ "$(git ls-files .trd-state)" = ".trd-state/_docs-audit/last-run.json" ]
+    [ "$(git diff --cached --name-only --diff-filter=D | wc -l | tr -d ' ')" -eq 4 ]
+    [ -f .trd-state/live/implement.json ] && [ -f .trd-state/done/closed.json ] && [ -f .trd-state/_session-log.md ]
+    [ "$(git log --oneline | wc -l | tr -d ' ')" -eq 1 ]
+}
+
+@test "cutover: plain scaffold, --git-files and --refresh leave records tracked" {
+    _cutover_fixture
+    run "$SCAFFOLD_SCRIPT" --git-files "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$(_get_plugin_dir)" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$(_get_plugin_dir)" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -n "$(git ls-files .trd-state/live/implement.json)" ]
+    [ -n "$(git ls-files .trd-state/done/closed.json)" ]
+    [ -z "$(git for-each-ref refs/ensemble/records/)" ]
+}
+
+@test "cutover: --records-cutover combined with another mode exits 1 naming it" {
+    run "$SCAFFOLD_SCRIPT" --records-cutover --refresh "$TEST_DIR"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"--records-cutover"* ]]
+    run "$SCAFFOLD_SCRIPT" --records-cutover --git-files "$TEST_DIR"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"--records-cutover"* ]]
+}
+
 @test "stamp: --refresh leaves refreshed_at alone and updates version; --stamp-version writes it" {
     local plugin_dir
     plugin_dir="$(_get_plugin_dir)"

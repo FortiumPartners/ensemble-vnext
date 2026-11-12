@@ -687,8 +687,10 @@ const cleanText = (s) => String(s == null ? '' : s).replace(/[\0-\x1f\x7f]+/g, '
 
 /**
  * Writes a state folder (or the shared logs) to its ref. Never throws.
- * @param {{stateDir?: string, shared?: boolean, command: string, step: string, push?: boolean, fallback?: boolean, cwd?: string}} opts
+ * @param {{stateDir?: string, shared?: boolean, command: string, step: string, push?: boolean, fallback?: boolean, forgeFeatureId?: string|null, cwd?: string}} opts
  * `fallback: false` (CLI `--no-fallback`) forbids the branch commit and the fold, as on a default branch.
+ * `forgeFeatureId` (string or null), when the key is present, replaces `FORGE_FEATURE_ID` as the feature id
+ * stamped into `record.json`: a writer that seeds other features' refs (records-cutover.js) must not stamp its own.
  */
 function write(opts = {}) {
   try {
@@ -795,7 +797,7 @@ function writeInner(opts) {
     reportText,
     hashes: new Map(),
     counter: 0,
-    identity: shared ? null : { forge_feature_id: nonEmpty(process.env.FORGE_FEATURE_ID), branch, slug },
+    identity: shared ? null : { forge_feature_id: nonEmpty('forgeFeatureId' in opts ? opts.forgeFeatureId : process.env.FORGE_FEATURE_ID), branch, slug },
     message: `records(${slug}): ${command} - ${step}`,
     guardIdentity: false,
     allFiles: shared ? null : sel.files,
