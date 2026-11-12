@@ -130,5 +130,9 @@ none
 
 ## Could Not Verify
 
-- `--custody` takes the reconcile line as a single-quoted shell argument; a differing path containing `'` would break the gate's call. Reconcile paths come from git and none in this repo carry a quote; accepted, not guarded.
-- Whether Forge's planned per-PR ship record wants different field names; none were given beyond the roadmap brief, so the names above are this TRD's choice and the guide is the contract.
+State after `/audit-build` (2026-11-11): all three tasks (FIX-001 to FIX-003) were checked against the delivered code and its tests and confirmed built and tested; what remains below was not checked by that audit, and says why.
+
+- No PRD exists for this change (it was decided in session from roadmap item 6, `docs/plans/ship-cost-reduction/roadmap.md`), so the delivered code was checked against this TRD only, never against product requirements: whether the objectives capture everything the roadmap item intended, and whether anything it asked for was left out, is unchecked.
+- `--custody` takes the reconcile line as a single-quoted shell argument; a differing path containing `'` would break the gate's call. Reconcile paths come from git and none in this repo carry a quote; accepted, not guarded. Out of scope for the audit: a risk this TRD accepted, not a requirement to test.
+- Whether Forge's planned per-PR ship record wants different field names; none were given beyond the roadmap brief, so the names above are this TRD's choice and the guide is the contract. Out of scope for the audit: it depends on Forge's side, which this repository does not hold.
+- A live re-proof inside a real `/ship-build` merge was not exercised; the gate's call is proven only as contract text and by the unit and seam tests (local environment, per Verification Environment above; the roadmap item lists no deferred live check).
