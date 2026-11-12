@@ -14,12 +14,14 @@ const {
   decideNext,
   decideSetup,
   renderReport,
+  recordNonBlockingFollowups,
   readStopRule,
   decideFixRound,
   renderFixSummary,
   isVerificationUnfilled,
   missingVerificationSections,
   readCoverageFloor,
+  readBlockingPolicy,
   recommendCoverageFloor,
   readNeverUnattended,
   isEmbeddableImagePath,
@@ -611,6 +613,99 @@ describe('decideNext', () => {
 // ---------------------------------------------------------------------------
 // decideNext — the coverage re-label (D8, D9, VCON-B002)
 // ---------------------------------------------------------------------------
+
+describe('decideNext: the blocking policy', () => {
+  const input = (over) => ({
+    iteration: 3,
+    gaps: ['FS-2'],
+    unbuilt: [],
+    previousGaps: null,
+    mustPass: ['FS-1'],
+    refreshFailed: false,
+    settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+    mustPassUncovered: [],
+    met: ['FS-1'],
+    ...over,
+  });
+
+  test('no blocking key: a non-must-pass gap at the cap stays exit-stuck, with no nonBlocking key', () => {
+    const result = decideNext(input({}));
+    expect(result.action).toBe('exit-stuck');
+    expect(result).not.toHaveProperty('nonBlocking');
+  });
+
+  test("blocking 'all': unchanged, exit-stuck and no nonBlocking key", () => {
+    const result = decideNext(input({ blocking: 'all' }));
+    expect(result.action).toBe('exit-stuck');
+    expect(result).not.toHaveProperty('nonBlocking');
+  });
+
+  test("'must-pass' with only non-must-pass gaps at the cap: exit-satisfied, nonBlocking lists them", () => {
+    const result = decideNext(input({ blocking: 'must-pass', gaps: ['FS-2', 'FS-3'] }));
+    expect(result.action).toBe('exit-satisfied');
+    expect(result.nonBlocking).toEqual(['FS-2', 'FS-3']);
+    expect(result.reason).toContain('FS-2');
+    expect(result.reason).toContain('must-pass-only');
+  });
+
+  test("'must-pass' at a stall: exit-satisfied", () => {
+    const result = decideNext(input({ blocking: 'must-pass', iteration: 2, previousGaps: ['FS-2'] }));
+    expect(result.action).toBe('exit-satisfied');
+    expect(result.nonBlocking).toEqual(['FS-2']);
+  });
+
+  test("'must-pass' with a must-pass id among the gaps: exit-stuck unchanged", () => {
+    const result = decideNext(input({ blocking: 'must-pass', gaps: ['FS-1', 'FS-2'], met: [] }));
+    expect(result.action).toBe('exit-stuck');
+    expect(result).not.toHaveProperty('nonBlocking');
+  });
+
+  test("'must-pass' with a must-pass id among the gaps at a stall: exit-stalled unchanged", () => {
+    const result = decideNext(input({
+      blocking: 'must-pass', iteration: 2, gaps: ['FS-1', 'FS-2'], previousGaps: ['FS-1', 'FS-2'], met: [],
+    }));
+    expect(result.action).toBe('exit-stalled');
+    expect(result).not.toHaveProperty('nonBlocking');
+  });
+
+  test("'must-pass' before the cap with gaps open: remediate, never converted mid-loop", () => {
+    const result = decideNext(input({ blocking: 'must-pass', iteration: 1 }));
+    expect(result.action).toBe('remediate');
+    expect(result).not.toHaveProperty('nonBlocking');
+  });
+
+  test("'must-pass' with an unbuilt criterion: exit-unbuilt", () => {
+    const result = decideNext(input({ blocking: 'must-pass', unbuilt: ['FS-3'] }));
+    expect(result.action).toBe('exit-unbuilt');
+  });
+
+  test("'must-pass' with no must-pass criterion: inert, exit-stuck", () => {
+    const result = decideNext(input({ blocking: 'must-pass', mustPass: [] }));
+    expect(result.action).toBe('exit-stuck');
+    expect(result).not.toHaveProperty('nonBlocking');
+  });
+
+  test("'must-pass' does not convert a setup-failure exit", () => {
+    const result = decideNext(input({ blocking: 'must-pass', refreshFailed: true }));
+    expect(result.action).toBe('exit-setup-failure');
+  });
+
+  test('a converted exit below the coverage floor is re-labelled exit-insufficient-coverage', () => {
+    const result = decideNext(input({ blocking: 'must-pass', total: 10, coverageFloor: 0.5 }));
+    expect(result.action).toBe('exit-insufficient-coverage');
+    expect(result).not.toHaveProperty('nonBlocking');
+  });
+
+  test('a converted exit with a must-pass criterion not verifiable is exit-must-pass-unproven', () => {
+    const result = decideNext(input({ blocking: 'must-pass', met: [] }));
+    expect(result.action).toBe('exit-must-pass-unproven');
+    expect(result).not.toHaveProperty('nonBlocking');
+  });
+
+  test('an unknown blocking value throws, naming it', () => {
+    expect(() => decideNext(input({ blocking: 'some' }))).toThrow(/blocking.*"some"/);
+  });
+});
 
 describe('decideNext: the coverage re-label', () => {
   test('an explicit floor re-labels exit-satisfied when the proven ratio is below it (OQ-7)', () => {
@@ -1477,6 +1572,24 @@ describe('isVerificationUnfilled', () => {
     });
   });
 
+  test('a project file matching the artifact-service-v1 template (frozen just before §5c) is still reported unfilled, naming it', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.artifact-service-v1.md'),
+      'utf8'
+    );
+    const currentTemplate = fs.readFileSync(
+      path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+      'utf8'
+    );
+
+    // Shipped live until the blocking policy (§5c) was added; every project scaffolded
+    // before that change holds exactly this copy.
+    expect(isVerificationUnfilled(priorTemplate, currentTemplate)).toEqual({
+      unfilled: true,
+      matchedTemplate: 'artifact-service-v1',
+    });
+  });
+
   test('a project file matching the pre-resource-table template, re-saved with CRLF, is still recognised', () => {
     const priorTemplate = fs.readFileSync(
       path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
@@ -1780,6 +1893,12 @@ describe('missingVerificationSections', () => {
 
   test('the current template lacks nothing', () => {
     expect(missingVerificationSections(currentTemplate)).toEqual([]);
+  });
+
+  test('a file without §5c does not name it: absence is the default policy', () => {
+    const noBlocking = currentTemplate.replace(/## 5c\. Blocking policy[\s\S]*?(?=## 6\. Multi-repo)/, '');
+    expect(noBlocking).not.toMatch(/5c/);
+    expect(missingVerificationSections(noBlocking)).toEqual([]);
   });
 
   test('the pre-1.5.0 template lacks all five, in file order', () => {
@@ -2329,6 +2448,103 @@ describe('readCoverageFloor', () => {
     test('missing arguments print usage and exit non-zero', () => {
       expect(() => {
         execFileSync('node', [MODULE_PATH, 'read-coverage-floor'], { stdio: 'pipe' });
+      }).toThrow();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readBlockingPolicy — parses verification.md §5c (block-only-on-material-failures FIX-001)
+// ---------------------------------------------------------------------------
+
+describe('readBlockingPolicy', () => {
+  const withPolicy = (body) => `## 5c. Blocking policy\n\n${body}\n\n## 6. Multi-repo\n`;
+
+  test.each([
+    ['Blocking: all criteria', 'all', 'all criteria'],
+    ['Blocking: all', 'all', 'all'],
+    ['Blocking: must-pass only', 'must-pass', 'must-pass only'],
+    ['Blocking: must pass only', 'must-pass', 'must pass only'],
+    ['**Blocking**: `must-pass only`', 'must-pass', 'must-pass only'],
+    ['- Blocking: Must-Pass Only', 'must-pass', 'Must-Pass Only'],
+    ['BLOCKING: ALL CRITERIA', 'all', 'ALL CRITERIA'],
+  ])('%s', (line, policy, raw) => {
+    expect(readBlockingPolicy(withPolicy(line))).toEqual({ policy, status: 'declared', raw });
+  });
+
+  test('no heading is the default, absent', () => {
+    expect(readBlockingPolicy('## 6. Multi-repo\n')).toEqual({ policy: 'all', status: 'absent', raw: null });
+  });
+
+  test('a heading with no line is the default, absent', () => {
+    expect(readBlockingPolicy(withPolicy('Some prose only.'))).toEqual({
+      policy: 'all',
+      status: 'absent',
+      raw: null,
+    });
+  });
+
+  test('an unrecognised value is invalid and names the line', () => {
+    expect(readBlockingPolicy(withPolicy('Blocking: some'))).toEqual({
+      policy: null,
+      status: 'invalid',
+      raw: 'Blocking: some',
+    });
+  });
+
+  test('two Blocking lines are invalid and name both', () => {
+    const r = readBlockingPolicy(withPolicy('Blocking: all criteria\nBlocking: must-pass only'));
+    expect(r.policy).toBeNull();
+    expect(r.status).toBe('invalid');
+    expect(r.raw).toContain('Blocking: all criteria');
+    expect(r.raw).toContain('Blocking: must-pass only');
+  });
+
+  test('a Blocking line quoted in a fenced block elsewhere is ignored', () => {
+    const content = '```\n## 5c. Blocking policy\nBlocking: must-pass only\n```\n\n' + withPolicy('Blocking: all criteria');
+    expect(readBlockingPolicy(content)).toEqual({ policy: 'all', status: 'declared', raw: 'all criteria' });
+  });
+
+  test('the shipped template declares all criteria', () => {
+    const tpl = fs.readFileSync(
+      path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+      'utf8'
+    );
+    expect(readBlockingPolicy(tpl)).toEqual({ policy: 'all', status: 'declared', raw: 'all criteria' });
+  });
+
+  test('non-string content throws', () => {
+    expect(() => readBlockingPolicy(undefined)).toThrow(TypeError);
+  });
+
+  describe('CLI: read-blocking-policy', () => {
+    let tmpDir;
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'read-blocking-policy-'));
+    });
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    test('reads a declared policy from a file', () => {
+      const projectPath = path.join(tmpDir, 'verification.md');
+      fs.writeFileSync(projectPath, withPolicy('Blocking: must-pass only'));
+      const stdout = execFileSync('node', [MODULE_PATH, 'read-blocking-policy', projectPath]).toString();
+      expect(JSON.parse(stdout)).toEqual({ policy: 'must-pass', status: 'declared', raw: 'must-pass only' });
+    });
+
+    test('a missing file reads as the default, absent', () => {
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'read-blocking-policy',
+        path.join(tmpDir, 'nope.md'),
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({ policy: 'all', status: 'absent', raw: null, reason: 'missing' });
+    });
+
+    test('missing arguments print usage and exit non-zero', () => {
+      expect(() => {
+        execFileSync('node', [MODULE_PATH, 'read-blocking-policy'], { stdio: 'pipe' });
       }).toThrow();
     });
   });
@@ -5042,5 +5258,90 @@ describe('renderReport: Proven off-host line (D13)', () => {
     const proof = { kind: 'off-host', workflow: '.github/workflows/ci.yml', job: 'read-aloud', runId: 4242, url: 'https://example.test/4242', commit: 'abc' };
     const report = renderReport({ ...base, criteria: [{ ...met, proof }] });
     expect(report).toContain('**Proven off-host**: FS-1 — .github/workflows/ci.yml#read-aloud, run 4242 (https://example.test/4242)');
+  });
+});
+
+describe('recordNonBlockingFollowups and the Not blocking report line (FIX-003)', () => {
+  const discovered = require('./discovered');
+  let dir;
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nonblocking-'));
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const entries = [
+    { id: 'FS-2', reason: 'the export button is missing' },
+    { id: 'FS-3', reason: 'the footer wraps' },
+  ];
+
+  test('writes one product follow-up row per entry', () => {
+    const out = recordNonBlockingFollowups(dir, entries, '2026-11-12T00:00:00.000Z');
+    expect(out).toEqual({ recorded: ['FS-2', 'FS-3'], skipped: [] });
+    const rows = discovered.readAll(dir);
+    expect(rows).toHaveLength(2);
+    for (const [i, r] of rows.entries()) {
+      expect(r).toMatchObject({
+        kind: 'gap',
+        foundBy: 'verify-functional',
+        status: 'not_met',
+        ref: entries[i].id,
+        rankClass: 'product',
+        blocksFeature: false,
+      });
+      expect(r.summary.startsWith(`[non-blocking] ${entries[i].id}:`)).toBe(true);
+    }
+    expect(discovered.promotable(rows)).toEqual([]);
+  });
+
+  test('a second call writes nothing (dedupe)', () => {
+    recordNonBlockingFollowups(dir, entries);
+    const again = recordNonBlockingFollowups(dir, entries);
+    expect(again).toEqual({ recorded: [], skipped: ['FS-2', 'FS-3'] });
+    expect(discovered.readAll(dir)).toHaveLength(2);
+  });
+
+  test('an empty list writes nothing and creates no file', () => {
+    expect(recordNonBlockingFollowups(dir, [])).toEqual({ recorded: [], skipped: [] });
+    expect(recordNonBlockingFollowups(dir, undefined)).toEqual({ recorded: [], skipped: [] });
+    expect(fs.existsSync(path.join(dir, 'discovered.jsonl'))).toBe(false);
+  });
+
+  test('accepts bare ids from the decide-next result', () => {
+    expect(recordNonBlockingFollowups(dir, ['FS-9']).recorded).toEqual(['FS-9']);
+    expect(discovered.readAll(dir)[0].summary.startsWith('[non-blocking] FS-9:')).toBe(true);
+  });
+
+  test('CLI record-nonblocking prints recorded and skipped', () => {
+    const run = () =>
+      JSON.parse(
+        execFileSync('node', [MODULE_PATH, 'record-nonblocking', '--state-dir', dir, '--payload', JSON.stringify(entries)], {
+          encoding: 'utf8',
+        })
+      );
+    expect(run()).toEqual({ recorded: ['FS-2', 'FS-3'], skipped: [] });
+    expect(run()).toEqual({ recorded: [], skipped: ['FS-2', 'FS-3'] });
+  });
+
+  describe('renderReport', () => {
+    const base = {
+      feature: 'f',
+      prd: 'p',
+      definitionPath: 'd',
+      outcome: 'satisfied',
+      reason: 'all clear',
+      criteria: [{ id: 'FS-1', status: 'met', tier1: null, artifact: 'u', reason: 'r' }],
+    };
+    test('prints the Not blocking line right after Reason', () => {
+      const lines = renderReport({ ...base, nonBlocking: entries }).split('\n');
+      const i = lines.findIndex((l) => l.startsWith('**Reason**'));
+      expect(lines[i + 1]).toBe(
+        'Not blocking: 2 failure(s) on criteria not marked must-pass, filed as product follow-ups: FS-2, FS-3 (verification.md: Blocking: must-pass only)'
+      );
+    });
+    test('is byte-identical without nonBlocking', () => {
+      expect(renderReport({ ...base, nonBlocking: [] })).toBe(renderReport(base));
+      expect(renderReport(base)).not.toContain('Not blocking');
+    });
   });
 });

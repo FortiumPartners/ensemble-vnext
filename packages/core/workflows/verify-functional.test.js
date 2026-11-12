@@ -4111,9 +4111,11 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
     expect(carried).toEqual([expect.objectContaining({ id: 'FS-2', status: 'not_met', reason: 'r-FS-2', cause: 'judged-failed', causeKey: 'k' })]);
     // The result keeps it, not as a placeholder.
     expect(result.criteria.find((c) => c.id === 'FS-2')).toMatchObject({ status: 'not_met', reason: 'r-FS-2', kind: 'build-defect', causeKey: 'k' });
-    // The must-pass recheck sees the carried gap, so the Judge's own exit stands (no reconcile).
+    // The carried gap is an open failure on a must-pass criterion, so the blocking policy's backstop
+    // demotes the Judge's exit-satisfied (block-only-on-material-failures); no reconcile is needed.
     expect(labelsOf(agent, 'reconcile')).toHaveLength(0);
-    expect(result.outcome).toBe('satisfied');
+    expect(result.outcome).toBe('stuck');
+    expect(result.reason).toMatch(/must-pass criteria failing: FS-2/);
     // The render rows (iteration 2's exit renders) carry its last verdict and reason.
     const renders = labelsOf(agent, 'render');
     const lastRender = renders[renders.length - 1].prompt;
@@ -4476,6 +4478,16 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
         expect(labelsOf(agent, 'judge')[2].prompt).toContain('make e2e');
         expect(logs.join('\n')).toMatch(/exit-stalled but cause\(s\) a closed .* becomes remediate/);
         expect(logs.join('\n')).toMatch(/stalled exit's full-environment run is discarded/);
+      });
+
+      it("a stall the script replaces with remediate is not converted by the blocking policy: the run goes on", async () => {
+        const { agent } = await run(
+          [remediate([bd('FS-1', 'a'), bd('FS-2', 'b')]), stalled(), exitWith('exit-stuck', [bd('FS-2', 'b')])],
+          { debug: debugOk(['FS-1', 'FS-2']), args: { ...two, cap: 3, mustPassIds: ['FS-1'], blocking: 'must-pass' } }
+        );
+        // The Judge's stall was replaced by remediate (a second Debug pass ran) rather than ending the run satisfied.
+        expect(labelsOf(agent, 'debug')).toHaveLength(2);
+        expect(labelsOf(agent, 'judge')).toHaveLength(3);
       });
 
       it('at the cap the replacement is exit-stuck, with the state file outcome and the report input rewritten', async () => {
@@ -5666,6 +5678,139 @@ describe('verify-functional: off-host proof of a not-checkable must-pass criteri
       const { result } = await run([unproven([metC('FS-1'), nc()])], { args: { offHostProofs: [{ ...GREEN, status: 'red', runId: null, url: null }] } });
       expect(result.criteria.every((c) => !('proof' in c))).toBe(true);
     });
+  });
+});
+
+describe('verify-functional: blocking policy (block-only-on-material-failures)', () => {
+  const met = (id) => ({ id, status: 'met', tier1: 'pass', artifact: `${id}.txt`, reason: null, files: [] });
+  const bd = (id) => ({ id, status: 'not_met', tier1: 'fail', artifact: null, reason: `r-${id}`, cause: 'judged-failed', kind: 'build-defect', files: [`src/${id}.js`] });
+  const nv = (id) => ({ id, status: 'not_verifiable', tier1: 'skipped', artifact: null, reason: 'unreachable', cause: 'environment-unreachable', files: [] });
+  const exitOf = (action, criteria, extra = {}) => ({
+    action,
+    reason: `judge says ${action}`,
+    criteria,
+    gaps: criteria.filter((c) => c.status === 'not_met').map((c) => c.id),
+    unbuilt: [],
+    closed: [],
+    notesUpdated: false,
+    ...extra,
+  });
+  async function run(judge, args = {}) {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') return judge;
+      if (opts.label === 'state-sync') return { synced: true };
+      if (opts.label === 'reconcile') return { reconciled: true };
+      return null;
+    });
+    const out = await runWorkflow(SOURCE, { agent, args: baseArgs(args) });
+    return { ...out, agent };
+  }
+  const syncs = (agent) => agent.calls.filter((c) => c.opts.label === 'state-sync');
+  const syncedState = (call) => JSON.parse(call.prompt.match(/exactly as given, to [^\n]*:\n(\{.*\})\n/)[1]);
+  // FS-1 fails and is NOT must-pass; FS-2 is must-pass and met.
+  const nonMustPassFailure = () => exitOf('exit-stuck', [bd('FS-1'), met('FS-2')]);
+
+  it('with no blocking arg a stuck exit over a non-must-pass failure stays stuck and nothing says nonBlocking', async () => {
+    const { result, agent } = await run(nonMustPassFailure(), { mustPassIds: ['FS-2'] });
+    expect(result.outcome).toBe('stuck');
+    expect(result.nonBlocking).toEqual([]);
+    expect(syncs(agent).every((c) => !c.prompt.includes('nonBlocking'))).toBe(true);
+  });
+
+  it("blocking 'must-pass' turns the same exit into satisfied, listing the failure, and syncs state and report", async () => {
+    const { result, agent } = await run(nonMustPassFailure(), { mustPassIds: ['FS-2'], blocking: 'must-pass' });
+    expect(result.outcome).toBe('satisfied');
+    expect(result.nonBlocking).toEqual([{ id: 'FS-1', reason: 'r-FS-1' }]);
+    expect(result.reason).toMatch(/non-blocking gap\(s\) left open as follow-ups: FS-1|follow-ups under the must-pass-only policy: FS-1/);
+    const [sync] = syncs(agent);
+    expect(syncs(agent)).toHaveLength(1);
+    expect(syncedState(sync)).toMatchObject({ outcome: 'satisfied', blocking: 'must-pass', nonBlocking: [{ id: 'FS-1', reason: 'r-FS-1' }] });
+    expect(sync.prompt).toContain('"nonBlocking"');
+    expect(sync.prompt).toMatch(/top-level "outcome" to "satisfied"/);
+    expect(labelsOfCalls(agent, 'reconcile')).toHaveLength(0);
+  });
+
+  const labelsOfCalls = (agent, label) => agent.calls.filter((c) => c.opts.label === label);
+
+  it("blocking 'must-pass' with no must-pass criterion declared is inert: still stuck", async () => {
+    const { result } = await run(nonMustPassFailure(), { blocking: 'must-pass' });
+    expect(result.outcome).toBe('stuck');
+    expect(result.nonBlocking).toEqual([]);
+  });
+
+  it.each([undefined, 'must-pass'])('a Judge exit-satisfied over an open must-pass failure becomes stuck (blocking: %s)', async (blocking) => {
+    const { result, agent } = await run(exitOf('exit-satisfied', [met('FS-1'), bd('FS-2')], { gaps: [] }), { mustPassIds: ['FS-2'], blocking });
+    expect(result.outcome).toBe('stuck');
+    expect(result.reason).toMatch(/must-pass criteria failing: FS-2/);
+    expect(result.nonBlocking).toEqual([]);
+    expect(syncedState(syncs(agent)[0]).outcome).toBe('stuck');
+  });
+
+  it('an exit-satisfied over an unbuilt criterion becomes stuck', async () => {
+    const { result } = await run(exitOf('exit-satisfied', [met('FS-1'), { ...bd('FS-2'), status: 'unbuilt' }], { gaps: [], unbuilt: ['FS-2'] }), { mustPassIds: [] });
+    expect(result.outcome).toBe('stuck');
+    expect(result.reason).toMatch(/criteria unbuilt: FS-2/);
+  });
+
+  it("a stuck exit over an unbuilt criterion is not converted under 'must-pass'", async () => {
+    const { result } = await run(exitOf('exit-stuck', [bd('FS-1'), { ...bd('FS-2'), status: 'unbuilt' }], { unbuilt: ['FS-2'] }), { mustPassIds: ['FS-1'], blocking: 'must-pass' });
+    expect(result.outcome).toBe('stuck');
+  });
+
+  it("a must-pass not_verifiable beside a non-blocking failure ends must-pass-unproven under 'must-pass'", async () => {
+    const { result } = await run(exitOf('exit-stalled', [bd('FS-1'), nv('FS-2')]), { mustPassIds: ['FS-2'], blocking: 'must-pass' });
+    expect(result.outcome).toBe('must-pass-unproven');
+    expect(result.nonBlocking).toEqual([]);
+    expect(result.mustPass.unproven).toEqual([{ id: 'FS-2', status: 'not_verifiable' }]);
+  });
+
+  it("a missed coverage floor after conversion reports insufficient-coverage, state synced, no nonBlocking", async () => {
+    const { result, agent } = await run(nonMustPassFailure(), { mustPassIds: ['FS-2'], blocking: 'must-pass', coverageFloor: 1 });
+    expect(result.outcome).toBe('insufficient-coverage');
+    expect(result.reason).toMatch(/below the coverage floor 100%/);
+    expect(result.nonBlocking).toEqual([]);
+    expect(syncedState(syncs(agent)[0])).toMatchObject({ outcome: 'insufficient-coverage' });
+    expect(syncedState(syncs(agent)[0])).not.toHaveProperty('nonBlocking');
+  });
+
+  it('a state-sync agent that dies is named on the reason of a replaced exit', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') return nonMustPassFailure();
+      return null;
+    });
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2'], blocking: 'must-pass' }) });
+    expect(result.outcome).toBe('satisfied');
+    expect(result.reason).toMatch(/state-sync agent returned nothing/);
+  });
+
+  it('the satisfied path with no failures carries nonBlocking [] and writes no extra keys', async () => {
+    const { result, agent } = await run(satisfiedJudge(), { mustPassIds: ['FS-2'], blocking: 'must-pass' });
+    expect(result.outcome).toBe('satisfied');
+    expect(result.nonBlocking).toEqual([]);
+    expect(syncs(agent)).toHaveLength(0);
+  });
+
+  it("rejects any other blocking value before any agent runs", async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ blocking: 'some' }) })).rejects.toThrow(/args\.blocking must be 'all' or 'must-pass'.*"some"/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it.each([undefined, 'all', 'must-pass'])("the Judge's decide-next payload carries no blocking key (blocking: %s)", async (blocking) => {
+    const { agent } = await run(satisfiedJudge(), { mustPassIds: ['FS-2'], blocking });
+    const judgePrompt = agent.calls.find((c) => c.opts.label === 'judge').prompt;
+    expect(judgePrompt).not.toMatch(/"blocking"/);
+    expect(judgePrompt).toContain('"mustPass":["FS-2"]');
+  });
+
+  it('every no-Judge return path carries nonBlocking []', async () => {
+    const resumed = await run(satisfiedJudge(), {
+      cap: 1,
+      resume: { iteration: 1, criteria: [{ id: 'FS-1', status: 'not_met', cause: 'judged-failed', artifact: null, reason: 'r', provenAt: null }, { id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b', reason: null, provenAt: 1 }], gapsClosed: [] },
+    });
+    expect(resumed.result.nonBlocking).toEqual([]);
   });
 });
 

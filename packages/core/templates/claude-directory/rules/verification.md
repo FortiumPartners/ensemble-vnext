@@ -163,6 +163,16 @@ silently with nothing to match.
 
 Paths: none
 
+## 5c. Blocking policy
+
+Which failures stop a verification run from reporting `satisfied`. `all criteria` (the
+default; a missing line means the same) blocks on any failing criterion. `must-pass only`
+blocks only on criteria the TRD marks must-pass: a failure on any other criterion is
+recorded as a non-blocking follow-up and the run still reports `satisfied`. Write
+`all criteria` or `must-pass only`; any other value stops the run.
+
+Blocking: all criteria
+
 ## 6. Multi-repo
 
 When the system spans repositories, name them and say which holds what. A verifier that

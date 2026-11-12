@@ -1,6 +1,6 @@
 # TRD: Functional Verification of Delivered Software
 
-**Version**: 2.14.0
+**Version**: 2.15.0
 **Status**: Draft
 **Created**: 2026-08-17
 **Last Updated**: 2026-11-12
@@ -14,6 +14,7 @@
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
+| 2.15.0 | 2026-11-12 | **Synced to `docs/TRD/block-only-on-material-failures.md` (FIX-004).** §3.3 `VerifyFunctionalArgs` gains `blocking?: 'all' \| 'must-pass'` (31 fields; absent = `'all'`; any other value throws before any agent is dispatched) and `VerifyFunctionalResult` gains `nonBlocking` on every return path. The workflow, never the Judge, applies the policy in `applyBlockingPolicy`, inside the regression pass after its rounds and before its one state sync: under either setting a `satisfied` or `insufficient-coverage` exit over an open failing must-pass criterion, or any unbuilt one, becomes `exit-stuck`; under `'must-pass'` with at least one must-pass criterion, a `stalled` or `stuck` exit whose open failures all lie outside the must-pass set (and none unbuilt) becomes `satisfied` (`insufficient-coverage` when the floor is missed). The Judge's decide-next payload does not carry `blocking`. The state file and report input gain top-level `blocking` and `nonBlocking` only when `nonBlocking` is non-empty. `verify-functional-trd-sync.test.js`'s read-field count moves from 30 to 31 | @backend-implementer (FIX-004) |
 | 2.14.0 | 2026-11-12 | **Synced to `docs/TRD/accepted-gaps-for-not-checkable-must-pass-criteria.md` (OHP-B002).** §3.3 `VerifyFunctionalArgs` gains `offHostProofs` (30 fields, its D6) with its `OffHostProofArg` shape: a green CI job can settle a not-checkable must-pass criterion `met` with a `proof` record, under that TRD's D7 rules, and lift an `exit-must-pass-unproven` exit to `exit-satisfied` (its D8). | @backend-implementer (OHP-B002) |
 | 2.13.0 | 2026-11-12 | **Synced to `docs/TRD/one-full-regression-pass-at-the-end.md` (REGR-D001, its D16).** The end-of-run confirmation pass is replaced by a regression pass scoped by the files Debug changed. Inline AMENDED markers extended, original wording kept: §3.3 (the `exercised` entry gains `regression?: 1 | 2`; `criterionCovers` and the result's `regression` were added with the code; the state file gains a `regression` key), §3.3a (the regression-mode Judge), §3.5 (Debug returns a measured `filesChanged`; one repair Debug may follow round 1), §3.6 (the `## Regression pass` section). | @backend-implementer (REGR-D001) |
 | 2.12.0 | 2026-11-11 | **Synced to `docs/TRD/targeted-inner-loop-by-shared-cause.md` (CAUSE-D001, D22).** The loop now fixes and re-checks by shared root cause. Inline AMENDED markers, original wording kept: D8 (a second marker beside triage's: Debug is handed one gap per open cause and returns one result per cause, D7/D9; one agent per iteration is unchanged); §3.3 (`resume` gains an optional `exercised` history, D18, and the state file now has SIX top-level keys, D16); §3.3a (the Judge writes six keys, `causes` after ruling, and its `decide-next` payload gains three inputs, D12/D13/D16); §3.4 (`decideNext` requires `causes`, `previousCauses` and `awaitingRegression`, returns `closedCauses`, and the stall rule also needs no closed cause, D12); §3.5 (Debug: one gap and one result per cause, pre-checks after the refresh, D7/D9/D10/D11); §3.6 (a `## Causes` section and an awaiting marker in the report, D19). `verification-convergence.md` D3 and D11 still hold and are not amended. | @backend-implementer (CAUSE-D001) |
@@ -642,6 +643,13 @@ interface VerifyFunctionalArgs {
                                          //   run, a missing workflow/job, a status outside the six,
                                          //   or a green entry without a url, commit and integer
                                          //   runId throws before any agent is dispatched
+  blocking?: 'all' | 'must-pass';        // NEW (`docs/TRD/block-only-on-material-failures.md`). The
+                                         //   verification.md blocking policy; absent = 'all'. Under
+                                         //   'must-pass' (and only with a must-pass criterion) a
+                                         //   stalled/stuck exit whose open failures are all outside
+                                         //   the must-pass set returns satisfied, the failures in
+                                         //   `nonBlocking`. Any other value throws before any agent
+                                         //   is dispatched. Never sent to the Judge
   checks: { [skill: string]: string };  // NEW (VART D11). Each selected verification-check
                                         //   skill's SKILL.md text, keyed by skill name; {} when
                                         //   none were selected. Every criterion whose
@@ -715,6 +723,10 @@ interface VerifyFunctionalResult {
                              //   'missing' when the id is absent from `criteria`
     overridden: boolean;     // true when the workflow's re-check changed the Judge's action
   };
+  nonBlocking: Array<{ id: string; reason: string }>;  // NEW (block-only-on-material-failures).
+                             //   On EVERY return path: the failing criteria a `satisfied` exit
+                             //   was let stand over under `blocking: 'must-pass'`; [] otherwise
+                             //   (policy 'all', no must-pass criterion, or any other outcome)
   regression: {              // NEW (`docs/TRD/one-full-regression-pass-at-the-end.md` D13, §3.2).
                              //   `null` on EVERY return path where no end-of-run regression pass ran
     rounds: Array<{          //   (an unbuilt or setup-failure exit, an empty scope, the early exits)

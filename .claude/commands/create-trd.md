@@ -233,6 +233,12 @@ that column for those and leave it blank for the rest. Mark sparingly: a plan th
 everything marks nothing. A TRD with none marked is valid, and verification then behaves as it
 does today.
 
+Mark an objective `yes` when its failure would break a main user flow, leave data lost or
+corrupted, expose private data, or charge money or AI spend wrongly. The mark is what decides
+blocking when the owner sets `Blocking: must-pass only` in `verification.md`: a failing
+criterion that proves a marked objective blocks, and any other failure is listed and filed as
+a follow-up.
+
 Placed after the Changelog and before the Overview, without renumbering either.
 
 ### Section 2: Overview

@@ -40,6 +40,7 @@ const { maskFencedLines, findSection, findTables, parseTrd } = require('./trd-pa
 const { objectiveRows } = require('./spec-scope');
 const { matchNeverUnattended } = require('./fix-sizing');
 const { hashFile, COVERS_HASH_BYTES } = require('./live-evidence');
+const discovered = require('./discovered');
 
 // ---------------------------------------------------------------------------
 // checkEvidence — tier 1 of FR-3 (§3.2)
@@ -321,13 +322,18 @@ function formatCoveragePercent(fraction) {
  *                               //     `gaps` and `previousGaps` up front, like settledEvidenceGaps; required
  *   refreshFailed: boolean,     // NEW (preflight D16) — the last Debug pass's refresh ran and exited
  *                               //     non-zero, and no Setup check consumed that fact; required
+ *   blocking?: 'all'|'must-pass', // NEW (block-only-on-material-failures) — defaults to 'all'; under
+ *                               //     'must-pass' (and a non-empty `mustPass`) a stall or cap exit whose
+ *                               //     open gaps are all outside `mustPass` becomes exit-satisfied; any
+ *                               //     other value throws
  *   total?: number,             // NEW (D8) — the definition's whole criterion count
  *   coverageFloor?: number|null,// NEW (D9) — defaults to COVERAGE_FLOOR (null, unset)
  *   cap?: number,
  * }} input
  * @returns {{action: 'exit-satisfied'|'exit-unbuilt'|'exit-stalled'|'exit-stuck'|
  *   'exit-insufficient-coverage'|'exit-must-pass-unproven'|'exit-setup-failure'|'remediate',
- *   reason: string, closed: string[], closedCauses: string[]}}
+ *   reason: string, closed: string[], closedCauses: string[], nonBlocking?: string[]}}
+ *   `nonBlocking` is present only when the 'must-pass' conversion fired: the open gap ids let through.
  */
 function decideNext(input) {
   const { iteration, gaps, unbuilt, previousGaps: inputPreviousGaps, met, total } = input;
@@ -389,6 +395,12 @@ function decideNext(input) {
   }
   if (!Array.isArray(awaitingRegression)) {
     throw new TypeError('decideNext: input.awaitingRegression is required and must be an array (an absent value would hold every closed cause\'s members open until the iteration cap — D12)');
+  }
+  // Optional, and the default is the strict direction ('all'), so an absent key defaults; only a
+  // present-but-wrong value throws (a typo must not silently pick either policy).
+  const blocking = input.blocking ?? 'all';
+  if (blocking !== 'all' && blocking !== 'must-pass') {
+    throw new TypeError(`decideNext: input.blocking must be 'all' or 'must-pass', got ${JSON.stringify(blocking)}`);
   }
   const cap = input.cap ?? DEFAULT_CAP;
   const coverageFloor = input.coverageFloor ?? COVERAGE_FLOOR;
@@ -467,6 +479,30 @@ function decideNext(input) {
       reason: `${openGaps.length} gap(s) open — dispatching debug stage`,
       closed,
       closedCauses,
+    };
+  }
+
+  // Step 3b (block-only-on-material-failures): under 'must-pass', a stall or cap exit whose open
+  // gaps are all outside `mustPass` is let through as satisfied, and the ids are returned so the
+  // command can record follow-ups. Inert with no must-pass criterion (nothing marks a failure
+  // material, so letting every one through would change behaviour for unmarked work). Only these
+  // two base actions convert: `remediate` must keep iterating, `exit-unbuilt` is missing work
+  // (not a follow-up), `exit-setup-failure` is the environment. The re-label and must-pass step
+  // below still run on the converted result.
+  if (
+    blocking === 'must-pass' &&
+    mustPass.length > 0 &&
+    (result.action === 'exit-stalled' || result.action === 'exit-stuck') &&
+    openGaps.every((id) => !mustPass.includes(id))
+  ) {
+    result = {
+      action: 'exit-satisfied',
+      reason:
+        `no must-pass criterion is failing; ${openGaps.length} non-blocking gap(s) left open as ` +
+        `follow-ups under the must-pass-only policy: ${openGaps.join(', ')}; base cause: ${result.reason}`,
+      closed,
+      closedCauses,
+      nonBlocking: [...openGaps],
     };
   }
 
@@ -1088,6 +1124,54 @@ function readCoverageFloor(content) {
   return { floor: null, status: 'invalid', raw };
 }
 
+// ---------------------------------------------------------------------------
+// readBlockingPolicy — parses verification.md §5c (block-only-on-material-failures FIX-001)
+// ---------------------------------------------------------------------------
+
+/**
+ * Parses the `Blocking:` line inside the heading containing "blocking policy", the same
+ * fence-aware, section-scoped shape `readCoverageFloor` uses. Accepts `all criteria` / `all`
+ * and `must-pass only` / `must pass only` (any case, bold key, code-wrapped value, list
+ * marker); nothing else.
+ *
+ * @param {string} content - the full contents of a `verification.md`.
+ * @returns {{ policy: 'all'|'must-pass'|null, status: 'declared'|'absent'|'invalid', raw: string|null }}
+ *   No heading, or no line under it, -> `{ policy: 'all', status: 'absent' }` (absence is the
+ *   default, not an error). An unrecognised value, or two `Blocking:` lines -> `policy: null`,
+ *   `status: 'invalid'`, `raw` naming the line(s): an invalid line is never defaulted, because
+ *   either default would silently misread what the owner meant.
+ */
+function readBlockingPolicy(content) {
+  if (typeof content !== 'string') {
+    throw new TypeError('readBlockingPolicy: content must be a string');
+  }
+  const lines = maskFencedLines(content.replace(/\r\n?/g, '\n').split('\n'));
+  const section = findSection(lines, 'blocking policy');
+  if (!section) {
+    return { policy: 'all', status: 'absent', raw: null };
+  }
+
+  const found = lines
+    .slice(section.start, section.end)
+    .map((line) => line.trim().replace(/^[-*+]\s+/, '').replace(/[*`]/g, '').trim())
+    .filter((line) => /^blocking\s*:/i.test(line));
+  if (found.length === 0) {
+    return { policy: 'all', status: 'absent', raw: null };
+  }
+  if (found.length > 1) {
+    return {
+      policy: null,
+      status: 'invalid',
+      raw: `more than one "Blocking:" line: ${found.map((l) => `"${l}"`).join(' and ')}`,
+    };
+  }
+
+  const raw = found[0].replace(/^blocking\s*:\s*/i, '').trim();
+  if (/^all(\s+criteria)?$/i.test(raw)) return { policy: 'all', status: 'declared', raw };
+  if (/^must[-\s]pass\s+only$/i.test(raw)) return { policy: 'must-pass', status: 'declared', raw };
+  return { policy: null, status: 'invalid', raw: found[0] };
+}
+
 // Rounding is floor-to-5% (D6): the recommendation must never sit ABOVE any past satisfied
 // run's proven share, or that run would fail to re-pass its own history. The epsilon guards
 // against a share such as 0.35 rounding down to 0.30 through floating-point error
@@ -1479,6 +1563,52 @@ function classifyImages(criteria) {
 }
 
 /**
+ * Record the failures the must-pass-only policy let through as product follow-ups, one
+ * `discovered.jsonl` row per entry (block-only-on-material-failures). `blocksFeature: false`
+ * keeps `promotable()` from turning a row into a TRD task. An id that already has an open row
+ * with that `ref` and the `[non-blocking]` summary prefix is skipped, so a resumed run or a fix
+ * round writes no duplicate; an empty list writes nothing and creates no file.
+ *
+ * @param {string} stateDir
+ * @param {Array<string|{id: string, reason?: string}>} nonBlocking  the result's `nonBlocking`
+ * @param {string} [nowIso]
+ * @returns {{recorded: string[], skipped: string[]}}
+ */
+function recordNonBlockingFollowups(stateDir, nonBlocking, nowIso) {
+  const out = { recorded: [], skipped: [] };
+  if (!stateDir || !Array.isArray(nonBlocking) || nonBlocking.length === 0) return out;
+  const open = discovered.readAll(stateDir, { open: true });
+  for (const e of nonBlocking) {
+    const id = e && typeof e === 'object' ? e.id : e;
+    if (typeof id !== 'string' || !id) continue;
+    const reason =
+      e && typeof e === 'object' && e.reason
+        ? String(e.reason)
+        : 'failing criterion left open under the must-pass-only blocking policy';
+    const already = open.some((r) => r.ref === id && String(r.summary).startsWith('[non-blocking] '));
+    if (already) {
+      out.skipped.push(id);
+      continue;
+    }
+    const ok = discovered.record(
+      stateDir,
+      {
+        kind: 'gap',
+        foundBy: 'verify-functional',
+        status: 'not_met',
+        ref: id,
+        rankClass: 'product',
+        blocksFeature: false,
+        summary: `[non-blocking] ${id}: ${reason}`,
+      },
+      nowIso
+    );
+    (ok ? out.recorded : out.skipped).push(id);
+  }
+  return out;
+}
+
+/**
  * @param {{
  *   feature: string, prd: string, definitionPath: string,
  *   outcome: 'satisfied'|'unbuilt'|'stalled'|'stuck'|'insufficient-coverage'|'must-pass-unproven'|'not-run'|'setup-failure',
@@ -1625,6 +1755,18 @@ function renderReport(input) {
   }
   lines.push(`**Outcome**: ${OUTCOME_LABEL[outcome] ?? outcome}${outcomeSuffix}${finalRunSuffix}`);
   lines.push(`**Reason**: ${reason}`);
+  // Failures the must-pass-only policy let through (block-only-on-material-failures). Gated on a
+  // non-empty list so every other report stays byte-identical; a header line, not a section,
+  // because `## Evidence` must stay last. Entries are ids or {id, reason}; ids are Judge-free
+  // criterion ids but still escaped since the input is hand-composed.
+  const nonBlockingIds = (Array.isArray(input.nonBlocking) ? input.nonBlocking : [])
+    .map((e) => (e && typeof e === 'object' ? e.id : e))
+    .filter((id) => typeof id === 'string' && id);
+  if (nonBlockingIds.length > 0) {
+    lines.push(
+      `Not blocking: ${nonBlockingIds.length} failure(s) on criteria not marked must-pass, filed as product follow-ups: ${nonBlockingIds.map(escapeCell).join(', ')} (verification.md: Blocking: must-pass only)`
+    );
+  }
   // One line per setup problem (preflight §3.3), only under `setup-failure`, so every other
   // report stays byte-identical. Facts are free text (git top-levels, command output), hence escapeCell.
   if (outcome === 'setup-failure' && input.setup && Array.isArray(input.setup.problems)) {
@@ -2288,6 +2430,10 @@ const KNOWN_UNFILLED_DIGESTS = {
   // Every project scaffolded between the two changes holds exactly this copy
   // (`packages/core/lib/__fixtures__/verification.never-unattended-v1.md`).
   'never-unattended-v1': 'bad5ae5f15732f14e98bd3989b303f097632c7e785a2d482a5821fb4570611a2',
+  // The artifact-service template (4.13.3), frozen the moment before this change adds §5c
+  // (the blocking policy). Every project scaffolded between the two changes holds exactly
+  // this copy (`packages/core/lib/__fixtures__/verification.artifact-service-v1.md`).
+  'artifact-service-v1': '6853f36058f3a1e8c69c89835b6fcaed76fa55cf781444b3e97116be4128d786',
 };
 
 /**
@@ -2601,6 +2747,7 @@ module.exports = {
   lookupOffHostProofs,
   offHostProven,
   renderReport,
+  recordNonBlockingFollowups,
   isEmbeddableImagePath,
   reportPublishPlan,
   readStopRule,
@@ -2609,6 +2756,7 @@ module.exports = {
   isVerificationUnfilled,
   missingVerificationSections,
   readCoverageFloor,
+  readBlockingPolicy,
   recommendCoverageFloor,
   readNeverUnattended,
   readFullDeploy,
@@ -2699,9 +2847,11 @@ if (require.main === module) {
         '  node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>\n' +
         '  node functional-verification.js off-host-proofs --trd <TRD path> --definition <definition path> [--covers <json file>] [--ids <id,id,...>]\n' +
         '  node functional-verification.js off-host-proven --state-dir <dir>\n' +
+        '  node functional-verification.js record-nonblocking --state-dir <dir> --payload <json>\n' +
         '  node functional-verification.js report-publish-plan --report <path> [--published-file <path>]\n' +
         '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
+        '  node functional-verification.js read-blocking-policy <projectPath>\n' +
         '  node functional-verification.js verification-digest <verificationPath>\n' +
         '  node functional-verification.js preclassify --file <payload> --verification <path> [--design-map <path> ...]\n' +
         '  node functional-verification.js reproof-retry-set <statePath>\n' +
@@ -2853,6 +3003,21 @@ if (require.main === module) {
       const declared = only ? decl.declared.filter((d) => only.has(d.id)) : decl.declared;
       console.log(JSON.stringify({ proofs: lookupOffHostProofs({ declared, covers, trdPath }), ignored: decl.ignored }));
     }
+  } else if (subcommand === 'record-nonblocking') {
+    const stateDir = flag('--state-dir');
+    const payload = flag('--payload');
+    if (!stateDir || payload === undefined) {
+      usage();
+    } else {
+      let list;
+      try {
+        list = JSON.parse(payload);
+      } catch (err) {
+        console.error(`record-nonblocking: --payload is not JSON: ${err.message}`);
+        process.exit(1);
+      }
+      console.log(JSON.stringify(recordNonBlockingFollowups(stateDir, list)));
+    }
   } else if (subcommand === 'off-host-proven') {
     const stateDir = flag('--state-dir');
     if (!stateDir) usage();
@@ -2995,6 +3160,15 @@ if (require.main === module) {
     } else {
       const content = fs.readFileSync(projectPath, 'utf8');
       console.log(JSON.stringify(readCoverageFloor(content)));
+    }
+  } else if (subcommand === 'read-blocking-policy') {
+    const [projectPath] = rest;
+    if (!projectPath) {
+      usage();
+    } else if (!fs.existsSync(projectPath)) {
+      console.log(JSON.stringify({ policy: 'all', status: 'absent', raw: null, reason: 'missing' }));
+    } else {
+      console.log(JSON.stringify(readBlockingPolicy(fs.readFileSync(projectPath, 'utf8'))));
     }
   } else if (subcommand === 'reproof-retry-set') {
     const [statePath] = rest;

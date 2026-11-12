@@ -273,6 +273,12 @@ under the exception stated in "Deriving the success definition," or copied by
 `spec-scope.js criteria` on the spec path; it is never added later by the Judge or the
 exerciser.
 
+**The test for marking one.** A plan marks an objective `Must pass` when its failure would
+break a main user flow, leave data lost or corrupted, expose private data, or charge money or
+AI spend wrongly. Neither the Judge nor the exerciser applies this test to a failure: the mark
+is made at plan time and read, never judged at run time. The Judge's schema and prompt carry
+no materiality field.
+
 ---
 
 ## Check criteria
@@ -686,6 +692,12 @@ uncovered objectives by id. In both cases the reason names each unproven
 must-pass criterion and each uncovered objective, so the core items are never hidden. A
 must-pass criterion that is `not_met` or `unbuilt` already prevents `satisfied`, so those
 base outcomes are unchanged.
+
+**Blocking: must-pass only.** When `verification.md` sets this and at least one criterion is
+marked `Must pass`, a `satisfied` run may carry non-blocking failures: `not_met` criteria that
+prove no must-pass objective. They are listed on the result and filed as follow-ups, not
+built. Check rows never carry a mark, so they never block under it. An `unbuilt` criterion
+still blocks, and with no must-pass criterion the setting changes nothing.
 
 **`setup-failure`** says the environment, not the code, was broken, so the run did not
 measure the software: a declared environment was unreachable, the running build differed
