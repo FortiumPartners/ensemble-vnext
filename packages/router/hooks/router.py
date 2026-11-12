@@ -602,8 +602,9 @@ def derive_feature(cwd: str) -> str:
 _RECORDS_REF_PREFIX = "refs/ensemble/records/"
 _SAFE_SLUG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")  # Forge's slug rule
 _GIT_TIMEOUT_SECONDS = 2
-_NON_RECORD_NAMES = ("dispatch.jsonl", "implement.lock", ".DS_Store", "record.json")
+_NON_RECORD_NAMES = ("dispatch.jsonl", "implement.lock", ".DS_Store")
 _TMP_FILE_RE = re.compile(r"\.tmp\.\d+\.\d+$")  # implement-state.js atomic-save temps
+_MAX_RECORD_BYTES = 10 * 1024 * 1024  # record-ref.js MAX_FILE_BYTES: larger files never ride a ref
 
 
 def _git_out(root: str, args: list) -> "bytes | None":
@@ -628,15 +629,22 @@ def _git_out(root: str, args: list) -> "bytes | None":
 
 def _folder_has_records(folder: str) -> bool:
     """True when `folder` holds a record file -- record-ref.js `selectFolder`'s definition:
-    not dispatch.jsonl, implement.lock, .DS_Store, record.json, findings/, evidence/ or temp files."""
+    not dispatch.jsonl, implement.lock, .DS_Store, a top-level record.json, findings/, evidence/,
+    temp files, symlinks, or files over 10 MB."""
     try:
         for dirpath, dirnames, filenames in os.walk(folder):
-            if os.path.abspath(dirpath) == os.path.abspath(folder):
+            top = os.path.abspath(dirpath) == os.path.abspath(folder)
+            if top:
                 dirnames[:] = [d for d in dirnames if d not in ("findings", "evidence")]
             for name in filenames:
                 if name in _NON_RECORD_NAMES or _TMP_FILE_RE.search(name):
                     continue
-                if os.path.isfile(os.path.join(dirpath, name)):
+                if top and name == "record.json":
+                    continue
+                full = os.path.join(dirpath, name)
+                if os.path.islink(full) or not os.path.isfile(full):
+                    continue
+                if os.path.getsize(full) <= _MAX_RECORD_BYTES:
                     return True
     except Exception:
         return False

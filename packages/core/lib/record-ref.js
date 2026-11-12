@@ -839,11 +839,32 @@ function myIdentity(top, branch) {
   return { forge_feature_id: nonEmpty(process.env.FORGE_FEATURE_ID), branch: nonEmpty(branch) || currentBranch(top) };
 }
 
+const BLOB_BATCH_BYTES = 32 * 1024 * 1024; // keeps one `cat-file --batch` well under git()'s maxBuffer
+
 /**
- * Reads blobs by sha with ONE `git cat-file --batch`. Returns Buffers in order, or throws when a
- * blob is missing or the stream is malformed.
+ * Reads blobs by sha with `git cat-file --batch`, one call per batch of at most BLOB_BATCH_BYTES
+ * (by the sizes `ls-tree -l` reported), so a large evidence set never overflows one stdout buffer.
+ * Returns Buffers in order, or throws when a blob is missing or the stream is malformed.
+ * @param {{sha: string, size: number}[]} items
  */
-function readBlobs(top, shas) {
+function readBlobs(top, items) {
+  const out = [];
+  let batch = [];
+  let bytes = 0;
+  for (const it of items) {
+    if (batch.length && bytes + it.size > BLOB_BATCH_BYTES) {
+      out.push(...readBlobBatch(top, batch));
+      batch = [];
+      bytes = 0;
+    }
+    batch.push(it.sha);
+    bytes += it.size;
+  }
+  if (batch.length) out.push(...readBlobBatch(top, batch));
+  return out;
+}
+
+function readBlobBatch(top, shas) {
   if (!shas.length) return [];
   const r = git(['cat-file', '--batch'], { cwd: top, buffer: true, input: shas.join('\n') + '\n' });
   if (!r.ok) throw new Error(`git cat-file failed: ${r.err}`);
@@ -901,19 +922,19 @@ function restoreInner({ stateDir, cwd, local, match, branch } = {}, netTimeout) 
     const commit = resolveRef(top, ref);
     const identity = identityAt(top, commit);
     if (match && !sameFeature(identity, myIdentity(top, branch))) return { ok: false, outcome: 'mismatch', ref, identity };
-    const ls = git(['ls-tree', '-r', '-z', '--full-tree', commit], { cwd: top });
+    const ls = git(['ls-tree', '-r', '-z', '-l', '--full-tree', commit], { cwd: top });
     if (!ls.ok) return { ok: false, outcome: 'failed', reason: ls.err };
 
     const items = [];
     for (const ent of ls.raw.split('\0').filter(Boolean)) {
       const tab = ent.indexOf('\t');
-      const [mode, type, sha] = ent.slice(0, tab).split(' ');
+      const [mode, type, sha, size] = ent.slice(0, tab).split(/ +/);
       const p = ent.slice(tab + 1);
       if (type !== 'blob' || mode === '120000' || p === 'record.json' || !safeTreePath(p)) continue;
-      items.push({ p, sha });
+      items.push({ p, sha, size: Number(size) || 0 });
     }
     // Everything is read and staged before the destination is touched.
-    const blobs = readBlobs(top, items.map((i) => i.sha));
+    const blobs = readBlobs(top, items);
     tmpRoot = path.join(top, STATE_ROOT, `.restore-${slug}-${process.pid}`);
     fs.rmSync(tmpRoot, { recursive: true, force: true });
     items.forEach((it, i) => {
@@ -937,16 +958,22 @@ function restoreInner({ stateDir, cwd, local, match, branch } = {}, netTimeout) 
         const target = path.join(dest, ...it.p.split('/'));
         if (path.relative(dest, target).startsWith('..')) continue;
         // Create parents one level at a time so each new directory is recorded for the undo.
+        // A symlinked parent is never written through: stop before creating anything under it.
         const parts = path.relative(dest, path.dirname(target)).split(path.sep).filter(Boolean);
         let cur = dest;
+        let viaLink = false;
         for (const part of parts) {
           cur = path.join(cur, part);
+          if (isSymlink(cur)) {
+            viaLink = true;
+            break;
+          }
           if (!fs.existsSync(cur)) {
             fs.mkdirSync(cur);
             madeDirs.push(cur);
           }
         }
-        if (path.relative(destReal, realOr(path.dirname(target))).startsWith('..')) continue; // a symlinked parent
+        if (viaLink || path.relative(destReal, realOr(path.dirname(target))).startsWith('..')) continue;
         if (fs.existsSync(target) || isSymlink(target)) continue;
         fs.renameSync(path.join(tmpRoot, ...it.p.split('/')), target);
         movedFiles.push(target);

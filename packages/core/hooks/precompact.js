@@ -244,10 +244,14 @@ function main() {
   }
 
   const summary = summarizeImplement(implementState);
-  // A hook that could not restore the folder must not create it: a one-file folder would block
-  // every later restore. Fall back to the no-feature log instead.
-  const folderExists = feature && fs.existsSync(path.join(projectRoot, '.trd-state', feature));
-  const logPath = sessionLogPath(projectRoot, folderExists ? current.trd : null);
+  // A hook that could not restore the folder must not give it its first record: a folder holding
+  // one record file (even beside a dispatch.jsonl) would block every later restore. Fall back to
+  // the no-feature log instead. "Holds records" is record-ref's one definition, not "exists".
+  const featureDir = feature ? path.join(projectRoot, '.trd-state', feature) : null;
+  const folderHoldsRecords = Boolean(featureDir) && (recordRef
+    ? recordRef.hasRecords(featureDir)
+    : fs.existsSync(featureDir));
+  const logPath = sessionLogPath(projectRoot, folderHoldsRecords ? current.trd : null);
   const entry = formatCheckpoint({
     timestamp: new Date().toISOString(),
     trigger: hookData.trigger || (hookData.compaction_trigger) || 'compact',

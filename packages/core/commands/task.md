@@ -201,12 +201,14 @@ anything.
 `/task --resume` scans `.trd-state/*/implement.json` for the most recent file with `"kind":
 "task"` and no `closed.json` beside it. When the scan finds nothing, the run may live only on
 the records ref: list the `task-*` slugs on `origin`, fetch just those refs once, read each
-one's `implement.json` without a second fetch, then restore the one chosen:
+one's `implement.json` and `closed.json` without a second fetch (a slug whose `closed.json` reads
+back is closed, not a candidate), then restore the one chosen:
 
 ```bash
 node .claude/lib/record-ref.js list --remote
 timeout 15 git fetch origin '+refs/ensemble/records/task-*:refs/ensemble/records/task-*'
 node .claude/lib/record-ref.js read --local --slug task-<slug> --file implement.json
+node .claude/lib/record-ref.js read --local --slug task-<slug> --file closed.json
 node .claude/lib/record-ref.js ensure --state-dir .trd-state/task-<slug>
 ```
 

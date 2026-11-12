@@ -562,7 +562,8 @@ function reconcile(args) {
   const { stateDir, trdPath = null, reason, reverifiedPath, cwd = process.cwd() } = args;
   // A re-created worktree has no state folder: bring it back from the records ref before any read.
   // Never throws; any outcome other than a restore reads as "no record", exactly as before.
-  recordRef.ensure({ stateDir, cwd });
+  // stateDir is read below relative to process.cwd(), so resolve it the same way here.
+  recordRef.ensure({ stateDir: typeof stateDir === 'string' && stateDir ? path.resolve(stateDir) : stateDir, cwd });
   const closedPath = args.closedPath || path.join(stateDir, 'closed.json');
   const localHead = headSha(cwd);
   if (!localHead) return { action: 'refused', anchor: '', reason: 'cannot read HEAD' };
@@ -763,7 +764,7 @@ function judgeLink(link, sha, anchor, trdRel, cwd, label) {
  */
 function check(args) {
   const { stateDir, link, trdPath = null, cwd = process.cwd() } = args;
-  recordRef.ensure({ stateDir, cwd }); // see reconcile: restore the folder before reading the anchor
+  recordRef.ensure({ stateDir: typeof stateDir === 'string' && stateDir ? path.resolve(stateDir) : stateDir, cwd }); // see reconcile: restore the folder before reading the anchor
   const fail = (reason, observed = null, differing = []) => ({ ok: false, link, observed, differing, reason });
   if (!['pr-head', 'merge', 'deploy'].includes(link)) return fail(`unknown link ${link}`);
   const custody = readCustody(stateDir);
