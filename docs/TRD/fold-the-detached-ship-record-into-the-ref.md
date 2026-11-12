@@ -219,8 +219,17 @@ repositories; there is no screen, rendered data, design or flow to compare.
 
 ## Could Not Verify
 
-- Pushing the ref to GitHub and Forge's reader consuming the post-merge `shipped.json`: tests
-  use a local bare origin, and the reader lives in forge-vnext.
+After the build audit of 2026-11-12 (5 of 5 verifiers reported; O1-O6 and FIX-001 to FIX-006
+checked against the code and found built and tested, so they are not listed here):
+
+- No PRD exists for this change (its source is roadmap item 4 of
+  `docs/plans/run-records-off-branch/roadmap.md` and the PM's instructions of 2026-11-12), so
+  the build audit checked the delivered code against this TRD only. Whether the TRD itself
+  carries everything the roadmap brief asked for, and nothing it did not, was not checked.
+- Pushing the ref to GitHub and Forge's reader consuming the post-merge `shipped.json`: out of
+  scope for this environment. Tests use a local bare origin, and the reader lives in
+  forge-vnext.
 - `record-ref.js write` (the folder writer) run on a merged worktree would overwrite the ref's
   detached `shipped.json` with the stale tracked copy; "Writers move to the ref" (roadmap
-  item 3) must not call it after the detach. Not exercised here.
+  item 3) must not call it after the detach. Out of scope here (item 3 owns that call); not
+  exercised.
