@@ -1,0 +1,87 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/custody-test-all-digit-hash-flake.md",
+  "trd_hash": "cfc2d53097b7ffc92945221126efc3da766fa817db283881cc5888843b3671e8",
+  "branch": "feature/0-fix-custody-test-js-all-digit-hash-flake",
+  "strategy": "bug-fix",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "tokenOf helper + use at deploy-link tokens + helper unit test",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/custody.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T18:23:49Z",
+      "completed_at": "2026-11-12T18:36:59.732Z",
+      "last_advanced": "2026-11-12T18:29:26.182Z"
+    },
+    "FIX-002": {
+      "description": "remove known-open line from CLAUDE.md",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "CLAUDE.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T18:23:49Z",
+      "completed_at": "2026-11-12T18:36:59.733Z",
+      "last_advanced": "2026-11-12T18:29:26.183Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "77e525176045036bc02d275dcc92e8a3521b9534",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T18:36:59.907Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "77e525176045036bc02d275dcc92e8a3521b9534",
+    "last_checkpoint_timestamp": "2026-11-12T18:36:59.907Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/custody-test-all-digit-hash-flake.md § Reproduction",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "declared; not needed by this TRD"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "declared; gh login present"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}
