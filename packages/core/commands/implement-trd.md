@@ -1951,7 +1951,26 @@ node .claude/lib/live-evidence.js derive-criteria --state-dir <state-dir> --trd 
 It prints `{"<id>": ["<path>", ...]}` for every criterion it can map; a criterion it cannot map
 (a check-derived row among them) is absent and is re-walked whenever a Debug pass changed
 anything. A non-zero exit passes `{}` and is one ISSUES line, never STUCK: `{}` widens the
-regression pass's scope, it never narrows it.
+regression pass's scope, it never narrows it. Write the derive output to a file
+(`<state-dir>/criterion-covers.json`); the next call reads it with `--covers`.
+
+**Then look up the off-host proofs, immediately before the dispatch** (TRD
+accepted-gaps-for-not-checkable-must-pass-criteria, D4, D11). A must-pass criterion whose
+objective declares a CI job in the TRD's `Off-host proof` column can be proven by that job
+when the criterion is not checkable on this host:
+
+```bash
+node .claude/lib/functional-verification.js off-host-proofs --trd <trd> --definition <state-dir>/success-definition.md --covers <state-dir>/criterion-covers.json
+```
+
+It prints one JSON line, `{"proofs": [...], "ignored": [...]}`. Pass `proofs` as `offHostProofs`.
+**Run it fresh before every dispatch and never reuse an earlier output**: CI moves between
+dispatches. This holds on the fresh path and on the §8.2 `--resume` path alike; both reach this
+dispatch, so the call runs here on both. Put each `ignored` entry (a declaration the reader
+refused, with its reason) in ISSUES. A non-zero exit passes `[]` and is one ISSUES line, never
+STUCK: `[]` only leaves the criterion unproven, it never proves one. `gh run list --commit=<HEAD>`
+finds a run only when HEAD was pushed and CI ran; at the end of this command HEAD is usually
+local, so an entry reading `missing` is expected, not a defect, and the criterion stays unproven.
 
 ```javascript
 Workflow({ name: "verify-functional", args: {
@@ -1984,6 +2003,7 @@ Workflow({ name: "verify-functional", args: {
   mustPassUncovered,                                             // §8.1 -- must-pass-coverage's `uncovered` ([{id, text}]), unchanged; [] when none
   verificationDigest,                                            // §8.1a step 8 -- verification-digest's `digest` (sha256 hex of verification.md); "" when the file is absent (nothing persists)
   preclassified,                                                 // §8.1a step 8 -- preclassify's output (entries already settled not-checkable-here, never exercised); [] when none
+  offHostProofs,                                                 // `node .claude/lib/functional-verification.js off-host-proofs` (see above) -- its `proofs`, fresh before this dispatch; [] when none is declared or the call fails
 } })
 ```
 

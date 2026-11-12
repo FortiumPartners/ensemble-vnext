@@ -35,6 +35,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { spawnSync } = require('child_process');
 const { maskFencedLines, findSection, findTables, parseTrd } = require('./trd-parser');
 const { objectiveRows } = require('./spec-scope');
 const { matchNeverUnattended } = require('./fix-sizing');
@@ -741,6 +742,21 @@ function decideSetup(input) {
 // ---------------------------------------------------------------------------
 
 /**
+ * The objective ids a `Must pass` cell names (raw string or already split). A placeholder
+ * (`no`, `none`, `n/a`, a dash) is blank, as the Objectives table reads `no`: reporting it as an
+ * unknown objective id would put one false ISSUES line on every row. One tokenizer, shared by
+ * `mustPassCoverage` and `offHostDeclarations`, so the off-host join can never drift from the
+ * reading that decides which criteria are must-pass.
+ */
+function mustPassCellIds(cell) {
+  const text = Array.isArray(cell) ? cell.join(',') : String(cell ?? '');
+  return text
+    .replace(/\*\*|`/g, '')
+    .split(/[\s,;]+/)
+    .filter((t) => t && !/^(no|none|n\/a|[-–—])$/i.test(t));
+}
+
+/**
  * Pure arithmetic over the TRD's must-pass objectives and the definition's `Must pass` cells.
  *
  * @param {{
@@ -764,13 +780,7 @@ function mustPassCoverage({ objectives, criteria }) {
   const mustPassIds = [];
   const unknown = [];
   for (const c of criteria) {
-    const cell = Array.isArray(c.mustPass) ? c.mustPass.join(',') : String(c.mustPass ?? '');
-    // A placeholder (`no`, `none`, `n/a`, a dash) is blank, as the Objectives table reads `no`:
-    // reporting it as an unknown objective id would put one false ISSUES line on every row.
-    const ids = cell
-      .replace(/\*\*|`/g, '')
-      .split(/[\s,;]+/)
-      .filter((t) => t && !/^(no|none|n\/a|[-–—])$/i.test(t));
+    const ids = mustPassCellIds(c.mustPass);
     let marks = false;
     for (const id of ids) {
       if (declared.has(id)) {
@@ -791,6 +801,30 @@ function mustPassCoverage({ objectives, criteria }) {
 }
 
 /**
+ * Reads the success definition's first table with an `ID` column into rows of
+ * `{ id, cells }`, where `cells` maps each header, folded (bold/backticks stripped, hyphens and
+ * underscores to spaces, lower-cased), to its raw cell. Hyphens fold so a `Must-pass` header is
+ * not silently a missing column. `[]` when there is no such table.
+ */
+function readDefinitionRows(definitionText) {
+  const lines = maskFencedLines(definitionText.split(/\r?\n/));
+  const clean = (h) => String(h ?? '').replace(/\*\*|`/g, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  const table = findTables(lines, 0, lines.length).find((t) => t.headerCells.some((h) => clean(h) === 'id'));
+  if (!table) return [];
+  const headers = table.headerCells.map(clean);
+  const idCol = headers.indexOf('id');
+  const rows = [];
+  for (const row of table.dataRows) {
+    const id = String(row.cells[idCol] ?? '').replace(/\*\*|`/g, '').trim();
+    if (!id) continue;
+    const cells = {};
+    headers.forEach((h, i) => { if (!(h in cells)) cells[h] = row.cells[i] ?? ''; });
+    rows.push({ id, cells });
+  }
+  return rows;
+}
+
+/**
  * Reads the TRD and the success definition from disk (D11), so the must-pass set never depends on
  * a model parsing the table. Columns are found by header name; a definition with no `Must pass`
  * column yields blank cells, so every declared must-pass objective comes back uncovered (fail closed).
@@ -799,20 +833,201 @@ function mustPassCoverageFromFiles(trdPath, definitionPath) {
   const objectives = objectiveRows(fs.readFileSync(trdPath, 'utf8'))
     .filter((r) => r.mustPass)
     .map(({ id, text }) => ({ id, text }));
-  const lines = maskFencedLines(fs.readFileSync(definitionPath, 'utf8').split(/\r?\n/));
-  // Hyphens and underscores fold to spaces, so a `Must-pass` header is not silently a missing column.
-  const clean = (h) => String(h ?? '').replace(/\*\*|`/g, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-  const table = findTables(lines, 0, lines.length).find((t) => t.headerCells.some((h) => clean(h) === 'id'));
-  const criteria = [];
-  if (table) {
-    const idCol = table.headerCells.findIndex((h) => clean(h) === 'id');
-    const mpCol = table.headerCells.findIndex((h) => clean(h) === 'must pass');
-    for (const row of table.dataRows) {
-      const id = String(row.cells[idCol] ?? '').replace(/\*\*|`/g, '').trim();
-      if (id) criteria.push({ id, mustPass: mpCol >= 0 ? row.cells[mpCol] ?? '' : '' });
+  const criteria = readDefinitionRows(fs.readFileSync(definitionPath, 'utf8'))
+    .map((r) => ({ id: r.id, mustPass: r.cells['must pass'] ?? '' }));
+  return mustPassCoverage({ objectives, criteria });
+}
+
+// ---------------------------------------------------------------------------
+// offHostDeclarations — which must-pass criteria name a CI job that can prove them
+// (docs/TRD/accepted-gaps-for-not-checkable-must-pass-criteria.md D1, D2)
+// ---------------------------------------------------------------------------
+
+const WORKFLOW_BASENAME = /^[A-Za-z0-9._][A-Za-z0-9._-]*\.ya?ml$/;
+
+/**
+ * Parses one `Off-host proof` cell, `<workflow file>#<job name>`. Returns `null` for a blank
+ * or placeholder cell (no declaration), `{ malformed: true }` for one that fails the rules
+ * (a non-YAML workflow, a basename starting with `-`, an empty job, a job starting with `-`),
+ * else `{ workflow, job }`. The checks are what keep a declaration from becoming a `gh` flag.
+ */
+function parseOffHostCell(raw) {
+  const cell = String(raw ?? '').replace(/\*\*|`/g, '').trim();
+  if (!cell || /^(no|none|n\/a|[-–—])$/i.test(cell)) return null;
+  const hash = cell.indexOf('#');
+  if (hash === -1) return { malformed: true };
+  const workflow = cell.slice(0, hash).trim();
+  const job = cell.slice(hash + 1).trim();
+  const base = workflow.split('/').pop();
+  if (!WORKFLOW_BASENAME.test(base) || !job || job.startsWith('-')) return { malformed: true };
+  return { workflow, job };
+}
+
+/**
+ * Joins the TRD's per-objective `Off-host proof` cells to the definition's must-pass criteria
+ * through each criterion's `Must pass` cell (criterion -> objective -> job). A criterion is
+ * `declared` only when every must-pass objective its cell names declares the same job.
+ *
+ * @param {{
+ *   objectives: Array<{id: string, mustPass: boolean, offHostProof?: string}>, // spec-scope objectiveRows
+ *   criteria: Array<{id: string, mustPass?: string|string[]}>,
+ * }} input
+ * @returns {{
+ *   declared: Array<{id: string, objectives: string[], workflow: string, job: string}>,
+ *   ignored: Array<{id: string, cell: string, reason: 'not must-pass'|'malformed'|'not declared for every named objective'}>,
+ * }}
+ * @example
+ * offHostDeclarations({
+ *   objectives: [{ id: 'O3', mustPass: true, offHostProof: '.github/workflows/ci.yml#read-aloud' }],
+ *   criteria: [{ id: 'FS-3', mustPass: 'O3' }],
+ * })
+ * // => { declared: [{ id: 'FS-3', objectives: ['O3'], workflow: '.github/workflows/ci.yml', job: 'read-aloud' }], ignored: [] }
+ */
+function offHostDeclarations({ objectives, criteria }) {
+  if (!Array.isArray(objectives)) throw new TypeError('offHostDeclarations: objectives must be an array');
+  if (!Array.isArray(criteria)) throw new TypeError('offHostDeclarations: criteria must be an array');
+  const declared = [];
+  const ignored = [];
+  const valid = new Map(); // must-pass objective id -> { workflow, job }
+  for (const o of objectives) {
+    const parsed = o.offHostProof === undefined ? null : parseOffHostCell(o.offHostProof);
+    if (!parsed) continue;
+    if (!o.mustPass) ignored.push({ id: o.id, cell: o.offHostProof, reason: 'not must-pass' });
+    else if (parsed.malformed) ignored.push({ id: o.id, cell: o.offHostProof, reason: 'malformed' });
+    else valid.set(o.id, parsed);
+  }
+  const mustPassObjectives = objectives.filter((o) => o.mustPass).map(({ id }) => ({ id, text: '' }));
+  const mp = mustPassCoverage({ objectives: mustPassObjectives, criteria });
+  const known = new Set(mustPassObjectives.map((o) => o.id));
+  for (const c of criteria) {
+    if (!mp.criteria.includes(c.id)) continue;
+    const named = [...new Set(mustPassCellIds(c.mustPass).filter((id) => known.has(id)))];
+    const decls = named.map((id) => valid.get(id));
+    if (!decls.some(Boolean)) continue;
+    const first = decls[0];
+    if (decls.every((d) => d && d.workflow === first.workflow && d.job === first.job)) {
+      declared.push({ id: c.id, objectives: named, workflow: first.workflow, job: first.job });
+    } else {
+      const cell = Array.isArray(c.mustPass) ? c.mustPass.join(',') : String(c.mustPass ?? '');
+      ignored.push({ id: c.id, cell, reason: 'not declared for every named objective' });
     }
   }
-  return mustPassCoverage({ objectives, criteria });
+  return { declared, ignored };
+}
+
+/** Reads the TRD and the definition from disk and runs `offHostDeclarations` (throws on an unreadable file). */
+function offHostDeclarationsFromFiles(trdPath, definitionPath) {
+  const objectives = objectiveRows(fs.readFileSync(trdPath, 'utf8'));
+  const criteria = readDefinitionRows(fs.readFileSync(definitionPath, 'utf8'))
+    .map((r) => ({ id: r.id, mustPass: r.cells['must pass'] ?? '' }));
+  return offHostDeclarations({ objectives, criteria });
+}
+
+// ---------------------------------------------------------------------------
+// lookupOffHostProofs — what CI says about each declared job on HEAD (D4, D5)
+// ---------------------------------------------------------------------------
+
+// Argument-array spawn, no shell, same shape as custody.js's private `run` (which is not exported).
+function runCmd(cmd, args, cwd) {
+  const r = spawnSync(cmd, args, { cwd, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  return { ok: !r.error && r.status === 0, out: r.stdout || '', err: r.error ? r.error.message : r.stderr || '' };
+}
+
+/** Paths `git status` lists as uncommitted, new files in new directories included; null on failure. */
+function uncommittedPaths(cwd) {
+  const r = runCmd('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], cwd);
+  if (!r.ok) return null;
+  const parts = r.out.split('\0').filter(Boolean);
+  const paths = [];
+  for (let i = 0; i < parts.length; i++) {
+    const entry = parts[i];
+    paths.push(entry.slice(3));
+    // A rename or copy is followed by its source path as a separate NUL field.
+    if (/^[RC]/.test(entry) || /^.[RC]/.test(entry)) paths.push(parts[++i]);
+  }
+  return paths.filter(Boolean);
+}
+
+/**
+ * Looks up each declaration's CI job on `HEAD` with `gh` and checks the working tree (D5).
+ * `custody.js` is required here, not at the top: it requires this module at load for
+ * `BUILD_TOKEN`, so a top-level require is a cycle.
+ *
+ * @returns {Array<{id, workflow, job, status: 'green'|'red'|'pending'|'missing'|'dirty'|'error',
+ *   runId: number|null, url: string|null, commit: string, reason: string}>}
+ */
+function lookupOffHostProofs({ declared, covers = {}, cwd = process.cwd(), trdPath = null }) {
+  const { coverMatcher, classifyPath } = require('./custody');
+  const headRes = runCmd('git', ['rev-parse', 'HEAD'], cwd);
+  const commit = headRes.ok ? headRes.out.trim() : '';
+  const changed = headRes.ok ? uncommittedPaths(cwd) : null;
+  const trdRel = trdPath ? path.relative(cwd, path.resolve(cwd, trdPath)).split(path.sep).join('/') : null;
+  const build = (d, status, reason, run = {}) => ({
+    id: d.id, workflow: d.workflow, job: d.job, status,
+    runId: Number.isInteger(run.databaseId) ? run.databaseId : null, url: run.url || null, commit, reason,
+  });
+  const jobWords = (d) => `job ${d.job} of ${path.basename(d.workflow)}`;
+
+  return declared.map((d) => {
+    if (!commit || changed === null) return build(d, 'error', `could not read the git state: ${headRes.ok ? 'git status failed' : headRes.err.trim()}`);
+    const cover = Array.isArray(covers[d.id]) ? covers[d.id] : [];
+    const touched = cover.length > 0
+      ? changed.filter((p) => cover.some((c) => coverMatcher(c)(p)))
+      : changed.filter((p) => classifyPath(p, trdRel) === 'shipped');
+    if (touched.length > 0) {
+      return build(d, 'dirty', `uncommitted change to ${touched[0]}${touched.length > 1 ? ` and ${touched.length - 1} more` : ''}, which CI never saw`);
+    }
+    const list = runCmd('gh', ['run', 'list', `--workflow=${path.basename(d.workflow)}`, `--commit=${commit}`,
+      '--json', 'databaseId,status,conclusion,url,headSha,createdAt'], cwd);
+    let runs;
+    try { runs = JSON.parse(list.out); } catch { runs = null; }
+    if (!list.ok || !Array.isArray(runs)) return build(d, 'error', `gh run list failed: ${(list.err || 'unparseable output').trim()}`);
+    const run = runs
+      .filter((r) => r && r.headSha === commit)
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0];
+    if (!run) return build(d, 'missing', `no run of ${path.basename(d.workflow)} exists for ${commit.slice(0, 7)}`);
+    if (!Number.isInteger(run.databaseId) || run.databaseId <= 0) return build(d, 'error', 'gh returned a run without a usable id');
+    if (run.status !== 'completed') return build(d, 'pending', `the run of ${path.basename(d.workflow)} had not finished`, run);
+    const view = runCmd('gh', ['run', 'view', String(run.databaseId), '--json', 'jobs'], cwd);
+    let jobs;
+    try { jobs = JSON.parse(view.out).jobs; } catch { jobs = null; }
+    if (!view.ok || !Array.isArray(jobs)) return build(d, 'error', `gh run view failed: ${(view.err || 'unparseable output').trim()}`, run);
+    const job = jobs.find((j) => j && j.name === d.job);
+    if (!job) return build(d, 'missing', `the run has no job named ${d.job}`, run);
+    if (job.status !== 'completed') return build(d, 'pending', `${jobWords(d)} had not finished`, run);
+    if (job.conclusion === 'success') return build(d, 'green', `${jobWords(d)} succeeded on ${commit.slice(0, 7)}`, run);
+    return build(d, 'red', `${jobWords(d)} concluded ${job.conclusion || 'unknown'}`, run);
+  });
+}
+
+/**
+ * The criteria proven off host, from `<dir>/verification-state.json` overlaid by
+ * `<dir>/reverify/verification-state.json` (the re-proof's entry wins per id, being the later
+ * proof). `statement` is read from `<dir>/success-definition.md`; `null` when absent.
+ */
+function offHostProven(stateDir) {
+  const readCriteria = (f) => {
+    let state = null;
+    try { state = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { /* absent or unparseable */ }
+    return state && Array.isArray(state.criteria) ? state.criteria : [];
+  };
+  const byId = new Map();
+  for (const c of [...readCriteria(path.join(stateDir, 'verification-state.json')),
+    ...readCriteria(path.join(stateDir, 'reverify', 'verification-state.json'))]) {
+    if (c && c.id) byId.set(c.id, c);
+  }
+  let statements = new Map();
+  try {
+    statements = new Map(readDefinitionRows(fs.readFileSync(path.join(stateDir, 'success-definition.md'), 'utf8'))
+      .map((r) => [r.id, r.cells['functional statement']]));
+  } catch { /* no definition: statements stay null */ }
+  return [...byId.values()]
+    .filter((c) => c.status === 'met' && c.proof && c.proof.kind === 'off-host')
+    .map((c) => ({
+      id: c.id,
+      statement: statements.has(c.id) ? String(statements.get(c.id)).trim() || null : null,
+      workflow: c.proof.workflow, job: c.proof.job, runId: c.proof.runId, url: c.proof.url, commit: c.proof.commit,
+    }));
 }
 
 // ---------------------------------------------------------------------------
@@ -1449,6 +1664,17 @@ function renderReport(input) {
         (mustPassUncovered.length > 0
           ? ` — no criterion for: ${mustPassUncovered.map((o) => escapeCell(typeof o === 'string' ? o : o.id)).join(', ')}`
           : '')
+    );
+  }
+
+  // The off-host line: only when a criterion carries an off-host proof (D13), so every earlier
+  // report stays byte-identical.
+  const offHost = criteria.filter((c) => c.proof && c.proof.kind === 'off-host');
+  if (offHost.length > 0) {
+    lines.push(
+      `**Proven off-host**: ${offHost
+        .map((c) => `${escapeCell(c.id)} — ${escapeCell(c.proof.workflow)}#${escapeCell(c.proof.job)}, run ${escapeCell(c.proof.runId)} (${escapeCell(c.proof.url)})`)
+        .join(', ')}`
     );
   }
 
@@ -2369,6 +2595,10 @@ module.exports = {
   decideNext,
   decideSetup,
   mustPassCoverage,
+  offHostDeclarations,
+  offHostDeclarationsFromFiles,
+  lookupOffHostProofs,
+  offHostProven,
   renderReport,
   isEmbeddableImagePath,
   reportPublishPlan,
@@ -2440,6 +2670,12 @@ module.exports = {
 //        returned; prints {batches, remove, rejected})
 //   node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>
 //       (reads both files itself — not a JSON payload; prints {criteria, uncovered, unknown})
+//   node functional-verification.js off-host-proofs --trd <TRD path> --definition <definition path> [--covers <json file>] [--ids <id,id,...>]
+//       (reads both files itself; prints {proofs, ignored}, one proof per declared CI job with a
+//        status of green, red, pending, missing, dirty or error; exit 1 for a missing flag or an
+//        unreadable input)
+//   node functional-verification.js off-host-proven --state-dir <dir>
+//       (prints [{id, statement, workflow, job, runId, url, commit}] for criteria proven off host)
 //   node functional-verification.js preclassify --file <payload> --verification <path> [--design-map <path> ...]
 //       (payload {criteria, environmentByCriterion}; prints the preclassified entries; an unparseable
 //        --design-map is skipped with a stderr line)
@@ -2460,6 +2696,8 @@ if (require.main === module) {
         "  node functional-verification.js decide-fix-round '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js render-fix-summary '<input-json>'|--file <path>|-\n" +
         '  node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>\n' +
+        '  node functional-verification.js off-host-proofs --trd <TRD path> --definition <definition path> [--covers <json file>] [--ids <id,id,...>]\n' +
+        '  node functional-verification.js off-host-proven --state-dir <dir>\n' +
         '  node functional-verification.js report-publish-plan --report <path> [--published-file <path>]\n' +
         '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
@@ -2592,6 +2830,32 @@ if (require.main === module) {
     } else {
       console.log(JSON.stringify(mustPassCoverageFromFiles(trdPath, definitionPath)));
     }
+  } else if (subcommand === 'off-host-proofs') {
+    // Run fresh before every workflow dispatch (D11); the result is never reused. Exit 0 even
+    // when gh is absent (each entry then reads `error`); exit 1 only for bad input.
+    const trdPath = flag('--trd');
+    const definitionPath = flag('--definition');
+    if (!trdPath || !definitionPath) {
+      usage();
+    } else {
+      let decl;
+      try {
+        decl = offHostDeclarationsFromFiles(trdPath, definitionPath);
+      } catch (err) {
+        console.error(`off-host-proofs: cannot read the TRD or definition: ${err.message}`);
+        process.exit(1);
+      }
+      const coversFile = flag('--covers');
+      const covers = (coversFile && readJsonOrNull(coversFile)) || {};
+      const idsFlag = flag('--ids');
+      const only = idsFlag ? new Set(idsFlag.split(',').map((x) => x.trim()).filter(Boolean)) : null;
+      const declared = only ? decl.declared.filter((d) => only.has(d.id)) : decl.declared;
+      console.log(JSON.stringify({ proofs: lookupOffHostProofs({ declared, covers, trdPath }), ignored: decl.ignored }));
+    }
+  } else if (subcommand === 'off-host-proven') {
+    const stateDir = flag('--state-dir');
+    if (!stateDir) usage();
+    else console.log(JSON.stringify(offHostProven(stateDir)));
   } else if (subcommand === 'preclassify') {
     // Files read here, in code, as with must-pass-coverage. --design-map repeats, so collect
     // every occurrence (flag() returns only the first); each names a FILE.

@@ -303,7 +303,7 @@ preclassified id that is not in `criteria`).
 
 ### 4. Dispatch
 
-All 29 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
+All 30 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
 command's own resolution (Steps 1–3c), not copied from `/implement-trd`:
 
 `criterionCovers` is derived first, from the definition as it now stands (after Step 3 or 3a
@@ -312,6 +312,15 @@ and the check rows Step 3b appends), by
 (the same command and flags as `/implement-trd` §8.3). A sweep file has no TRD: pass `{}`. A
 non-zero exit passes `{}` and is one ISSUES line, never STUCK. Under `--criteria` derive over the
 whole definition (the workflow ignores ids outside the subset) and pass the same value on the retry.
+
+`offHostProofs` is looked up **fresh before every dispatch** and an earlier output is never
+reused (CI moves between dispatches), by
+`node .claude/lib/functional-verification.js off-host-proofs --trd <trd> --definition <state-dir>/success-definition.md --covers <state-dir>/criterion-covers.json`
+(write the derive output above to that file first; pass its `proofs`). That covers the first
+dispatch and each fix round's step 4, which re-runs this Step 4 dispatch. Put each `ignored`
+entry in ISSUES. A sweep file has no TRD: pass `[]`. A non-zero exit passes `[]` and is one ISSUES
+line, never STUCK. Under `--criteria` the call is restricted with `--ids <the named ids>` (the
+same restriction applied to `mustPassIds`), and the retry recomputes it with `--ids <retry set>`.
 
 ```javascript
 Workflow({ name: "verify-functional", args: {
@@ -344,6 +353,7 @@ Workflow({ name: "verify-functional", args: {
   mustPassUncovered,                                             // must-pass-coverage's `uncovered` ([{id, text}]), unchanged (step 3c here); [] for a sweep file or when none
   verificationDigest,                                            // resolved per implement-trd.md §8.1a step 8 (step 3c here) -- verification-digest's `digest`; "" when verification.md is absent
   preclassified,                                                 // resolved per implement-trd.md §8.1a step 8 (step 3c here) -- preclassify's output; [] when none
+  offHostProofs,                                                 // `node .claude/lib/functional-verification.js off-host-proofs` (see above) -- its `proofs`, fresh before every dispatch; [] for a sweep file, when none is declared or the call fails
 } })
 ```
 
@@ -354,7 +364,7 @@ under `.trd-state/<feature>/reverify/`, `cap` is `1`, `criteria` is the filtered
 and `preclassified` is `[]` (a subset is not the whole definition).
 After this dispatch, the "`--criteria`" section's one retry may dispatch the workflow once more
 into `.trd-state/<feature>/reverify/retry/`.
-`criterionCovers` is the one field the regression pass added: the list is the 29 fields.
+`criterionCovers` is the one field the regression pass added: the list is the 30 fields, `offHostProofs` last.
 
 ### 5. Report
 
@@ -514,7 +524,7 @@ belong to its full run, so a subset must never overwrite them. Under it:
   timestamp: a ruling stands until superseded. Only the rulings are read; the plan's fixes and
   stop rule are ignored and the run still builds nothing.
 - **Only the named criteria**: read the feature's `success-definition.md` (present, as for any
-  run), then filter `criteria` to the named ids. Restrict `mustPassIds` to them,
+  run), then filter `criteria` to the named ids. Restrict `mustPassIds` to them, call `off-host-proofs` with `--ids <the named ids>`,
   `mustPassUncovered: []`, `preclassified: []` (D25: a subset is not the whole definition; D12
   throws on an id outside `criteria`), `coverageFloor: null` (no coverage floor).
 - **One retry, no Debug**: a re-proof can fail on a flaky first look, so it gets at most once
@@ -522,8 +532,8 @@ belong to its full run, so a subset must never overwrite them. Under it:
   `node .claude/lib/functional-verification.js reproof-retry-set .trd-state/<feature>/reverify/verification-state.json`.
   An empty `retry` list means no retry: report as today. Otherwise remove
   `.trd-state/<feature>/reverify/retry/` left by any earlier re-proof, then dispatch the
-  `verify-functional` workflow once more, with the same 29 fields except: `criteria` is the
-  retry set, `mustPassIds` is restricted to it, `resume: null`, `preclassified: []`, `statePath`, `reportPath`,
+  `verify-functional` workflow once more, with the same 30 fields except: `criteria` is the
+  retry set, `mustPassIds` is restricted to it, `offHostProofs` is recomputed with `--ids <retry set>`, `resume: null`, `preclassified: []`, `statePath`, `reportPath`,
   `evidenceDir` and `pagesDir` all sit under `.trd-state/<feature>/reverify/retry/`, and
   `since` recomputed as the later of the HEAD commit time and the retry's own start. `cap` stays
   `1` and `--no-fix` holds: no Debug pass, no code edit and no build. Then run

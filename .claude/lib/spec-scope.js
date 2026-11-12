@@ -291,13 +291,24 @@ function renderObjectives({ trdMarkdown, specMarkdown, specPath, section, ids })
   // The plan's must-pass marks live in this table, so a rewrite keeps each id's own cell. They
   // are read before `rows` is built because the rows replace the table they are read from.
   const marks = new Map(table ? parseObjectiveTable(table).filter((r) => r.mustPass).map((r) => [r.id, r.rawMark]) : []);
+  // The optional `Off-host proof` cell is the only place a CI proof is declared (D3), so it is
+  // carried through the rewrite the same way, for every id that has one.
+  const proofs = new Map(table ? parseObjectiveTable(table).filter((r) => r.offHostProof).map((r) => [r.id, r.offHostProof]) : []);
   const body = [
     ...chosen.map((c) => ({ id: c.id, text: c.text, source: src })),
     ...guards.map((g) => ({ id: g.id, text: g.text, source: `${src} (regression guard)` })),
   ];
   const marked = body.some((r) => marks.has(r.id));
+  const proven = body.some((r) => proofs.has(r.id));
   // The column is written only when something is marked, so an unmarked TRD stays byte-identical.
-  const rows = marked
+  // `Off-host proof` sits beside `Must pass` and is written only when some kept row has a value.
+  const rows = proven
+    ? [
+      '| ID | Objective | Source | Must pass | Off-host proof |',
+      '|----|-----------|--------|-----------|----------------|',
+      ...body.map((r) => `| ${r.id} | ${cell(r.text)} | ${cell(r.source)} | ${cell(marks.get(r.id) || '')} | ${cell(proofs.get(r.id) || '')} |`),
+    ]
+    : marked
     ? [
       '| ID | Objective | Source | Must pass |',
       '|----|-----------|--------|-----------|',
@@ -368,13 +379,16 @@ function readMark(raw) {
 function parseObjectiveTable(table) {
   // Hyphens and underscores fold to spaces: a `Must-pass` header read as no column would drop
   // every mark silently -- the fail-open reading readMark exists to prevent.
-  const col = table.headerCells.findIndex((h) => cleanCell(h).replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').toLowerCase() === 'must pass');
+  const fold = (h) => cleanCell(h).replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').toLowerCase();
+  const col = table.headerCells.findIndex((h) => fold(h) === 'must pass');
+  const proofCol = table.headerCells.findIndex((h) => fold(h) === 'off host proof');
   const rows = [];
   for (const r of table.dataRows) {
     const id = (r.cells[0] || '').replace(/\*\*|`/g, '').replace(/:$/, '').trim();
     if (!id) continue;
     const rawMark = col >= 0 ? (r.cells[col] || '') : '';
-    rows.push({ id, text: squash(r.cells[1] || ''), rawMark, ...readMark(rawMark) });
+    const offHostProof = proofCol >= 0 ? String(r.cells[proofCol] || '').trim() : '';
+    rows.push({ id, text: squash(r.cells[1] || ''), rawMark, ...readMark(rawMark), ...(offHostProof ? { offHostProof } : {}) });
   }
   return rows;
 }
@@ -382,7 +396,8 @@ function parseObjectiveTable(table) {
 /**
  * Every row of the TRD's Objectives tables, in document order: the first table in the section,
  * then each later one whose first column is `ID`.
- * `{id, text, mustPass[, invalidValue]}`. Ids are not de-duplicated across tables.
+ * `{id, text, mustPass[, invalidValue][, offHostProof]}`. Ids are not de-duplicated across tables.
+ * `offHostProof` is the raw `Off-host proof` cell, present only when non-blank.
  * `invalidValue` is present only for a Must pass cell that is neither blank, `no` nor `yes`.
  */
 function objectiveRows(trdMarkdown) {

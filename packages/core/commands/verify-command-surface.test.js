@@ -260,14 +260,14 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 29 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
-  test('implement-trd.md §8.3 lists 29 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered/verificationDigest/preclassified, with setupTargets after coverageFloor', () => {
+describe('both dispatch blocks carry the same 30 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
+  test('implement-trd.md §8.3 lists 30 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered/verificationDigest/preclassified/offHostProofs, with setupTargets after coverageFloor', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(29);
+    expect(fields).toHaveLength(30);
     expect(fields.indexOf('criterionCovers')).toBe(fields.indexOf('liveEvidence') + 1);
     expect(fields.indexOf('setupTargets')).toBe(fields.indexOf('coverageFloor') + 1);
-    expect(fields.slice(-7)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered', 'verificationDigest', 'preclassified']);
+    expect(fields.slice(-8)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered', 'verificationDigest', 'preclassified', 'offHostProofs']);
   });
 
   test('implement-trd.md §8.3 names the derive-criteria command, the sweep-file {} and the failure fallback (REGR-B006)', () => {
@@ -277,14 +277,37 @@ describe('both dispatch blocks carry the same 29 fields in the same order (VSET-
     expect(t).toMatch(/criterionCovers, +\/\/ `node \.claude\/lib\/live-evidence\.js derive-criteria`.*?\{\} for a sweep file/);
   });
 
-  test('verify-build.md §4 lists the identical 29 fields in the identical order', () => {
+  test('implement-trd.md §8.3 runs off-host-proofs before the dispatch, on the fresh and --resume paths (OHP-B003, D11)', () => {
+    const t = flat(read(CORE_IMPLEMENT));
+    const call = t.indexOf('functional-verification.js off-host-proofs --trd <trd>');
+    expect(call).toBeGreaterThan(t.indexOf('derive-criteria --state-dir'));
+    expect(call).toBeLessThan(t.indexOf('Workflow({ name: "verify-functional"'));
+    expect(t).toMatch(/--covers <state-dir>\/criterion-covers\.json/);
+    expect(t).toMatch(/fresh before every dispatch and never reuse an earlier output/);
+    expect(t).toMatch(/on the fresh path and on the §8\.2 `--resume` path alike/);
+    expect(t).toMatch(/Put each `ignored` entry .*in ISSUES/);
+    expect(t).toMatch(/A non-zero exit passes `\[\]` and is one ISSUES line, never STUCK/);
+  });
+
+  test('verify-build.md Step 4 runs off-host-proofs fresh before every dispatch (OHP-B003, D11)', () => {
+    const t = flat(read(CORE_VERIFY_BUILD));
+    expect(t).toMatch(/`offHostProofs` is looked up \*\*fresh before every dispatch\*\*/);
+    expect(t).toMatch(/each fix round's step 4/);
+    expect(t).toMatch(/Under `--criteria` the call is restricted with `--ids <the named ids>`/);
+    expect(t).toMatch(/the retry recomputes it with `--ids <retry set>`/);
+    expect(t).toMatch(/A sweep file has no TRD: pass `\[\]`/);
+    expect(t).toMatch(/`offHostProofs` is recomputed with `--ids <retry set>`/);
+  });
+
+  test('verify-build.md §4 lists the identical 30 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 29 fields, not 28, 26, 25, 23, 22, 21 or 18', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 29 fields/);
+  test('verify-build.md §4 intro says 30 fields, not 29, 28, 26, 25, 23, 22, 21 or 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 30 fields/);
+    expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 29 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 28 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 26 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 25 fields/);
@@ -2507,5 +2530,16 @@ describe('implement-trd.md §8.3 derives criterionCovers with derive-criteria (R
 
   test('the dispatch-block comment for criterionCovers says {} for a sweep file', () => {
     expect(block()).toMatch(/criterionCovers,\s+\/\/ `node \.claude\/lib\/live-evidence\.js derive-criteria`.*\{\} for a sweep file or when the derive fails/);
+  });
+});
+
+describe('trd-authoring.md documents the Off-host proof column (OHP-B003, D1, D6)', () => {
+  const t = () => flat(read(path.join(__dirname, '..', 'contracts', 'trd-authoring.md')));
+  test('names the optional column, its cell format, must-pass-only and the same-job rule', () => {
+    expect(t()).toContain('**Off-host proof** is an optional fifth column');
+    expect(t()).toContain('<workflow file>#<job name>');
+    expect(t()).toMatch(/on must-pass objectives only/);
+    expect(t()).toMatch(/every\*\* must-pass objective its `Must pass` cell names carries the same job/);
+    expect(t()).toMatch(/Only the TRD's author, or the owner through `\/refine-verification`, writes it/);
   });
 });

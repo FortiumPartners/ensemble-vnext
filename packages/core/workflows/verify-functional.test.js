@@ -5308,6 +5308,367 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
   });
 });
 
+// --------------------------------------------------------------------------- off-host proof (OHP-B002)
+
+describe('verify-functional: off-host proof of a not-checkable must-pass criterion (accepted-gaps D6-D10)', () => {
+  const GREEN = { id: 'FS-2', workflow: 'ci.yml', job: 'read-aloud', status: 'green', runId: 4242, url: 'https://github.com/o/r/actions/runs/4242', commit: 'abc123' };
+  const metC = (id) => ({ id, status: 'met', tier1: 'pass', artifact: `${id}.txt`, reason: null, files: [] });
+  const nc = (id = 'FS-2', extra = {}) => ({ id, status: 'not_verifiable', tier1: 'skipped', artifact: null, reason: 'the host cannot reach it', cause: 'capability-absent', files: [], ...extra });
+  const bd = (id = 'FS-2', extra = {}) => ({ id, status: 'not_met', tier1: 'fail', artifact: null, reason: 'wrong output', cause: 'judged-failed', files: ['src/other.js'], ...extra });
+  const judgeOf = (action, criteria, extra = {}) => ({
+    action,
+    reason: action === 'exit-must-pass-unproven' ? 'must-pass criteria not proven: FS-2' : 'x',
+    criteria,
+    gaps: criteria.filter((c) => c.status === 'not_met').map((c) => c.id),
+    unbuilt: [],
+    closed: [],
+    notesUpdated: false,
+    ...extra,
+  });
+  const unproven = (criteria) => judgeOf('exit-must-pass-unproven', criteria);
+  const remediate = (criteria, ids = ['FS-1']) =>
+    judgeOf('remediate', criteria, { debugGaps: ids.map((id) => ({ id, statement: `statement for ${id}`, reason: 'r', artifact: null, files: ['src/other.js'] })) });
+
+  // judges: one entry per Judge call (the last repeats). debugFiles: what each Debug pass reports changing.
+  async function run(judges, { args = {}, debugFiles = ['src/other.js'] } = {}) {
+    const queue = [...judges];
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') return queue.length > 1 ? queue.shift() : queue[0];
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-1', addressed: true, result: 'fixed' }], filesChanged: debugFiles };
+      if (opts.label === 'state-sync') return { synced: true };
+      if (opts.label === 'reconcile') return { reconciled: true };
+      return null;
+    });
+    const out = await runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2'], offHostProofs: [GREEN], cap: 3, ...args }) });
+    return { ...out, agent };
+  }
+  const fs2 = (result) => result.criteria.find((c) => c.id === 'FS-2');
+  const syncs = (agent) => agent.calls.filter((c) => c.opts.label === 'state-sync');
+
+  describe('validation (D6)', () => {
+    it.each([
+      ['not an array', 'x', /offHostProofs must be an array/],
+      ['an id that is not must-pass', [{ ...GREEN, id: 'FS-1' }], /offHostProofs\[0\]\.id "FS-1" is not a must-pass criterion of this run/],
+      ['an id that is not a criterion', [{ ...GREEN, id: 'NOPE' }], /is not a must-pass criterion/],
+      ['an entry that is not an object', [null], /offHostProofs\[0\] must be an object/],
+      ['an empty job', [{ ...GREEN, job: '' }], /\.job must be a non-empty string/],
+      ['no workflow', [{ ...GREEN, workflow: undefined }], /\.workflow must be a non-empty string/],
+      ['a status outside the six', [{ ...GREEN, status: 'running' }], /\.status must be one of/],
+      ['a green entry with no url', [{ ...GREEN, url: null }], /green and needs a non-empty string url/],
+      ['a green entry with no commit', [{ ...GREEN, commit: '' }], /green and needs a non-empty string commit/],
+      ['a green entry with a non-integer runId', [{ ...GREEN, runId: 'x' }], /green and needs an integer runId/],
+    ])('throws before any agent for %s', async (_name, offHostProofs, pattern) => {
+      const agent = makeAgentStub(() => null);
+      await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2'], offHostProofs }) })).rejects.toThrow(pattern);
+      expect(agent.calls).toHaveLength(0);
+    });
+
+    it('accepts a red entry that carries no url, run or commit', async () => {
+      const { result } = await run([unproven([metC('FS-1'), nc()])], { args: { offHostProofs: [{ id: 'FS-2', workflow: 'ci.yml', job: 'read-aloud', status: 'missing', runId: null, url: null, commit: 'abc123' }] } });
+      expect(result.outcome).toBe('must-pass-unproven');
+    });
+  });
+
+  describe('the settle (D7)', () => {
+    it('a green job settles the criterion met: artifact is the run URL, proof names the run, the outcome is satisfied, and the state and report are synced with the proof', async () => {
+      const { result, agent } = await run([unproven([metC('FS-1'), nc()])]);
+      expect(result.outcome).toBe('satisfied');
+      const c = fs2(result);
+      expect(c).toMatchObject({
+        status: 'met',
+        tier1: null,
+        artifact: GREEN.url,
+        cause: 'capability-absent',
+        proof: { kind: 'off-host', workflow: 'ci.yml', job: 'read-aloud', runId: 4242, url: GREEN.url, commit: 'abc123' },
+      });
+      expect(c).not.toHaveProperty('kind');
+      expect(c).not.toHaveProperty('verificationDigest');
+      expect(c.reason).toMatch(/ci\.yml#read-aloud/);
+      expect(c.reason).toMatch(/4242/);
+      expect(result.mustPass.unproven).toEqual([]);
+      expect(result.mustPass.overridden).toBe(false);
+      expect(result.coverage.proven).toBe(2);
+      // D9: the Judge wrote the state without the proof, so the exit syncs it and the report outcome.
+      expect(syncs(agent)).toHaveLength(1);
+      expect(syncs(agent)[0].prompt).toContain('"proof":{"kind":"off-host"');
+      expect(syncs(agent)[0].prompt).toMatch(/also set its "artifact" and "proof"/);
+      expect(syncs(agent)[0].prompt).toMatch(/top-level "outcome" to "satisfied"/);
+      expect(agent.calls.filter((x) => x.opts.label === 'reconcile')).toHaveLength(0);
+    });
+
+    it.each([
+      ['red', 'red'],
+      ['missing', 'missing'],
+      ['pending', 'pending'],
+      ['dirty', 'dirty'],
+      ['error', 'error'],
+    ])('a %s job leaves it not_verifiable and the run must-pass-unproven, the reason naming the job and status', async (status) => {
+      const { result } = await run([unproven([metC('FS-1'), nc()])], { args: { offHostProofs: [{ ...GREEN, status, runId: null, url: null, reason: 'for a reason' }] } });
+      expect(result.outcome).toBe('must-pass-unproven');
+      expect(fs2(result)).toMatchObject({ status: 'not_verifiable', kind: 'not-checkable-here' });
+      expect(fs2(result)).not.toHaveProperty('proof');
+      expect(fs2(result).reason).toContain('ci.yml#read-aloud');
+      expect(fs2(result).reason).toContain(`is ${status}`);
+      expect(fs2(result).reason).toContain('for a reason');
+      expect(result.mustPass.unproven).toEqual([{ id: 'FS-2', status: 'not_verifiable' }]);
+    });
+
+    it('no declared proof leaves must-pass-unproven, and the reason is untouched', async () => {
+      const { result } = await run([unproven([metC('FS-1'), nc()])], { args: { offHostProofs: [] } });
+      expect(result.outcome).toBe('must-pass-unproven');
+      expect(fs2(result).reason).toBe('the host cannot reach it');
+    });
+
+    it('a must-pass build-defect with a green entry is never settled, and the run is not satisfied', async () => {
+      const { result } = await run([judgeOf('exit-stuck', [metC('FS-1'), bd()])]);
+      expect(result.outcome).not.toBe('satisfied');
+      expect(fs2(result)).toMatchObject({ status: 'not_met' });
+      expect(fs2(result)).not.toHaveProperty('proof');
+    });
+
+    it('a must-pass evidence-gap with a green entry is never settled, and the run is not satisfied', async () => {
+      const { result } = await run([judgeOf('exit-stuck', [metC('FS-1'), bd('FS-2', { cause: 'evidence-missing' })])]);
+      expect(result.outcome).not.toBe('satisfied');
+      expect(fs2(result)).not.toHaveProperty('proof');
+      expect(fs2(result).status).not.toBe('met');
+    });
+
+    it('a build defect in iteration 1, a Debug edit outside its covers, then ruled not checkable in iteration 2 stays unproven, and the run is not satisfied', async () => {
+      const { result, logs } = await run([remediate([metC('FS-1'), bd()], ['FS-2']), unproven([nc()])], {
+        args: { criterionCovers: { FS-1: ['src/a.js'], FS-2: ['src/read.js'] } },
+        debugFiles: ['src/other.js'],
+      });
+      expect(result.outcome).toBe('must-pass-unproven');
+      expect(fs2(result).status).toBe('not_verifiable');
+      expect(fs2(result)).not.toHaveProperty('proof');
+      expect(fs2(result).reason).toMatch(/ruled build-defect earlier in this run/);
+      expect(logs.join('\n')).not.toMatch(/settling it met/);
+    });
+
+    it('a resume snapshot holding it unbuilt, or not_met as a build defect, refuses it too', async () => {
+      for (const held of [{ status: 'unbuilt', cause: 'not-built' }, { status: 'not_met', cause: 'judged-failed' }, { status: 'not_met', cause: null, kind: 'build-defect' }, { status: 'not_met', cause: null }]) {
+        const resume = { iteration: 0, criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, provenAt: 1 }, { id: 'FS-2', artifact: null, reason: 'r', provenAt: 1, ...held }], gapsClosed: [] };
+        const { result } = await run([unproven([nc()])], { args: { resume } });
+        expect(result.outcome).toBe('must-pass-unproven');
+        expect(fs2(result)).not.toHaveProperty('proof');
+        expect(fs2(result).reason).toMatch(/in the run it resumes/);
+      }
+    });
+
+    it('a snapshot not_met whose cause is not checkable is not a refusal', async () => {
+      const resume = { iteration: 0, criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, provenAt: 1 }, { id: 'FS-2', status: 'not_met', cause: 'capability-absent', artifact: null, reason: 'r', provenAt: 1 }], gapsClosed: [] };
+      const { result } = await run([unproven([nc()])], { args: { resume } });
+      expect(result.outcome).toBe('satisfied');
+    });
+
+    describe('a Debug pass of this invocation (rule 3)', () => {
+      // FS-2 stays open while Debug runs: the iteration-1 Judge rules only FS-1.
+      const journey = (debugFiles, args = {}) =>
+        run([remediate([bd('FS-1')]), unproven([metC('FS-1'), nc()])], { args: { criterionCovers: { FS-1: ['src/a.js'], FS-2: ['src/read.js'] }, ...args }, debugFiles });
+
+      it('an edit outside its covers leaves the proof standing', async () => {
+        const { result } = await journey(['src/other.js']);
+        expect(result.outcome).toBe('satisfied');
+        expect(fs2(result)).toMatchObject({ status: 'met', proof: { runId: 4242 } });
+      });
+
+      it('an edit touching its covers voids the proof', async () => {
+        const { result } = await journey(['src/read.js']);
+        expect(result.outcome).toBe('must-pass-unproven');
+        expect(fs2(result)).toMatchObject({ status: 'not_verifiable' });
+        expect(fs2(result)).not.toHaveProperty('proof');
+        expect(fs2(result).reason).toMatch(/changed by Debug in this run/);
+      });
+
+      it('a files: null record from a Debug pass of this invocation voids the proof', async () => {
+        const { result } = await journey(null);
+        expect(result.outcome).toBe('must-pass-unproven');
+        expect(fs2(result).reason).toMatch(/changed by Debug in this run/);
+      });
+
+      it('a criterion with no covers record is voided by any edit, and not by an empty one', async () => {
+        const voided = await journey(['src/other.js'], { criterionCovers: {} });
+        expect(voided.result.outcome).toBe('must-pass-unproven');
+        const kept = await journey([], { criterionCovers: {} });
+        expect(kept.result.outcome).toBe('satisfied');
+      });
+    });
+
+    it('a resumed run (RESUME_ITERATION 1 or more) whose only files: null record is the synthetic resume record settles it', async () => {
+      const resume = { iteration: 1, criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, provenAt: 1 }, { id: 'FS-2', status: 'not_verifiable', cause: 'capability-absent', kind: 'not-checkable-here', verificationDigest: 'd', artifact: null, reason: 'r', provenAt: 1 }], gapsClosed: [] };
+      // Seeded met at the resume; the synthetic record puts it in regression round 1, which rules it not checkable again.
+      const { result, logs } = await run([judgeOf('exit-satisfied', []), unproven([metC('FS-1'), nc()])], { args: { resume, verificationDigest: 'd', cap: 3 } });
+      expect(result.outcome).toBe('satisfied');
+      expect(fs2(result)).toMatchObject({ status: 'met', proof: { runId: 4242 } });
+      expect(logs.join('\n')).toMatch(/regression pass round 1 re-checks/);
+    });
+
+    it('a persisting not-checkable must-pass entry in a fix-round snapshot (iteration 0) with a green entry is seeded met, and is not exercised', async () => {
+      const resume = { iteration: 0, criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, provenAt: 1 }, { id: 'FS-2', status: 'not_verifiable', cause: 'capability-absent', kind: 'not-checkable-here', verificationDigest: 'd', artifact: null, reason: 'r', provenAt: 1 }], gapsClosed: [] };
+      const { result, agent } = await run([judgeOf('exit-satisfied', [])], { args: { resume, verificationDigest: 'd' } });
+      expect(result.outcome).toBe('satisfied');
+      expect(fs2(result)).toMatchObject({ status: 'met', artifact: GREEN.url, proof: { runId: 4242 } });
+      expect(fs2(result)).not.toHaveProperty('kind');
+      expect(agent.calls.filter((c) => c.opts.label === 'exercise')).toHaveLength(0);
+      expect(syncs(agent)).toHaveLength(1); // D9: an exit carrying a proof always syncs
+    });
+
+    it('a persisting entry with a red job stays settled not_verifiable, with the reason extended', async () => {
+      const resume = { iteration: 0, criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, provenAt: 1 }, { id: 'FS-2', status: 'not_verifiable', cause: 'capability-absent', kind: 'not-checkable-here', verificationDigest: 'd', artifact: null, reason: 'r', provenAt: 1 }], gapsClosed: [] };
+      const { result } = await run([judgeOf('exit-satisfied', [])], { args: { resume, verificationDigest: 'd', offHostProofs: [{ ...GREEN, status: 'red', runId: null, url: null }] } });
+      expect(fs2(result)).toMatchObject({ status: 'not_verifiable', kind: 'not-checkable-here' });
+      expect(fs2(result).reason).toMatch(/^r; declared off-host proof ci\.yml#read-aloud is red/);
+      expect(result.outcome).toBe('must-pass-unproven');
+    });
+
+    it('a proof the Judge returns is dropped, on a met entry and on a not-checkable one', async () => {
+      const fake = { kind: 'off-host', workflow: 'x', job: 'y', runId: 1, url: 'u', commit: 'c' };
+      const { result, logs } = await run([unproven([{ ...metC('FS-1'), proof: fake }, nc('FS-2', { proof: fake })])], { args: { offHostProofs: [] } });
+      expect(result.criteria.find((c) => c.id === 'FS-1')).not.toHaveProperty('proof');
+      expect(fs2(result)).not.toHaveProperty('proof');
+      expect(logs.join('\n')).toMatch(/the Judge returned a proof for FS-1/);
+    });
+  });
+
+  describe('the exit upgrade (D8)', () => {
+    it('a Judge-returned exit-must-pass-unproven with an open not_met never becomes satisfied although the off-host criterion settles', async () => {
+      const { result } = await run([judgeOf('exit-must-pass-unproven', [bd('FS-1'), nc()])]);
+      expect(result.outcome).toBe('must-pass-unproven');
+      expect(fs2(result)).toMatchObject({ status: 'met', proof: { runId: 4242 } });
+    });
+
+    it('one below the coverage floor never becomes satisfied', async () => {
+      const three = [criterion('FS-1'), criterion('FS-2'), criterion('FS-3')];
+      const exercise = { criterion: 'FS-1', artifact: 'a' };
+      const agent = makeAgentStub((prompt, opts) => {
+        if (opts.label === 'exercise') return exercisePlanClaims([exercise, { criterion: 'FS-2', artifact: 'b' }, { criterion: 'FS-3', artifact: 'c' }]);
+        if (opts.label === 'judge') return unproven([nc('FS-1', { cause: 'capability-absent' }), nc('FS-2'), metC('FS-3')]);
+        if (opts.label === 'state-sync') return { synced: true };
+        return null;
+      });
+      const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: three, mustPassIds: ['FS-2'], offHostProofs: [GREEN], coverageFloor: 0.9 }) });
+      expect(result.outcome).toBe('must-pass-unproven');
+      expect(fs2(result).status).toBe('met');
+    });
+
+    it('an uncovered must-pass objective keeps it unproven', async () => {
+      const { result } = await run([unproven([metC('FS-1'), nc()])], { args: { mustPassUncovered: [{ id: 'O9', text: 'nothing proves this' }] } });
+      expect(result.outcome).toBe('must-pass-unproven');
+    });
+
+    it('an exit-insufficient-coverage is never upgraded', async () => {
+      const { result } = await run([judgeOf('exit-insufficient-coverage', [metC('FS-1'), nc()])]);
+      expect(result.outcome).toBe('insufficient-coverage');
+    });
+
+    it('a Judge exit-satisfied with the off-host criterion folded met stays satisfied', async () => {
+      const { result } = await run([judgeOf('exit-satisfied', [metC('FS-1'), nc()])]);
+      expect(result.outcome).toBe('satisfied');
+    });
+
+    it('a Debug pass first: the loop still upgrades and the regression pass owns the one state write, with the proof', async () => {
+      const { result, agent } = await run([remediate([bd('FS-1')]), unproven([metC('FS-1'), nc()])], { args: { criterionCovers: { FS-1: ['src/a.js'], FS-2: ['src/read.js'] } } });
+      expect(result.outcome).toBe('satisfied');
+      expect(syncs(agent)).toHaveLength(1);
+      expect(syncs(agent)[0].prompt).toContain('"proof":{"kind":"off-host"');
+      expect(syncs(agent)[0].prompt).toMatch(/top-level "outcome" to "satisfied"/);
+    });
+
+    it('the regression pass upgrades the last round: a round that re-settles it lifts the exit it replaces', async () => {
+      // Iteration 1 settles FS-2 from CI and FS-1 met; Debug in iteration 1 touches FS-1's covers (src/a.js),
+      // so the regression pass re-checks FS-1 only; its Judge returns must-pass-unproven for FS-2's carried entry.
+      const { result, agent } = await run(
+        [remediate([bd('FS-1'), nc()]), judgeOf('exit-must-pass-unproven', [metC('FS-1')])],
+        { args: { criterionCovers: { FS-1: ['src/a.js'], FS-2: ['src/read.js'] } }, debugFiles: ['src/a.js'] }
+      );
+      expect(result.outcome).toBe('satisfied');
+      expect(fs2(result)).toMatchObject({ status: 'met', proof: { runId: 4242 } });
+      expect(syncs(agent).at(-1).prompt).toMatch(/top-level "outcome" to "satisfied"/);
+    });
+  });
+
+  describe('a resumed run (D10)', () => {
+    const proven = (commit) => ({ id: 'FS-2', status: 'met', tier1: null, artifact: GREEN.url, reason: 'proven off-host', cause: 'capability-absent', provenAt: 2, proof: { kind: 'off-host', workflow: 'ci.yml', job: 'read-aloud', runId: 4242, url: GREEN.url, commit } });
+    const snapshot = (commit, iteration = 0) => ({ iteration, criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, provenAt: 1 }, proven(commit)], gapsClosed: [] });
+
+    it('an off-host met on the same commit with a green entry is kept settled', async () => {
+      const { result, agent } = await run([judgeOf('exit-satisfied', [])], { args: { resume: snapshot('abc123') } });
+      expect(fs2(result)).toMatchObject({ status: 'met', proof: { commit: 'abc123' } });
+      expect(agent.calls.filter((c) => c.opts.label === 'exercise')).toHaveLength(0);
+    });
+
+    it('on a different commit it re-opens and is judged again', async () => {
+      const prompts = [];
+      const agent = makeAgentStub((prompt, opts) => {
+        if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-2', artifact: 'b' }]);
+        if (opts.label === 'judge') { prompts.push(prompt); return unproven([nc()]); }
+        if (opts.label === 'state-sync') return { synced: true };
+        return null;
+      });
+      const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2'], offHostProofs: [{ ...GREEN, commit: 'newer' }], resume: snapshot('abc123') }) });
+      expect(openIdsFrom(prompts[0])).toEqual(['FS-2']);
+      // Judged not checkable again, and the lookup is green on the new commit, so it settles on that one.
+      expect(fs2(result)).toMatchObject({ status: 'met', proof: { commit: 'newer' } });
+    });
+
+    it.each([
+      ['no entry at all', []],
+      ['a red entry', [{ ...GREEN, status: 'red', runId: null, url: null }]],
+    ])('with %s it re-opens, and stays unproven when nothing proves it', async (_name, offHostProofs) => {
+      const { result } = await run([unproven([nc()])], { args: { resume: snapshot('abc123'), offHostProofs } });
+      expect(result.outcome).toBe('must-pass-unproven');
+      expect(fs2(result)).toMatchObject({ status: 'not_verifiable' });
+      expect(fs2(result)).not.toHaveProperty('proof');
+    });
+
+    it('the resume-cap return reports it not_verifiable with proof and artifact dropped, and counts from that list', async () => {
+      const { result, agent } = await run([judgeOf('exit-satisfied', [])], { args: { resume: snapshot('abc123', 3), cap: 3, offHostProofs: [{ ...GREEN, commit: 'newer' }] } });
+      expect(agent.calls).toHaveLength(0);
+      expect(result.outcome).toBe('stuck');
+      expect(fs2(result)).toMatchObject({ status: 'not_verifiable', kind: 'not-checkable-here', artifact: null });
+      expect(fs2(result)).not.toHaveProperty('proof');
+      expect(fs2(result).reason).toMatch(/abc123/);
+      expect(result.coverage.proven).toBe(1);
+      expect(result.mustPass.unproven).toEqual([{ id: 'FS-2', status: 'not_verifiable' }]);
+    });
+
+    it('the resume-cap return keeps a proof the lookup still shows green on the same commit', async () => {
+      const { result } = await run([judgeOf('exit-satisfied', [])], { args: { resume: snapshot('abc123', 3), cap: 3 } });
+      expect(fs2(result)).toMatchObject({ status: 'met', proof: { commit: 'abc123' } });
+      expect(result.mustPass.unproven).toEqual([]);
+    });
+  });
+
+  describe('every return path carries the same criterion shape', () => {
+    const seeded = {
+      iteration: 0,
+      criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, provenAt: 1 }, { id: 'FS-2', status: 'not_verifiable', cause: 'capability-absent', kind: 'not-checkable-here', verificationDigest: 'd', artifact: null, reason: 'r', provenAt: 1 }],
+      gapsClosed: [],
+    };
+
+    it('the setup-failure return', async () => {
+      const agent = makeAgentStub(setupPlan({ setup: setupResult({ action: 'setup-failure', problems: [BROKEN], reason: 'broken' }), record: { recorded: true } }));
+      const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2'], offHostProofs: [GREEN], resume: seeded, verificationDigest: 'd', setupTargets: [setupTarget({ criteria: ['FS-1'] })] }) });
+      // FS-1 is the only open one; FS-2 settled from CI at the seeding keeps its proof here.
+      expect(result.outcome).toBe('setup-failure');
+      expect(fs2(result)).toMatchObject({ status: 'met', proof: { runId: 4242 } });
+    });
+
+    it('the iteration-cap fall-through', async () => {
+      const resume = { ...seeded, criteria: [{ id: 'FS-1', status: 'not_met', cause: 'judged-failed', artifact: null, reason: 'r', provenAt: null }, seeded.criteria[1]] };
+      const { result } = await run([remediate([bd('FS-1')])], { args: { resume, verificationDigest: 'd', cap: 1 } });
+      expect(result.outcome).toBe('stuck');
+      expect(fs2(result)).toMatchObject({ status: 'met', proof: { runId: 4242 } });
+    });
+
+    it('the final result, with a red job, has none', async () => {
+      const { result } = await run([unproven([metC('FS-1'), nc()])], { args: { offHostProofs: [{ ...GREEN, status: 'red', runId: null, url: null }] } });
+      expect(result.criteria.every((c) => !('proof' in c))).toBe(true);
+    });
+  });
+});
+
 describe('verify-functional: mirror parity', () => {
   it('is byte-identical to the .claude/workflows/ copy', () => {
     const mirrorPath = path.join(__dirname, '..', '..', '..', '.claude', 'workflows', 'verify-functional.js');

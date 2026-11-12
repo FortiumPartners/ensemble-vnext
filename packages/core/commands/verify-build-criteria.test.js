@@ -68,15 +68,15 @@ describe('verify-build.md --criteria (D13)', () => {
     expect(t.split('## Output discipline')[1]).toMatch(/Under `--chained` \(a sweep file, or a TRD with `--criteria`\) none of the rest of this section applies/);
   });
 
-  test('step 4 still lists the same fields as implement-trd.md 8.3 (29)', () => {
+  test('step 4 still lists the same fields as implement-trd.md 8.3 (30)', () => {
     const fields = (src, marker, end) => {
       const block = src.split(marker)[1].split(end)[0];
       return [...block.matchAll(/^\s{2}([A-Za-z]+),?\s|^\s{2}([A-Za-z]+):/gm)].map((m) => m[1] || m[2]);
     };
     const v = fields(read(CORE), 'Workflow({ name: "verify-functional", args: {', '} })');
-    expect(v.length).toBe(29);
+    expect(v.length).toBe(30);
     expect(read(IMPLEMENT)).toContain('verify-functional');
-    expect(text()).toMatch(/`criterionCovers` is the one field the regression pass added: the list is the 29 fields/);
+    expect(text()).toMatch(/`criterionCovers` is the one field the regression pass added: the list is the 30 fields, `offHostProofs` last/);
   });
 
   test('names the derive-criteria command, the sweep-file {} and the failure fallback (REGR-B006)', () => {
@@ -120,7 +120,7 @@ describe('verify-build.md --criteria (D13)', () => {
     test('step 4 override names the retry and keeps 29 fields; RETURN line unchanged', () => {
       const t = text();
       expect(t).toMatch(/\*\*Under `--criteria`\*\*.*retry.*reverify\/retry\//);
-      expect(t).toMatch(/the list is the 29 fields/);
+      expect(t).toMatch(/the list is the 30 fields, `offHostProofs` last/);
       expect(t).toContain('`RETURN → setup-failure, <met> of <total> met`');
     });
   });

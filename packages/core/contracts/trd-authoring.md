@@ -146,6 +146,21 @@ that column for those and leave it blank for the rest. Mark sparingly: a plan th
 everything marks nothing. A TRD with none marked is valid, and verification then behaves as it
 does today.
 
+**Off-host proof** is an optional fifth column, found by header name at any position (hyphens and
+underscores read as spaces). It is only for a must-pass objective whose proof lives in CI rather
+than on the verifying host. A cell names one CI job as `<workflow file>#<job name>`, for example
+`.github/workflows/ci.yml#read-aloud`; blank, `no`, `none`, `n/a` or a dash means none. Write it
+on must-pass objectives only; on any other it is ignored and reported. A criterion is proven by
+the job only when **every** must-pass objective its `Must pass` cell names carries the same job.
+Only the TRD's author, or the owner through `/refine-verification`, writes it: the success
+definition gains no column and no deriver writes one.
+
+```markdown
+| ID | Objective | Source | Must pass | Off-host proof |
+|----|-----------|--------|-----------|----------------|
+| O1 | [What must be true] | [Where it comes from] | yes | .github/workflows/ci.yml#job-name |
+```
+
 Placed after the Changelog and before the Overview, without renumbering either.
 
 ### Section 2: Overview
