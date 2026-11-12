@@ -35,7 +35,7 @@ const EXPECTED = {
   'await-approval': { results: ['approved'], outward: 'no', needs: ['pr'], provides: [], section: 'ship' },
   'collect-findings': { results: ['clean', 'found'], outward: 'no', needs: ['head'], provides: ['findings'], section: 'ship' },
   'fix-findings': { results: ['fixed', 'nothing'], outward: 'no', needs: ['findings'], provides: [], section: 'ship' },
-  merge: { results: ['merged'], outward: 'yes', needs: ['pr'], provides: ['merged'], section: 'ship' },
+  merge: { results: ['merged', 'red'], outward: 'yes', needs: ['pr'], provides: ['merged'], section: 'ship' },
   release: { results: ['released'], outward: 'yes', needs: ['head'], provides: [], section: 'ship' },
   run: { results: ['ran'], outward: 'yes', needs: [], provides: [], section: 'any' },
   'close-issue': { results: ['closed', 'none'], outward: 'yes', needs: [], provides: [], section: 'after' },
@@ -203,7 +203,7 @@ describe('merge', () => {
   const t = flat('merge');
   test('runs the custody gate before it reads the PR state', () => {
     expect(t).toMatch(/ship-custody-gate\.md/);
-    expect(t.indexOf('ship-custody-gate.md')).toBeLessThan(t.indexOf('gh pr view <pr> --json state'));
+    expect(t.indexOf('ship-custody-gate.md')).toBeLessThan(t.indexOf('Read `gh pr view <pr> --json state`'));
   });
   test('orders gate, pr-head check, gh pr merge, merge link; a gate stop leaves the PR unmerged', () => {
     const iGate = t.indexOf('ship-custody-gate.md');
@@ -240,7 +240,8 @@ describe('merge', () => {
       'record-files.js merge-base-in',
       'git push',
       'until it equals the pushed commit',
-      'wait-ci',
+      'ship-primitive-wait-ci.md',
+      'return `red`',
     ].map((m) => t.indexOf(m));
     for (const i of marks) expect(i).toBeGreaterThan(-1);
     const iGate = t.indexOf('ship-custody-gate.md');
@@ -256,7 +257,8 @@ describe('merge', () => {
     expect(t).not.toMatch(/`MERGEABLE`/);
   });
   test('a decide failure is a stop, and is listed under "One rule for every stop"', () => {
-    expect(t).toMatch(/merge-up\.js decide[^]*`ok: false`[^]*\(it could not read the PR, or the PR is closed without being merged\) returns `stop`/);
+    expect(t).toMatch(/merge-up\.js decide[^]*`ok: false` because it could not read the PR[^]*up to 8 times, 15s apart; still unreadable returns\s*`stop`/);
+    expect(t).toMatch(/closed without being merged returns\s*`stop` at once/);
     expect(t).toMatch(/One rule for every stop[^]*`decide` failure/);
   });
   test('the ok: false stop of merge-base-in names the paths', () => {
@@ -264,6 +266,31 @@ describe('merge', () => {
   });
   test('the new stops are listed under "One rule for every stop"', () => {
     expect(t).toMatch(/One rule for every stop[^]*merge-base-in[^]*push[^]*(head wait|headRefOid)[^]*CI/);
+  });
+  test('declares the red loop: rounds defaults to 2, loop keys load, loop order is fixed', () => {
+    const c = contracts.get('merge');
+    expect(c.params.rounds.default).toBe('2');
+    expect(c.stopsOn).toEqual(['red']);
+    expect(c.loopOn).toBe('red');
+    expect(c.loopVia).toEqual(['collect-findings', 'fix-findings', 'push', 'wait-ci']);
+    expect(c.loopRounds).toBe('rounds');
+  });
+  test('the head wait is 40 polls; the 8-poll head wait is gone', () => {
+    expect(t).toMatch(/up to 40 times, 15s apart \(10 minutes\), until it equals the pushed commit/);
+    expect(t).not.toMatch(/up to 8 times, 15s apart, until it equals/);
+  });
+  test('CI is awaited only on an unjudged head, and red comes before the custody gate', () => {
+    const iWait = t.indexOf('wait for CI only on a head no recorded step judged');
+    const iLatest = t.indexOf('the latest pushed commit');
+    const iReread = t.indexOf('read `gh pr view <pr> --json state` again (see "One rule for every stop")');
+    const iRed = t.indexOf('then return `red`');
+    const iGate = t.indexOf('ship-custody-gate.md');
+    for (const i of [iWait, iLatest, iReread, iRed, iGate]) expect(i).toBeGreaterThan(-1);
+    expect(iWait).toBeLessThan(iLatest);
+    expect(iReread).toBeLessThan(iRed);
+    expect(iRed).toBeLessThan(iGate);
+    expect(t).not.toMatch(/A CI failure on the new head is a `stop`/);
+    expect(t).toMatch(/One rule for every stop[^]*`stop` or `red`[^]*MERGED/);
   });
   test('declares detach-on: merged, and says the record leaves the tracked tree after merged', () => {
     expect(text('merge')).toMatch(/^detach-on:\s*merged$/m);

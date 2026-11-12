@@ -306,7 +306,7 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
   const DEF2 = DEFINITION + '| FS-2 | b | c | e | [read] | locator | | O2 |\n';
   const POLICY = '## Ship\n1. push\n2. open-pr\n3. merge\n';
   const origPath = process.env.PATH;
-  const STUB_VARS = ['STUB_BARE', 'STUB_MERGEABLE', 'STUB_STATUS', 'STUB_MERGE_LOG'];
+  const STUB_VARS = ['STUB_BARE', 'STUB_MERGEABLE', 'STUB_STATUS', 'STUB_MERGE_LOG', 'STUB_RED'];
   let binDir;
 
   beforeAll(() => {
@@ -321,6 +321,12 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
       '  printf \'{"state":"OPEN","mergeable":"%s","mergeStateStatus":"%s","headRefName":"feature/f","headRefOid":"%s","baseRefName":"main"}\\n\' "$STUB_MERGEABLE" "$STUB_STATUS" "$oid"',
       '  exit 0',
       'fi',
+      // `pr checks` fails for a head listed in the file $STUB_RED (one oid per line; `*` = every head).
+      'if [ "$1 $2" = "pr checks" ]; then',
+      '  oid=$(git ls-remote "$STUB_BARE" refs/heads/feature/f | cut -f1)',
+      '  if [ -f "$STUB_RED" ] && grep -qxE "$oid|\\*" "$STUB_RED"; then echo "build\tfail"; exit 1; fi',
+      '  echo "build\tpass"; exit 0',
+      'fi',
       'if [ "$1 $2" = "pr merge" ]; then shift 2; echo "$@" >> "$STUB_MERGE_LOG"; exit 0; fi',
       'echo "unstubbed gh $*" >&2; exit 1',
       '',
@@ -333,8 +339,8 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
   });
 
   /** A closed feature, pushed, with two must-pass criteria: FS-1 covers src/b.js, FS-2 has no manifest. */
-  function twoCriteria() {
-    const s = setup({ policy: POLICY });
+  function twoCriteria(policy = POLICY) {
+    const s = setup({ policy });
     s.commit('work', { 'src/a.js': 'a2', [TRD]: TRD2 });
     s.write(`${s.stateDir}/success-definition.md`, DEF2);
     const art = (id) => path.join(s.repo, s.stateDir, 'evidence', `${id}.txt`);
@@ -372,14 +378,15 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
    * the custody gate, the pr-head check, then `gh pr merge --match-head-commit <observed>`.
    * Counts how many times origin's branch ref moved during the step with an `update` hook.
    */
-  function playMerge(s, { mergeable, status }) {
+  function playMerge(s, { mergeable, status, redNew = false }) {
     const bare = path.join(s.root, 'origin.git');
     const refLog = path.join(s.root, 'ref-moves.log');
     const mergeLog = path.join(s.root, 'merge-calls.log');
     fs.writeFileSync(refLog, '');
     fs.writeFileSync(path.join(bare, 'hooks', 'update'),
       `#!/bin/sh\n[ "$1" = "refs/heads/feature/f" ] && echo "$3" >> "${refLog}"\nexit 0\n`, { mode: 0o755 });
-    Object.assign(process.env, { STUB_BARE: bare, STUB_MERGEABLE: mergeable, STUB_STATUS: status, STUB_MERGE_LOG: mergeLog });
+    Object.assign(process.env, { STUB_BARE: bare, STUB_MERGEABLE: mergeable, STUB_STATUS: status, STUB_MERGE_LOG: mergeLog,
+      STUB_RED: path.join(s.root, 'red-heads.txt') });
     const prHead = () => s.g(s.repo, 'ls-remote', 'origin', 'refs/heads/feature/f').split(/\s+/)[0];
     const json = (script, args) => {
       const r = spawnSync(process.execPath, [script, ...args], { cwd: s.repo, encoding: 'utf8', env: cleanEnv() });
@@ -392,6 +399,14 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
       out.mergedIn = json(RECORD_FILES, ['merge-base-in', '--base', 'origin/main', '--branch', 'feature/f', '--pr-head', prHead()]);
       expect(out.mergedIn.ok).toBe(true);
       s.g(s.repo, 'push', 'origin', 'feature/f');
+      // The merge contract waits for CI on a head it pushed itself; a red check there returns
+      // `red` before the custody gate, so no merge call follows.
+      if (redNew) fs.appendFileSync(process.env.STUB_RED, `${prHead()}\n`);
+      if (spawnSync('gh', ['pr', 'checks', '7'], { encoding: 'utf8', env: cleanEnv() }).status !== 0) {
+        out.red = true;
+        out.mergeCalls = [];
+        return out;
+      }
     }
     out.gate = s.playGate({ reverifiedStatus: 'met' });
     out.prHead = json(CUSTODY, ['check', '--state-dir', s.stateDir, '--link', 'pr-head', '--pr', '7', '--trd', TRD]);
@@ -478,5 +493,87 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
     expect(played.gate.reconcile.action).toBe('moved');
     expect(played.prHead.observed).toBe(played.head);
     expect(played.mergeCalls).toEqual([`7 --merge --match-head-commit ${played.head}`]);
+  });
+
+  describe('a red merge-up head is fixed by the loop, within its bound', () => {
+    const LOOP_POLICY = '## Ship\n1. push\n2. open-pr\n3. repeat rounds=1\n   - wait-ci\n   - collect-findings\n   - fix-findings\n4. merge\n';
+    const BEFORE_MERGE = {
+      push: ['pushed', { head: 'h' }], 'open-pr': ['opened', { pr: 7, head: 'h' }],
+      'wait-ci': ['passed', {}], 'collect-findings': ['clean', { findings: [] }],
+    };
+
+    /** Record every step before the first merge hand-out; return that hand-out. */
+    function toMerge(s) {
+      for (let i = 0; i < 20; i++) {
+        const n = s.next();
+        if (n.step.primitive === 'merge') return n;
+        s.record(n.step.id, ...BEFORE_MERGE[n.step.primitive]);
+      }
+      throw new Error('merge never handed out');
+    }
+
+    /** A loop step as the lead plays it. fix-findings commits to a file no criterion covers. */
+    function playLoopStep(s, n, round) {
+      const ci = () => (spawnSync('gh', ['pr', 'checks', '7'], { encoding: 'utf8', env: cleanEnv() }).status === 0 ? 'passed' : 'failed');
+      switch (n.step.primitive) {
+        case 'collect-findings': return ['found', { findings: ['red check'] }];
+        case 'fix-findings': s.commit(`fix ${round}`, { [`src/fix${round}.js`]: `f${round}` }); return ['fixed', {}];
+        case 'push': { const p = s.playPush(); return [p.result, p.data]; }
+        case 'wait-ci': return [ci(), {}];
+        default: throw new Error(`unexpected ${n.step.primitive}`);
+      }
+    }
+
+    test('red head, loop fixes it, CI green: merge runs once on the fixed head', () => {
+      const s = twoCriteria(LOOP_POLICY);
+      landOnBase(s, { 'src/c.js': 'c1' });
+      const mergeStep = toMerge(s);
+      const first = playMerge(s, { mergeable: 'CONFLICTING', status: 'DIRTY', redNew: true });
+      expect(first.red).toBe(true);
+      expect(first.mergeCalls).toEqual([]);
+      expect(s.record(mergeStep.step.id, 'red', { reason: 'build failed' })).toMatchObject({ ok: true });
+
+      const handed = [];
+      for (let i = 0; i < 4; i++) {
+        const n = s.next();
+        expect(n.action).toBe('run');
+        handed.push(n.step.primitive);
+        expect(s.record(n.step.id, ...playLoopStep(s, n, 1))).toMatchObject({ ok: true });
+      }
+      expect(handed).toEqual(['collect-findings', 'fix-findings', 'push', 'wait-ci']);
+
+      const again = s.next();
+      expect(again.step).toMatchObject({ id: mergeStep.step.id, primitive: 'merge' });
+      const second = playMerge(s, { mergeable: 'MERGEABLE', status: 'CLEAN' });
+      expect(second.red).toBeUndefined();
+      expect(second.mergeCalls).toEqual([`7 --merge --match-head-commit ${second.head}`]);
+      expect(s.record(again.step.id, 'merged', { merged: true, mergedHead: second.head, base: 'main', method: 'merge' })).toMatchObject({ ok: true });
+      expect(s.next()).toMatchObject({ action: 'done', shipped: true });
+      expect(s.status()).toMatchObject({ status: 'done', shipped: true });
+    });
+
+    test('CI stays red until the bound is spent: stuck naming 2 rounds, gh pr merge never called', () => {
+      const s = twoCriteria(LOOP_POLICY);
+      landOnBase(s, { 'src/c.js': 'c1' });
+      const mergeStep = toMerge(s);
+      const first = playMerge(s, { mergeable: 'CONFLICTING', status: 'DIRTY', redNew: true });
+      expect(first.red).toBe(true);
+      s.record(mergeStep.step.id, 'red', { reason: 'build failed' });
+      // From here every head is red.
+      fs.writeFileSync(process.env.STUB_RED, '*\n');
+
+      let last;
+      for (let round = 1; round <= 2; round++) {
+        for (let i = 0; i < 4; i++) {
+          const n = s.next();
+          expect(n.action).toBe('run');
+          last = s.record(n.step.id, ...playLoopStep(s, n, round));
+        }
+      }
+      expect(last).toMatchObject({ status: 'stuck', reason: expect.stringMatching(/loop ended after 2 rounds/) });
+      expect(s.status()).toMatchObject({ status: 'stuck' });
+      const mergeLog = path.join(s.root, 'merge-calls.log');
+      expect(fs.existsSync(mergeLog) ? fs.readFileSync(mergeLog, 'utf8').trim() : '').toBe('');
+    });
   });
 });

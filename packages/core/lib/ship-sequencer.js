@@ -23,6 +23,15 @@
  * Contract front-matter keys: primitive, params, results, outward, needs, provides, section,
  * rest, stops-on, detach-on, detach-on-data, repeat-until, requires (`trd`: the work's TRD must
  * parse at start).
+ * `loop-on: <result>` (must be in `stops-on`), `loop-via: <primitives, in order>` (each must be
+ * `outward: no` and must not itself declare `loop-via`) and `loop-rounds: <param>` (a declared
+ * parameter holding a whole number) give a top-level step a bounded recovery loop: recording
+ * `loop-on` on it runs the `loop-via` steps, then hands the step out again, up to that many rounds.
+ * The loop is synthesized at parse only when every `loop-via` primitive is listed earlier in the
+ * policy (a repeat body counts), outside a repeat, and the bound is above 0; the body takes the
+ * params of the nearest earlier listed step of the same primitive, and `rounds` is stored in the
+ * snapshot. Body step ids are `<step id>.<n>`; `rounds=N` is N body rounds and at most N+1
+ * attempts of the owning step.
  * `detach-on: <results>`: from the first recorded result in that list onward, the record moves out
  * of the work tree (see STATE). `detach-on-data: <keys>`: the same, when a recorded result of ANY
  * kind (a stop or wait included) carries data with one of those keys set to true -- how a step
@@ -149,6 +158,24 @@ function parseOutward(value) {
   return null;
 }
 
+/** A contract's loop keys must be coherent and every primitive it loops through must be safe to run unasked. */
+function validateLoop(c, contracts, errors) {
+  const file = path.basename(c.path);
+  if (!c.loopOn && c.loopVia.length === 0 && !c.loopRounds) return;
+  if (!c.loopOn || c.loopVia.length === 0 || !c.loopRounds) {
+    errors.push(`${file}: loop-on, loop-via and loop-rounds go together`);
+    return;
+  }
+  if (!c.stopsOn.includes(c.loopOn)) errors.push(`${file}: loop-on "${c.loopOn}" must also be listed in stops-on`);
+  if (!c.params[c.loopRounds]) errors.push(`${file}: loop-rounds names "${c.loopRounds}", which is not a declared parameter`);
+  for (const name of c.loopVia) {
+    const via = contracts.get(name);
+    if (!via) errors.push(`${file}: loop-via names unknown primitive "${name}"`);
+    else if (via.outward !== 'no') errors.push(`${file}: loop-via "${name}" must be outward: no`);
+    else if (via.loopVia.length) errors.push(`${file}: loop-via "${name}" declares a loop of its own`);
+  }
+}
+
 /**
  * Read every `ship-primitive-*.md` in `dir`.
  * @returns {{contracts: Map<string, object>, errors: string[]}}
@@ -220,9 +247,15 @@ function loadPrimitives(dir = DEFAULT_CONTRACTS_DIR) {
       // Data keys that, set to true on any recorded result, also move the record out of the tree.
       detachOnData: listOf(fm['detach-on-data']),
       repeatUntil: fm['repeat-until'] && fm['repeat-until'] !== 'none' ? fm['repeat-until'] : null,
+      // Step-level recovery loop (see the header): the result that starts it, the primitives it
+      // runs, and the parameter that bounds it. Checked below, once every contract is loaded.
+      loopOn: fm['loop-on'] && fm['loop-on'] !== 'none' ? fm['loop-on'] : null,
+      loopVia: listOf(fm['loop-via']),
+      loopRounds: fm['loop-rounds'] && fm['loop-rounds'] !== 'none' ? fm['loop-rounds'] : null,
       path: full,
     });
   }
+  for (const c of contracts.values()) validateLoop(c, contracts, errors);
   return { contracts, errors };
 }
 
@@ -360,6 +393,35 @@ function parseSectionSteps(rawLines, section, contracts, errors) {
   return steps;
 }
 
+/**
+ * Give a top-level step its recovery loop (`step.loop = {on, rounds, body}`) when its contract
+ * declares one, every primitive it loops through is already listed, and rounds is above 0.
+ * Never adds a step the owner did not list.
+ */
+function attachLoop(step, contracts, listed, errors) {
+  const c = contracts.get(step.primitive);
+  if (!c || !c.loopOn || c.loopVia.length === 0) return;
+  const raw = step.params[c.loopRounds] !== undefined ? step.params[c.loopRounds] : c.params[c.loopRounds].default;
+  if (raw === null || raw === undefined || raw === '') return;
+  if (!/^\d+$/.test(raw)) {
+    errors.push(`line ${step.line}: ${c.loopRounds} must be a whole number, not "${raw}"`);
+    return;
+  }
+  const rounds = Number(raw);
+  if (rounds === 0 || !c.loopVia.every((name) => listed.has(name))) return;
+  step.loop = {
+    on: c.loopOn,
+    rounds,
+    body: c.loopVia.map((name, i) => ({
+      id: `${step.id}.${i + 1}`,
+      section: step.section,
+      primitive: name,
+      line: step.line,
+      params: { ...listed.get(name) },
+    })),
+  };
+}
+
 /** Validation that needs the whole string: section, needs, repeat bodies. */
 function validateSteps(steps, contracts, errors) {
   const provided = new Set();
@@ -384,16 +446,23 @@ function validateSteps(steps, contracts, errors) {
     }
     ids.add(step.id);
   }
+  // The nearest earlier listed step's params per primitive: what a synthesized loop body runs with.
+  const listed = new Map();
   for (const step of steps) {
     if (step.primitive !== 'repeat') {
       seen(step, step.section);
+      attachLoop(step, contracts, listed, errors);
+      listed.set(step.primitive, step.params);
       continue;
     }
     if (step.body.length === 0) {
       errors.push(`line ${step.line}: repeat has no steps`);
       continue;
     }
-    for (const b of step.body) seen(b, step.section);
+    for (const b of step.body) {
+      seen(b, step.section);
+      listed.set(b.primitive, b.params);
+    }
     const bodyContracts = step.body.map((b) => contracts.get(b.primitive)).filter(Boolean);
     if (step.repeat.until) {
       // A failure result must never be what ends a repeat: the owner would move on to merge or
@@ -508,7 +577,11 @@ function flatten(steps) {
   const flat = [];
   steps.forEach((step, top) => {
     if (step.repeat) step.body.forEach((b, bi) => flat.push({ step: b, top, bodyIndex: bi, repeat: step }));
-    else flat.push({ step, top, bodyIndex: -1, repeat: null });
+    else {
+      flat.push({ step, top, bodyIndex: -1, repeat: null });
+      // A step's recovery loop runs right after it; `loopOf` marks the body steps.
+      if (step.loop) step.loop.body.forEach((b, bi) => flat.push({ step: b, top, bodyIndex: bi, repeat: null, loopOf: step }));
+    }
   });
   return flat;
 }
@@ -677,10 +750,18 @@ function mergedContext(state) {
 function laterNeedsOf(state, entry, contracts) {
   const flat = flatten(state.steps);
   const i = flat.findIndex((e) => e.step.id === entry.step.id);
-  const later = flat.slice(i + 1);
+  let later = flat.slice(i + 1);
   // Another pass of the same repeat re-runs the whole body, this step included.
   if (entry.repeat && state.cursor.pass < entry.repeat.repeat.rounds + 1) {
     later.push(...flat.slice(0, i + 1).filter((e) => e.repeat === entry.repeat));
+  }
+  // A step with a loop: its body comes next only while a round is left (attempt p starts round p).
+  if (entry.step.loop && state.cursor.pass > entry.step.loop.rounds) later = later.filter((e) => e.loopOf !== entry.step);
+  // A loop body step: the owner is handed out again, and another round follows while one is left.
+  if (entry.loopOf) {
+    const owner = entry.loopOf;
+    later.push(flat.find((e) => e.step === owner));
+    if (state.cursor.pass < owner.loop.rounds) later.push(...flat.filter((e) => e.loopOf === owner));
   }
   const needs = new Set();
   for (const e of later) (contracts.get(e.step.primitive) || { needs: [] }).needs.forEach((k) => needs.add(k));
@@ -719,7 +800,11 @@ function next(stateDir, opts = {}) {
     const v = entry.step.params[name] !== undefined ? entry.step.params[name] : spec.default;
     if (v !== null && v !== undefined) input[name] = v;
   }
-  const final = entry.repeat ? state.cursor.pass === entry.repeat.repeat.rounds + 1 : false;
+  const final = entry.repeat
+    ? state.cursor.pass === entry.repeat.repeat.rounds + 1
+    : entry.loopOf
+      ? state.cursor.pass === entry.loopOf.loop.rounds
+      : false;
   Object.assign(input, {
     work: state.work,
     final,
@@ -791,6 +876,34 @@ function record(stateDir, { step, result, data, reason }, opts = {}) {
       state.status = 'stuck';
       state.reason = `repeat ended without ${r.until} after ${r.rounds} rounds`;
     }
+  } else if (entry.loopOf) {
+    // A loop body step; the cursor's pass is the round number.
+    const owner = entry.loopOf;
+    const round = state.cursor.pass;
+    const body = owner.loop.body;
+    if (contract.repeatUntil && result === contract.repeatUntil) {
+      state.cursor = { step: owner.id, pass: round + 1 };
+    } else if (contract.stopsOn.includes(result)) {
+      if (round < owner.loop.rounds) {
+        state.cursor = { step: body[0].id, pass: round + 1 };
+      } else {
+        state.status = 'stuck';
+        state.reason = `step ${owner.id} (${owner.primitive}) loop ended after ${owner.loop.rounds} rounds: step ${step} (${contract.primitive}) recorded ${result}`;
+      }
+    } else if (entry.bodyIndex + 1 < body.length) {
+      state.cursor = { step: body[entry.bodyIndex + 1].id, pass: round };
+    } else {
+      state.cursor = { step: owner.id, pass: round + 1 };
+    }
+  } else if (entry.step.loop && result === entry.step.loop.on) {
+    // Attempt p of the owner starts round p, while rounds remain.
+    const l = entry.step.loop;
+    if (state.cursor.pass <= l.rounds) {
+      state.cursor = { step: l.body[0].id, pass: state.cursor.pass };
+    } else {
+      state.status = 'stuck';
+      state.reason = `step ${step} (${contract.primitive}) loop ended after ${l.rounds} rounds: step ${step} (${contract.primitive}) recorded ${result}`;
+    }
   } else if (contract.stopsOn.includes(result)) {
     // The cursor stays on this step, so next() never hands out the step after it.
     state.status = 'stuck';
@@ -831,7 +944,13 @@ function status(stateDir) {
   const { state } = loaded;
   const steps = flatten(state.steps).map((e) => {
     const last = [...state.results].reverse().find((r) => r.step === e.step.id);
-    return { id: e.step.id, primitive: e.step.primitive, result: last ? last.result : null, pass: last ? last.pass : null };
+    return {
+      id: e.step.id,
+      primitive: e.step.primitive,
+      result: last ? last.result : null,
+      pass: last ? last.pass : null,
+      ...(e.loopOf ? { loop: true } : {}),
+    };
   });
   const out = { recordPath: recordPathOf(stateDir, state), custodyPath: recordDirs.custodyPath(stateDir), status: state.status, shipped: state.shipped, policy: state.policy, cursor: state.cursor, steps };
   if (state.status === 'waiting') out.waiting = state.reason;
@@ -851,7 +970,7 @@ function authorization(text, contracts, { autonomyPath, settingsPath }) {
   const sentence = hasSentence(autonomyPath) ? 'present' : 'absent';
   const listed = [];
   for (const step of parse(text, contracts).steps) {
-    for (const s of step.primitive === 'repeat' ? step.body : [step]) listed.push(s.primitive);
+    for (const s of step.primitive === 'repeat' ? step.body : [step, ...(step.loop ? step.loop.body : [])]) listed.push(s.primitive);
   }
   const refused = [...new Set(listed)].filter((name) => {
     const c = contracts.get(name);
