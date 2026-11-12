@@ -63,7 +63,22 @@ Stop at the first hit. `<feature>` is the TRD's basename without its extension.
    Next:   /ship-build docs/TRD/<feature>.md
    ```
 
-For work with a TRD, the state directory is `.trd-state/<feature>/`.
+For work with a TRD, the state directory is `.trd-state/<feature>/`. When this worktree lacks
+its records, reach them on the feature's records ref before the gate reads `closed.json`. Under
+`--resume`, restore the folder:
+
+```bash
+node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
+```
+
+Without `--resume`, never restore it: a restored `shipped.json` would turn a fresh start into a
+resume. Read the close record alone (worktree first, then the ref, after its identity check), and use its `content` as `closed.json` for the gate when `found` is true:
+
+```bash
+node .claude/lib/record-ref.js read-record --state-dir .trd-state/<feature> --file closed.json
+```
+
+Any `ensure` outcome but `present` or `restored`, or `found: false`, means no record: carry on as today. A `failed` outcome is one ISSUES line, "records ref could not be fetched".
 
 ## Step 2: The gate
 

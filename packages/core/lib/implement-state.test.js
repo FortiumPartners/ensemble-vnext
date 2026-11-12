@@ -3,6 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const { reconcile,
   CYCLE_ORDER,
@@ -524,5 +525,84 @@ describe('deletion is attested by absence', () => {
   it('but still re-opens a genuine phantom task', () => {
     const state = { tasks: { 'T-1': { status: 'success', files_changed: ['never-written.js'] } } };
     expect(reconcile(state, { projectRoot: os.tmpdir() }).reopened).toEqual(['T-1']);
+  });
+});
+
+describe('load(): falls back to the records ref', () => {
+  const RECORD_REF = path.join(__dirname, 'record-ref.js');
+  let repo;
+  const git = (args) => spawnSync('git', args, { cwd: repo, encoding: 'utf8' });
+
+  beforeEach(() => {
+    repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'is-ref-')));
+    git(['init', '-q', '-b', 'feat']);
+    git(['config', 'user.name', 'T']);
+    git(['config', 'user.email', 't@example.com']);
+    git(['config', 'commit.gpgsign', 'false']);
+    fs.writeFileSync(path.join(repo, 'README.md'), 'x\n');
+    git(['add', '.']);
+    git(['commit', '-q', '-m', 'init']);
+  });
+  afterEach(() => fs.rmSync(repo, { recursive: true, force: true }));
+
+  const stateFile = () => path.join(repo, '.trd-state', 'demo', 'implement.json');
+
+  it('resumes from the ref after the folder is deleted, and save round-trips', () => {
+    const dir = path.dirname(stateFile());
+    fs.mkdirSync(path.join(dir, 'prompts'), { recursive: true });
+    const state = { version: '1.0.0', tasks: { T1: { status: 'success' }, T2: { status: 'pending' } } };
+    fs.writeFileSync(stateFile(), JSON.stringify(state));
+    fs.writeFileSync(path.join(dir, 'prompts', 'T2.md'), 'prompt');
+    const w = spawnSync(process.execPath, [RECORD_REF, 'write', '--state-dir', '.trd-state/demo', '--command', 'implement-trd', '--step', 'test', '--no-push'], { cwd: repo, encoding: 'utf8' });
+    expect(w.status).toBe(0);
+    fs.rmSync(dir, { recursive: true });
+
+    const loaded = load(stateFile(), { local: true });
+    expect(Object.keys(loaded.tasks)).toEqual(['T1', 'T2']);
+    expect(loaded.tasks.T1.status).toBe('success');
+    expect(fs.existsSync(path.join(dir, 'prompts', 'T2.md'))).toBe(true);
+    save(stateFile(), loaded);
+    expect(load(stateFile())).toEqual(loaded);
+  });
+
+  it('treats a ref owned by a different feature as no record: ENOENT, nothing materialised', () => {
+    const dir = path.dirname(stateFile());
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(stateFile(), JSON.stringify({ version: '1.0.0', tasks: { T1: { status: 'success' } } }));
+    const w = spawnSync(process.execPath, [RECORD_REF, 'write', '--state-dir', '.trd-state/demo', '--command', 'implement-trd', '--step', 'test', '--no-push'], { cwd: repo, encoding: 'utf8', env: { ...process.env, FORGE_FEATURE_ID: '' } });
+    expect(w.status).toBe(0);
+    fs.rmSync(dir, { recursive: true });
+    // the same positive setup as the resume test, but this session is a different feature (branch)
+    git(['checkout', '-q', '-b', 'other-feature']);
+
+    let err;
+    try { load(stateFile(), { local: true }); } catch (e) { err = e; }
+    expect(err && err.code).toBe('ENOENT');
+    expect(fs.existsSync(dir)).toBe(false);
+  });
+
+  it('throws the original ENOENT when neither folder nor ref exists', () => {
+    let err;
+    try { load(stateFile(), { local: true }); } catch (e) { err = e; }
+    expect(err.code).toBe('ENOENT');
+    expect(err.message).toBe(`ENOENT: no such file or directory, open '${stateFile()}'`);
+  });
+
+  it('does not fall back on malformed JSON in the worktree', () => {
+    fs.mkdirSync(path.dirname(stateFile()), { recursive: true });
+    fs.writeFileSync(stateFile(), '{nope');
+    expect(() => load(stateFile(), { local: true })).toThrow(SyntaxError);
+  });
+
+  it('makes no git call for a path outside .trd-state/', () => {
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'is-nogit-'));
+    try {
+      let err;
+      try { load(path.join(outside, 'implement.json')); } catch (e) { err = e; }
+      expect(err.code).toBe('ENOENT');
+      expect(fs.readdirSync(outside)).toEqual([]);
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
   });
 });

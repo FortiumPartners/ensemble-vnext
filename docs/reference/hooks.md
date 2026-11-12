@@ -447,6 +447,14 @@ hook does nothing. It injects nothing, because PreCompact accepts no model conte
 instruction to re-read `session-log.md` after compaction lives in `implement-trd.md` instead.
 Where: `precompact.js` `summarizeImplement()`, `formatCheckpoint()`, `main()`.
 
+Hooks and the records ref: `session-context.js`, `router.py` and `precompact.js` may read a
+feature's records from the local ref `refs/ensemble/records/<slug>` when the worktree has no
+`.trd-state/<slug>/` folder, but they **never fetch** (`--local`); a ref that is not already local
+reads as "no record". The ref is used only when its `record.json` identity matches the session
+(same `FORGE_FEATURE_ID`, or same branch). `precompact.js` restores the folder first, and when it
+cannot, appends to `.trd-state/_session-log.md` rather than create a one-file folder. `status.js`
+neither restores nor creates the folder. Design: `docs/TRD/readers-fall-back-to-the-ref.md`.
+
 ---
 
 ## 11. Files the hooks touch

@@ -879,12 +879,201 @@ describe('read, list, restore', () => {
   });
 });
 
+describe('reader additions: local, tolerant restore, match, ensure, readRecord', () => {
+  const rm = (repo) => fs.rmSync(path.join(repo, STATE), { recursive: true, force: true });
+  const originWithRecord = () => {
+    const origin = initBare();
+    const a = cloneOf(origin, 'cloneA');
+    put(a, `${STATE}/implement.json`, '{"a":1}\n');
+    put(a, `${STATE}/closed.json`, '{"c":1}\n');
+    expect(doWrite(a).push).toBe('pushed');
+    return { origin, a, fresh: cloneOf(origin, 'fresh') };
+  };
+
+  test('(a) read --local never fetches; read without it does', () => {
+    const { fresh } = originWithRecord();
+    const r = recordRef.read({ slug: SLUG, file: 'implement.json', cwd: fresh, local: true });
+    expect(r.outcome).toBe('no-record');
+    expect(sh(fresh, ['for-each-ref', 'refs/ensemble/'])).toBe('');
+    const cli = JSON.parse(runCli(fresh, ['read', '--slug', SLUG, '--file', 'implement.json', '--local']).stdout);
+    expect(cli.outcome).toBe('no-record');
+    expect(recordRef.restore({ stateDir: STATE, cwd: fresh, local: true }).outcome).toBe('no-record');
+    expect(sh(fresh, ['for-each-ref', 'refs/ensemble/'])).toBe('');
+    expect(recordRef.read({ slug: SLUG, file: 'implement.json', cwd: fresh }).ok).toBe(true);
+  });
+
+  test('(b) restore into a folder holding only dispatch.jsonl and findings/x keeps both', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/implement.json`, '{"a":1}\n');
+    doWrite(repo);
+    rm(repo);
+    put(repo, `${STATE}/dispatch.jsonl`, 'd\n');
+    put(repo, `${STATE}/findings/x`, 'f\n');
+    const r = recordRef.restore({ stateDir: STATE, cwd: repo });
+    expect(r.outcome).toBe('restored');
+    expect(fs.readFileSync(path.join(repo, STATE, 'implement.json'), 'utf8')).toBe('{"a":1}\n');
+    expect(fs.readFileSync(path.join(repo, STATE, 'dispatch.jsonl'), 'utf8')).toBe('d\n');
+    expect(fs.readFileSync(path.join(repo, STATE, 'findings', 'x'), 'utf8')).toBe('f\n');
+    expect(fs.readdirSync(path.join(repo, STATE)).sort()).toEqual(['dispatch.jsonl', 'findings', 'implement.json']);
+    expect(fs.readdirSync(path.join(repo, '.trd-state')).filter((n) => n.startsWith('.restore-'))).toEqual([]);
+  });
+
+  test('(c) restore into a folder holding implement.json is still refused', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/implement.json`, '{"a":1}\n');
+    doWrite(repo);
+    expect(recordRef.restore({ stateDir: STATE, cwd: repo }).outcome).toBe('refused');
+  });
+
+  test('(d) restore --match: another branch (no ids) is a mismatch and writes nothing; equal ids restore', () => {
+    const repo = initRepo();
+    sh(repo, ['checkout', '-q', '-b', 'other']);
+    put(repo, `${STATE}/implement.json`, '{"a":1}\n');
+    doWrite(repo);
+    rm(repo);
+    sh(repo, ['checkout', '-q', 'main']);
+    const r = recordRef.restore({ stateDir: STATE, cwd: repo, match: true });
+    expect(r.outcome).toBe('mismatch');
+    expect(fs.existsSync(path.join(repo, STATE))).toBe(false);
+    expect(recordRef.restore({ stateDir: STATE, cwd: repo, match: true, branch: 'other' }).outcome).toBe('restored');
+
+    const repo2 = initRepo();
+    process.env.FORGE_FEATURE_ID = 'id-1';
+    put(repo2, `${STATE}/implement.json`, '{}\n');
+    doWrite(repo2);
+    rm(repo2);
+    sh(repo2, ['checkout', '-q', '-b', 'different']);
+    expect(recordRef.restore({ stateDir: STATE, cwd: repo2, match: true }).outcome).toBe('restored');
+  });
+
+  test('(e) ensure: present makes no git call; restored; no-record; failed; mismatch', () => {
+    const notGit = mkTmp('notgit');
+    put(notGit, `${STATE}/implement.json`, '{}');
+    expect(recordRef.ensure({ stateDir: STATE, cwd: notGit })).toEqual({ ok: true, outcome: 'present' });
+
+    const repo = initRepo();
+    put(repo, `${STATE}/implement.json`, '{"a":1}\n');
+    doWrite(repo);
+    rm(repo);
+    expect(recordRef.ensure({ stateDir: STATE, cwd: repo }).outcome).toBe('restored');
+    expect(recordRef.ensure({ stateDir: STATE, cwd: repo }).outcome).toBe('present');
+
+    const bare = initRepo();
+    expect(recordRef.ensure({ stateDir: '.trd-state/ghost', cwd: bare }).outcome).toBe('no-record'); // no origin
+    const { fresh } = originWithRecord();
+    expect(recordRef.ensure({ stateDir: '.trd-state/ghost', cwd: fresh }).outcome).toBe('no-record'); // origin lacks it
+    expect(recordRef.ensure({ stateDir: STATE, cwd: fresh, local: true }).outcome).toBe('no-record');
+    expect(sh(fresh, ['for-each-ref', 'refs/ensemble/'])).toBe('');
+    expect(recordRef.ensure({ stateDir: STATE, cwd: fresh, branch: 'main' }).outcome).toBe('restored');
+
+    const broken = initRepo();
+    withOrigin(broken, path.join(mkTmp('gone'), 'missing.git'));
+    expect(recordRef.ensure({ stateDir: STATE, cwd: broken }).outcome).toBe('failed');
+
+    const other = initRepo();
+    sh(other, ['checkout', '-q', '-b', 'zzz']);
+    put(other, `${STATE}/implement.json`, '{}');
+    doWrite(other);
+    rm(other);
+    sh(other, ['checkout', '-q', 'main']);
+    expect(recordRef.ensure({ stateDir: STATE, cwd: other }).outcome).toBe('mismatch');
+    expect(fs.existsSync(path.join(other, STATE))).toBe(false);
+    expect(recordRef.ensure({ stateDir: 'docs/x', cwd: other }).outcome).toBe('refused');
+    const cli = JSON.parse(runCli(other, ['ensure', '--state-dir', STATE, '--local', '--branch', 'zzz']).stdout);
+    expect(cli.outcome).toBe('restored');
+  });
+
+  test('(e2) a restore whose blob read fails leaves the destination as it was', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/implement.json`, '{"a":1}\n');
+    put(repo, `${STATE}/notes.md`, 'unique notes content\n');
+    doWrite(repo);
+    rm(repo);
+    put(repo, `${STATE}/dispatch.jsonl`, 'd\n');
+    put(repo, `${STATE}/evidence/a.png`, 'png');
+    // Corrupt the object store: remove the loose blob for notes.md.
+    const sha = sh(repo, ['rev-parse', `${REF}:notes.md`]);
+    const obj = path.join(repo, '.git', 'objects', sha.slice(0, 2), sha.slice(2));
+    expect(fs.existsSync(obj)).toBe(true);
+    fs.chmodSync(obj, 0o644);
+    fs.rmSync(obj);
+    const r = recordRef.restore({ stateDir: STATE, cwd: repo });
+    expect(r.ok).toBe(false);
+    expect(r.outcome).toBe('failed');
+    expect(fs.readdirSync(path.join(repo, STATE)).sort()).toEqual(['dispatch.jsonl', 'evidence']);
+    expect(fs.readFileSync(path.join(repo, STATE, 'evidence', 'a.png'), 'utf8')).toBe('png');
+    expect(fs.readdirSync(path.join(repo, '.trd-state')).filter((n) => n.startsWith('.restore-'))).toEqual([]);
+
+    // A wholly absent destination stays absent.
+    rm(repo);
+    expect(recordRef.restore({ stateDir: STATE, cwd: repo }).outcome).toBe('failed');
+    expect(fs.existsSync(path.join(repo, STATE))).toBe(false);
+  });
+
+  test('(f) readRecord applies the per-folder rule and the identity check', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/implement.json`, 'ref-impl\n');
+    put(repo, `${STATE}/closed.json`, 'ref-closed\n');
+    doWrite(repo);
+    rm(repo);
+    expect(recordRef.readRecord({ stateDir: STATE, file: 'closed.json', cwd: repo })).toEqual({ found: true, content: 'ref-closed\n', source: 'ref' });
+    expect(fs.existsSync(path.join(repo, STATE))).toBe(false); // reads in memory only
+    put(repo, `${STATE}/implement.json`, 'wt-impl\n');
+    expect(recordRef.readRecord({ stateDir: STATE, file: 'implement.json', cwd: repo })).toEqual({ found: true, content: 'wt-impl\n', source: 'worktree' });
+    expect(recordRef.readRecord({ stateDir: STATE, file: 'closed.json', cwd: repo })).toEqual({ found: false, content: null, source: null });
+
+    const other = initRepo();
+    sh(other, ['checkout', '-q', '-b', 'zzz']);
+    put(other, `${STATE}/closed.json`, 'x');
+    doWrite(other);
+    rm(other);
+    sh(other, ['checkout', '-q', 'main']);
+    expect(recordRef.readRecord({ stateDir: STATE, file: 'closed.json', cwd: other }).found).toBe(false);
+    expect(recordRef.readRecord({ stateDir: STATE, file: 'closed.json', cwd: other, branch: 'zzz' }).found).toBe(true);
+  });
+
+  test('hasRecords ignores dispatch.jsonl, evidence/, findings/ and temp files', () => {
+    const d = mkTmp('has');
+    expect(recordRef.hasRecords(path.join(d, 'nope'))).toBe(false);
+    put(d, 'dispatch.jsonl', 'x');
+    put(d, 'evidence/a.png', 'x');
+    put(d, 'findings/f.md', 'x');
+    put(d, 'implement.json.tmp.1.2', 'x');
+    expect(recordRef.hasRecords(d)).toBe(false);
+    put(d, 'closed.json', '{}');
+    expect(recordRef.hasRecords(d)).toBe(true);
+  });
+
+  test('(g) the new exports never throw on garbage', () => {
+    for (const bad of [undefined, null, 5, {}, { stateDir: 7, cwd: 9 }, { stateDir: '\0', file: '\0', cwd: '/nonexistent/x' }]) {
+      expect(() => recordRef.ensure(bad === null ? undefined : bad)).not.toThrow();
+      expect(() => recordRef.readRecord(bad === null ? undefined : bad)).not.toThrow();
+    }
+    for (const bad of [undefined, null, 5, {}, '\0']) expect(recordRef.hasRecords(bad)).toBe(false);
+    expect(recordRef.readRecord({}).found).toBe(false);
+  });
+});
+
 describe('CLI', () => {
   test('an unknown subcommand is refused with one JSON line and exit 0', () => {
     const repo = initRepo();
     const r = runCli(repo, ['bogus']);
     expect(r.status).toBe(0);
     expect(JSON.parse(r.stdout).outcome).toBe('refused');
+  });
+
+  test('read-record reads a file from the ref once the folder is gone, and nothing for another branch', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/closed.json`, '{"closedBy":"audit"}');
+    expect(doWrite(repo, { push: false }).outcome).toBe('ref');
+    fs.rmSync(path.join(repo, STATE), { recursive: true, force: true });
+    const r = runCli(repo, ['read-record', '--local', '--state-dir', STATE, '--file', 'closed.json']);
+    expect(r.status).toBe(0);
+    const out = JSON.parse(r.stdout);
+    expect(out).toMatchObject({ found: true, source: 'ref' });
+    expect(JSON.parse(out.content).closedBy).toBe('audit');
+    const other = runCli(repo, ['read-record', '--local', '--state-dir', STATE, '--file', 'closed.json', '--branch', 'some-other-branch']);
+    expect(JSON.parse(other.stdout).found).toBe(false);
   });
 });
 

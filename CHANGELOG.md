@@ -12,6 +12,24 @@ the work is actually released.
 
 ## [Unreleased]
 
+Readers now fall back to the records ref (`refs/ensemble/records/<slug>`) when a feature's
+`.trd-state/<slug>/` folder is missing from the worktree, so a re-created worktree can resume.
+`record-ref.js` gains `ensure` (restore the folder from the ref before ordinary reads run; CLI
+`ensure --state-dir <d> [--local] [--branch <b>]`), `readRecord`, `hasRecords`, a `local` option
+(CLI `--local`) that never fetches, and identity checking. `implement-state`, `custody`,
+`ship-sequencer` (only under `--resume`) and `artifacts` (`get` and `record`) call `ensure`; so
+do the resume steps of the `amend`, `implement-trd`, `refine-verification`, `ship-build`, `task`
+and `verify-build` commands. The hooks `session-context.js`, `precompact.js` and `router.py` read
+the local ref only; `status.js` is unchanged. The fallback is per folder: a folder holding at least
+one record file is authoritative and a missing file in it is missing, with no ref lookup; only an
+absent or record-free folder is filled from the ref. A ref is used only if its `record.json`
+matches this session (same `FORGE_FEATURE_ID`, or, when either is null, the same branch), so a
+reused slug's old `closed.json` cannot close a new feature. `restore` now accepts a folder that
+holds only non-record files such as `dispatch.jsonl`, and restores through a temporary sibling
+folder so an interrupted restore never leaves a half-complete folder. `ensure` reports `no-record`
+(no ref, no `origin`) apart from `failed` (the fetch itself failed). Nothing new writes a ref;
+records are still committed on the branch. Plan: `docs/TRD/readers-fall-back-to-the-ref.md`.
+
 Added `packages/core/lib/record-ref.js` (vendored to `.claude/lib/`): a library and CLI
 (`write`, `read`, `list`, `restore`) that writes a feature's run records to the git ref
 `refs/ensemble/records/<slug>` (shared logs on `_shared`) without touching the checked-out branch,
