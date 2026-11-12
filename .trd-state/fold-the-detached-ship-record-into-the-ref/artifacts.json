@@ -5,5 +5,11 @@
     "url": "https://claude.ai/artifact/A3NKP4BEhefrLv1TqhdjHd",
     "updated_at": "2026-11-12T12:20:46.225Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/fold-the-detached-ship-record-into-the-ref/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-12T12:58:04.384Z",
+    "command": "/implement-trd"
   }
 }
