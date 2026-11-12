@@ -1952,7 +1952,8 @@ It prints `{"<id>": ["<path>", ...]}` for every criterion it can map; a criterio
 (a check-derived row among them) is absent and is re-walked whenever a Debug pass changed
 anything. A non-zero exit passes `{}` and is one ISSUES line, never STUCK: `{}` widens the
 regression pass's scope, it never narrows it. Write the derive output to a file
-(`<state-dir>/criterion-covers.json`); the next call reads it with `--covers`.
+(`<state-dir>/criterion-covers.json`), or `{}` on a non-zero exit so an earlier run's covers are
+never read; the next call reads it with `--covers`.
 
 **Then look up the off-host proofs, immediately before the dispatch** (TRD
 accepted-gaps-for-not-checkable-must-pass-criteria, D4, D11). A must-pass criterion whose

@@ -1903,11 +1903,16 @@ function settleOffHost(entry) {
   const p = OFF_HOST_PROOFS.get(entry.id)
   if (!p || !MUST_PASS_IDS.includes(entry.id)) return null
   const job = `${p.workflow}#${p.job}`
+  // A resumed entry already carries the clause an earlier settle appended; cut it, so a resume does
+  // not append the same clause again each time.
+  const marker = `declared off-host proof ${job} `
+  const at = entry.reason ? entry.reason.indexOf(marker) : -1
+  const baseReason = at === 0 ? null : at > 0 && entry.reason.slice(at - 2, at) === '; ' ? entry.reason.slice(0, at - 2) : entry.reason
   let why = null
   if (p.status !== 'green') why = `declared off-host proof ${job} is ${p.status}${p.reason ? ` (${p.reason})` : ''}`
   else if (offHostRefused.has(entry.id)) why = `declared off-host proof ${job} is green but this id ${offHostRefused.get(entry.id)}`
   else if (debugTouchedCovers(entry.id)) why = `declared off-host proof ${job} is green but its covered files were changed by Debug in this run`
-  if (why !== null) return { entry: { ...entry, reason: entry.reason ? `${entry.reason}; ${why}` : why }, settledMet: false }
+  if (why !== null) return { entry: { ...entry, reason: baseReason ? `${baseReason}; ${why}` : why }, settledMet: false }
   const { kind: _kind, verificationDigest: _digest, settled: _settled, causeKey: _key, awaiting: _awaiting, ...keep } = entry
   offHostSettledThisRun.add(entry.id)
   return {
@@ -1916,7 +1921,7 @@ function settleOffHost(entry) {
       status: 'met',
       tier1: null,
       artifact: p.url,
-      reason: `proven off-host: CI job ${job} succeeded in run ${p.runId} on ${p.commit}${entry.reason ? ` (not checkable here: ${entry.reason})` : ''}`,
+      reason: `proven off-host: CI job ${job} succeeded in run ${p.runId} on ${p.commit}${baseReason ? ` (not checkable here: ${baseReason})` : ''}`,
       cause: entry.cause ?? null,
       proof: { kind: 'off-host', workflow: p.workflow, job: p.job, runId: p.runId, url: p.url, commit: p.commit },
     },

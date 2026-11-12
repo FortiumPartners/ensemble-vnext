@@ -957,11 +957,11 @@ function uncommittedPaths(cwd) {
  *   runId: number|null, url: string|null, commit: string, reason: string}>}
  */
 function lookupOffHostProofs({ declared, covers = {}, cwd = process.cwd(), trdPath = null }) {
-  const { coverMatcher, classifyPath } = require('./custody');
+  const { coverMatcher, classifyPath, trdRelative } = require('./custody');
   const headRes = runCmd('git', ['rev-parse', 'HEAD'], cwd);
   const commit = headRes.ok ? headRes.out.trim() : '';
   const changed = headRes.ok ? uncommittedPaths(cwd) : null;
-  const trdRel = trdPath ? path.relative(cwd, path.resolve(cwd, trdPath)).split(path.sep).join('/') : null;
+  const trdRel = trdRelative(trdPath, cwd);
   const build = (d, status, reason, run = {}) => ({
     id: d.id, workflow: d.workflow, job: d.job, status,
     runId: Number.isInteger(run.databaseId) ? run.databaseId : null, url: run.url || null, commit, reason,
@@ -970,9 +970,9 @@ function lookupOffHostProofs({ declared, covers = {}, cwd = process.cwd(), trdPa
 
   return declared.map((d) => {
     if (!commit || changed === null) return build(d, 'error', `could not read the git state: ${headRes.ok ? 'git status failed' : headRes.err.trim()}`);
-    const cover = Array.isArray(covers[d.id]) ? covers[d.id] : [];
-    const touched = cover.length > 0
-      ? changed.filter((p) => cover.some((c) => coverMatcher(c)(p)))
+    const matchers = (Array.isArray(covers[d.id]) ? covers[d.id] : []).map(coverMatcher);
+    const touched = matchers.length > 0
+      ? changed.filter((p) => matchers.some((m) => m(p)))
       : changed.filter((p) => classifyPath(p, trdRel) === 'shipped');
     if (touched.length > 0) {
       return build(d, 'dirty', `uncommitted change to ${touched[0]}${touched.length > 1 ? ` and ${touched.length - 1} more` : ''}, which CI never saw`);
@@ -1019,13 +1019,13 @@ function offHostProven(stateDir) {
   let statements = new Map();
   try {
     statements = new Map(readDefinitionRows(fs.readFileSync(path.join(stateDir, 'success-definition.md'), 'utf8'))
-      .map((r) => [r.id, r.cells['functional statement']]));
+      .map((r) => [r.id, r.cells['functional statement'] ?? null]));
   } catch { /* no definition: statements stay null */ }
   return [...byId.values()]
     .filter((c) => c.status === 'met' && c.proof && c.proof.kind === 'off-host')
     .map((c) => ({
       id: c.id,
-      statement: statements.has(c.id) ? String(statements.get(c.id)).trim() || null : null,
+      statement: statements.get(c.id) == null ? null : String(statements.get(c.id)).trim() || null,
       workflow: c.proof.workflow, job: c.proof.job, runId: c.proof.runId, url: c.proof.url, commit: c.proof.commit,
     }));
 }
@@ -1669,7 +1669,8 @@ function renderReport(input) {
 
   // The off-host line: only when a criterion carries an off-host proof (D13), so every earlier
   // report stays byte-identical.
-  const offHost = criteria.filter((c) => c.proof && c.proof.kind === 'off-host');
+  // Status too: a hand-composed report input can keep a proof on an entry later re-ruled not met.
+  const offHost = criteria.filter((c) => c.status === 'met' && c.proof && c.proof.kind === 'off-host');
   if (offHost.length > 0) {
     lines.push(
       `**Proven off-host**: ${offHost

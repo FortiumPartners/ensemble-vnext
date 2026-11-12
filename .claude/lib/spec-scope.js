@@ -290,10 +290,11 @@ function renderObjectives({ trdMarkdown, specMarkdown, specPath, section, ids })
 
   // The plan's must-pass marks live in this table, so a rewrite keeps each id's own cell. They
   // are read before `rows` is built because the rows replace the table they are read from.
-  const marks = new Map(table ? parseObjectiveTable(table).filter((r) => r.mustPass).map((r) => [r.id, r.rawMark]) : []);
+  const parsed = table ? parseObjectiveTable(table) : [];
+  const marks = new Map(parsed.filter((r) => r.mustPass).map((r) => [r.id, r.rawMark]));
   // The optional `Off-host proof` cell is the only place a CI proof is declared (D3), so it is
   // carried through the rewrite the same way, for every id that has one.
-  const proofs = new Map(table ? parseObjectiveTable(table).filter((r) => r.offHostProof).map((r) => [r.id, r.offHostProof]) : []);
+  const proofs = new Map(parsed.filter((r) => r.offHostProof).map((r) => [r.id, r.offHostProof]));
   const body = [
     ...chosen.map((c) => ({ id: c.id, text: c.text, source: src })),
     ...guards.map((g) => ({ id: g.id, text: g.text, source: `${src} (regression guard)` })),

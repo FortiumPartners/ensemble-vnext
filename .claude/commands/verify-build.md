@@ -316,7 +316,8 @@ whole definition (the workflow ignores ids outside the subset) and pass the same
 `offHostProofs` is looked up **fresh before every dispatch** and an earlier output is never
 reused (CI moves between dispatches), by
 `node .claude/lib/functional-verification.js off-host-proofs --trd <trd> --definition <state-dir>/success-definition.md --covers <state-dir>/criterion-covers.json`
-(write the derive output above to that file first; pass its `proofs`). That covers the first
+(write the derive output above to that file first, or `{}` on a non-zero exit so an earlier
+run's covers are never read; pass its `proofs`). That covers the first
 dispatch and each fix round's step 4, which re-runs this Step 4 dispatch. Put each `ignored`
 entry in ISSUES. A sweep file has no TRD: pass `[]`. A non-zero exit passes `[]` and is one ISSUES
 line, never STUCK. Under `--criteria` the call is restricted with `--ids <the named ids>` (the

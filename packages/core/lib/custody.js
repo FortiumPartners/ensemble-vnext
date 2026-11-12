@@ -893,4 +893,4 @@ function main(argv) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { reconcile, check, detach, classifyPath, resolveCommit, compare, coverMatcher, main };
+module.exports = { reconcile, check, detach, classifyPath, resolveCommit, compare, coverMatcher, trdRelative, main };

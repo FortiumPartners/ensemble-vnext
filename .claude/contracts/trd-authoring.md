@@ -149,7 +149,9 @@ does today.
 **Off-host proof** is an optional fifth column, found by header name at any position (hyphens and
 underscores read as spaces). It is only for a must-pass objective whose proof lives in CI rather
 than on the verifying host. A cell names one CI job as `<workflow file>#<job name>`, for example
-`.github/workflows/ci.yml#read-aloud`; blank, `no`, `none`, `n/a` or a dash means none. Write it
+`.github/workflows/ci.yml#read-aloud`; blank, `no`, `none`, `n/a` or a dash means none. The job
+name is the one GitHub shows for the job, matched exactly: its `name:` when it sets one (for
+example `Jest (hooks)`), otherwise its key. Write it
 on must-pass objectives only; on any other it is ignored and reported. A criterion is proven by
 the job only when **every** must-pass objective its `Must pass` cell names carries the same job.
 Only the TRD's author, or the owner through `/refine-verification`, writes it: the success
