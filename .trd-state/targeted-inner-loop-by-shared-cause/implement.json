@@ -77,26 +77,46 @@
     "CAUSE-B005": {
       "description": "Command readers: implement-trd.md Step 8.2 passes exercised in the resume it composes (D18); verify-build.md --resume needs no change for it, because it passes the whole state file. verify-build.md fi",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        "packages/core/commands/refine-verification.md",
+        ".claude/commands/implement-trd.md",
+        ".claude/commands/verify-build.md",
+        ".claude/commands/refine-verification.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        "packages/core/lib/refine-verification-must-pass.test.js"
+      ],
       "commit": null,
       "started_at": "2026-11-12T08:22:20.675Z",
-      "completed_at": null
+      "completed_at": "2026-11-12T08:30:54.282Z",
+      "last_advanced": "2026-11-12T08:30:48.784Z"
     },
     "CAUSE-D001": {
       "description": "Documentation: the contract's \"Cause keys\" section (D20), and its debugger brief reworded from per gap (\"one gap at a time\", \"Returns, per gap\") to per cause, with the named pre-checks run after the r",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/contracts/functional-verification.md",
+        ".claude/contracts/functional-verification.md",
+        "packages/core/contracts/functional-verification.test.js",
+        "docs/TRD/functional-verification.md",
+        "docs/TRD/verification-fix-loop.md",
+        "docs/reference/verification.md",
+        "docs/reference/implement-trd.md",
+        ".claude/verification-notes.md"
+      ],
       "commit": null,
       "started_at": "2026-11-12T08:22:20.675Z",
-      "completed_at": null
+      "completed_at": "2026-11-12T08:30:54.288Z",
+      "last_advanced": "2026-11-12T08:30:48.786Z"
     },
     "CAUSE-T001": {
       "description": "Add test/smoke/scenarios/verify-inner-loop-causes.sh (D23); register it in test/smoke/run-smoke.sh (the LLM_OPT_IN_SCENARIOS line and a SCENARIO_TIMEOUT entry) and in test/smoke/README.md (the scenari",

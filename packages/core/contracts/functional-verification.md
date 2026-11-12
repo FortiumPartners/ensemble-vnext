@@ -440,13 +440,60 @@ synthesised) does not count and is not settled as one.
 
 ---
 
+## Cause keys (D1-D4, D20)
+
+The cause vocabulary above says WHY a criterion is not `met`. A **cause key** says WHICH root
+cause: several `build-defect` criteria often fail because of one defect, and the loop fixes that
+defect once. So alongside `cause` and `kind`, the judge returns a `causeKey` on every `not_met`
+criterion whose kind is `build-defect`. It returns none on any other entry; the script drops one
+that appears there.
+
+**Format.** A key matches `^[a-z0-9][a-z0-9._-]{0,63}$`: lower-case letters, digits, dots,
+underscores and hyphens, starting with a letter or digit, at most 64 characters. A key that is
+missing or does not match makes the criterion its own cause, `criterion:<id>`. The colon puts
+that fallback outside any key you can write, and the script logs it.
+
+**Same root cause, same key; reuse a listed key.** The prompt lists every cause still open, each
+with its key, a representative statement, its member ids and its last reason. When a failing
+criterion has the same root cause as a listed one, use that key. Invent a new key only for a root
+cause that is not in the list. Two criteria in the same file are not necessarily one cause: group
+by the defect, not by the file. A key that drifts from one iteration to the next hides whether the
+fix worked, because the loop reads "the representative now fails under a different key" as
+progress.
+
+**The representative.** Each cause has one representative, the member the loop re-captures to
+find out whether the cause is fixed. A cause keeps its previous representative while that
+criterion is still a member and still eligible. Otherwise it is the first member in definition
+order whose derivation does not start with `check:`, or the first member when all of them are
+check-derived. A check-derived member is the costlier one to re-capture, so it is chosen last.
+
+**When a cause closes.** After a Debug pass, the next Exercise pass walks only the representative
+of each cause that pass addressed, the representative of any cause awaiting its confirmation, and
+the evidence gaps owed their one re-capture. A cause closes when its representative is ruled
+`met`, or `not_met` with a valid key different from the cause's own. A representative that
+returns with the fallback key `criterion:<id>` does not close it: a missing key is not a finding
+about the root cause.
+
+**`awaiting`.** When a cause closes, its other members keep their last verdict (`not_met`, with
+their `causeKey`) and are marked `awaiting: "regression"`. They are not handed to Exercise, the
+judge or the debugger inside the loop, and they are not gaps for `decide-next`. They are not
+`met` either: one confirmation pass at the end of the run re-checks them, and a member that still
+fails keeps the run from `satisfied`. Copy a criterion marked "open, not re-checked this
+iteration" into the state file and the report input exactly as given; never rule it.
+
+---
+
 ## The debugger's brief
 
-**Given:** every `not_met` gap of kind `build-defect` (only `build-defect` gaps are handed to the debugger) — its criterion id, functional statement, the judge's stated
-reason, the evidence artifact path, and the implicated source files — plus the verifier's
-notes and the stack hints.
+**Given:** one gap per open cause (only `build-defect` gaps are handed to the debugger, and a
+cause is a set of them that share a root; see Cause keys above). A gap is the cause key, the
+representative's criterion id, functional statement, the judge's stated reason, the evidence
+artifact path and the implicated source files, plus the cause's other members (id, statement,
+reason) and the union of their implicated files. The verifier's notes and the stack hints come
+with it.
 
-**Does:** fixes the code in place, one gap at a time. Nothing else.
+**Does:** fixes the code in place, one cause at a time, so a defect shared by several criteria is
+fixed once. Nothing else.
 
 **Brings the environment to the new code before returning — and this is not optional.**
 
@@ -473,6 +520,13 @@ now. A live verification loop that cannot bring its target to the code it just w
 correction loop at all. What governs deploys is §2 of `verification.md` — the owner's
 explicit per-environment answer — not an inference.
 
+**Pre-checks run after the refresh and change no code.** A debugger may name a cheap targeted
+check for a cause, such as one unit test or one Playwright spec, and run it once the refresh has
+landed, so it tests the new build. It reports the command and its exit code on that cause's
+result. A failing pre-check, or one with no recorded exit code, means that cause's representative
+is not re-captured next iteration. A passing one is only a hint to the exerciser: it never makes a
+criterion `met`, and the judge is never shown it.
+
 **Does not re-verify its own fix.** The next iteration's Exercise and Judge stages are the
 check, running seconds later against a fresh boot of the system. A debugger that tries to
 confirm its own fix is re-creating the self-certification problem the judge exists to avoid
@@ -485,10 +539,13 @@ other missing-feature request. It does not build the feature to close the gap. I
 what was never delivered is implementation work, routed through the phase loop, not something
 a debug round absorbs quietly.
 
-**Returns**, per gap: what was changed, or why it could not be fixed. It does not write to any
-TRD and it does not render a phase — there is no remediation phase or task graph in this loop;
-one debugger fixing gaps sequentially cannot collide with itself on a file, so the machinery
-that exists solely to prevent that collision has nothing to do here.
+**Returns**, per cause: whether it addressed the cause, what was changed or why it could not be
+fixed, `unbuilt` when the cause is absent capability (every member of that cause is then unbuilt),
+and the pre-check it ran, if any. A cause it returns nothing for counts as not addressed. It also
+returns its refresh result. It does not write to any TRD and it does not render a phase — there
+is no remediation phase or task graph in this loop; one debugger fixing causes sequentially cannot
+collide with itself on a file, so the machinery that exists solely to prevent that collision has
+nothing to do here.
 
 ---
 

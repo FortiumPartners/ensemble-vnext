@@ -1719,8 +1719,13 @@ the right frame. Read `.trd-state/<feature>/verification-state.json`, and before
 just-regenerated definition (a check the section no longer selects, or a design input that no
 longer resolves) and every entry for a criterion carrying an owner comment (D18) — so it is
 walked again this run instead of staying settled on a verdict the comment disputes. Pass what
-remains as `resume: { iteration, criteria, gapsClosed }` (D13) — `outcome` is read by Step
-3.6's gate, not passed to the workflow, which derives its own. On a fresh run (no prior state
+remains as `resume: { iteration, criteria, gapsClosed }` (D13), and adds `exercised` to it by
+name, only when the state file has it (D18): the array of `{ iteration, ids, confirmation? }`
+entries the targeted inner loop records. `exercised` is not filtered by id — it is an audit
+history of what each iteration walked, not a verdict, so a criterion the regenerated definition
+dropped needs no removal from it. The workflow reads it leniently and drops a malformed value
+with a log line. `outcome` is read by Step 3.6's gate, not passed to the workflow, which
+derives its own. On a fresh run (no prior state
 file, or a terminal one), `resume` is `null`.
 
 **After resolving `criteria` here, this path also runs §8.1's `must-pass-coverage` call** (the

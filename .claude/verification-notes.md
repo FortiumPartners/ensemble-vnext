@@ -883,7 +883,7 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   Reader: `node .claude/lib/spec-scope.js objectives --trd <trd>`.
 - [ran] No server is needed. `node .claude/lib/functional-verification.js` subcommands `decide-next`,
   `render-report` and `must-pass-coverage --trd <trd> --definition <def>` exercise every criterion;
-  `decide-next` requires `mustPass`, `mustPassUncovered` and `settledEvidenceGaps` arrays and `coverageFloor` as a fraction (0.6).
+  `decide-next` requires `mustPass`, `mustPassUncovered`, `settledEvidenceGaps`, `causes`, `previousCauses` (array or null) and `awaitingRegression` arrays and `coverageFloor` as a fraction (0.6).
 
 ## Exercising docs-audit-assemble skip logic (audit-docs-moved-trd-skip, 2026-10-06, iteration 1)
 
@@ -1347,7 +1347,7 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 ## Exercising triage-unmet-results-by-kind (2026-11-11, iteration 1)
 
 - [ran] Workflow-run criteria (routing by kind, re-capture, settle, resume digest, preclassified) are provable with no live session: a node script using `readScript`/`runWorkflow`/`makeAgentStub` from `packages/core/workflows/test-harness.js`. A stub Judge `remediate` result must carry `debugGaps` for each not_met gap: re-capture/retry routing is keyed to `debugGaps`, so a stub without them never settles an evidence gap (it looks like a missing feature but is a stub omission).
-- [ran] `decideNext` needs `refreshFailed`, `mustPass`, `mustPassUncovered` and `settledEvidenceGaps` all present (it throws on absence), so a lib call needs the full input shape.
+- [ran] `decideNext` needs `refreshFailed`, `mustPass`, `mustPassUncovered`, `settledEvidenceGaps`, `causes`, `previousCauses` and `awaitingRegression` all present (it throws on absence), so a lib call needs the full input shape.
 - [ran] `verification-digest` prints `{"digest":"<hex>"}` (not a bare hash) and hashes whitespace/CRLF-normalised content: a file `hello\n` gives the sha256 of `hello`, not of the raw bytes; an absent path prints `{"digest":""}`.
 - [ran] A design-structure criterion id is `ST-<board id>` (the board is `id` minus `ST-`); a payload with other ids is silently skipped by `preclassify`. The parts-board reason reads "parts board <id>: the structure check does not run".
 - [ran] Mirror check: `cmp packages/core/<p> .claude/<p>` is empty for the workflow, lib and verify-build/implement-trd/refine-verification commands.

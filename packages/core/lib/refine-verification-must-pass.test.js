@@ -57,6 +57,13 @@ describe('refine-verification.md routes by kind (TRIAGE-B005, D15/D20/D24)', () 
     expect(blockers()).toMatch(/`not-built`/);
   });
 
+  test('CAUSE-B005 (D21): an awaiting entry is "awaiting re-check", neither Blocker nor ruling', () => {
+    const b = blockers().replace(/\s+/g, ' ');
+    expect(b).toMatch(/carrying `awaiting`/);
+    expect(b).toMatch(/"awaiting re-check"/);
+    expect(b).toMatch(/neither a Blocker nor a ruling/);
+  });
+
   test('Accepted is keyed on kind not-checkable-here, with the cause fallback named', () => {
     expect(accepted()).toMatch(/`not-checkable-here`/);
     expect(accepted().replace(/\s+/g, ' ')).toMatch(/`kind` is absent/);
