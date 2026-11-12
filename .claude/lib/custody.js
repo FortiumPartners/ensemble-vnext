@@ -21,7 +21,7 @@
  *   docs       first segment `docs` or `doc`, or a README/CHANGELOG/LICENSE-style basename; never
  *              every `*.md` (a `.md` under `packages/core/commands/` is product)
  *   shipped    everything else
- * Two commits are equal (`compare`) when no path is `ignored` or `test-only`: docs, deps and ci-config
+ * Two commits are equal (`compare`) when every differing path is `ignored` or `test-only`: docs, deps and ci-config
  * paths still make the pr-head, merge and deploy links and the `--head` guard fail, because a
  * lockfile or a build workflow does change the built artifact. `--no-renames` matters: default rename
  * detection reports only a rename's destination, so a shipped file moved under `.trd-state/`
@@ -30,8 +30,8 @@
  * TIERS (reconcile only; `check` and `--set-only` read no setting): what a change since the anchor
  * must re-prove is set by `ensemble.reproof` in `<git toplevel>/.claude/settings.json`:
  *   docs none|ci|reprove (default none)    testOnly (ci)    ciConfig (ci)    deps (ci)
- *   depsReprove [package names] (default [])  -- a lockfile whose diff names one, whole-word, on a
- *                                                 `+`/`-` line counts as `reprove`
+ *   depsReprove [package names] (default [])  -- a lockfile whose diff names one, whole-word, in
+ *                                                 the entry a changed line sits in counts as `reprove`
  *   format none|reprove (default none)     `reprove` disables the `--reason format` shortcut
  *   shipped covers|all (default covers)    `all` re-proves every must-pass criterion
  * When every differing and excused path is of a non-shipped class at `none`/`ci`, the anchor moves
@@ -87,6 +87,7 @@ const liveEvidence = require('./live-evidence');
 const implementState = require('./implement-state');
 const recordDirs = require('./ship-record-dir');
 const { isRecordFile } = require('./record-files');
+const { globToRegex } = require('./ci-baseline');
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
 const COMMIT_ID = /^[0-9a-f]{4,40}$/i;
@@ -200,16 +201,16 @@ function diffNames(a, b, cwd) {
 /**
  * Code equality of two local commits, optionally excusing what came in from the base branch.
  * @param {string} [baseCommit] the base commit the head took in; enables the excuse (see header)
- * @returns {{equal: boolean, differing: string[], excused: string[], error?: string}}
- *   `differing` lists the differing paths of every class but ignored and test-only (what an owner needs to see), in git's order; `equal`
+ * @returns {{equal: boolean, differing: string[], excused: string[], names: string[], error?: string}}
+ *   `names` is every path that differs, any class. `differing` lists the differing paths of every class but ignored and test-only (what an owner needs to see), in git's order; `equal`
  *   means `differing` is empty. `excused` is empty without a baseCommit.
  */
 function compare(a, b, trdRel, cwd, baseCommit) {
   const d = diffNames(a, b, cwd);
-  if (d.error) return { equal: false, differing: [], excused: [], error: d.error };
+  if (d.error) return { equal: false, differing: [], excused: [], names: [], error: d.error };
   // Every class but `ignored` and `test-only` differs; the tiers act in reconcile, never here.
   const shipped = d.names.filter((p) => { const c = classifyPath(p, trdRel); return c !== 'ignored' && c !== 'test-only'; });
-  if (!baseCommit || shipped.length === 0) return { equal: shipped.length === 0, differing: shipped, excused: [] };
+  if (!baseCommit || shipped.length === 0) return { equal: shipped.length === 0, differing: shipped, excused: [], names: d.names };
 
   const mb = run('git', ['merge-base', a, baseCommit], cwd);
   if (!mb.ok) return { equal: false, differing: [], excused: [], error: `git merge-base failed: ${mb.err}` };
@@ -222,7 +223,7 @@ function compare(a, b, trdRel, cwd, baseCommit) {
   const excused = [];
   const differing = [];
   for (const p of shipped) (!differsFromBase.has(p) && !touchedByFeature.has(p) ? excused : differing).push(p);
-  return { equal: differing.length === 0, differing, excused };
+  return { equal: differing.length === 0, differing, excused, names: d.names };
 }
 
 // ---------------------------------------------------------------------------
@@ -340,14 +341,66 @@ function readReproof(cwd) {
 
 const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** True when a listed package name appears, whole-word, on an added or removed line of this lockfile's diff. Unreadable diff counts as a hit (safe). */
+/**
+ * True when a listed package name appears, whole-word, in the lockfile entry a changed line sits in:
+ * the changed line itself, the hunk's function context (git's nearest preceding unindented line --
+ * the `name = "x"` line of a Cargo/poetry/uv stanza), or a line enclosing it by indentation (the
+ * `"requests": {` key of a Pipfile.lock or package-lock.json entry, a yarn.lock header). A version
+ * bump in most lockfiles changes only the version and hash lines, never the line naming the
+ * package. An unreadable or binary diff counts as a hit (safe).
+ */
 function lockfileNamesPackage(file, names, anchor, head, cwd) {
   if (names.length === 0) return false;
   const d = run('git', ['diff', '--no-renames', '-U0', anchor, head, '--', file], cwd);
-  if (!d.ok) return true;
-  const lines = d.raw.split('\n').filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---)/.test(l));
+  if (!d.ok || /^Binary files /m.test(d.raw)) return true;
   const res = names.map((n) => new RegExp(`(?<![A-Za-z0-9_.-])${escapeRe(n)}(?![A-Za-z0-9_.-])`));
-  return lines.some((l) => res.some((re) => re.test(l)));
+  const hit = (t) => res.some((re) => re.test(t));
+  const sides = {};
+  const sideOf = (sign) => {
+    if (!sides[sign]) {
+      const r = run('git', ['show', `${sign === '-' ? anchor : head}:${file}`], cwd);
+      const text = r.ok ? r.raw.split('\n') : [];
+      sides[sign] = { text, parent: enclosingIndex(text) };
+    }
+    return sides[sign];
+  };
+  const at = { '-': 0, '+': 0 };
+  let inHunk = false;
+  for (const l of d.raw.split('\n')) {
+    const h = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@ ?(.*)$/.exec(l);
+    if (h) {
+      at['-'] = Number(h[1]);
+      at['+'] = Number(h[2]);
+      inHunk = true;
+      if (hit(h[3])) return true;
+      continue;
+    }
+    const sign = l[0];
+    if (!inHunk || (sign !== '+' && sign !== '-')) continue;
+    if (hit(l.slice(1))) return true;
+    const { text, parent } = sideOf(sign);
+    for (let i = parent[at[sign] - 1]; i !== undefined && i >= 0; i = parent[i]) if (hit(text[i])) return true;
+    at[sign] += 1;
+  }
+  return false;
+}
+
+/** For each line, the index of the nearest preceding non-blank line indented less than it, or -1. */
+function enclosingIndex(lines) {
+  const indentOf = (t) => t.length - t.trimStart().length;
+  const parent = new Array(lines.length).fill(-1);
+  const stack = []; // indices of non-blank lines, strictly increasing indent
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim()) {
+      const ind = indentOf(lines[i]);
+      while (stack.length && indentOf(lines[stack[stack.length - 1]]) >= ind) stack.pop();
+      parent[i] = stack.length ? stack[stack.length - 1] : -1;
+      stack.push(i);
+    } else {
+      parent[i] = stack.length ? stack[stack.length - 1] : -1;
+    }
+  }
+  return parent;
 }
 
 /**
@@ -426,21 +479,37 @@ function affectedIds({ stateDir, trdPath, definitionPath, shipped, excused, prom
     const artifact = artifactById.get(id);
     const live = artifact ? coversByArtifact.get(realOrResolved(artifact, cwd)) : undefined;
     if (live) return live.map((c) => path.relative(root, realOrResolved(c.path, cwd)).split(path.sep).join('/'));
-    return recorded.get(id); // undefined: no record
+    // A record is merged, never pruned: one written when the id was last met outlives a later run
+    // that found it not met. Only a criterion verification-state records as met keeps its record.
+    return proven.has(id) ? recorded.get(id) : undefined; // undefined: no usable record
   };
-  const coversById = new Map(ids.map((id) => [id, coversOf(id)]));
-  const claimed = new Set([...coversById.values()].filter(Boolean).flat());
-  if (shipped.some((p) => !claimed.has(p))) return { ids, reused: [] };
+  const matchersById = new Map(ids.map((id) => { const c = coversOf(id); return [id, c && c.map(coverMatcher)]; }));
+  const allMatchers = [...matchersById.values()].filter(Boolean).flat();
+  if (shipped.some((p) => !allMatchers.some((m) => m(p)))) return { ids, reused: [] };
 
-  const changed = new Set([...shipped, ...excused]);
+  const changed = [...shipped, ...excused];
   const affected = ids.filter((id) => {
-    const covers = coversById.get(id);
+    const matchers = matchersById.get(id);
     // No covers record: only a base-only change keeps a criterion's proof, and only one it was met
     // with; an objective no criterion names, or a criterion never met, has no proof to keep.
-    if (!covers) return !criterionIds.has(id) || !proven.has(id) || shipped.length > 0;
-    return covers.some((c) => changed.has(c));
+    if (!matchers) return !criterionIds.has(id) || !proven.has(id) || shipped.length > 0;
+    return changed.some((p) => matchers.some((m) => m(p)));
   });
   return { ids: affected, reused: ids.filter((id) => !affected.includes(id)) };
+}
+
+/**
+ * A predicate for one repo-relative cover. A Touches entry may name a directory (`src/lib/` or
+ * `src/lib`) or a glob (`.claude/commands/{amend,sweep}.md`): exact equality would leave a changed
+ * file under it unmatched, and the criterion reused while another criterion claims the file.
+ */
+function coverMatcher(cover) {
+  if (/[*?[{]/.test(cover)) {
+    const re = globToRegex(cover);
+    return (p) => re.test(p);
+  }
+  const dir = cover.replace(/\/+$/, '');
+  return (p) => p === cover || p.startsWith(`${dir}/`);
 }
 
 function realOrResolved(p, cwd) {
@@ -576,10 +645,8 @@ function reconcile(args) {
   // `excused` and `mergeBases` appear only when a base was given, so a no-flag run reports exactly what it always did.
   const out = (o) => (args.base ? { ...o, excused, ...(mergeBases ? { mergeBases } : {}) } : o);
 
-  // Tiers: partition ALL changed paths (test-only included, which compare() drops) by class.
-  const all = diffNames(anchor, head, cwd);
-  if (all.error) return { action: 'refused', anchor, reason: all.error };
-  const { classes, promoted, tierOf } = partitionChanges(all.names, rs, trdRel, anchor, head, cwd);
+  // Tiers: partition ALL changed paths (test-only included, which `differing` drops) by class.
+  const { classes, promoted, tierOf } = partitionChanges(cmp.names, rs, trdRel, anchor, head, cwd);
   const isShipped = (p) => classifyPath(p, trdRel) === 'shipped';
   const shippedDiff = shipped.filter(isShipped);
   const shippedExcused = excused.filter(isShipped);
@@ -592,9 +659,9 @@ function reconcile(args) {
     });
   }
 
-  if (reason === 'format' && rs.format !== 'reprove' && shipped.length > 0 && excused.length === 0) {
+  if (reason === 'format' && rs.format !== 'reprove' && promoted.length === 0 && shipped.length > 0 && excused.length === 0) {
     // The formatter commit is the shortcut only when it is the sole change; an earlier unverified
-    // change, or a base-excused path (which still puts must-pass criteria in doubt), would
+    // change, a promoted path (a test-only one compare() cannot see), or a base-excused path (which still puts must-pass criteria in doubt), would
     // otherwise be waved through with it.
     const parent = run('git', ['rev-parse', '--verify', `${head}^`], cwd);
     if (parent.ok) {

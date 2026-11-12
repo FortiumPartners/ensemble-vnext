@@ -245,7 +245,8 @@ function backtickedExistingPaths(text, cwd) {
  * objective id anywhere in the row) and possibly task ids. Tasks whose `Serves` includes a named
  * objective, plus tasks named directly, contribute their grounding Touches; a task with no
  * Touches contributes the existing paths backticked in its Master Task List row (`source:
- * 'task-row'`). No task or no path means no entry. Never throws on a TRD it cannot read.
+ * 'task-row'`). No task or no path means no entry. Throws when the TRD or the definition cannot
+ * be read (the CLI turns that into exit 2), so a wrong path is never mistaken for "nothing maps".
  *
  * Requires `trd-parser`/`spec-scope`/`functional-verification` inside the function:
  * `functional-verification.js` requires this module at load, so a top-level require is a cycle.

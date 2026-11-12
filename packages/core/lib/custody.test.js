@@ -437,6 +437,26 @@ describe('reconcile: change classes and ensemble.reproof', () => {
       s.commit('fix', { 'src/a.js': 'a3' });
       expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
     });
+
+    test.each([
+      ['a directory with a slash', ['src/']],
+      ['a directory without one', ['src']],
+      ['a glob', ['src/*.js']],
+      ['a brace list', ['src/{a,b}.js']],
+    ])('a record naming %s covers a changed file under it', (_n, recB) => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB });
+      s.commit('fix', { 'src/a.js': 'a3' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+    });
+
+    test('a record left from a run where the criterion was met is not used once it is no longer met', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      fs.writeFileSync(path.join(s.stateDir, 'verification-state.json'), JSON.stringify({
+        criteria: [{ id: 'FS-1', status: 'met', artifact: null }, { id: 'FS-2', status: 'not_met', artifact: null }],
+      }));
+      s.commit('fix', { 'src/a.js': 'a3' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+    });
   });
 
   describe('promotion', () => {
@@ -487,6 +507,31 @@ describe('reconcile: change classes and ensemble.reproof', () => {
       const s = twoCriteria({ reproof: { depsReprove: ['pad'] }, extra: { 'package-lock.json': '"left-pad": "1.0.0"\n' } });
       s.commit('bump', { 'package-lock.json': '"left-pad": "1.3.0"\n' });
       expect(reconcile(s.args()).action).toBe('moved');
+    });
+
+    test.each([
+      ['Cargo.lock (name on the stanza line above)', 'Cargo.lock',
+        (v) => `[[package]]\nname = "serde"\nversion = "${v}"\nchecksum = "c${v}"\n\n[[package]]\nname = "other"\nversion = "1.0.0"\n`],
+      ['Pipfile.lock (name on the enclosing key)', 'Pipfile.lock',
+        (v) => `{\n    "default": {\n        "serde": {\n            "hashes": [\n                "sha256:h${v}"\n            ],\n            "version": "==${v}"\n        }\n    }\n}\n`],
+    ])('depsReprove: a bump in %s that changes only version lines still reverifies', (_n, file, lock) => {
+      const s = twoCriteria({ reproof: { depsReprove: ['serde'] }, extra: { [file]: lock('1.0.0') } });
+      s.commit('bump', { [file]: lock('1.0.1') });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+    });
+
+    test('depsReprove: a bump of another package in a Cargo.lock does not reverify', () => {
+      const lock = (v) => `[[package]]\nname = "serde"\nversion = "1.0.0"\n\n[[package]]\nname = "other"\nversion = "${v}"\n`;
+      const s = twoCriteria({ reproof: { depsReprove: ['serde'] }, extra: { 'Cargo.lock': lock('1.0.0') } });
+      s.commit('bump', { 'Cargo.lock': lock('2.0.0') });
+      expect(reconcile(s.args()).action).toBe('moved');
+    });
+
+    test('a test-only change at reprove is not waved through by the formatter shortcut', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'], reproof: { testOnly: 'reprove' } });
+      s.commit('tests', { 'src/a.test.js': 't' });
+      s.commit('prettier', { 'src/a.js': 'a2 ' });
+      expect(reconcile(s.args({ reason: 'format' }))).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
     });
 
     test('format: reprove disables the formatter shortcut; the default honours it', () => {

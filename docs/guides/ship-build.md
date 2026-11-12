@@ -316,7 +316,7 @@ merge and deploy links still fail on any non-ignored, non-test difference: the t
 | `testOnly` | same | `ci` | left to CI |
 | `ciConfig` | same | `ci` | left to CI |
 | `deps` | same | `ci` | left to CI, unless `depsReprove` names a package |
-| `depsReprove` | array of package names | `[]` | a lockfile whose diff adds or removes a line naming one of these (whole word) is re-proved |
+| `depsReprove` | array of package names | `[]` | a lockfile whose diff changes a line in an entry naming one of these (whole word) is re-proved |
 | `format` | `none` / `reprove` | `none` | `reprove` stops the formatter-commit shortcut (`--reason format`) |
 | `shipped` | `covers` / `all` | `covers` | `covers`: re-prove only criteria whose recorded files changed; `all`: every must-pass criterion |
 
