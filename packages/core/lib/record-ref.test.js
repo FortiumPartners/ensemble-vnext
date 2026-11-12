@@ -145,6 +145,47 @@ describe('write: basic landing and record.json', () => {
     expect(rec).toEqual({ forge_feature_id: null, branch: 'main', slug: SLUG });
   });
 
+  test('(O3) a detached HEAD writes branch: null, never "HEAD" or a branch name', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    sh(repo, ['checkout', '-q', '--detach']);
+    expect(sh(repo, ['symbolic-ref', '-q', 'HEAD'], { __allowFail: true })).toBe('');
+    const r = doWrite(repo);
+    expect(r.outcome).toBe('ref');
+    const rec = JSON.parse(showBlob(repo, REF, 'record.json'));
+    expect(rec).toEqual({ forge_feature_id: null, branch: null, slug: SLUG });
+  });
+
+  test('(O3) an empty FORGE_FEATURE_ID is written as forge_feature_id: null', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    process.env.FORGE_FEATURE_ID = '';
+    expect(doWrite(repo).outcome).toBe('ref');
+    const rec = JSON.parse(showBlob(repo, REF, 'record.json'));
+    expect(rec).toEqual({ forge_feature_id: null, branch: 'main', slug: SLUG });
+  });
+
+  test('(O4) the ref commit message is exactly `records(<slug>): <command> - <step>`', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    expect(doWrite(repo, { command: 'verify-build', step: 'fix round 2' }).outcome).toBe('ref');
+    expect(sh(repo, ['log', '-1', '--format=%B', REF])).toBe(`records(${SLUG}): verify-build - fix round 2`);
+  });
+
+  test('(O4) each write commits on the previous ref value (first is a root, second is parented on it)', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    expect(doWrite(repo, { step: 'phase 1' }).outcome).toBe('ref');
+    const first = sh(repo, ['rev-parse', REF]);
+    expect(sh(repo, ['log', '-1', '--format=%P', first])).toBe('');
+    put(repo, `${STATE}/implement.json`, '{"n":2}\n');
+    expect(doWrite(repo, { step: 'phase 2' }).outcome).toBe('ref');
+    const second = sh(repo, ['rev-parse', REF]);
+    expect(second).not.toBe(first);
+    expect(sh(repo, ['log', '-1', '--format=%P', second])).toBe(first);
+    expect(sh(repo, ['log', '-1', '--format=%B', second])).toBe(`records(${SLUG}): implement-trd - phase 2`);
+  });
+
   test('a write never moves HEAD or the real index', () => {
     const repo = initRepo();
     put(repo, `${STATE}/implement.json`, '{}\n');
