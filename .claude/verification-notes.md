@@ -1343,3 +1343,8 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 
 - [ran] `custody.js` `reconcile({stateDir, trd, cwd, branch})` can be driven from a plain `node` script against a temp git repo with a local bare origin (see `.trd-state/custody-anchor-after-audit-fixes/evidence/probe-script.js`); faster than jest's 1-7 min full file. `npx jest packages/core/lib/custody.test.js -t 'audit.anchorCommit|audited commit'` runs 4 tests in ~16s (watchman warning is harmless).
 - [ran] With no success definition, a `reconcile` that anchors at A then immediately "moves" (rule `no-success-definition`); read the original anchor from `moves[0].from`, not `anchor.commit`.
+
+## Exercising follow-up ranking (2026-11-12 run, `rank-follow-ups-product-first`)
+
+- [ran] `classOf`/`rank`/`openRanked` from `.claude/lib/followup-rank.js` are exercised with a plain `node` script; build fixture ledgers with `discovered.record(dir, {ref, summary, blocking:false, rankClass?})` (rows carry `blocksFeature:false`) and close one with `discovered.resolve(dir, row, "filed <stub url>")`, then run `node .claude/lib/followup-rank.js open --state-dir a --state-dir b`.
+- [inferred] A "file-followups run record" is played from contract steps 3-5 over `openRanked` output with a stub URL (see `.trd-state/rank-follow-ups-product-first/evidence/fs910.js`); no real filing happens.
