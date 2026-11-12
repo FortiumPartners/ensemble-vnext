@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/BDrH1eR2bSB9FmR9TDVChp",
     "updated_at": "2026-11-12T18:45:01.723Z",
     "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/custody-test-all-digit-hash-flake/audit-build-report.md",
+    "url": "https://claude.ai/artifact/83M6amRNPWPo7Y4BejjCyP",
+    "updated_at": "2026-11-12T18:49:09.340Z",
+    "command": "/audit-build"
   }
 }

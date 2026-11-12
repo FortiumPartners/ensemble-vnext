@@ -1,0 +1,13 @@
+{
+  "feature": "custody-test-all-digit-hash-flake",
+  "trd": "docs/TRD/custody-test-all-digit-hash-flake.md",
+  "closedAt": "2026-11-12T18:48:59Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this is a defect fix with no PRD, so the audit only checked the code against the TRD); the CI flake going away on GitHub Actions can only be shown by later CI runs; the audit did not re-run the 40-runs-in-a-row loop itself.",
+    "report": ".trd-state/custody-test-all-digit-hash-flake/audit-build-report.md",
+    "auditedCommit": "5d7c01e75dd46ac28c89be0162ab611a93c66fbe",
+    "anchorCommit": null
+  }
+}

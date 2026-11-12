@@ -1,0 +1,80 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "Every test in packages/core/lib/custody.test.js that feeds a commit-hash prefix to the deploy link as a build token passes on every run, whatever digits the random hash starts with, while still checking the same behaviour it checks today.",
+      "source": "TRD Objectives O1",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "CLAUDE.md no longer lists 'custody.test.js flakes on all-digit commit hashes' as known-open.",
+      "source": "TRD Objectives O2",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-001-AC1",
+      "statement": "A new test of tokenOf(sha, n): an sha starting with 10 digits then 'ab' yields '2012004412a'; a sha with a letter in the first 8 yields exactly 8 characters; an all-digit sha yields the full sha. Each fails against sha.slice(0, n).",
+      "source": "TRD Master Task List FIX-001 criterion (1)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC2",
+      "statement": "No .slice(0, 8) or .slice(0, 9) remains in a deploy-link identityOutput in custody.test.js.",
+      "source": "TRD Master Task List FIX-001 criterion (2)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC3",
+      "statement": "npx jest packages/core/lib/custody.test.js passes 40 runs in a row (filtered runs allowed for the loop, plus one full-file run).",
+      "source": "TRD Master Task List FIX-001 criterion (3)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-002-AC1",
+      "statement": "grep -c 'flakes on all-digit' CLAUDE.md prints 0, and the rest of the 4.17.3-4.17.5 Known-open bullet is unchanged.",
+      "source": "TRD Master Task List FIX-002 criterion",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "NG1",
+      "statement": "No change to custody.js or functional-verification.js; no change to slice calls at line 152 and line 208; no other test files changed.",
+      "source": "TRD Non-Goals",
+      "served_by": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "Add tokenOf(sha, n) to custody.test.js, use it at every deploy-link token built from a hash prefix (lines ~914, ~917, ~1095, ~1102, ~1104, ~1111), and add a unit test of the helper itself.",
+      "touches": [
+        "packages/core/lib/custody.test.js"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "Remove the 'custody.test.js flakes on all-digit commit hashes.' sentence from CLAUDE.md's Known-open 4.17.3-4.17.5 bullet, keeping the rest of the bullet.",
+      "touches": [
+        "CLAUDE.md"
+      ]
+    }
+  ],
+  "could_not_verify": [
+    "That CI on GitHub Actions stops flaking: only provable by later CI runs; the local 40-run loop is the stand-in."
+  ],
+  "open_questions": [
+    "none (the TRD's Open Questions section reads 'none')"
+  ]
+}
