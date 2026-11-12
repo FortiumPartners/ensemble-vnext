@@ -329,7 +329,6 @@ one (4.10.0/4.9.0).
 - 4.17.6: `Blocking: must-pass only` waits on waived failures being filed as issues.
 - 4.17.3–4.17.5: not live on GitHub: #95, #99–#103, #106–#111, a second-account approval,
   CodeRabbit/Codex. A merge re-dispatched after its branch is deleted stops at custody.
-  `custody.test.js` flakes on all-digit commit hashes.
 - 4.16.1: design-quality live runs and the first critique-calibration replay not run;
   `/audit-design --drift` reads a crashed or removed shipped screen as `uncaptured`.
 - 4.13.8–4.16.0: unproven live: design flows (#65), `/task`, setup check, fanned-out
