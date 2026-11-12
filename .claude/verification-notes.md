@@ -1343,3 +1343,11 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 
 - [ran] `custody.js` `reconcile({stateDir, trd, cwd, branch})` can be driven from a plain `node` script against a temp git repo with a local bare origin (see `.trd-state/custody-anchor-after-audit-fixes/evidence/probe-script.js`); faster than jest's 1-7 min full file. `npx jest packages/core/lib/custody.test.js -t 'audit.anchorCommit|audited commit'` runs 4 tests in ~16s (watchman warning is harmless).
 - [ran] With no success definition, a `reconcile` that anchors at A then immediately "moves" (rule `no-success-definition`); read the original anchor from `moves[0].from`, not `anchor.commit`.
+
+## Exercising triage-unmet-results-by-kind (2026-11-11, iteration 1)
+
+- [ran] Workflow-run criteria (routing by kind, re-capture, settle, resume digest, preclassified) are provable with no live session: a node script using `readScript`/`runWorkflow`/`makeAgentStub` from `packages/core/workflows/test-harness.js`. A stub Judge `remediate` result must carry `debugGaps` for each not_met gap: re-capture/retry routing is keyed to `debugGaps`, so a stub without them never settles an evidence gap (it looks like a missing feature but is a stub omission).
+- [ran] `decideNext` needs `refreshFailed`, `mustPass`, `mustPassUncovered` and `settledEvidenceGaps` all present (it throws on absence), so a lib call needs the full input shape.
+- [ran] `verification-digest` prints `{"digest":"<hex>"}` (not a bare hash) and hashes whitespace/CRLF-normalised content: a file `hello\n` gives the sha256 of `hello`, not of the raw bytes; an absent path prints `{"digest":""}`.
+- [ran] A design-structure criterion id is `ST-<board id>` (the board is `id` minus `ST-`); a payload with other ids is silently skipped by `preclassify`. The parts-board reason reads "parts board <id>: the structure check does not run".
+- [ran] Mirror check: `cmp packages/core/<p> .claude/<p>` is empty for the workflow, lib and verify-build/implement-trd/refine-verification commands.
