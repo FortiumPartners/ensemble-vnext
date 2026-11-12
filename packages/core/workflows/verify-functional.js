@@ -1383,6 +1383,9 @@ function applyMustPassRecheck(judgeResult, settled) {
   }
 }
 
+// The last real not_met ruling per criterion id (cause and reason), read by the carry-forward in reconcileJudgeKinds.
+const lastRulings = new Map()
+
 // NEW (triage D1, D5, D20, D21). Reconcile each criterion the Judge ruled this iteration against
 // the cause-derived kind, and settle the ones the script (not the Judge) decides are done:
 //   - kind is KIND_BY_CAUSE[cause]; a returned kind that disagrees is overridden and logged.
@@ -1399,8 +1402,19 @@ function applyMustPassRecheck(judgeResult, settled) {
 function reconcileJudgeKinds(judgeResult, iteration) {
   let changed = false
   const closed = new Set()
-  const criteria = (judgeResult.criteria || []).map((c) => {
+  const criteria = (judgeResult.criteria || []).map((c0) => {
+    let c = c0
     if (settled.has(c.id)) return c // ignored by the fold: the carried-forward entry wins
+    // Exercise was skipped this iteration (Debug reported an unbuilt gap), so no claim reached the
+    // Judge and it rules every open criterion `never-exercised`. That is an artefact of the skip,
+    // not a finding: a criterion that was an open not_met last time keeps that ruling's cause and
+    // reason, or an unfixed build defect would be relabelled an evidence gap (O1).
+    const previous = lastRulings.get(c.id)
+    if (skipExercise && c.status === 'not_met' && c.cause === 'never-exercised' && previous) {
+      c = { ...c, cause: previous.cause, reason: previous.reason }
+      changed = true
+      log(`iteration ${iteration}: Exercise was skipped, so ${c.id} is ruled never-exercised -- keeping its previous ruling (cause ${JSON.stringify(previous.cause)})`)
+    }
     const { kind: returned, settled: _echoed, verificationDigest: returnedDigest, ...rest } = c
     if (c.status === 'met') return rest // a met entry carries no kind
     const derived = kindOf(c.cause)
@@ -1418,6 +1432,7 @@ function reconcileJudgeKinds(judgeResult, iteration) {
     }
     const out = { ...rest }
     if (kind !== null) out.kind = kind
+    if (c.status === 'not_met') lastRulings.set(c.id, { cause: c.cause ?? null, reason: c.reason ?? null })
     if (c.status === 'not_met' && kind === 'not-checkable-here') {
       out.status = 'not_verifiable'
       changed = true

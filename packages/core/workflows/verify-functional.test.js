@@ -3576,6 +3576,35 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
     expect(result.criteria.find((c) => c.id === 'FS-1').settled).toBeUndefined();
   });
 
+  it('a skipped Exercise keeps an open build defect a build defect, not an evidence gap (O1)', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return claimsFor('FS-1', 'FS-2');
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        if (judgeCalls === 1) return remediate([ev('FS-1', 'judged-failed'), ev('FS-2', 'judged-failed')]);
+        // Exercise was skipped, so no claim reached the Judge: it rules FS-1 never-exercised.
+        return remediate(
+          [ev('FS-1', 'never-exercised'), { id: 'FS-2', status: 'unbuilt', tier1: null, artifact: null, reason: 'absent', cause: 'not-built', files: [] }],
+          { action: 'exit-unbuilt', gaps: ['FS-1'], unbuilt: ['FS-2'], debugGaps: [] }
+        );
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-2', result: 'missing', unbuilt: true }] };
+      return null;
+    });
+    const { result, logs } = await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({ criteria: [criterion('FS-1'), criterion('FS-2')], cap: 4 }),
+    });
+    expect(agent.calls.filter((c) => c.opts.label === 'exercise')).toHaveLength(1);
+    const fs1 = result.criteria.find((c) => c.id === 'FS-1');
+    expect(fs1).toMatchObject({ status: 'not_met', cause: 'judged-failed', kind: 'build-defect', reason: 'judged-failed for FS-1' });
+    expect(logs.join('\n')).toMatch(/Exercise was skipped, so FS-1 is ruled never-exercised -- keeping its previous ruling/);
+    // The state the script writes carries the carried-forward kind too.
+    const writer = agent.calls.filter((c) => /judged-failed/.test(c.prompt) && /build-defect/.test(c.prompt) && c.opts.label !== 'judge');
+    expect(writer.length).toBeGreaterThan(0);
+  });
+
   it('never-exercised goes to Exercise, not Debug; Debug gets only build defects and not even a not-built-free iteration', async () => {
     let judgeCalls = 0;
     const agent = makeAgentStub((prompt, opts) => {

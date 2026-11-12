@@ -169,14 +169,19 @@
     "TRIAGE-T001": {
       "description": "Add test/smoke/scenarios/verify-triage-kinds.sh, following test/smoke/lib/project.sh and the existing verify-fix.sh scenario. It scaffolds a fixture slot (verification.md §1a's create command), seeds ",
       "phase": 5,
-      "status": "in_progress",
-      "cycle_position": "implement",
-      "current_problem": null,
-      "retry_count": 0,
-      "files_changed": [],
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": "O8 partial: live run shows build-defect and not-checkable-here on the right criteria; the evidence-gap fixture was ruled build-defect by the live Judge",
+      "retry_count": 1,
+      "files_changed": [
+        "test/smoke/scenarios/verify-triage-kinds.sh",
+        "test/smoke/run-smoke.sh",
+        "test/smoke/README.md"
+      ],
       "commit": null,
       "started_at": "2026-11-12T05:12:12.843Z",
-      "completed_at": null
+      "completed_at": "2026-11-12T05:29:56.257Z",
+      "last_advanced": "2026-11-12T05:16:13.901Z"
     }
   },
   "checkpoints": [
