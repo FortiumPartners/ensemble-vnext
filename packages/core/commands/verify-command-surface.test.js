@@ -890,6 +890,18 @@ describe('audit-build owns the fix run and the round decision', () => {
     expect(auditBuild).toMatch(/`auditedCommit` stays the report header's value/);
   });
 
+  test('anchorCommit sits inside the audit object, where custody.js reads it', () => {
+    expect(auditBuild).toMatch(/"audit": \{ "verdict": [^}]*"auditedCommit": "<the header's value>", "anchorCommit": <below> \}/);
+    expect(auditBuild).toMatch(/`anchorCommit` goes inside `audit`, never at the top level/);
+  });
+
+  test('the wait for the review may span turns, and its completion is not a stale wake', () => {
+    expect(auditBuild).toMatch(/Waiting may span turns/);
+    expect(auditBuild).toMatch(/stale-wake check does not apply to it/);
+    expect(auditBuild).toMatch(/A completion notification from this run's own chained work[^.]*is not a wake-up/);
+    expect(auditBuild).not.toMatch(/Wait only within this turn/);
+  });
+
   test('other-commands.md names anchorCommit as nullable', () => {
     expect(flat(read(path.join(REPO, 'docs/reference/other-commands.md')))).toMatch(/anchorCommit[^|]*nullable/);
   });

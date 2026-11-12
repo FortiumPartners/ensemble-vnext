@@ -151,7 +151,10 @@ describe('reconcile: setting the anchor', () => {
       const { s, A } = history(null);
       const r = reconcile(s.args());
       // The anchor starts at A (then moves, as today), so read where it began from the first move.
-      expect(s.readCustody().moves[0].from).toBe(A);
+      const c = s.readCustody();
+      expect(c.anchor.source).toBe('audited');
+      expect(c.moves.length).toBeGreaterThan(0);
+      expect(c.moves[0].from).toBe(A);
       expect(['set', 'none']).not.toContain(r.action);
     });
 

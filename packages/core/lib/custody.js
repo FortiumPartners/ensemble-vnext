@@ -36,7 +36,8 @@
  *     nothing throws for an expected condition.
  *   - With no anchor set, `reconcile` anchors at closed.json `audit.anchorCommit` (source
  *     `audit-fixed`: the head after /audit-build's clean chained fix run), else `audit.auditedCommit`
- *     (`audited`), else the head (`pushed`). Either id present but unresolvable is `refused`.
+ *     (`audited`), else the head (`pushed`). The first id present is the only one used; if it is
+ *     unresolvable the result is `refused` (a later id is never tried in its place).
  *   - A short commit id resolves only when it is unique; an ambiguous one is `refused`.
  *   - A missing full commit id is fetched once (`git fetch origin <sha>`).
  *   - Every git/gh call is `spawnSync` with an argument array (no shell).
@@ -243,15 +244,10 @@ function detach({ stateDir, startedAt }) {
   return { ok: true, action: 'detached', path: dest, reason: 'custody anchor copied out of the tree' };
 }
 
-/** A commit id field of closed.json's `audit` object (`auditedCommit`, `anchorCommit`), or null. */
-function auditCommitOf(closedPath, field) {
-  try {
-    const c = JSON.parse(fs.readFileSync(closedPath, 'utf8'));
-    const id = c && c.audit && c.audit[field];
-    return typeof id === 'string' && id.trim() ? id.trim() : null;
-  } catch {
-    return null;
-  }
+/** A commit id field of closed.json's parsed `audit` object (`auditedCommit`, `anchorCommit`), or null. */
+function auditCommitOf(audit, field) {
+  const id = audit && audit[field];
+  return typeof id === 'string' && id.trim() ? id.trim() : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -391,11 +387,13 @@ function reconcile(args) {
     // examined (auditedCommit), then the head. A present but unresolvable id is refused, not skipped.
     let commit = head;
     let source = 'pushed';
+    const closed = readJson(closedPath);
+    const audit = closed && closed.audit;
     for (const [field, label, src] of [
       ['anchorCommit', 'audit anchor commit', 'audit-fixed'],
       ['auditedCommit', 'audited commit', 'audited'],
     ]) {
-      const id = auditCommitOf(closedPath, field);
+      const id = auditCommitOf(audit, field);
       if (!id) continue;
       const r = resolveCommit(id, cwd);
       if (r.error) return { action: 'refused', anchor: '', reason: `${label} ${id} is ${r.error}` };

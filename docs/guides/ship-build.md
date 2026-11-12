@@ -279,8 +279,9 @@ action runs a project slash command from the vendored `.claude/` directory on a 
 ## Custody: ship what was verified
 
 The principle: the code that ships is the code that was verified. `custody.js` keeps one anchor
-commit in `<state-dir>/custody.json`: the audited commit from `closed.json` when there is one,
-otherwise `HEAD` at the first push.
+commit in `<state-dir>/custody.json`: the head after `/audit-build`'s own fix run
+(`closed.json` `audit.anchorCommit`) when there is one, else the audited commit
+(`audit.auditedCommit`), otherwise `HEAD` at the first push.
 
 **Code equality** between two commits is `git diff --no-renames --name-only`, with every
 changed path classed as ignored (`.trd-state/` and the work's TRD), test-only, or shipped. The
@@ -295,7 +296,7 @@ excused, not counted as shipped changes.
 
 | Shipped source since the anchor | Outcome |
 |---|---|
-| no anchor yet | the anchor is recorded (audited commit, or `HEAD`); `set` when `HEAD` equals it, otherwise the rows below apply |
+| no anchor yet | the anchor is recorded (post-fix head, else audited commit, else `HEAD`); `set` when `HEAD` equals it, otherwise the rows below apply |
 | unchanged (or changed only by files that came from the base) | `none`: the anchor stays |
 | changed by the formatter commit (`--reason format`) | `moved`, with no re-verification |
 | changed, and no success definition or no must-pass criterion is affected | `moved` |
