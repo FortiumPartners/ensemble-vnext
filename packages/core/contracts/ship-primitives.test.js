@@ -457,6 +457,38 @@ describe('collect-findings and fix-findings', () => {
     expect(reconcile).toContain('--reconcile --chained --shipping');
     expect(t).toMatch(/\/plan <the findings>/);
   });
+  test('fix-findings contract: sweep work goes to step 4 before any routing', () => {
+    const t = flat('fix-findings');
+    const sentence = 'Sweep work (`work.kind` is `sweep`) goes to step 4 first, before any routing';
+    expect(t).toContain(sentence);
+    expect(t.indexOf(sentence)).toBeLessThan(t.indexOf('ci-fix-route.js route'));
+  });
+  test('fix-findings contract: direct path names the clean-tree rule and the diff-only judge', () => {
+    const t = flat('fix-findings');
+    const direct = t.slice(t.indexOf('**Direct path.**'), t.indexOf('**Reconcile path.**'));
+    expect(direct).toContain('git status --porcelain');
+    expect(direct).toMatch(/otherwise every row takes the reconcile path/);
+    expect(direct).toMatch(/subagent_type: "code-reviewer"/);
+    expect(direct).toMatch(/reads only that diff/);
+    expect(direct).toMatch(/subagent_type: "app-debugger"/);
+  });
+  test('fix-findings contract: Result names a direct fix', () => {
+    const t = flat('fix-findings');
+    const result = t.slice(t.indexOf('## Result'), t.indexOf('## Waiting'));
+    expect(result).toContain('a direct fix');
+  });
+  test('fix-findings contract: reconcile path runs only when reconcile rows remain, and step 4 keeps its sweep sentence', () => {
+    const t = flat('fix-findings');
+    const reconcile = t.slice(t.indexOf('**Reconcile path.**'), t.indexOf('4. **Sweep work has no TRD**'));
+    expect(reconcile).toMatch(/Run only when reconcile rows remain/);
+    const step4 = t.slice(t.indexOf('4. **Sweep work has no TRD**'), t.indexOf('## Result'));
+    expect(step4).toMatch(/return `stop` naming `\/plan <the findings>`/);
+    expect(step4).toMatch(/handed to \/plan/);
+  });
+  test('fix-findings contract: the .claude/contracts mirror is byte-identical', () => {
+    const f = 'ship-primitive-fix-findings.md';
+    expect(fs.readFileSync(path.join(MIRROR, f), 'utf8')).toBe(fs.readFileSync(path.join(DIR, f), 'utf8'));
+  });
   test('run leaves a command\'s commit to the custody gate', () => {
     expect(flat('run')).toMatch(/reconciled by the custody gate before the next merge or release/);
   });

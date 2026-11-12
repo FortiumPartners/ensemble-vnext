@@ -71,6 +71,21 @@
       "started_at": null,
       "completed_at": "2026-11-11T23:30:54.977Z",
       "last_advanced": "2026-11-11T23:18:40.222Z"
+    },
+    "AMEND-001": {
+      "description": "[test-gap] assert sweep-first, clean-tree rule, diff-only judge and Result direct fix in ship-primitives.test.js",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitives.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T00:07:04.535Z",
+      "completed_at": "2026-11-12T00:15:39.142Z",
+      "last_advanced": "2026-11-12T00:10:41.422Z"
     }
   },
   "checkpoints": [

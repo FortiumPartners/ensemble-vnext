@@ -111,6 +111,7 @@ none
 | FIX-002 | Rewrite step 3 of `ship-primitive-fix-findings.md` into: sweep first to step 4; size each row; a `**Direct path.**` paragraph; a `**Reconcile path.**` paragraph (run only when reconcile rows remain); step 4 unchanged; `## Result` names a direct fix; mirror to `.claude/contracts/` | O1, O2, O3 | FIX-001 | The contract calls `ci-fix-route.js route` and `check-diff`; the text between `**Direct path.**` and `**Reconcile path.**` names no `implement-trd` and no `/code-review`, and names the clean-tree rule, `needs-product`, the diff-only judge, `actionlint`, a pathspec commit and `fixed directly at <sha>`; the reconcile path keeps `--reconcile --chained --shipping`; step 4's sentence is unchanged; the mirror is byte-identical |
 | FIX-003 | In `ship-primitive-collect-findings.md`, the judge returns for a CI failure the repo-relative files its log points at, and step 4 records them as `files`; mirror to `.claude/contracts/` | O1 | None | The contract names `files` on CI-failure rows and says the files are what `fix-findings` sizes the fix by; mirror byte-identical |
 | FIX-004 | Add cases to `packages/core/contracts/ship-primitives.test.js` asserting the routing (test-only and CI-config row → direct path, no `implement-trd`/`/code-review` in it; product-code row → reconcile path); keep the existing fix-findings case passing; add one line to `docs/guides/ship-build.md`'s `fix-findings` row | O1, O2, O3 | FIX-001, FIX-002, FIX-003 | `npx jest packages/core/contracts/ship-primitives.test.js` passes; the new cases fail against the old contract text |
+| AMEND-001 | [test-gap] ship-primitives.test.js must assert, for the fix-findings contract (FIX-002): sweep work goes to step 4 before any routing (text: "Sweep work (`work.kind` is `sweep`) goes to step 4 first, before any routing"); the **Direct path.** section names the clean-tree rule (`git status --porcelain`) and the diff-only `code-reviewer` judge ("reads only that diff"); and ## Result names a direct f — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/contracts/ship-primitives.test.js:414-458; packages/core/contracts/ship-primitive-fix-findings.md step 3 and ## Result) | amendment — no objective recorded | None | [test-gap] ship-primitives.test.js must assert, for the fix-findings contract (FIX-002): sweep work goes to step 4 before any routing (text: "Sweep work (`work.kind` is `sweep`) goes to step 4 first, before any routing"); the **Direct path.** section names the clean-tree rule (`git status --porcelain`) and the diff-only `code-reviewer` judge ("reads only that diff"); and ## Result names a direct f no longer holds |
 
 ## Task Grounding
 
@@ -139,7 +140,26 @@ none
 - **Reuse:** the `flat(name)` helper and the `describe('collect-findings and fix-findings')` block (`ship-primitives.test.js:394-428`) [read]
 - **Follow:** behaviour assertions sit beside the primitive's own describe block (file header) [read]
 
+### AMEND-001
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
 ## Could Not Verify
 
-- Whether a model following the contract keeps the direct agent inside test/CI files, and whether the diff-only judge catches every weakened assertion, is prose and judgment, not a guarantee; `check-diff` bounds the paths and the CI-security keys deterministically.
-- CI-config direct fixes save the review but not the merge gate's re-proof until the sibling item adds a CI-config class to custody. A live ship on `github-live-test` (deferred by the plan) is what proves the path end to end.
+State after `/audit-build` (2026-11-11). The library routing, the contract text, the
+collect-findings `files` field and the mirrors were checked against the code and the two Jest
+files (180 tests passing); they are no longer listed here. One proof gap the audit found (the
+contract test does not assert the clean-tree rule or the diff-only judge) is reported in the
+audit readout and tracked as task AMEND-001 for `/implement-trd --reconcile`, not here.
+
+- **No PRD — product validation unchecked.** This TRD's source is a roadmap item, not a PRD, and
+  none was supplied to the audit. It checked the delivered code against this TRD only; whether
+  the TRD captured everything roadmap item 4 asked for was not checked.
+- **Model behaviour on the direct path — out of scope for a code audit.** Whether a model
+  following the contract keeps the direct agent inside test/CI files, and whether the diff-only
+  judge catches every weakened assertion, is prose and judgment, not a guarantee; `check-diff`
+  bounds the paths and the CI-security keys deterministically. Only a live run shows it.
+- **End-to-end ship — deferred by the plan.** CI-config direct fixes save the review but not the
+  merge gate's re-proof until the sibling item adds a CI-config class to custody. A live ship on
+  `github-live-test` with a failing test fixed by the direct path is what proves the path end to
+  end; the verification environment for this build is `local` only.
