@@ -478,6 +478,23 @@ describe('reconcile: change classes and ensemble.reproof', () => {
       expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'], reused: [] });
     });
 
+    test('FS-12: a re-proven entry\'s artifact covers decide its re-proof, not only its status', () => {
+      // src/c.js must exist when recorded (live-evidence hashes it), so it joins the anchoring commit.
+      const s = twoCriteria({ recA: ['src/a.js'], extra: { 'src/c.js': 'c1' } });
+      fs.mkdirSync(path.join(s.stateDir, 'evidence'), { recursive: true });
+      const artifact = path.join(s.stateDir, 'evidence', 'FS-2.txt');
+      fs.writeFileSync(artifact, 'proof');
+      liveEvidence.record(s.stateDir, { task: 'T', artifact, covers: [path.join(s.repo, 'src/c.js')] });
+      fs.writeFileSync(path.join(s.stateDir, 'verification-state.json'), JSON.stringify({
+        criteria: [
+          { id: 'FS-1', status: 'met', artifact: null },
+          { id: 'FS-2', status: 'met', artifact, provenAt: 3, regression: 1 },
+        ],
+      }));
+      s.commit('fix', { 'src/c.js': 'c2' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-2'], reused: ['FS-1'] });
+    });
+
     test('--reverified refuses while the caught id is still not met, naming it; a round-2 met moves', () => {
       const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
       regressionState(s, CAUGHT);

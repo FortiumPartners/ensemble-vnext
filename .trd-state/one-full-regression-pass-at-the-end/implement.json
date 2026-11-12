@@ -151,6 +151,39 @@
       "started_at": "2026-11-12T11:17:34.649Z",
       "completed_at": "2026-11-12T11:28:29.719Z",
       "last_advanced": "2026-11-12T11:28:19.325Z"
+    },
+    "AMEND-001": {
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "last_advanced": "2026-11-12T11:55:16.055Z",
+      "files_changed": [
+        "packages/core/workflows/verify-functional.test.js"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-12T11:57:03.859Z"
+    },
+    "AMEND-002": {
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "last_advanced": "2026-11-12T11:55:16.056Z",
+      "files_changed": [
+        "packages/core/lib/custody.test.js"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-12T11:57:03.861Z"
+    },
+    "AMEND-003": {
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "last_advanced": "2026-11-12T11:55:16.056Z",
+      "files_changed": [
+        "test/smoke/scenarios/verify-regression-pass.sh"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-12T11:57:03.861Z"
     }
   },
   "checkpoints": [
@@ -222,6 +255,16 @@
         "status": "unusable",
         "reason": "must not be touched"
       }
+    },
+    "fix": {
+      "plan": ".trd-state/one-full-regression-pass-at-the-end/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1,
+        "errors": []
+      },
+      "rounds": [],
+      "stopped": false
     }
   }
 }

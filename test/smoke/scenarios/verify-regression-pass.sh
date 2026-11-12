@@ -13,11 +13,12 @@
 #   table and Task Grounding Touches let `live-evidence.js derive-criteria` map every criterion
 #   to the files it depends on:
 #     FS-1  invoice totals show two decimals ("$10.00")      covers invoice.js + format.js
-#           -> BROKEN at the start: format.js prints "$10". Debug is expected to fix format.js.
-#     FS-2  receipt lines show whole dollars ("$5")          covers receipt.js + format.js
-#           -> MET at the start, through the same format.js. A two-decimal fix to format.js
-#              breaks it: invoice.js and receipt.js are FROZEN, so the shared formatter is the
-#              only file Debug may edit and it cannot satisfy both.
+#           -> BROKEN at the start: the shared formatter fmt in format.js prints "$10".
+#              Debug is expected to fix fmt so it shows two decimals.
+#     FS-2  receipt.line(12345).length <= 8 (an implicit     covers receipt.js + format.js
+#           printer limit; "$12345" is 6 characters)
+#           -> MET at the start, through the same fmt. The two-decimal fix turns "$12345"
+#              into "$12345.00", 9 characters, so it breaks FS-2.
 #     FS-3  slugify('  A  B ') is "a-b"                       covers src/text/slugify.js
 #     FS-4  sum([1, 2, 3]) is 6                               covers src/stats/sum.js
 #           -> FS-3 and FS-4 are MET and no Debug edit touches their files.
@@ -26,8 +27,8 @@
 #   fixed cause) and FS-2 (covers-changed), catches FS-2, and leaves FS-3 and FS-4 unwalked.
 #
 #   The live model decides what Debug edits and how the Judge rules, not the fixture. A run where
-#   the setup did not happen (Debug left format.js alone, edited a frozen file, fixed FS-1
-#   without breaking FS-2, or reported its changes as unknown) is a named INCONCLUSIVE, never a
+#   the setup did not happen (Debug left format.js alone, fixed FS-1 in invoice.js instead of
+#   format.js, fixed FS-1 without breaking FS-2, or reported its changes as unknown) is a named INCONCLUSIVE, never a
 #   pass. A regression pass that did not behave as designed given the setup is a FAIL.
 #
 # Evidence: when SMOKE_EVIDENCE_DIR is set, the report, state file and transcript are
@@ -82,8 +83,8 @@ Smoke fixture for the regression pass scenario.
 
 ## 2. Functional Requirements
 
-- FR-1: \`total(items)\` in \`src/money/invoice.js\` returns the sum of the amounts shown with two decimals, for example \`\$10.00\`.
-- FR-2: \`line(amount)\` in \`src/money/receipt.js\` returns the amount shown in whole dollars, for example \`\$5\`.
+- FR-1: \`total(items)\` in \`src/money/invoice.js\` returns the sum of the amounts shown with two decimals, for example \`\$10.00\`. Amounts are formatted by the shared formatter \`fmt\` in \`src/money/format.js\`, which must show two decimals.
+- FR-2: \`line(amount)\` in \`src/money/receipt.js\` returns the amount as a short string. The receipt printer fits at most 8 characters per line, so \`line(12345).length\` must be at most 8.
 - FR-3: \`slugify(text)\` trims the text, collapses runs of spaces, lowercases it and joins words with hyphens.
 - FR-4: \`sum(list)\` returns the sum of the numbers in the list.
 
@@ -111,7 +112,7 @@ smoke_write_regression_trd() {
 | ID | Objective | Source | Must pass |
 |----|-----------|--------|-----------|
 | O1 | Invoice totals show two decimals. | FR-1 | |
-| O2 | Receipt lines show whole dollars. | FR-2 | |
+| O2 | Receipt lines fit the printer (8 characters). | FR-2 | |
 | O3 | Slugs are trimmed, collapsed and hyphenated. | FR-3 | |
 | O4 | Sums add up. | FR-4 | |
 
@@ -120,7 +121,8 @@ smoke_write_regression_trd() {
 ### 1.1 Technical Summary
 
 Fixture TRD. The modules under \`src/\` already exist; the task list covers only the four
-requirements. \`src/money/invoice.js\` and \`src/money/receipt.js\` are vendored and frozen.
+requirements. \`src/money/invoice.js\` and \`src/money/receipt.js\` both format through the shared
+formatter \`fmt\` in \`src/money/format.js\`.
 
 ## 4. Master Task List
 
@@ -128,8 +130,8 @@ requirements. \`src/money/invoice.js\` and \`src/money/receipt.js\` are vendored
 
 | Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
 |---------|-------------|--------|--------|--------------|----------------------|
-| RGX-001 | Invoice totals via \`src/money/invoice.js\` and \`src/money/format.js\`. | O1 | | None | \`total([4, 6])\` returns \`\$10.00\`. |
-| RGX-002 | Receipt lines via \`src/money/receipt.js\` and \`src/money/format.js\`. | O2 | | None | \`line(5)\` returns \`\$5\`. |
+| RGX-001 | Invoice totals through the shared formatter \`fmt\` in \`src/money/format.js\` (used by \`src/money/invoice.js\`); \`fmt\` must show two decimals. | O1 | | None | \`total([4, 6])\` returns \`\$10.00\`. |
+| RGX-002 | Receipt lines via \`src/money/receipt.js\` and \`src/money/format.js\`. | O2 | | None | \`line(12345).length\` is at most 8. |
 | RGX-003 | Slugs via \`src/text/slugify.js\`. | O3 | | None | \`slugify('  A  B ')\` returns \`a-b\`. |
 | RGX-004 | Sums via \`src/stats/sum.js\`. | O4 | | None | \`sum([1, 2, 3])\` returns \`6\`. |
 
@@ -171,18 +173,17 @@ smoke_write_regression_code() {
     local d="$1"
     mkdir -p "${d}/src/money" "${d}/src/text" "${d}/src/stats"
     # The shared formatter: prints whole dollars, so invoice totals lack their two decimals (FS-1
-    # fails) while receipt lines are right (FS-2 passes). Editing it for one breaks the other.
+    # fails) while receipt lines fit the 8-character printer limit (FS-2 passes). Giving it two
+    # decimals turns "$12345" into "$12345.00" (9 characters) and breaks FS-2.
     cat > "${d}/src/money/format.js" <<'EOF'
 // Shared by invoice.js and receipt.js.
 module.exports.fmt = (amount) => '$' + amount;
 EOF
     cat > "${d}/src/money/invoice.js" <<'EOF'
-// FROZEN: vendored from the legacy billing service. Owner-governed; do NOT modify this file.
 const { fmt } = require('./format');
 module.exports.total = (items) => fmt(items.reduce((a, b) => a + b, 0));
 EOF
     cat > "${d}/src/money/receipt.js" <<'EOF'
-// FROZEN: vendored from the legacy billing service. Owner-governed; do NOT modify this file.
 const { fmt } = require('./format');
 module.exports.line = (amount) => fmt(amount);
 EOF
@@ -223,7 +224,7 @@ smoke_write_regression_definition() {
 | ID | Functional statement | Cites | Evidence that would prove it | Derivation | Tier 1 | Parts | Must pass |
 |----|----------------------|-------|------------------------------|------------|--------|-------|-----------|
 | FS-1 | \`total([4, 6])\` returns \`\$10.00\` | FR-1, O1 | Output of \`node -e "console.log(require('./src/money/invoice').total([4,6]))"\` printing \$10.00 ${row_head}
-| FS-2 | \`line(5)\` returns \`\$5\` | FR-2, O2 | Output of \`node -e "console.log(require('./src/money/receipt').line(5))"\` printing \$5 ${row_head}
+| FS-2 | \`line(12345).length\` is at most 8 | FR-2, O2 | Output of \`node -e "console.log(require('./src/money/receipt').line(12345).length)"\` printing a number no greater than 8 ${row_head}
 | FS-3 | \`slugify('  A  B ')\` returns \`a-b\` | FR-3, O3 | Output of \`node -e "console.log(require('./src/text/slugify').slugify('  A  B '))"\` printing a-b ${row_head}
 | FS-4 | \`sum([1, 2, 3])\` returns 6 | FR-4, O4 | Output of \`node -e "console.log(require('./src/stats/sum').sum([1,2,3]))"\` printing 6 ${row_head}
 EOF
@@ -334,11 +335,14 @@ else
     smoke_finish
 fi
 
-FROZEN_TOUCHED=0
-[[ "$(smoke_file_hash "${PROJECT_DIR}/src/money/invoice.js")" == "$INVOICE_HASH_BEFORE" ]] || FROZEN_TOUCHED=1
-[[ "$(smoke_file_hash "${PROJECT_DIR}/src/money/receipt.js")" == "$RECEIPT_HASH_BEFORE" ]] || FROZEN_TOUCHED=1
-if [[ "$FROZEN_TOUCHED" -eq 1 ]]; then
-    assert_fail_raw "INCONCLUSIVE: Debug edited a FROZEN file (invoice.js or receipt.js), so the fix did not go through the shared formatter"
+# A fix made in invoice.js or receipt.js instead of the shared formatter cannot break FS-2 the
+# designed way, so the setup did not happen.
+CALLER_TOUCHED=0
+[[ "$(smoke_file_hash "${PROJECT_DIR}/src/money/invoice.js")" == "$INVOICE_HASH_BEFORE" ]] || CALLER_TOUCHED=1
+[[ "$(smoke_file_hash "${PROJECT_DIR}/src/money/receipt.js")" == "$RECEIPT_HASH_BEFORE" ]] || CALLER_TOUCHED=1
+if [[ "$CALLER_TOUCHED" -eq 1 ]] \
+   && [[ "$(smoke_file_hash "${PROJECT_DIR}/src/money/format.js")" == "$FORMAT_HASH_BEFORE" ]]; then
+    assert_fail_raw "INCONCLUSIVE: Debug changed invoice.js or receipt.js but not format.js, so the fix did not go through the shared formatter fmt"
     smoke_finish
 fi
 
@@ -346,7 +350,7 @@ if [[ "$(smoke_file_hash "${PROJECT_DIR}/src/money/format.js")" == "$FORMAT_HASH
     assert_fail_raw "INCONCLUSIVE: src/money/format.js is unchanged, so no Debug fix touched the file ${VICTIM_ID} covers (outcome $(jq -r '.outcome // "none"' "$STATE_FILE"))"
     smoke_finish
 fi
-assert_pass_raw "Debug edited the shared formatter src/money/format.js and no frozen file"
+assert_pass_raw "Debug edited the shared formatter src/money/format.js"
 
 REGRESSION="$(jq -c '.regression // null' "$STATE_FILE" 2>/dev/null)"
 if [[ "$REGRESSION" == "null" || -z "$REGRESSION" ]]; then

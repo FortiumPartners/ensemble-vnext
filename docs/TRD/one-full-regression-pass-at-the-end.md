@@ -273,6 +273,9 @@ record (O5, O6, O8).
 | Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
 |---------|-------------|--------|--------|--------------|---------------------|
 | REGR-T001 [LIVE] | Add `test/smoke/scenarios/verify-regression-pass.sh` (D17); register it in `test/smoke/run-smoke.sh` (`LLM_OPT_IN_SCENARIOS` and a `SCENARIO_TIMEOUT` entry) and `test/smoke/README.md` (table row and tree line). In `verify-inner-loop-causes.sh`, exclude `regression` entries wherever it excludes `confirmation` entries (~:313-328). Run the new scenario once in a `fixtures` slot; record the report, state file and transcript under `.trd-state/one-full-regression-pass-at-the-end/evidence/live/REGR-T001/` and in `live-manifest.jsonl`. | O9, D17 | | REGR-B002, REGR-B005, REGR-B006, REGR-D001 | (1) `bats test/integration/tests/smoke-registration.test.sh` passes. (2) In the recorded state, the earlier-met criterion appears in the `regression: 1` `exercised` entry with reason `covers-changed` and in `regression.rounds[0].caught`. (3) The untouched met criteria appear in no `regression` `exercised` entry and are listed in `regression.notRewalked`. (4) There are at most two `regression` `exercised` entries. (5) The rendered report's `## Regression pass` section shows the catch and the not-re-walked ids. A run where the live model does not produce the setup is a named INCONCLUSIVE, recorded with its evidence. |
+| AMEND-001 | Add a Jest case proving the regression pass runs when the Judge exits at the iteration-cap iteration (FS-1): journey(reproven,{args:{cap:2},middle:exitWith("exit-stuck",[bd("FS-3","k")],{gaps:["FS-3"]}),files:["src/a.js"]}); assert 3 Judge calls, first regression exercise ["FS-1"] reason covers-changed, regression.rounds[0]={round:1,iteration:2} (full instruction: verification-plan.md Owner ruling (`packages/core/workflows/verify-functional.test.js`) — promoted from a gap discovery found by verify-build --fix [plan:R1 @ 2026-11-12T11:47:00.000Z] | plan blocker R1 |  | None | Add a Jest case proving the regression pass runs when the Judge exits at the iteration-cap iteration (FS-1): journey(reproven,{args:{cap:2},middle:exitWith("exit-stuck",[bd("FS-3","k")],{gaps:["FS-3"]}),files:["src/a.js"]}); assert 3 Judge calls, first regression exercise ["FS-1"] reason covers-changed, regression.rounds[0]={round:1,iteration:2} (full instruction: verification-plan.md Owner ruling no longer holds |
+| AMEND-002 | Add a custody test (FS-12) in describe("a state written by the regression pass..."): give the FS-2 regression entry a real artifact recorded with liveEvidence.record covering src/c.js, commit src/c.js, assert reconcile returns reverify ["FS-2"] and reuses ["FS-1"] (full instruction: verification-plan.md Owner rulings R2) (`packages/core/lib/custody.test.js`) — promoted from a gap discovery found by verify-build --fix [plan:R2 @ 2026-11-12T11:47:00.000Z] | plan blocker R2 |  | None | Add a custody test (FS-12) in describe("a state written by the regression pass..."): give the FS-2 regression entry a real artifact recorded with liveEvidence.record covering src/c.js, commit src/c.js, assert reconcile returns reverify ["FS-2"] and reuses ["FS-1"] (full instruction: verification-plan.md Owner rulings R2) no longer holds |
+| AMEND-003 | Rework the FS-19 live smoke scenario: remove FROZEN markers; point FR-1/RGX-001 at shared formatter fmt in format.js (two decimals); restate FS-2 as receipt.line(12345).length <= 8; replace the frozen-file check with a named INCONCLUSIVE when invoice.js changed but format.js did not; covers mapping unchanged (full instruction: verification-plan.md Owner rulings R3) (`test/smoke/scenarios/verify-regression-pass.sh`) — promoted from a gap discovery found by verify-build --fix [plan:R3 @ 2026-11-12T11:47:00.000Z] | plan blocker R3 |  | None | Rework the FS-19 live smoke scenario: remove FROZEN markers; point FR-1/RGX-001 at shared formatter fmt in format.js (two decimals); restate FS-2 as receipt.line(12345).length <= 8; replace the frozen-file check with a named INCONCLUSIVE when invoice.js changed but format.js did not; covers mapping unchanged (full instruction: verification-plan.md Owner rulings R3) no longer holds |
 
 ## 5. Execution Plan
 
@@ -484,6 +487,18 @@ an API or store: it changes the verification loop's own workflow, library and co
   - `.gitignore` line 83 ignores `.trd-state/**/evidence/`, so the recorded run, `live-manifest.jsonl` and the slot folder are local to this checkout, not committed. Say where the evidence is in the task's report rather than assuming a later clone has it. Also, `live-evidence.js record` rejects a line over 2,048 bytes and any `--covers` path that is not an existing file: cover the scenario and the workflow file, not a directory.
   - `verification.md` here lists `fixtures` as the environment for this run, with slot folders per `verification.md` §1a (4 may exist, 1 per slice): use `slot-1`. Never touch this repo's own `verification.md` (NG7); the scenario writes its own copy inside the slot.
   - Dependencies: the live run reads the contract (REGR-D001), the commands' `criterionCovers` derive step (REGR-B006, which needs B001's CLI) and renders the report section (REGR-B002), so each declared edge is real [inferred from `implement-trd.md` §8.3 and `renderReport`].
+
+### AMEND-001
+
+- **Touches:** `packages/core/workflows/verify-functional.test.js`
+
+### AMEND-002
+
+- **Touches:** `packages/core/lib/custody.test.js`
+
+### AMEND-003
+
+- **Touches:** `test/smoke/scenarios/verify-regression-pass.sh`
 
 ## Open Questions
 

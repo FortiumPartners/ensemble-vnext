@@ -4676,6 +4676,20 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
       expect(stateOf(sync[0]).exercised).toContainEqual({ iteration: 2, ids: ['FS-1'], regression: 1 });
     });
 
+    it('FS-1: the regression pass also runs when the Judge exits at the iteration cap iteration', async () => {
+      // cap 2: iteration 2 is the last iteration, so the Judge's exit-stuck there is an exit AT the cap.
+      const { agent, result, logs } = await journey(reproven, {
+        args: { cap: 2 },
+        middle: exitWith('exit-stuck', [bd('FS-3', 'k')], { gaps: ['FS-3'] }),
+        files: ['src/a.js'],
+      });
+      expect(labelsOf(agent, 'judge')).toHaveLength(3);
+      const exercises = regressionExercises(agent);
+      expect(exercisedIdsOf(exercises[0])).toEqual(['FS-1']);
+      expect(reasonsIn(logs)[1]).toBe('FS-1 (covers-changed)');
+      expect(result.regression.rounds[0]).toMatchObject({ round: 1, iteration: 2 });
+    });
+
     it('O2: a met criterion whose covers no Debug record touches is in no round prompt and keeps its artifact and provenAt', async () => {
       const { agent, result, logs } = await journey();
       const [exercise] = regressionExercises(agent);
