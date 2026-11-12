@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/ci-fix-sized-to-failure.md",
+    "url": "https://claude.ai/artifact/GDpUASsfMyaVLoXqTVFS2y",
+    "updated_at": "2026-11-11T23:14:15.163Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/ci-fix-sized-to-failure/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-11T23:56:31.877Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/ci-fix-sized-to-failure/verification-report.md",
+    "url": "https://claude.ai/artifact/3y34DT7qfcp2yrYFrmSjuD",
+    "updated_at": "2026-11-12T00:02:25.590Z",
+    "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/ci-fix-sized-to-failure/audit-build-report.md",
+    "url": "https://claude.ai/artifact/3ST7LuLowkMzuQ1q2sXPjC",
+    "updated_at": "2026-11-12T00:19:16.224Z",
+    "command": "/audit-build"
+  }
+}
