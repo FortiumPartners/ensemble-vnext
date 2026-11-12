@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "slug": "run-records-off-branch",
+  "name": "Run records off the product branch (Ensemble writer)",
+  "source": {
+    "command": "/plan-feature",
+    "artifact": "docs/plans/run-records-off-branch/roadmap.md"
+  },
+  "repo": "/Users/james/dev/fortium/ensemble-vnext",
+  "base_branch": "main",
+  "rigor": "standard",
+  "features": [
+    {
+      "name": "Records ref library",
+      "description": "Records ref library - feature F-1 of workplan run-records-off-branch.\nAdd one new library, `packages/core/lib/record-ref.js` (vendored to `.claude/lib/`), that writes, reads and pushes a feature's run records on a git ref, `refs/ensemble/records/<slug>`, without touching the index or the checked-out branch. Nothing calls it yet: wiring it into commands is a later item. A write builds a tree whose root is the feature's state folder `.trd-state/<slug>/` (every file report section 1a lists, including the verification loop's per-iteration files, plus exactly the images under `evidence/` that the folder's `verification-report.md` references; never `dispatch.jsonl`, `implement.lock` or `findings/`), adds a `record.json` at the tree root holding `forge_feature_id` (from the `FORGE_FEATURE_ID` env var, else null), `branch` (the current branch) and `slug`, commits it on the previous ref value with a message naming the command and step, and moves the ref by compare-and-swap (`git update-ref` with the old value), retrying a bounded number of times on a lost swap. It then pushes the ref to `origin` best effort; when the ref cannot be written or the push is refused or fails, it falls back to committing the records on the branch by pathspec as today (force-adding the ignored paths), and reports which happened. Any record files already tracked on the branch (left there by Forge's hand-over or stop commit, or by the fallback) are folded into the ref and removed from the index on the next successful write. The same writer serves one shared ref, `refs/ensemble/records/_shared`, for `.trd-state/_session-log.md` and `.trd-state/_sweep/discovered.jsonl`. It also offers `read` (one file at a ref: local ref, else fetched from `origin`), `list`, and `restore` (materialise a missing state folder from the ref). CLI and module, one JSON line, exit 0, never throws, `spawnSync` with argument arrays only. The ref's tree layout and `record.json` field names are a contract with Forge's deployed reader (forge-vnext `docs/TRD/run-records-ref-reader.md` D5, O13): match them exactly. Before this item closes, prove live, on `islayjames/ship-build-live-test` (environment `github-live-test` in `.claude/rules/verification.md`), that pushing a `refs/ensemble/records/*` ref starts no GitHub workflow: once against the repo as it is, and once with a throwaway branch carrying a workflow whose trigger is `on: push` with no branch filter, pushing a records ref whose commit is parented on that branch's head. Delete the throwaway branch and the probe refs afterwards. Whether a Claude Code Web session can push or fetch such a ref cannot be checked from this machine (`verification.md` §5); record it as a stated gap, and make sure the fallback path covers it.\nAcceptance: `npx jest packages/core/lib/record-ref.test.js` covering: two writers racing one ref (both writes land, in some order, with no lost file); no git directory (prints a refusal, exits 0); a reader-only OS user simulated by an unwritable `objects/` directory (falls back, does not throw); a refused push (falls back to a branch commit, command not failed); branch-tracked records folded into the ref; `record.json` fields; evidence images included only when the report references them; the `_shared` ref. Live: `gh run list -R islayjames/ship-build-live-test` shows no run whose head SHA is a probe ref's commit, for both probes, while the throwaway branch's own push does show its run (proving the workflow is live).\nBuilds on: none.\nDesign: docs/plans/run-records-off-branch/roadmap.md item 1; docs/reports/run-records-off-branch-ensemble-side.md sections 1a and 3 (Migration steps); forge-vnext docs/TRD/run-records-ref-reader.md D5 and O13 (the reader contract).\nDeferred: Claude Code Web push/fetch of `refs/ensemble/*`, which waits on an environment that `.claude/rules/verification.md` does not list; stays a stated gap.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 10,
+      "dependencies": [],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    },
+    {
+      "name": "Readers fall back to the ref",
+      "description": "Readers fall back to the ref - feature F-2 of workplan run-records-off-branch.\nMake every Ensemble reader of a run record look in the worktree first and then at the feature's records ref, `refs/ensemble/records/<slug>` (local, else fetched from `origin`), so a fresh clone or a re-created worktree still resumes once records stop being committed. Use the `read` and `restore` operations of the records ref library (`packages/core/lib/record-ref.js`, built by the item before this one). Readers to cover, at least: `implement-state.js` load and the resume path of every command that resumes (`/implement-trd`, `/amend`, `/plan`, `/task`, `/verify-build`, `/refine-verification`, `/ship-build`); `custody.js` (its reads of `closed.json` and `custody.json`); `ship-sequencer.js`; `artifacts.js get` (so a re-created worktree updates an artifact link in place); the hooks `session-context.js`, `status.js`, `precompact.js` and `router.py` (Python: read the ref with `git cat-file`, never fail the hook). Hooks never fetch from the network; they read the local ref only. This item changes no writer: records are still committed on the branch while it ships, so its behaviour on today's repositories is unchanged. A missing ref, a missing remote or a git failure reads as \"no record\", exactly as a missing file does today.\nAcceptance: Jest and pytest suites of each touched reader gain a case where the worktree folder is absent and the ref holds the record, and a case where neither exists (behaviour unchanged); a BATS or Jest scenario that writes a ref, deletes the worktree's `.trd-state/<slug>/`, and resumes `implement-state` from the ref; the full battery (`npx jest`, `pytest packages/router/tests`, the touched BATS files) stays green.\nBuilds on: Records ref library.\nDesign: docs/plans/run-records-off-branch/roadmap.md item 2; docs/reports/run-records-off-branch-ensemble-side.md sections 1a and 3 (Migration steps); forge-vnext docs/TRD/run-records-ref-reader.md D5 and O13 (the reader contract).\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 20,
+      "dependencies": [
+        {
+          "name": "Records ref library",
+          "reason": "code_or_schema"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    },
+    {
+      "name": "Writers move to the ref",
+      "description": "Writers move to the ref - feature F-3 of workplan run-records-off-branch.\nCut over: every place that commits run records today writes the feature's records ref instead, through the records ref library (`packages/core/lib/record-ref.js`), and the worktree copy of those records becomes git-ignored. Commit points to replace (the plan session probes for the full list): `/implement-trd`'s phase checkpoint (which then commits product code only, still with `git add -A`, safe only because the folder is ignored), `/audit-build` (report, round ledger, close record), `/close-feature`, `/ship-build` Step 5 and each ship step, `/verify-build`'s result, every \"store/record … link\" commit after an artifact publish, `/plan`, `/amend`, `/refine-verification`, and `/task`'s close; `/sweep` and `precompact.js` write the shared ref `refs/ensemble/records/_shared`. Add one write before every COMMAND COMPLETE and COMMAND STUCK banner of a command that touched records, stated once in `.claude/rules/command-status.md`; no write per file save. The ship `push` step pushes the feature's ref beside its branch. Add the per-feature record files to `packages/core/templates/gitignore-framework.txt` (all of `.trd-state/` except `.trd-state/_docs-audit/`), delivered by the existing `ensure_gitignore`; `.claude/verification-notes.md` and `OWNER-CALLS.md` stay tracked. The scaffold stamps `ensemble.records: \"ref\"` in `.claude/settings.json` (backfilled with setdefault, like `ensemble.publishArtifacts`). Mirror every change into `packages/full` and `.claude/`, and update `docs/reference/` and `CHANGELOG.md`. Custody's record-file ignoring and the merge step's record-clash resolution stay unchanged, as fallbacks for features started before the cutover.\nAcceptance: a prose test per touched command asserting it names `record-ref.js write` where it used to commit records, and asserting no remaining `git commit` of a `.trd-state/` path outside the fallback; a fixture run (environment `fixtures` in `verification.md`) of `/plan` with the implement option on a small change, after which `git log` on the feature branch shows no commit touching only `.trd-state/`, and `git cat-file -p refs/ensemble/records/<slug>:implement.json` shows the finished task list; `bats packages/core/scripts/scaffold-project.test.sh` covers the new ignore lines and the settings key; full battery green.\nBuilds on: Records ref library, Readers fall back to the ref.\nDesign: docs/plans/run-records-off-branch/roadmap.md item 3; docs/reports/run-records-off-branch-ensemble-side.md sections 1a and 3 (Migration steps); forge-vnext docs/TRD/run-records-ref-reader.md D5 and O13 (the reader contract).\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 30,
+      "dependencies": [
+        {
+          "name": "Records ref library",
+          "reason": "code_or_schema"
+        },
+        {
+          "name": "Readers fall back to the ref",
+          "reason": "code_or_schema"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    },
+    {
+      "name": "Fold the detached ship record into the ref",
+      "description": "Fold the detached ship record into the ref - feature F-4 of workplan run-records-off-branch.\n`/ship-build` keeps its run record and custody anchor, from the merge onward, in a detached folder in the git common directory (`<git common dir>/ensemble/ship/<feature>/`, defined by `packages/core/lib/ship-record-dir.js`), so a merged branch is not left with dirty records. Now that records live on the feature's records ref, `refs/ensemble/records/<slug>`, write the post-merge `shipped.json` and `custody.json` to the ref through the records ref library instead, and stop writing the detached folder. Keep reading the detached folder for ship runs started before this change, after the ref, so a run in flight across the upgrade still resumes. `shipped.json` carries `work.branch` and `work.forge_feature_id` (Forge's reader matches on them). `ship-sequencer.js` and `custody.js` keep sharing one path rule; neither may require the other's.\nAcceptance: `npx jest packages/core/lib/ship-sequencer.test.js packages/core/lib/custody.test.js packages/core/lib/ship-build.seam.test.js` with new cases: a post-merge write lands on the ref and nothing new appears under `<common>/ensemble/ship/`; a run started before the change (fixture detached folder, no ref) resumes from the old folder; custody's merge and deploy links resolve the anchor from the ref.\nBuilds on: Records ref library, Readers fall back to the ref.\nDesign: docs/plans/run-records-off-branch/roadmap.md item 4; docs/reports/run-records-off-branch-ensemble-side.md sections 1a and 3 (Migration steps); forge-vnext docs/TRD/run-records-ref-reader.md D5 and O13 (the reader contract).\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 40,
+      "dependencies": [
+        {
+          "name": "Records ref library",
+          "reason": "code_or_schema"
+        },
+        {
+          "name": "Readers fall back to the ref",
+          "reason": "code_or_schema"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    },
+    {
+      "name": "Cutover for existing projects",
+      "description": "Cutover for existing projects - feature F-5 of workplan run-records-off-branch.\nGive projects that already run Ensemble a safe path onto the records ref. In `/rebase-project` (and only there, never in the scaffold's refresh), after the new ignore lines are delivered: untrack the per-feature record files from the index, staged and never committed (the existing `ensure_gitignore untrack` path, #102's rule: an unattended untrack on one feature branch gives a modify/delete conflict against its siblings); and seed a ref, `refs/ensemble/records/<slug>`, from each in-flight feature's current state folder (in flight: has `implement.json` and no `closed.json`, or a ship run that has not finished), so a feature that straddles the cutover has its history from that point on. Finished features are not backfilled; their records stay readable on `main`. Report what was untracked and which refs were seeded in the command's readout.\nAcceptance: `bats packages/core/scripts/scaffold-project.test.sh` (or the rebase-project test file) with a fixture repo holding one in-flight and one finished feature: after the rebase, the in-flight feature has a ref whose `implement.json` equals the folder's, the finished one has none, the record files are untracked in the index and nothing was committed; a prose test on `rebase-project.md`.\nBuilds on: Writers move to the ref.\nDesign: docs/plans/run-records-off-branch/roadmap.md item 5; docs/reports/run-records-off-branch-ensemble-side.md sections 1a and 3 (Migration steps); forge-vnext docs/TRD/run-records-ref-reader.md D5 and O13 (the reader contract).\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 50,
+      "dependencies": [
+        {
+          "name": "Writers move to the ref",
+          "reason": "code_or_schema"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    },
+    {
+      "name": "Cutover proof on a fixture project",
+      "description": "Cutover proof on a fixture project - feature F-6 of workplan run-records-off-branch.\nReport-only check that the cutover works end to end, run once the writer, the ship-record fold and the rebase cutover are merged. In a scaffolded fixture repo (environment `fixtures` in `.claude/rules/verification.md`) with a bare local `origin`: run a small change through `/plan` with the implement option to a passing audit; confirm the feature branch carries no commit that touches only `.trd-state/`; confirm `refs/ensemble/records/<slug>` exists locally and on `origin`, its root `record.json` names the branch and the `FORGE_FEATURE_ID` set for the run, and it carries `implement.json`, `closed.json`, `verification-report.md` and each image that report references; delete the worktree's `.trd-state/<slug>/`, clone `origin` afresh, and confirm the resume path finds the records from the ref. Then make `origin` refuse the ref push and confirm the run falls back to committing records on the branch without failing. Write the findings, with the commands and their output, to the task's report; list anything that failed as a follow-up. Ships no code.\nAcceptance: the task's `closed.json` lists each of the six checks in the brief with pass or fail and the evidence for it; any fail is a follow-up for the PM.\nBuilds on: Writers move to the ref, Fold the detached ship record into the ref, Cutover for existing projects.\nDesign: docs/plans/run-records-off-branch/roadmap.md item 6; docs/reports/run-records-off-branch-ensemble-side.md sections 1a and 3 (Migration steps); forge-vnext docs/TRD/run-records-ref-reader.md D5 and O13 (the reader contract).\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 60,
+      "dependencies": [
+        {
+          "name": "Writers move to the ref",
+          "reason": "code_or_schema"
+        },
+        {
+          "name": "Fold the detached ship record into the ref",
+          "reason": "code_or_schema"
+        },
+        {
+          "name": "Cutover for existing projects",
+          "reason": "code_or_schema"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "task",
+      "route_rigor": "solo"
+    }
+  ]
+}
