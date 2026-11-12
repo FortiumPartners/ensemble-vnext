@@ -301,6 +301,34 @@ excused, not counted as shipped changes.
 | changed, and no success definition or no must-pass criterion is affected | `moved` |
 | changed, and a must-pass criterion is affected | `reverify`: the gate runs `/verify-build --criteria <ids> --no-fix --chained` on the pushed head, then `moved` if all are met (criteria whose files did not change are `reused`); if not, the run stops |
 
+### What a change re-proves: `ensemble.reproof`
+
+Each changed path is classed `ignored` (record files, `OWNER-CALLS.md`, the work's TRD), `test-only`,
+`ci-config` (workflows and other CI definitions), `deps` (lockfiles only; `package.json` and other
+manifests stay shipped), `docs` (`docs/`, README/CHANGELOG-style files) or `shipped`. The pr-head,
+merge and deploy links still fail on any non-ignored, non-test difference: the tiers decide only what
+`reconcile` re-proves. Set them in `.claude/settings.json`; an absent key means its default, and
+`/rebase-project` never writes the key, so your value survives a refresh.
+
+| Key | Allowed | Default | Meaning |
+|---|---|---|---|
+| `docs` | `none` / `ci` / `reprove` | `none` | a docs-only change re-proves nothing |
+| `testOnly` | same | `ci` | left to CI |
+| `ciConfig` | same | `ci` | left to CI |
+| `deps` | same | `ci` | left to CI, unless `depsReprove` names a package |
+| `depsReprove` | array of package names | `[]` | a lockfile whose diff adds or removes a line naming one of these (whole word) is re-proved |
+| `format` | `none` / `reprove` | `none` | `reprove` stops the formatter-commit shortcut (`--reason format`) |
+| `shipped` | `covers` / `all` | `covers` | `covers`: re-prove only criteria whose recorded files changed; `all`: every must-pass criterion |
+
+When every changed path is non-shipped at `none` or `ci`, the anchor moves with no re-proof: rule
+`tier-none` (all at `none`) or `tier-ci` (any at `ci`), and the reason names the classes. A path at
+`reprove` puts every must-pass criterion in doubt, and a base-branch excuse does not soften it. A
+changed shipped path that no criterion's record names also puts every must-pass criterion in doubt.
+The per-criterion file lists come from `record-criteria`, run by `/implement-trd` and `/verify-build`
+after a verification run; they live in `<state-dir>/evidence/criterion-covers.json`. A value outside
+the allowed set, or `settings.json` that is not valid JSON, makes `reconcile` return `refused` naming
+the setting.
+
 The gate commits and pushes nothing before the act it guards: the re-anchor in `custody.json`
 stays uncommitted, so the PR head stays the one CI checked and `--match-head-commit` matches.
 After the merge, `shipped.json` is written under the git directory (see the sequencer's detached

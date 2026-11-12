@@ -46,6 +46,13 @@ The caller gives the gate `work`, `context`, and which act it guards (`merge` or
    now), put it there too: `old` differing from `new` means the base moved since verification;
    when no shipped path differs as well, only the criteria covering what the base changed were
    re-judged. They are not issues, so they stay out of `data.issues`.
+
+   What needs re-proof is set by `ensemble.reproof` in `.claude/settings.json` (absent means the
+   defaults; `docs` `none`, `testOnly`/`ciConfig`/`deps` `ci`, `depsReprove` `[]`, `format` `none`,
+   `shipped` `covers`). When the rule is `tier-none` (only docs-class paths changed, left alone) or
+   `tier-ci` (test, CI-config or lockfile paths changed, left to CI), the anchor moved with no
+   re-proof: say so in one line naming the classes from the result's `reason`. A value outside the
+   allowed set comes back `refused` with a reason naming the setting; report it, do not edit it.
 5. **Do not commit or push anything between the gate and the act it guards.** The re-anchor in
    `custody.json` stays uncommitted, so the PR head stays the one CI checked and
    `--match-head-commit` matches.

@@ -8,7 +8,7 @@
  * step (what may be auto-resolved) must agree on which files are record files, so both read
  * `isRecordFile` from here. This file must not require custody.js (that would be a cycle).
  *
- * RECORD FILES: `.claude/verification-notes.md`, `.trd-state`, anything under `.trd-state/`.
+ * RECORD FILES: `.claude/verification-notes.md`, the root `OWNER-CALLS.md`, `.trd-state`, anything under `.trd-state/`.
  * (`.trd-statex/...` is not one.)
  *
  * mergeBase decides what clashes with a REAL local `git merge --no-ff --no-commit`, so the
@@ -27,10 +27,12 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const NOTES_FILE = '.claude/verification-notes.md';
+// The owner-call log is append-only, so a clash keeps both sides (union). Root path only.
+const OWNER_CALLS_FILE = 'OWNER-CALLS.md';
 
 /** True for a repo-relative, forward-slash path the framework writes itself. */
 function isRecordFile(p) {
-  return p === NOTES_FILE || p === '.trd-state' || String(p).startsWith('.trd-state/');
+  return p === NOTES_FILE || p === OWNER_CALLS_FILE || p === '.trd-state' || String(p).startsWith('.trd-state/');
 }
 
 /** @returns {{recordOnly: boolean, notRecord: string[]}} for a list of unmerged paths. */

@@ -1,0 +1,123 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/re-prove-only-what-a-change-can-affect.md",
+  "trd_hash": "d90bd24dfe4b5939c1ab9b6ab103e967ec991fb8bd40704714b109f74a5386f0",
+  "branch": "feature/20-re-prove-only-what-a-change-can-affect",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "isRecordFile matches root OWNER-CALLS.md",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/record-files.js",
+        "packages/core/lib/record-files.test.js",
+        "packages/core/lib/custody.test.js",
+        ".claude/lib/record-files.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T23:15:08.601Z",
+      "completed_at": "2026-11-12T00:14:44.350Z",
+      "last_advanced": "2026-11-11T23:18:07.231Z"
+    },
+    "FIX-002": {
+      "description": "Criterion covers derive/record/read + record-criteria CLI",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/live-evidence.js",
+        "packages/core/lib/live-evidence.test.js",
+        ".claude/lib/live-evidence.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T23:15:08.601Z",
+      "completed_at": "2026-11-12T00:14:44.358Z",
+      "last_advanced": "2026-11-11T23:18:07.232Z"
+    },
+    "FIX-003": {
+      "description": "Change classes, ensemble.reproof tiers in custody reconcile/affectedIds",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/custody.js",
+        "packages/core/lib/custody.test.js",
+        ".claude/lib/custody.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T23:15:08.601Z",
+      "completed_at": "2026-11-12T00:14:44.358Z",
+      "last_advanced": "2026-11-11T23:18:07.232Z"
+    },
+    "FIX-004": {
+      "description": "Record covers when proven; docs; scaffold guard",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        "packages/core/contracts/ship-custody-gate.md",
+        ".claude/commands/implement-trd.md",
+        ".claude/commands/verify-build.md",
+        ".claude/contracts/ship-custody-gate.md",
+        "docs/guides/ship-build.md",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/commands/record-criteria-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-11T23:15:08.601Z",
+      "completed_at": "2026-11-12T00:14:44.366Z",
+      "last_advanced": "2026-11-11T23:18:07.232Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": "48e2c1c",
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/re-prove-only-what-a-change-can-affect.md § Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest/bats/pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude sessions available; not needed by library criteria"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login present; not needed here"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}

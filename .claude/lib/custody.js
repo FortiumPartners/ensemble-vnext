@@ -9,14 +9,35 @@
  * detaches at the merge, beside its detached record: see ship-record-dir.js); three links
  * (pr-head, merge, deploy) are each compared to it.
  *
- * CODE EQUALITY (D9, D10): `git diff --no-renames --name-only -z <a> <b>`, each path classified
- *   ignored   a record file (`isRecordFile` in record-files.js: anything under `.trd-state/` and
- *             `.claude/verification-notes.md`) or the work's TRD
- *   test-only a test file by D10's patterns
- *   shipped   everything else
- * Two commits are equal when no path is `shipped`. `--no-renames` matters: default rename
+ * CODE EQUALITY (D9, D10): `git diff --no-renames --name-only -z <a> <b>`, each path classified,
+ * checked in this order:
+ *   ignored    a record file (`isRecordFile` in record-files.js: anything under `.trd-state/`,
+ *              `.claude/verification-notes.md` and the root `OWNER-CALLS.md`) or the work's TRD
+ *   test-only  a test file by D10's patterns
+ *   ci-config  CI pipeline definitions (`.github/workflows/**`, `.github/actions/**`, `.gitlab-ci.yml`,
+ *              `.circleci/**`, `Jenkinsfile`, ...)
+ *   deps       dependency LOCKFILES (exact basename). Manifests (`package.json`, `pyproject.toml`)
+ *              carry scripts and entry points, so they stay `shipped`
+ *   docs       first segment `docs` or `doc`, or a README/CHANGELOG/LICENSE-style basename; never
+ *              every `*.md` (a `.md` under `packages/core/commands/` is product)
+ *   shipped    everything else
+ * Two commits are equal (`compare`) when no path is `ignored` or `test-only`: docs, deps and ci-config
+ * paths still make the pr-head, merge and deploy links and the `--head` guard fail, because a
+ * lockfile or a build workflow does change the built artifact. `--no-renames` matters: default rename
  * detection reports only a rename's destination, so a shipped file moved under `.trd-state/`
  * would read as an ignored-only change.
+ *
+ * TIERS (reconcile only; `check` and `--set-only` read no setting): what a change since the anchor
+ * must re-prove is set by `ensemble.reproof` in `<git toplevel>/.claude/settings.json`:
+ *   docs none|ci|reprove (default none)    testOnly (ci)    ciConfig (ci)    deps (ci)
+ *   depsReprove [package names] (default [])  -- a lockfile whose diff names one, whole-word, on a
+ *                                                 `+`/`-` line counts as `reprove`
+ *   format none|reprove (default none)     `reprove` disables the `--reason format` shortcut
+ *   shipped covers|all (default covers)    `all` re-proves every must-pass criterion
+ * When every differing and excused path is of a non-shipped class at `none`/`ci`, the anchor moves
+ * with no re-proof: rule `tier-none` (all at none) or `tier-ci` (any at ci). A path at `reprove` (or a
+ * lockfile hitting depsReprove) is PROMOTED: every must-pass criterion is in doubt, and the base
+ * excuse does not soften it. A value outside the allowed set stops reconcile with a reason naming it.
  *
  * BASE EXCUSE (reconcile only, given `--base <ref>`): merging the base branch into the feature
  * brings in files nobody verified here. With baseCommit = `git merge-base <head> <ref>` (the base
@@ -98,7 +119,16 @@ const TEST_BASENAME = [
 ];
 const TEST_SEGMENTS = new Set(['__tests__', '__fixtures__', '__mocks__']);
 
-/** @returns {'ignored'|'test-only'|'shipped'} for a repo-relative, forward-slash path. */
+const CI_CONFIG_DIRS = ['.github/workflows/', '.github/actions/', '.circleci/', '.buildkite/'];
+const CI_CONFIG_FILES = new Set(['.gitlab-ci.yml', 'azure-pipelines.yml', 'bitbucket-pipelines.yml', 'Jenkinsfile']);
+const LOCKFILES = new Set([
+  'package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lock', 'bun.lockb',
+  'Pipfile.lock', 'poetry.lock', 'uv.lock', 'Gemfile.lock', 'go.sum', 'Cargo.lock', 'composer.lock',
+  'mix.lock', 'pubspec.lock', 'Podfile.lock', 'packages.lock.json',
+]);
+const DOC_BASENAME = /^(README|CHANGELOG|LICENSE|CONTRIBUTING|CODE_OF_CONDUCT|AUTHORS|NOTICE)(\.(md|markdown|txt|rst|adoc))?$/i;
+
+/** @returns {'ignored'|'test-only'|'ci-config'|'deps'|'docs'|'shipped'} for a repo-relative, forward-slash path. */
 function classifyPath(p, trdRel) {
   if (isRecordFile(p)) return 'ignored';
   if (trdRel && p === trdRel) return 'ignored';
@@ -106,6 +136,10 @@ function classifyPath(p, trdRel) {
   const base = segments[segments.length - 1];
   if (TEST_BASENAME.some((re) => re.test(base))) return 'test-only';
   if (segments.slice(0, -1).some((s) => TEST_SEGMENTS.has(s))) return 'test-only';
+  if (CI_CONFIG_DIRS.some((d) => p.startsWith(d)) || CI_CONFIG_FILES.has(p)) return 'ci-config';
+  if (LOCKFILES.has(base)) return 'deps';
+  if (segments.length > 1 && (segments[0] === 'docs' || segments[0] === 'doc')) return 'docs';
+  if (DOC_BASENAME.test(base)) return 'docs';
   return 'shipped';
 }
 
@@ -167,13 +201,14 @@ function diffNames(a, b, cwd) {
  * Code equality of two local commits, optionally excusing what came in from the base branch.
  * @param {string} [baseCommit] the base commit the head took in; enables the excuse (see header)
  * @returns {{equal: boolean, differing: string[], excused: string[], error?: string}}
- *   `differing` lists the shipped paths (what an owner needs to see), in git's order; `equal`
+ *   `differing` lists the differing paths of every class but ignored and test-only (what an owner needs to see), in git's order; `equal`
  *   means `differing` is empty. `excused` is empty without a baseCommit.
  */
 function compare(a, b, trdRel, cwd, baseCommit) {
   const d = diffNames(a, b, cwd);
   if (d.error) return { equal: false, differing: [], excused: [], error: d.error };
-  const shipped = d.names.filter((p) => classifyPath(p, trdRel) === 'shipped');
+  // Every class but `ignored` and `test-only` differs; the tiers act in reconcile, never here.
+  const shipped = d.names.filter((p) => { const c = classifyPath(p, trdRel); return c !== 'ignored' && c !== 'test-only'; });
   if (!baseCommit || shipped.length === 0) return { equal: shipped.length === 0, differing: shipped, excused: [] };
 
   const mb = run('git', ['merge-base', a, baseCommit], cwd);
@@ -252,6 +287,88 @@ function auditedCommitOf(closedPath) {
 }
 
 // ---------------------------------------------------------------------------
+// ensemble.reproof (tier setting)
+// ---------------------------------------------------------------------------
+
+const REPROOF_DEFAULTS = { docs: 'none', testOnly: 'ci', ciConfig: 'ci', deps: 'ci', depsReprove: [], format: 'none', shipped: 'covers' };
+const REPROOF_ALLOWED = {
+  docs: ['none', 'ci', 'reprove'], testOnly: ['none', 'ci', 'reprove'], ciConfig: ['none', 'ci', 'reprove'],
+  deps: ['none', 'ci', 'reprove'], format: ['none', 'reprove'], shipped: ['covers', 'all'],
+};
+
+/**
+ * `ensemble.reproof` from `<git toplevel>/.claude/settings.json`. Absent file or key -> defaults;
+ * a set but invalid value, or a file that is not JSON -> `{error}` naming the setting (reconcile
+ * refuses rather than guess what the owner meant). Unknown keys are ignored.
+ * @returns {{settings: typeof REPROOF_DEFAULTS}|{error: string}}
+ */
+function readReproof(cwd) {
+  const top = run('git', ['rev-parse', '--show-toplevel'], cwd);
+  const file = path.join(top.ok ? top.out : cwd, '.claude', 'settings.json');
+  let configured = {};
+  if (fs.existsSync(file)) {
+    let parsed;
+    try {
+      parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (e) {
+      return { error: `ensemble.reproof cannot be read: .claude/settings.json is not valid JSON (${e.message})` };
+    }
+    const r = parsed && parsed.ensemble && parsed.ensemble.reproof;
+    if (r !== undefined && r !== null) {
+      if (typeof r !== 'object' || Array.isArray(r)) return { error: 'ensemble.reproof must be an object' };
+      configured = r;
+    }
+  }
+  const settings = { ...REPROOF_DEFAULTS };
+  for (const [key, allowed] of Object.entries(REPROOF_ALLOWED)) {
+    const v = configured[key];
+    if (v === undefined || v === null) continue;
+    if (!allowed.includes(v)) {
+      return { error: `ensemble.reproof.${key} must be one of ${allowed.join(', ')} (got ${JSON.stringify(v)})` };
+    }
+    settings[key] = v;
+  }
+  const dr = configured.depsReprove;
+  if (dr !== undefined && dr !== null) {
+    if (!Array.isArray(dr) || !dr.every((x) => typeof x === 'string' && x.trim() !== '')) {
+      return { error: `ensemble.reproof.depsReprove must be an array of non-empty strings (got ${JSON.stringify(dr)})` };
+    }
+    settings.depsReprove = dr.map((x) => x.trim());
+  }
+  return { settings };
+}
+
+const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** True when a listed package name appears, whole-word, on an added or removed line of this lockfile's diff. Unreadable diff counts as a hit (safe). */
+function lockfileNamesPackage(file, names, anchor, head, cwd) {
+  if (names.length === 0) return false;
+  const d = run('git', ['diff', '--no-renames', '-U0', anchor, head, '--', file], cwd);
+  if (!d.ok) return true;
+  const lines = d.raw.split('\n').filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---)/.test(l));
+  const res = names.map((n) => new RegExp(`(?<![A-Za-z0-9_.-])${escapeRe(n)}(?![A-Za-z0-9_.-])`));
+  return lines.some((l) => res.some((re) => re.test(l)));
+}
+
+/**
+ * Partitions the paths changed anchor..head by class (test-only included, ignored dropped) and
+ * names the promoted ones: tier `reprove`, or a lockfile hitting depsReprove.
+ */
+function partitionChanges(names, rs, trdRel, anchor, head, cwd) {
+  const tierOf = { docs: rs.docs, 'test-only': rs.testOnly, 'ci-config': rs.ciConfig, deps: rs.deps };
+  const classes = new Map(); // class -> paths, only the non-shipped, non-ignored ones
+  const promoted = [];
+  for (const p of names) {
+    const c = classifyPath(p, trdRel);
+    if (!(c in tierOf)) continue;
+    if (!classes.has(c)) classes.set(c, []);
+    classes.get(c).push(p);
+    if (tierOf[c] === 'reprove' || (c === 'deps' && lockfileNamesPackage(p, rs.depsReprove, anchor, head, cwd))) promoted.push(p);
+  }
+  return { classes, promoted, tierOf };
+}
+
+// ---------------------------------------------------------------------------
 // Affected must-pass criteria (3.5)
 // ---------------------------------------------------------------------------
 
@@ -264,15 +381,22 @@ function readJson(p) {
 }
 
 /**
- * The must-pass ids a change to `shipped` (shipped differences) plus `excused` (base-excused ones) puts in doubt. The set comes from the one reader,
+ * The must-pass ids a change puts in doubt. `shipped` and `excused` are the SHIPPED-class paths that
+ * differ / came in from the base. The set comes from the one reader,
  * `functional-verification.js must-pass-coverage` (an id is must-pass only when the TRD declares
- * it); every uncovered must-pass objective counts too (it never had a proof). A criterion with no
- * covered-file record counts as affected whenever a SHIPPED path differs (OQ-2), but not for a
- * base-only change (`shipped` empty): then its proof stands, provided verification-state records it
- * `met` (a criterion never met has no proof to keep). `reused` is the rest.
+ * it); every uncovered must-pass objective counts too (it never had a proof).
+ *
+ * Covers per id: live-evidence artifact covers -> the criterion-covers record -> none. Everything is
+ * in doubt (a) with `shipped: 'all'`, (b) when a path was `promoted` (tier `reprove`: no covers record
+ * names a lockfile or a workflow, so matching would make the promotion a no-op), or (c) when a
+ * non-excused shipped path is named by no record of any criterion (Touches lists what a task planned
+ * to edit, not everything a criterion depends on: an unclaimed file is where a record could
+ * under-cover). Otherwise a criterion with covers is affected when a changed path is on its list; one
+ * with none counts as affected whenever a shipped path differs (OQ-2), but not for a base-only change
+ * (`shipped` empty), and only when verification-state records it `met`. `reused` is the rest.
  * @returns {{ids: string[], reused: string[]}|{error: string}}
  */
-function affectedIds({ stateDir, trdPath, definitionPath, shipped, excused, cwd }) {
+function affectedIds({ stateDir, trdPath, definitionPath, shipped, excused, promoted = [], shippedAll = false, cwd }) {
   const cli = path.join(__dirname, 'functional-verification.js');
   const r = run(process.execPath, [cli, 'must-pass-coverage', '--trd', trdPath, '--definition', definitionPath], cwd);
   if (!r.ok) return { error: `must-pass-coverage failed: ${r.err || r.out}` };
@@ -284,6 +408,7 @@ function affectedIds({ stateDir, trdPath, definitionPath, shipped, excused, cwd 
   }
   const criterionIds = new Set(cov.criteria || []);
   const ids = [...new Set([...(cov.criteria || []), ...(cov.uncovered || []).map((u) => u.id)])];
+  if (shippedAll || promoted.length > 0) return { ids, reused: [] };
 
   const top = run('git', ['rev-parse', '--show-toplevel'], cwd);
   const root = fs.realpathSync(top.ok ? top.out : cwd);
@@ -295,15 +420,25 @@ function affectedIds({ stateDir, trdPath, definitionPath, shipped, excused, cwd 
   const coversByArtifact = new Map(
     liveEvidence.read(stateDir).map((e) => [realOrResolved(e.artifact, cwd), e.covers])
   );
+  const recorded = liveEvidence.readCriterionCovers(stateDir);
+  // covers[].path is absolute; git's paths are repo-relative -- compare in one form.
+  const coversOf = (id) => {
+    const artifact = artifactById.get(id);
+    const live = artifact ? coversByArtifact.get(realOrResolved(artifact, cwd)) : undefined;
+    if (live) return live.map((c) => path.relative(root, realOrResolved(c.path, cwd)).split(path.sep).join('/'));
+    return recorded.get(id); // undefined: no record
+  };
+  const coversById = new Map(ids.map((id) => [id, coversOf(id)]));
+  const claimed = new Set([...coversById.values()].filter(Boolean).flat());
+  if (shipped.some((p) => !claimed.has(p))) return { ids, reused: [] };
+
   const changed = new Set([...shipped, ...excused]);
   const affected = ids.filter((id) => {
-    const artifact = artifactById.get(id);
-    const covers = artifact ? coversByArtifact.get(realOrResolved(artifact, cwd)) : undefined;
+    const covers = coversById.get(id);
     // No covers record: only a base-only change keeps a criterion's proof, and only one it was met
     // with; an objective no criterion names, or a criterion never met, has no proof to keep.
     if (!covers) return !criterionIds.has(id) || !proven.has(id) || shipped.length > 0;
-    // covers[].path is absolute; git's paths are repo-relative -- compare in one form.
-    return covers.some((c) => changed.has(path.relative(root, realOrResolved(c.path, cwd)).split(path.sep).join('/')));
+    return covers.some((c) => changed.has(c));
   });
   return { ids: affected, reused: ids.filter((id) => !affected.includes(id)) };
 }
@@ -381,6 +516,15 @@ function reconcile(args) {
     }
   }
 
+  // The tier setting is read here, before an anchor can be written, so an invalid one stops the run
+  // untouched. `--set-only` compares nothing and so reads no setting.
+  let rs = null;
+  if (!args.setOnly) {
+    const read = readReproof(cwd);
+    if (read.error) return { action: 'refused', anchor: custody ? custody.anchor.commit : '', reason: read.error };
+    rs = read.settings;
+  }
+
   let justSet = false;
   if (!custody) {
     const audited = auditedCommitOf(closedPath);
@@ -427,12 +571,20 @@ function reconcile(args) {
 
   const cmp = compare(anchor, head, trdRel, cwd, baseCommit);
   if (cmp.error) return { action: 'refused', anchor, reason: cmp.error };
-  const shipped = cmp.differing;
+  const shipped = cmp.differing; // every differing class but ignored and test-only; what the owner sees
   const excused = cmp.excused;
   // `excused` and `mergeBases` appear only when a base was given, so a no-flag run reports exactly what it always did.
   const out = (o) => (args.base ? { ...o, excused, ...(mergeBases ? { mergeBases } : {}) } : o);
 
-  if (shipped.length === 0 && excused.length === 0) {
+  // Tiers: partition ALL changed paths (test-only included, which compare() drops) by class.
+  const all = diffNames(anchor, head, cwd);
+  if (all.error) return { action: 'refused', anchor, reason: all.error };
+  const { classes, promoted, tierOf } = partitionChanges(all.names, rs, trdRel, anchor, head, cwd);
+  const isShipped = (p) => classifyPath(p, trdRel) === 'shipped';
+  const shippedDiff = shipped.filter(isShipped);
+  const shippedExcused = excused.filter(isShipped);
+
+  if (shipped.length === 0 && excused.length === 0 && promoted.length === 0) {
     return out({
       action: justSet ? 'set' : 'none',
       anchor,
@@ -440,7 +592,7 @@ function reconcile(args) {
     });
   }
 
-  if (reason === 'format' && shipped.length > 0 && excused.length === 0) {
+  if (reason === 'format' && rs.format !== 'reprove' && shipped.length > 0 && excused.length === 0) {
     // The formatter commit is the shortcut only when it is the sole change; an earlier unverified
     // change, or a base-excused path (which still puts must-pass criteria in doubt), would
     // otherwise be waved through with it.
@@ -455,25 +607,40 @@ function reconcile(args) {
   }
 
   // With shipped differences the rules keep their old names; base-only changes move as base-merge.
-  const noneAffectedRule = shipped.length > 0 ? 'no-affected-criteria' : 'base-merge';
+  const fresh = shippedDiff.length > 0;
+  const noneAffectedRule = fresh ? 'no-affected-criteria' : 'base-merge';
   const definitionPath = args.definitionPath || path.join(stateDir, 'success-definition.md');
   const trdFile = trdRel && path.resolve(cwd, trdPath);
   if (!trdFile || !fs.existsSync(trdFile) || !fs.existsSync(path.resolve(cwd, definitionPath))) {
-    const rule = shipped.length > 0 ? 'no-success-definition' : 'base-merge';
+    const rule = shipped.length > 0 || promoted.length > 0 ? 'no-success-definition' : 'base-merge';
     const next = move(stateDir, custody, head, rule, []);
     return out({
       action: 'moved', anchor: next.anchor.commit, differing: shipped,
-      reason: shipped.length > 0 ? 'moved: no success definition to re-verify against' : 'moved: only base-branch changes since the anchor',
+      reason: rule === 'no-success-definition' ? 'moved: no success definition to re-verify against' : 'moved: only base-branch changes since the anchor',
     });
   }
 
-  const aff = affectedIds({ stateDir, trdPath: trdFile, definitionPath: path.resolve(cwd, definitionPath), shipped, excused, cwd });
+  // Only non-shipped classes changed, none promoted: nothing to re-prove, the anchor moves.
+  if (shippedDiff.length === 0 && shippedExcused.length === 0 && promoted.length === 0) {
+    const named = ['docs', 'ci-config', 'deps', 'test-only'].filter((c) => classes.has(c));
+    const ci = named.some((c) => tierOf[c] === 'ci');
+    const next = move(stateDir, custody, head, ci ? 'tier-ci' : 'tier-none', []);
+    return out({
+      action: 'moved', anchor: next.anchor.commit, differing: shipped,
+      reason: `moved: only ${named.join(', ')} changed (${ci ? 'left to CI' : 'needs no re-proof'})`,
+    });
+  }
+
+  const aff = affectedIds({
+    stateDir, trdPath: trdFile, definitionPath: path.resolve(cwd, definitionPath),
+    shipped: shippedDiff, excused: shippedExcused, promoted, shippedAll: rs.shipped === 'all', cwd,
+  });
   if (aff.error) return out({ action: 'refused', anchor, differing: shipped, reason: aff.error });
   if (aff.ids.length === 0) {
     const next = move(stateDir, custody, head, noneAffectedRule, []);
     return out({
       action: 'moved', anchor: next.anchor.commit, differing: shipped, reused: aff.reused,
-      reason: shipped.length > 0 ? 'moved: no must-pass criterion is affected' : 'moved: only base-branch changes, no must-pass criterion is affected',
+      reason: fresh ? 'moved: no must-pass criterion is affected' : 'moved: only base-branch changes, no must-pass criterion is affected',
     });
   }
   if (!reverifiedPath) {

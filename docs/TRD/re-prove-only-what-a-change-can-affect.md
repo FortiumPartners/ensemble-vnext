@@ -6,7 +6,7 @@
 
 | ID | Objective | Source | Must pass |
 |----|-----------|--------|-----------|
-| O1 | Under the default rules, a change since the custody anchor that touches only docs, only a dependency manifest or lockfile, only a CI workflow file, or only `OWNER-CALLS.md` asks for no re-proof (`custody.js reconcile` returns `none` or `moved`, never `reverify`) | roadmap item 2 brief, parts (b), (c), (d); acceptance line | yes |
+| O1 | Under the default rules, a change since the custody anchor that touches only docs, only a dependency lockfile, only a CI workflow file, or only `OWNER-CALLS.md` asks for no re-proof (`custody.js reconcile` returns `none` or `moved`, never `reverify`) | roadmap item 2 brief, parts (b), (c), (d); acceptance line | yes |
 | O2 | A shipped-code change re-proves only the must-pass criteria whose recorded covered files include a changed path; every proven criterion that maps to a TRD task carries such a record, so the "no record → re-prove on any shipped change" fallback applies only to a criterion with truly no record | roadmap item 2 brief, part (a) and (d) "a shipped change re-proves only the criteria whose covered files changed" | yes |
 | O3 | The tier rules are a per-product setting, `ensemble.reproof` in `.claude/settings.json`: absent means the defaults, a valid override changes the outcome, an invalid value stops custody with a reason naming the setting, and `scaffold-project.sh --refresh` never overwrites an owner's value | roadmap item 2 brief, part (d) | yes |
 | O4 | Covers are recorded at the moment criteria are proven: `/implement-trd` and `/verify-build` record them for every `met` criterion after the verification loop returns | roadmap item 2 brief, part (a) "record covers for every criterion when it is proven" | |
@@ -50,6 +50,7 @@
    - `shipped: 'all'` or any promoted path → every id is affected.
    - **Unclaimed-path guard:** a changed `shipped`-class path (not excused) that no record of any must-pass criterion names puts every must-pass criterion in doubt. Touches lists the files a task planned to edit, not everything a criterion depends on; a change to a file nobody claimed is the case where a record could under-cover.
 8. `/implement-trd` (Step 8.4) and `/verify-build` (its outcome step) run `record-criteria` once after the verification workflow returns; a failure is one ISSUES line, never STUCK. `ship-custody-gate.md` step 4 names the setting. `docs/guides/ship-build.md` documents `ensemble.reproof`.
+9. `scaffold-project.sh --refresh` never writes `ensemble.reproof`: a project whose `.claude/settings.json` sets `ensemble.reproof.docs` to `reprove` still has exactly that value after a refresh (guarded by a new `scaffold-project.test.sh` case; the script itself is unchanged, see Decision).
 
 Checkable outcome: `npx jest packages/core/lib/custody.test.js packages/core/lib/record-files.test.js packages/core/lib/live-evidence.test.js` passes with the new cases in each task below; `bats packages/core/scripts/scaffold-project.test.sh` passes with the new refresh case. Before this change, the docs-only, lockfile, CI-workflow and `OWNER-CALLS.md` cases each return `reverify` for a no-covers must-pass criterion.
 

@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
-const { record, read, readFresh, manifestPath, main, MAX_LINE_BYTES, COVERS_HASH_BYTES } = require('./live-evidence');
+const { deriveCriterionCovers, recordCriterionCovers, readCriterionCovers, criterionCoversPath, record, read, readFresh, manifestPath, main, MAX_LINE_BYTES, COVERS_HASH_BYTES } = require('./live-evidence');
 
 let dir; let state; let artifact; let src;
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
@@ -187,5 +187,132 @@ describe('CLI', () => {
     const chunks = [];
     expect(main(['read', '--state-dir', state], { write: (s) => chunks.push(s) })).toBe(0);
     expect(chunks.join('')).toBe('[]\n');
+  });
+});
+
+describe('criterion covers', () => {
+  const TRD = `# TRD: t
+
+## Objectives
+
+| ID | Objective | Source | Must pass |
+|----|-----------|--------|-----------|
+| O1 | First | x | yes |
+| O2 | Second | x | yes |
+| O3 | Third | x | |
+
+## Master Task List
+
+| Task ID | Description | Serves | Dependencies | Acceptance Criteria |
+|---------|-------------|--------|--------------|---------------------|
+| T-1 | Edit things | O1 | None | ok |
+| T-2 | Edit others | O2 | None | ok |
+| T-3 | Change \`lib/rowonly.js\` and \`../escape.js\` and \`/abs.js\` and \`lib/missing.js\` | O3 | None | ok |
+
+## Task Grounding
+
+### T-1
+- **Touches:** \`lib/a.js\`, \`lib/a.test.js\`, \`../out.js\`, \`/etc/passwd\`
+
+### T-2
+- **Touches:** \`lib/b.js\`
+`;
+  const DEF = `# Definition
+
+| ID | Statement | Must pass |
+|----|-----------|-----------|
+| C-1 | does one | O1 |
+| C-2 | does two, see T-1 | O2 |
+| C-3 | does three | O3 |
+| C-4 | does nothing mapped | |
+`;
+  let trd; let def;
+  beforeEach(() => {
+    trd = path.join(dir, 'trd.md'); def = path.join(dir, 'def.md');
+    fs.writeFileSync(trd, TRD); fs.writeFileSync(def, DEF);
+    fs.mkdirSync(path.join(dir, 'lib'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'lib', 'rowonly.js'), 'x');
+  });
+  const derive = (ids) => deriveCriterionCovers({ trdPath: trd, definitionPath: def, ids, cwd: dir });
+
+  test('derives from Touches via Serves, dropping ../ and absolute paths', () => {
+    expect(derive(['C-1']).get('C-1')).toEqual({ covers: ['lib/a.js', 'lib/a.test.js'], source: 'touches' });
+  });
+
+  test('a task id named in the row adds that task as well as the Serves match', () => {
+    expect(derive(['C-2']).get('C-2').covers).toEqual(['lib/a.js', 'lib/a.test.js', 'lib/b.js']);
+  });
+
+  test('a task with no Touches falls back to existing backticked paths in its row', () => {
+    expect(derive(['C-3']).get('C-3')).toEqual({ covers: ['lib/rowonly.js'], source: 'task-row' });
+  });
+
+  test('no record when nothing maps, and ids not asked for are not derived', () => {
+    const m = derive(['C-4', 'C-1']);
+    expect(m.has('C-4')).toBe(false);
+    expect([...m.keys()]).toEqual(['C-1']);
+  });
+
+  test('a second record merges with the first and a re-record of one id replaces it', () => {
+    recordCriterionCovers(state, new Map([['C-1', { covers: ['a.js'], source: 'touches' }]]), '2026-01-01T00:00:00.000Z');
+    recordCriterionCovers(state, new Map([['C-2', { covers: ['b.js'], source: 'task-row' }]]));
+    expect([...readCriterionCovers(state).keys()].sort()).toEqual(['C-1', 'C-2']);
+    recordCriterionCovers(state, new Map([['C-1', { covers: ['z.js'], source: 'touches' }]]));
+    expect(readCriterionCovers(state).get('C-1')).toEqual(['z.js']);
+    expect(readCriterionCovers(state).get('C-2')).toEqual(['b.js']);
+    expect(fs.readdirSync(path.dirname(criterionCoversPath(state)))).toEqual(['criterion-covers.json']);
+  });
+
+  test('a criterion with 60 covered files is recorded intact', () => {
+    const covers = Array.from({ length: 60 }, (_, i) => `packages/core/lib/some-long-file-name-${i}.js`);
+    recordCriterionCovers(state, new Map([['C-1', { covers, source: 'touches' }]]));
+    expect(readCriterionCovers(state).get('C-1')).toEqual(covers);
+  });
+
+  test('absent, unreadable and malformed files read as empty', () => {
+    expect(readCriterionCovers(state).size).toBe(0);
+    fs.mkdirSync(path.dirname(criterionCoversPath(state)), { recursive: true });
+    fs.writeFileSync(criterionCoversPath(state), '{not json');
+    expect(readCriterionCovers(state).size).toBe(0);
+    fs.rmSync(criterionCoversPath(state));
+    fs.mkdirSync(criterionCoversPath(state)); // a directory: unreadable as a file
+    expect(readCriterionCovers(state).size).toBe(0);
+  });
+
+  test('CLI records only met ids and prints {recorded, none}', () => {
+    fs.mkdirSync(state, { recursive: true });
+    fs.writeFileSync(path.join(state, 'verification-state.json'), JSON.stringify({
+      criteria: [{ id: 'C-1', status: 'met' }, { id: 'C-2', status: 'unmet' }, { id: 'C-4', status: 'met' }],
+    }));
+    const cwd = process.cwd();
+    process.chdir(dir);
+    const chunks = [];
+    let code;
+    try {
+      code = main(['record-criteria', '--state-dir', state, '--trd', trd, '--definition', def], { write: (c) => chunks.push(c) }, { write: () => {} });
+    } finally { process.chdir(cwd); }
+    expect(code).toBe(0);
+    expect(JSON.parse(chunks.join(''))).toEqual({ recorded: ['C-1'], none: ['C-4'] });
+    expect([...readCriterionCovers(state).keys()]).toEqual(['C-1']);
+  });
+
+  test('CLI without --trd is a usage error', () => {
+    expect(main(['record-criteria', '--state-dir', state], { write: () => {} }, { write: () => {} })).toBe(2);
+  });
+
+  describe('real data: ci-baseline-check', () => {
+    const root = path.resolve(__dirname, '../../..');
+    const realTrd = path.join(root, 'docs/TRD/ci-baseline-check.md');
+    const realDef = path.join(root, '.trd-state/ci-baseline-check/success-definition.md');
+    const ready = fs.existsSync(realTrd) && fs.existsSync(realDef);
+    (ready ? test : test.skip)('every criterion whose Must pass cell names an objective gets a record', () => {
+      const rows = fs.readFileSync(realDef, 'utf8').split('\n').filter((l) => /^\| FS-\d+ /.test(l));
+      const withObjective = rows
+        .map((l) => ({ id: l.split('|')[1].trim(), mp: l.split('|').slice(-2)[0] }))
+        .filter((r) => /\bO\d+\b/.test(r.mp)).map((r) => r.id);
+      expect(withObjective.length).toBeGreaterThan(0);
+      const m = deriveCriterionCovers({ trdPath: realTrd, definitionPath: realDef, ids: withObjective, cwd: root });
+      for (const id of withObjective) expect(m.get(id) && m.get(id).covers.length).toBeGreaterThan(0);
+    });
   });
 });
