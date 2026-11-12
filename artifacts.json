@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/ci-runtime-integrity.md",
+    "url": "https://claude.ai/artifact/5VRoYpuraTZN2M7ifhfoTU",
+    "updated_at": "2026-11-07T13:30:04.440Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/ci-runtime-integrity/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-07T13:35:52.070Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/ci-runtime-integrity/verification-report.md",
+    "url": "https://claude.ai/artifact/AK5DCy43FKH2oTJ3eTjrqa",
+    "updated_at": "2026-11-07T13:39:19.960Z",
+    "command": "/implement-trd"
+  }
+}

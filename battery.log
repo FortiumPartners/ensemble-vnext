@@ -1,0 +1,19 @@
+  86   ok  0    fail  packages/core/hooks/formatter.test.sh
+  71   ok  0    fail  packages/core/hooks/notify.test.sh
+  20   ok  0    fail  packages/core/hooks/runtime-refresh.test.sh
+  138  ok  0    fail  packages/core/scripts/scaffold-project.test.sh
+  22   ok  0    fail  packages/core/scripts/validate-init.test.sh
+  36   ok  0    fail  test/integration/hooks/formatter-hook.test.sh
+  28   ok  0    fail  test/integration/hooks/notify-hook.test.sh
+  28   ok  0    fail  test/integration/hooks/status-hook.test.sh
+  19   ok  0    fail  test/integration/tests/audit-docs.test.sh
+  9    ok  0    fail  test/integration/tests/commands.test.sh
+  39   ok  0    fail  test/integration/tests/notify-on-complete.test.sh
+  6    ok  0    fail  test/integration/tests/plan-command.test.sh
+  18   ok  0    fail  test/integration/tests/runtime-integrity.test.sh
+  14   ok  0    fail  test/integration/tests/scaffold-delivery.test.sh
+  6    ok  0    fail  test/integration/tests/smoke-registration.test.sh
+  24   ok  0    fail  test/integration/tests/vendoring.test.sh
+
+suites: 16   assertions passing: 564
+all suites gather and pass
