@@ -113,14 +113,14 @@ none
 
 ### FIX-001
 - **Touches:** `packages/core/lib/followup-rank.js`, `packages/core/lib/followup-rank.test.js`, `packages/core/lib/discovered.js`, `.claude/lib/followup-rank.js`, `.claude/lib/discovered.js`, `packages/full/lib/followup-rank.js`
-- **Reuse:** `discovered.readAll(dir, { open: true })` for reading (`discovered.js:603`), its `record` validation pattern (`VERIFICATION_STATUSES.includes(entry.status)`, `discovered.js:525`) for `rankClass`; `flaky-ci.js`'s CLI shape (`node .claude/lib/flaky-ci.js import --state-dir ...`) for the `open` subcommand; `flaky-ci.test.js:108-109`'s mirror and symlink assertions [read]
+- **Reuse:** `discovered.readAll(dir, { open: true })` for reading (`discovered.js:609`), its `record` validation pattern (`VERIFICATION_STATUSES.includes(entry.status)`, `discovered.js:520`) for `rankClass`; `flaky-ci.js`'s CLI shape (`node .claude/lib/flaky-ci.js import --state-dir ...`) for the `open` subcommand; `flaky-ci.test.js:108-109`'s mirror and symlink assertions [read]
 - **Replaces:** nothing — new module; `record` gains one optional field [read]
 - **Follow:** the `## Decision` above. `'use strict'`, CommonJS, a header comment saying why the module exists (as `discovered.js` and `flaky-ci.js` do); CLI prints JSON to stdout, usage to stderr with exit 2. `packages/full/lib/<name>.js` is a relative symlink `../../core/lib/<name>.js`; `.claude/lib/` holds a byte copy (scaffold copies `*.js` from the plugin `lib/`, `scaffold-project.sh:419-424`) [read]
 - **Careful:** `record` must keep the row under `MAX_LINE_BYTES` (2048) — `rankClass` is short and fixed, and is never trimmed by the ladder; do not add a `require('./followup-rank')` inside `discovered.js` (circular). `flaky-ci.js` is not touched [read]
 
 ### FIX-002
 - **Touches:** `packages/core/contracts/ship-primitive-file-followups.md`, `.claude/contracts/ship-primitive-file-followups.md`, `packages/core/commands/ship-build.md`, `.claude/commands/ship-build.md`, `packages/core/contracts/ship-primitives.test.js`, `packages/core/contracts/ship-tracker.test.js`, `docs/guides/ship-build.md`
-- **Reuse:** the existing step structure of the contract (steps 1-5, Result) and Step 6's STATE/ISSUES bullets in `ship-build.md:217-244`; the existing `flat()` helper and `describe('the after-shipping primitives')` block in `ship-primitives.test.js:546` [read]
+- **Reuse:** the existing step structure of the contract (steps 1-5, Result) and Step 6's STATE/ISSUES bullets in `ship-build.md:217-244`; the existing `flat()` helper and `describe('the after-shipping primitives')` block in `ship-primitives.test.js:544` [read]
 - **Replaces:** step 3's `discovered.readAll(dir, { open: true })` as the read; the readout's `discovered.readAll` one-liner for "recorded, not yet filed"; `ship-tracker.test.js:130`'s pinned `{ filed: [{ summary, url }], ... }` [read]
 - **Follow:** the `## Decision` above. Keep every existing sentence the current tests pin (`Import what has no row yet`, `discovered.resolve(dir, row, "filed <url>")`, `reads no row of the sweep ledger`, `[review-pending]`, `[flaky-capped]` ... `reported, never filed`, `below-bar=yes`; and from `ship-tracker.test.js:90-123`: `No tracker, or a failed call: file nothing for that row and leave it open`, `one line per item, each naming the row by its summary and its ledger path`, `no tracker declared in stack.md`, the `stack.md`'s `## Issue Tracker` section sentence and `as close-issue reads it`); the mirror test (`ship-primitives.test.js:71`) requires `.claude/contracts/` byte-identical [read]
 - **Careful:** leave the step-1 import one-liner as it is (its rows are classed by prefix); `resolve` must be called against each row's own `dir`; the class-led `data.issues` lines must still name the row by its summary and its ledger path [read]
@@ -134,5 +134,8 @@ none
 
 ## Could Not Verify
 
-- The class split in issue #113 (about 12 product, 9 host or tooling, 7 paperwork, 9 not-verifiable) is from the product repo's issue #105, which was not read; no producer in this repo yet emits `host` rows — that class is reached only through a recorded `rankClass`; `paperwork` is reached through `kind: "stale-grounding"` or a recorded `rankClass`.
-- A live `/ship-build` run filing against a real tracker is not exercised; the seam test stubs the tracker.
+Updated by `/audit-build`, 2026-11-11. All 5 verifiers reported; 12 requirements and 3 tasks were checked against the delivered code and tests.
+
+- **No PRD was supplied** (the source is the owner's instruction, roadmap item 6, issue #113). The audit checked the delivered code against this TRD only; whether this TRD fully and faithfully captures what the owner asked for (fidelity and omission) was not checked.
+- The class split in issue #113 (about 12 product, 9 host or tooling, 7 paperwork, 9 not-verifiable) comes from the product repo's issue #105, which was not read; out of scope for a code audit. Confirmed in the code: no producer in this repo sets `rankClass`, so `host` is reached only through a recorded `rankClass`, and `paperwork` only through `kind: "stale-grounding"` or a recorded `rankClass`.
+- A live `/ship-build` run filing against a real tracker was not exercised; the seam test stubs the tracker, and no live tracker environment is listed in `verification.md`.
