@@ -78,4 +78,44 @@ describe('verify-build.md --criteria (D13)', () => {
     expect(read(IMPLEMENT)).toContain('verify-functional');
     expect(text()).toMatch(/No field is added or removed: the list stays the 26 fields/);
   });
+
+  describe('the one re-proof retry', () => {
+    test('retries only the not-met criteria, once, chosen by reproof-retry-set', () => {
+      const s = criteria();
+      expect(s).toMatch(/\*\*One retry, no Debug\*\*/);
+      expect(s).toMatch(/node \.claude\/lib\/functional-verification\.js reproof-retry-set \.trd-state\/<feature>\/reverify\/verification-state\.json/);
+      expect(s).toMatch(/empty `retry` list means no retry/);
+      expect(s).toMatch(/only the criteria that were not met/);
+      expect(s).toMatch(/at most once/);
+    });
+    test('the retry runs no Debug, edits no code and builds nothing', () => {
+      expect(criteria()).toMatch(/no Debug pass, no code edit and no build/);
+      expect(criteria()).toMatch(/not a second iteration of the loop/);
+    });
+    test('the retry has its own folder and a recomputed since', () => {
+      const s = criteria();
+      expect(s).toMatch(/`\.trd-state\/<feature>\/reverify\/retry\/`/);
+      expect(s).toMatch(/`resume: null`/);
+      expect(s).toMatch(/`since` recomputed as the later of the HEAD commit time and the retry's own start/);
+      expect(s).toMatch(/`cap` stays `1`/);
+    });
+    test('the merge goes through merge-reproof-retry and marks retried: true', () => {
+      const s = criteria();
+      expect(s).toMatch(/merge-reproof-retry --first \.trd-state\/<feature>\/reverify\/verification-state\.json --second \.trd-state\/<feature>\/reverify\/retry\/verification-state\.json/);
+      expect(s).toMatch(/`retried: true`/);
+      expect(s).toMatch(/`satisfied` only when every criterion is met/);
+    });
+    test('RETURN uses the merged counts and the report files stay separate', () => {
+      const s = criteria();
+      expect(s).toMatch(/merged `outcome`, `met` and `total`/);
+      expect(s).toMatch(/`reverify\/verification-report\.md` stays the first run's report/);
+      expect(s).toMatch(/`reverify\/retry\/verification-report\.md` is the retry's/);
+    });
+    test('step 4 override names the retry and keeps 26 fields; RETURN line unchanged', () => {
+      const t = text();
+      expect(t).toMatch(/\*\*Under `--criteria`\*\*.*retry.*reverify\/retry\//);
+      expect(t).toMatch(/the list stays the 26 fields/);
+      expect(t).toContain('`RETURN → setup-failure, <met> of <total> met`');
+    });
+  });
 });
