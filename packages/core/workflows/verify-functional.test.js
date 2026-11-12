@@ -3709,6 +3709,98 @@ describe('verify-functional: kind routing (triage D1-D6, D20-D23)', () => {
   });
 });
 
+describe('verify-functional: digest-persisted and preclassified not-checkable entries (triage D8, D11-D13)', () => {
+  const NC = (id, extra = {}) => ({ id, status: 'not_verifiable', tier1: 'fail', artifact: null, reason: 'no env', cause: 'capability-absent', kind: 'not-checkable-here', files: [], ...extra });
+  const metC = (id) => ({ id, status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, files: [] });
+  const resumeWith = (entry) => ({
+    iteration: 1,
+    criteria: [{ id: 'FS-1', status: 'met', artifact: 'a.txt', reason: null, tier1: 'pass', provenAt: 1 }, { id: 'FS-2', ...entry }],
+    gapsClosed: [],
+  });
+  const ncEntry = (extra = {}) => ({ status: 'not_verifiable', artifact: null, reason: 'no env', cause: 'capability-absent', kind: 'not-checkable-here', provenAt: 1, ...extra });
+  const run = async (args, judge) => {
+    const prompts = { judge: [], exercise: [] };
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') { prompts.exercise.push(prompt); return exercisePlanClaims([{ criterion: 'FS-2', artifact: 'b.txt' }]); }
+      if (opts.label === 'judge') { prompts.judge.push(prompt); return judge ? judge() : satisfiedJudge({ criteria: [metC('FS-2')] }); }
+      if (opts.label === 'state-sync') return { synced: true };
+      return null;
+    });
+    const out = await runWorkflow(SOURCE, { agent, args: baseArgs(args) });
+    return { ...out, prompts, agent };
+  };
+  const two = { criteria: [criterion('FS-1'), criterion('FS-2')] };
+
+  it('an equal non-empty digest keeps the entry settled: not exercised, not judged again', async () => {
+    const { prompts, result } = await run({ ...two, verificationDigest: 'abc', resume: resumeWith(ncEntry({ verificationDigest: 'abc' })) }, () => satisfiedJudge({ criteria: [] }));
+    expect(prompts.exercise).toHaveLength(0);
+    expect(result.criteria.find((c) => c.id === 'FS-2')).toMatchObject({ status: 'not_verifiable', kind: 'not-checkable-here', verificationDigest: 'abc' });
+  });
+
+  it('a different digest, no recorded digest, or an empty digest re-opens the entry', async () => {
+    for (const [digest, rec] of [['new', { verificationDigest: 'old' }], ['abc', {}], ['', { verificationDigest: '' }]]) {
+      const { prompts } = await run({ ...two, verificationDigest: digest, resume: resumeWith(ncEntry(rec)) });
+      expect(openIdsFrom(prompts.judge[0])).toEqual(['FS-2']);
+    }
+  });
+
+  it('a preclassified id is in no Exercise prompt, no Judge open set, and is settled with provenAt 0', async () => {
+    const pre = [{ id: 'FS-2', status: 'not_verifiable', kind: 'not-checkable-here', cause: 'capability-absent', reason: 'parts board', preclassified: true }];
+    const { prompts, result } = await run({ ...two, preclassified: pre, verificationDigest: 'abc' }, () => satisfiedJudge({ criteria: [metC('FS-1')] }));
+    expect(prompts.exercise.join('\n')).not.toContain('statement for FS-2');
+    expect(openIdsFrom(prompts.judge[0])).toEqual(['FS-1']);
+    expect(settledFrom(prompts.judge[0])).toEqual([expect.objectContaining({ id: 'FS-2', provenAt: 0, kind: 'not-checkable-here', preclassified: true, verificationDigest: 'abc', reason: 'parts board' })]);
+    expect(result.criteria.find((c) => c.id === 'FS-2')).toMatchObject({ status: 'not_verifiable', provenAt: 0 });
+  });
+
+  it('a preclassified entry overrides a resume entry for the same id', async () => {
+    const pre = [{ id: 'FS-2', status: 'not_verifiable', kind: 'not-checkable-here', reason: 'minified' }];
+    const resume = resumeWith({ status: 'met', artifact: 'x', reason: null, tier1: 'pass', provenAt: 1 });
+    const { prompts } = await run({ ...two, preclassified: pre, resume }, () => satisfiedJudge({ criteria: [] }));
+    expect(settledFrom(prompts.judge[0]).find((c) => c.id === 'FS-2')).toMatchObject({ status: 'not_verifiable', provenAt: 0 });
+  });
+
+  it('rejects bad argument shapes before any dispatch', async () => {
+    const bad = [
+      [{ verificationDigest: 5 }, /verificationDigest must be a string/],
+      [{ preclassified: 'x' }, /preclassified must be an array/],
+      [{ preclassified: [{ id: 'NOPE', status: 'not_verifiable', kind: 'not-checkable-here' }] }, /not a criterion id/],
+      [{ preclassified: [{ id: 'FS-1', status: 'met', kind: 'not-checkable-here' }] }, /status must be "not_verifiable"/],
+      [{ preclassified: [{ id: 'FS-1', status: 'not_verifiable', kind: 'build-defect' }] }, /kind must be "not-checkable-here"/],
+      [{ preclassified: [null] }, /preclassified\[0\]/],
+    ];
+    for (const [extra, pattern] of bad) {
+      const agent = makeAgentStub(() => null);
+      await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ ...two, ...extra }) })).rejects.toThrow(pattern);
+      expect(agent.calls).toHaveLength(0);
+    }
+  });
+
+  it('the setup prompt warms up, probes with --max-time 60 inside one call, and drops --max-time 5', async () => {
+    const agent = makeAgentStub(setupPlan());
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
+    const prompt = agent.calls.find((c) => c.opts.label === 'setup').prompt;
+    expect(prompt).toMatch(/warm-up request/);
+    expect(prompt).toContain('--max-time 60');
+    expect(prompt).toMatch(/about 90 seconds/);
+    expect(prompt).not.toContain('--max-time 5 ');
+  });
+
+  it('a not-checkable verdict on the exit iteration is saved by the script with the current digest', async () => {
+    const { agent, prompts, result } = await run({ ...two, verificationDigest: 'abc123' }, () =>
+      satisfiedJudge({ criteria: [metC('FS-1'), NC('FS-2')] }));
+    expect(prompts.judge[0]).toContain('"verificationDigest": "abc123"');
+    expect(result.criteria.find((c) => c.id === 'FS-2')).toMatchObject({ kind: 'not-checkable-here', verificationDigest: 'abc123' });
+    const sync = agent.calls.find((c) => c.opts.label === 'state-sync');
+    expect(sync.prompt).toMatch(/"id":"FS-2","status":"not_verifiable"[^\n]*"verificationDigest":"abc123"/);
+  });
+
+  it('stamps nothing when the digest is empty', async () => {
+    const { result } = await run({ ...two }, () => satisfiedJudge({ criteria: [metC('FS-1'), NC('FS-2')] }));
+    expect(result.criteria.find((c) => c.id === 'FS-2')).not.toHaveProperty('verificationDigest');
+  });
+});
+
 describe('verify-functional: mirror parity', () => {
   it('is byte-identical to the .claude/workflows/ copy', () => {
     const mirrorPath = path.join(__dirname, '..', '..', '..', '.claude', 'workflows', 'verify-functional.js');

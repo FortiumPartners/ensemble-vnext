@@ -1282,6 +1282,17 @@ function renderReport(input) {
   // Image layout (verification-report-images D7). When no criterion carries an image field the
   // gate is closed and every line below is skipped, so older reports stay byte-identical.
   const images = classifyImages(criteria);
+  // Kind rendering (triage D16) is gated on SOME criterion carrying a non-null `kind`, not on the
+  // key existing: a state written for an all-`met` run has `kind: null` throughout and must keep
+  // its old bytes. A closed gate skips every line below that mentions kind.
+  const kindGate = criteria.some((c) => c.kind != null);
+  // The kind a row shows: the recorded one, else the cause's, else "unrecorded" (mirrors the
+  // `unrecorded` cause bucket).
+  const rowKind = (c) => c.kind ?? kindOf(c.cause) ?? 'unrecorded';
+  const kindWords = (c) => KIND_LABEL[rowKind(c)] ?? rowKind(c);
+  // Settled evidence gaps (D5, D7): listed in their own section, never under Not Met.
+  const isSettledGap = (c) => c.settled === 'definition-problem';
+  const settledGaps = kindGate ? criteria.filter((c) => c.status === 'not_met' && isSettledGap(c)) : [];
 
   const lines = [];
   lines.push(`# Functional Verification Report: ${feature}`);
@@ -1293,10 +1304,18 @@ function renderReport(input) {
   // the headline reads as a clean pass even when a chunk of the criteria were never checked.
   // Surface that count on the outcome line itself, not just in the `Criteria` tally three
   // lines down, since a banner quoting this line alone must not imply full coverage.
-  const outcomeSuffix =
+  let outcomeSuffix =
     outcome === 'satisfied' && notVerifiable.length > 0
       ? ` (${notVerifiable.length} of ${criteria.length} not verifiable)`
       : '';
+  if (outcome === 'satisfied' && settledGaps.length > 0) {
+    // A satisfied run gets no Diagnosis line, so this suffix and the section below are the only
+    // places a settled evidence gap shows (D7, D16).
+    const parts = [];
+    if (notVerifiable.length > 0) parts.push(`${notVerifiable.length} of ${criteria.length} not verifiable`);
+    parts.push(`${settledGaps.length} evidence gap${settledGaps.length === 1 ? '' : 's'} — definition problem`);
+    outcomeSuffix = ` (${parts.join(', ')})`;
+  }
   // The full-environment gate's own suffix (D14, §3.6), appended to whatever the coverage
   // suffix above already produced. Three renderings, not two: a `fail` carries the failure
   // even when the outcome is `satisfied` — that combination is the one the suffix exists for,
@@ -1392,13 +1411,30 @@ function renderReport(input) {
       const cause = c.cause ?? 'unrecorded';
       counts.set(cause, (counts.get(cause) ?? 0) + 1);
     }
+    // Kind counts lead the line when the gate is open (D16). One plural rule: append "s" unless
+    // the label ends in "here" ("not checkable here" has no plural form).
+    let kindPrefix = '';
+    if (kindGate) {
+      const kindCounts = new Map();
+      for (const c of open) kindCounts.set(rowKind(c), (kindCounts.get(rowKind(c)) ?? 0) + 1);
+      kindPrefix = [...KINDS, 'unrecorded']
+        .filter((k) => kindCounts.get(k) > 0)
+        .map((k) => {
+          const n = kindCounts.get(k);
+          const label = KIND_LABEL[k] ?? k;
+          return `${n} ${n === 1 || label.endsWith('here') ? label : `${label}s`}`;
+        })
+        .join(', ');
+    }
     const causeWords = Array.from(counts.entries())
       .filter(([, count]) => count > 0)
       .sort((a, b) => b[1] - a[1])
       .map(([cause, count]) => `${count} ${CAUSE_LABEL[cause] ?? cause}`)
       .join(', ');
     lines.push(
-      `**Diagnosis**: ${open.length} open` + (causeWords ? ` — ${causeWords}` : '')
+      `**Diagnosis**: ${open.length} open` +
+        (kindPrefix ? ` — ${kindPrefix}` : '') +
+        (causeWords ? ` — ${causeWords}` : '')
     );
     lines.push(
       isSweep
@@ -1419,8 +1455,13 @@ function renderReport(input) {
     lines.push("**Next**: commit the swept fixes, then build the core TRD named on the sweep file's `**Core TRD**:` line");
   } else if (outcome === 'satisfied') {
     // O4 (docs/TRD/refine-verification.md): the report's Next line follows the same rule as
-    // both commands' readouts, so a satisfied run names its successor too.
-    lines.push('**Next**: `/audit-build`');
+    // both commands' readouts, so a satisfied run names its successor too. A settled definition
+    // problem is the owner's to rule on first (D16, D24), same Next as a run that fell short.
+    lines.push(
+      settledGaps.length > 0
+        ? '**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`'
+        : '**Next**: `/audit-build`'
+    );
   }
 
   lines.push('');
@@ -1452,10 +1493,12 @@ function renderReport(input) {
       'Implementation did not deliver these criteria. The loop stopped rather than debugging absent code (D14).'
     );
     lines.push('');
-    lines.push('| ID | Statement | Reason |');
-    lines.push('|----|-----------|--------|');
+    lines.push(kindGate ? '| ID | Statement | Reason | Kind |' : '| ID | Statement | Reason |');
+    lines.push(kindGate ? '|----|-----------|--------|------|' : '|----|-----------|--------|');
     for (const c of unbuilt) {
-      lines.push(`| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.reason)} |`);
+      lines.push(
+        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.reason)} |` + (kindGate ? ` ${kindWords(c)} |` : '')
+      );
     }
     lines.push('');
   }
@@ -1484,20 +1527,30 @@ function renderReport(input) {
 
   lines.push('## Not Met');
   lines.push('');
-  if (notMet.length === 0) {
+  // Settled evidence gaps have their own section below (D16), so the gate-open table skips them.
+  const notMetShown = kindGate ? notMet.filter((c) => !isSettledGap(c)) : notMet;
+  if (notMetShown.length === 0) {
     lines.push('_None._');
   } else {
     // `Tier 1` (D8, §3.6), sourced from the state file's persisted `tier1` verdict -- it is
     // what separates a criterion that was never reached from one that was reached and failed.
     // Blank, not a fabricated value, when the report input carries no `tier1` at all.
-    lines.push('| ID | Statement | Tier 1 | Reason | Blocker | Attempts |');
-    lines.push('|----|-----------|--------|--------|---------|----------|');
-    for (const c of notMet) {
+    lines.push(
+      kindGate
+        ? '| ID | Statement | Kind | Tier 1 | Reason | Blocker | Attempts |'
+        : '| ID | Statement | Tier 1 | Reason | Blocker | Attempts |'
+    );
+    lines.push(
+      kindGate
+        ? '|----|-----------|------|--------|--------|---------|----------|'
+        : '|----|-----------|--------|--------|---------|----------|'
+    );
+    for (const c of notMetShown) {
       const attempts = (c.attempts || [])
         .map((a) => `iter ${a.iteration}: ${a.result}`)
         .join('; ');
       lines.push(
-        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.tier1 ?? '')} | ${escapeCell(c.reason)} | ${escapeCell(c.blocker)} | ${escapeCell(attempts)} |`
+        `| ${c.id} | ${escapeCell(c.statement)} | ${kindGate ? `${kindWords(c)} | ` : ''}${escapeCell(c.tier1 ?? '')} | ${escapeCell(c.reason)} | ${escapeCell(c.blocker)} | ${escapeCell(attempts)} |`
       );
     }
   }
@@ -1508,13 +1561,34 @@ function renderReport(input) {
   if (notVerifiable.length === 0) {
     lines.push('_None._');
   } else {
-    lines.push('| ID | Statement | Reason |');
-    lines.push('|----|-----------|--------|');
+    lines.push(kindGate ? '| ID | Statement | Kind | Reason |' : '| ID | Statement | Reason |');
+    lines.push(kindGate ? '|----|-----------|------|--------|' : '|----|-----------|--------|');
     for (const c of notVerifiable) {
-      lines.push(`| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.reason)} |`);
+      // The mark is ours, appended after escaping (D16).
+      const mark = kindGate && c.preclassified === true ? ' (classified before exercise)' : '';
+      lines.push(
+        `| ${c.id} | ${escapeCell(c.statement)} | ${kindGate ? `${kindWords(c)} | ` : ''}${escapeCell(c.reason)}${mark} |`
+      );
     }
   }
   lines.push('');
+
+  // Before `## Evidence`: images.gate makes that the report's last section (/verify-build step 6
+  // appends `## Fix run` after it).
+  if (settledGaps.length > 0) {
+    lines.push('## Evidence gaps (definition problems)');
+    lines.push('');
+    lines.push(
+      'The criterion asks for evidence the build does not produce — change the criterion or the build\'s outputs.'
+    );
+    lines.push('');
+    lines.push('| ID | Statement | Reason |');
+    lines.push('|----|-----------|--------|');
+    for (const c of settledGaps) {
+      lines.push(`| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.reason)} |`);
+    }
+    lines.push('');
+  }
 
   if (images.gate) {
     // The report's last section (D7c): /verify-build step 6 appends `## Fix run` after it, and

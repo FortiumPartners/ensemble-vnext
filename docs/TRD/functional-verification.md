@@ -513,7 +513,7 @@ argument mid-command. `decide-next` and `render-report` take the same three payl
 **Interface**:
 
 ```typescript
-// args -- 26 fields; the workflow reads every one of them and nothing else
+// args -- 28 fields; the workflow reads every one of them and nothing else
 interface ExerciseLane {
   resource: string | null;  // the verification.md §1a resource this lane contends for; null = the
                             //   remainder lane (criteria whose evidence needs no environment)
@@ -524,6 +524,14 @@ interface ExerciseLane {
   createCommand: string;    // §1a's create/destroy command, verbatim. "" = this lane's slices may
                             //   NOT create an instance and use what is running, whatever the count
   criteria: string[];       // criterion ids in this lane: each one in `criteria`, none in two lanes
+}
+
+interface PreclassifiedEntry {   // NEW (triage D10, D12). One criterion known not checkable before exercise
+  id: string;                    // a criterion id in `criteria`
+  status: 'not_verifiable';
+  kind: 'not-checkable-here';
+  cause?: string;                // default 'capability-absent'
+  reason?: string;
 }
 
 interface SetupTarget {   // NEW (verification-preflight D7). One environment the setup check tests
@@ -568,7 +576,7 @@ interface VerifyFunctionalArgs {
                                         //   VFIX-B002). One of `CAUSES`, or `null` for a `met`
                                         //   entry; carried through a resume verbatim, never
                                         //   re-derived
-      provenAt?: number | null;        // only `met` entries are carried forward — see below
+      provenAt?: number | null;        // `met` entries, and not-checkable-here entries whose digest matches, are carried forward — see below
     }>;
     gapsClosed: number[];              // AUDIT RECORD, not a loop input — see below
   } | null;                            // NB: the state FILE has a fourth key, `outcome`; the
@@ -602,6 +610,16 @@ interface VerifyFunctionalArgs {
                                   //   declared must-pass objectives no criterion names. Absent =
                                   //   []. Each entry needs a non-empty string `id`, or it throws.
                                   //   Any entry blocks `satisfied`, as an unproven criterion does
+  verificationDigest?: string;    // NEW (`docs/TRD/triage-unmet-results-by-kind.md` D8, D12). The
+                                  //   sha256 of verification.md (`verification-digest` CLI); ""
+                                  //   or absent = nothing persists. Stamped on every settled
+                                  //   not-checkable-here entry; a resume entry persists only when
+                                  //   its recorded digest is non-empty and equals this one
+  preclassified?: PreclassifiedEntry[];  // NEW (same D10-D12). Criteria the caller classified as
+                                  //   not checkable before any exercise; seeded settled with
+                                  //   provenAt 0. Absent = []. An id not in `criteria`, or an entry
+                                  //   whose status/kind is not not_verifiable/not-checkable-here,
+                                  //   throws before any agent is dispatched
   checks: { [skill: string]: string };  // NEW (VART D11). Each selected verification-check
                                         //   skill's SKILL.md text, keyed by skill name; {} when
                                         //   none were selected. Every criterion whose
@@ -783,9 +801,10 @@ Judge, then at most one Debug (VC D3):
 D1–D3.* The v2.0.0 answer was "all of them, on every iteration". Now, within one invocation, a
 criterion the Judge rules `met`, `not_verifiable` or `unbuilt` moves into the settled map,
 stamped with `provenAt`, the iteration its verdict was established at. It is not walked again.
-A `not_met` criterion stays out of the map and stays open. **Across invocations only `met`
-carries:** a resumed run seeds the map from `resume.criteria` filtered for `met`, and every
-earlier `not_verifiable` goes back into the open set. The command's preflight has re-read
+A `not_met` criterion stays out of the map and stays open. **Across invocations `met` carries,
+and so does a `not-checkable-here` entry whose recorded `verificationDigest` is non-empty and
+equals this run's** (triage D8): a resumed run seeds the map from `resume.criteria` that way, and
+every other earlier `not_verifiable` goes back into the open set. The command's preflight has re-read
 `verification.md` since, and an environment the owner unblocked is what a resume is for (VC
 D2). `unbuilt` is settled within a run for the report's and state file's symmetry only, since
 `decideNext` exits terminally on the first `unbuilt` verdict anyway. A Judge entry for an

@@ -4485,3 +4485,151 @@ describe('CLI: preclassify', () => {
     expect(r.stderr).toMatch(/Usage/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// renderReport: kind rendering (triage D16, D24) -- all of it gated on a criterion carrying `kind`
+// ---------------------------------------------------------------------------
+describe('renderReport: kind rendering', () => {
+  const crit = (id, status, extra = {}) => ({
+    id,
+    statement: `statement for ${id}`,
+    cites: 'FR-1',
+    status,
+    artifact: null,
+    reason: `reason ${id}`,
+    attempts: [],
+    blocker: null,
+    ...extra,
+  });
+  const baseFor = (outcome, criteria, extra = {}) => ({
+    feature: 'demo',
+    prd: 'docs/PRD/demo.md',
+    definitionPath: '.trd-state/demo/success-definition.md',
+    outcome,
+    reason: 'r',
+    criteria,
+    ...extra,
+  });
+  const mixed = [
+    crit('FS-1', 'met', { kind: null }),
+    crit('FS-2', 'not_met', { cause: 'judged-failed', kind: 'build-defect' }),
+    crit('FS-3', 'not_met', { cause: 'not-built', kind: 'build-defect' }),
+    crit('FS-4', 'not_met', { cause: 'evidence-missing', kind: 'evidence-gap' }),
+    crit('FS-5', 'not_verifiable', { cause: 'capability-absent', kind: 'not-checkable-here' }),
+  ];
+
+  test('Diagnosis leads with kind counts, plural rule pinned, then cause counts', () => {
+    const report = renderReport(baseFor('stalled', mixed));
+    expect(report).toContain(
+      '**Diagnosis**: 4 open — 2 build defects, 1 evidence gap, 1 not checkable here — '
+    );
+    expect(report).toContain('judged failed');
+    const two = renderReport(
+      baseFor('stalled', [
+        crit('A', 'not_verifiable', { cause: 'capability-absent', kind: 'not-checkable-here' }),
+        crit('B', 'not_verifiable', { cause: 'capability-absent', kind: 'not-checkable-here' }),
+        crit('C', 'not_met', { cause: 'never-exercised', kind: 'evidence-gap' }),
+        crit('D', 'not_met', { cause: 'locator-not-found', kind: 'evidence-gap' }),
+      ])
+    );
+    expect(two).toContain('2 evidence gaps, 2 not checkable here');
+  });
+
+  test('each non-met row shows its kind', () => {
+    const report = renderReport(baseFor('stalled', mixed));
+    expect(report).toMatch(/\| FS-2 \|.*build defect/);
+    expect(report).toMatch(/\| FS-4 \|.*evidence gap/);
+    expect(report).toMatch(/\| FS-5 \|.*not checkable here/);
+  });
+
+  test('falls back to the cause-derived kind, else unrecorded, on a mixed input', () => {
+    const report = renderReport(
+      baseFor('stalled', [
+        crit('A', 'not_met', { cause: 'judged-failed', kind: 'build-defect' }),
+        crit('B', 'not_met', { cause: 'evidence-stale' }),
+        crit('C', 'not_met', {}),
+      ])
+    );
+    expect(report).toContain('1 build defect, 1 evidence gap, 1 unrecorded');
+  });
+
+  const settled = crit('FS-9', 'not_met', {
+    cause: 'evidence-missing',
+    kind: 'evidence-gap',
+    settled: 'definition-problem',
+    reason: 'no output | names it',
+  });
+
+  test('a settled evidence gap is in its own section, not under Not Met', () => {
+    const report = renderReport(baseFor('satisfied', [crit('FS-1', 'met', { kind: null }), settled]));
+    expect(report).toContain('## Evidence gaps (definition problems)');
+    expect(report).toContain(
+      'The criterion asks for evidence the build does not produce — change the criterion or the build\'s outputs'
+    );
+    const section = report.split('## Evidence gaps (definition problems)')[1].split('\n## ')[0];
+    expect(section).toContain('FS-9');
+    expect(section).toContain('no output \\| names it');
+    const notMet = report.split('## Not Met')[1].split('\n## ')[0];
+    expect(notMet).not.toContain('FS-9');
+    expect(notMet).toContain('_None._');
+  });
+
+  test('the section sits before ## Evidence', () => {
+    const report = renderReport(
+      baseFor('satisfied', [crit('FS-1', 'met', { kind: null, image: 'a.png', ui: true }), settled])
+    );
+    expect(report.indexOf('## Evidence gaps (definition problems)')).toBeLessThan(report.indexOf('## Evidence\n'));
+    expect(report.indexOf('## Evidence\n')).toBeGreaterThan(0);
+  });
+
+  test('preclassified rows are marked', () => {
+    const report = renderReport(
+      baseFor('satisfied', [
+        crit('FS-1', 'met', { kind: null }),
+        crit('FS-2', 'not_verifiable', {
+          cause: 'capability-absent',
+          kind: 'not-checkable-here',
+          preclassified: true,
+          reason: 'parts board',
+        }),
+      ])
+    );
+    expect(report).toContain('parts board (classified before exercise)');
+  });
+
+  test('satisfied suffix counts settled evidence gaps beside not-verifiable ones', () => {
+    const report = renderReport(
+      baseFor('satisfied', [
+        crit('FS-1', 'met', { kind: null }),
+        crit('FS-2', 'not_verifiable', { kind: 'not-checkable-here', cause: 'capability-absent' }),
+        settled,
+      ])
+    );
+    expect(report).toContain('**Outcome**: Satisfied (1 of 3 not verifiable, 1 evidence gap — definition problem)');
+  });
+
+  test('Next line: refine-verification for a satisfied non-sweep run with a definition problem, audit-build without', () => {
+    const withDp = renderReport(baseFor('satisfied', [crit('FS-1', 'met', { kind: null }), settled]));
+    expect(withDp).toContain('/refine-verification');
+    expect(withDp).not.toContain('**Next**: `/audit-build`');
+    const without = renderReport(baseFor('satisfied', [crit('FS-1', 'met', { kind: null })]));
+    expect(without).toContain('**Next**: `/audit-build`');
+    const sweep = renderReport({ ...baseFor('satisfied', [crit('FS-1', 'met', { kind: null }), settled]), prd: 'x.sweep.md' });
+    expect(sweep).toContain('commit the swept fixes');
+  });
+
+  test('gate: an all-met input with kind: null renders exactly as one with no kind key', () => {
+    const withNull = baseFor('satisfied', [crit('FS-1', 'met', { kind: null }), crit('FS-2', 'met', { kind: null })]);
+    const without = baseFor('satisfied', [crit('FS-1', 'met'), crit('FS-2', 'met')]);
+    expect(renderReport(withNull)).toBe(renderReport(without));
+  });
+
+  test('gate closed: no Kind column, no section, old Diagnosis line', () => {
+    const old = mixed.map(({ kind, ...rest }) => rest);
+    const report = renderReport(baseFor('stalled', old));
+    expect(report).not.toContain('Kind');
+    expect(report).not.toContain('Evidence gaps (definition problems)');
+    expect(report).toContain('**Diagnosis**: 4 open — ');
+    expect(report).not.toMatch(/build defects?,/);
+  });
+});

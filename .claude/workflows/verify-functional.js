@@ -268,9 +268,38 @@ function imageKeys(c) {
   const out = {}
   // `kind` and `settled` (triage D1, D5) travel the same carry-only-when-present way, so an
   // entry from before they existed -- and every `met` entry -- gains no key.
-  for (const k of ['image', 'ui', 'imageExcluded', 'kind', 'settled']) if (c[k] !== undefined) out[k] = c[k]
+  for (const k of ['image', 'ui', 'imageExcluded', 'kind', 'settled', 'verificationDigest']) if (c[k] !== undefined) out[k] = c[k]
   return out
 }
+// NEW (triage D8, D12). The sha256 of this invocation's verification.md ("" = nothing persists) and
+// the criteria the caller classified as not checkable before any exercise (D10, D11). Both are
+// validated before any agent runs, in the file's established "wrong shape throws" form.
+const VERIFICATION_DIGEST = (() => {
+  const raw = a.verificationDigest
+  if (raw === undefined || raw === null) return ''
+  if (typeof raw !== 'string') throw new Error('verify-functional: args.verificationDigest must be a string when supplied')
+  return raw
+})()
+const PRECLASSIFIED = (() => {
+  const raw = a.preclassified
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw)) throw new Error('verify-functional: args.preclassified must be an array when supplied')
+  raw.forEach((e, i) => {
+    if (!e || typeof e !== 'object' || typeof e.id !== 'string' || e.id === '') {
+      throw new Error(`verify-functional: args.preclassified[${i}] must be an object with a non-empty string id`)
+    }
+    if (!CRITERION_BY_ID.has(e.id)) {
+      throw new Error(`verify-functional: args.preclassified[${i}].id ${JSON.stringify(e.id)} is not a criterion id in args.criteria`)
+    }
+    if (e.status !== 'not_verifiable') {
+      throw new Error(`verify-functional: args.preclassified[${i}].status must be "not_verifiable" (got ${JSON.stringify(e.status)})`)
+    }
+    if (e.kind !== 'not-checkable-here') {
+      throw new Error(`verify-functional: args.preclassified[${i}].kind must be "not-checkable-here" (got ${JSON.stringify(e.kind)})`)
+    }
+  })
+  return raw
+})()
 // KS-1 and KS-2 (D13): the Judge never sees the contract, so the two sentences are written
 // here word for word and a test checks they match the contract's.
 const KS_1 = "An image that shows a password, token, key or other credential value is never cited as a criterion's image; one that cannot be cleared is recorded as excluded, with the reason."
@@ -692,6 +721,8 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `non-zero, so this attempt measured a build without Debug's fixes; copy it exactly as given -- ` +
     `decide-next throws without it, and then returns "exit-setup-failure" instead of a stall.\n\n` +
     `STEP 4: persist the run's state to ${STATE_PATH}, BEFORE anything else is dispatched. ` +
+    `Every criterion you rule not_verifiable with kind "not-checkable-here" carries ` +
+    `"verificationDigest": ${JSON.stringify(VERIFICATION_DIGEST)} (this literal, verbatim) in the state file and the report input. ` +
     `Do NOT write it with a plain file write: ${STATE_PATH} is a .trd-state JSON file, and the ` +
     `repository's only sanctioned writer for one is the save(filePath, state) function exported ` +
     `by ${STATE_WRITER} (per-writer temp file + rename, so a crash mid-write cannot leave a ` +
@@ -707,8 +738,8 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `DEFINITION -- both the already-settled ones (copy them EXACTLY as given below, including ` +
     `their "provenAt" and "cause"; do not re-derive, re-date or otherwise change them) and the ` +
     `ones you judged this iteration: "id", "status", "tier1", "artifact", "reason", "cause", ` +
-    `"provenAt", "image", "ui", "imageExcluded", "kind", "settled" (the image keys, "kind" and ` +
-    `"settled" carried unchanged for a settled one, as given below) -- "provenAt" is the iteration ` +
+    `"provenAt", "image", "ui", "imageExcluded", "kind", "settled", "verificationDigest" (the image keys, "kind", ` +
+    `"settled" and "verificationDigest" carried unchanged for a settled one, as given below) -- "provenAt" is the iteration ` +
     `number a "met"/"not_verifiable"/"unbuilt" verdict was proven at, or a "not_met" evidence gap ` +
     `was settled at (this iteration's number, ${iteration}, for one you just judged; carried ` +
     `unchanged for a settled one) and is absent/null for any other "not_met" criterion, which stays ` +
@@ -864,8 +895,11 @@ function buildSetupPrompt(iteration, stage, targets, debugRefresh, firstResult) 
     `null when it was not run or failed>, "exitCode": <number, or null when not run>}, ` +
     `"holderCheck": "ran"|"unavailable"|"not-applicable", "listeners": [ {"port": <number>, ` +
     `"pid": <number|null>, "toplevel": <string|null>} ]}.\n` +
-    `   - reach: probe the target's url (for example \`curl -s -o /dev/null --max-time 5 -w '%{http_code}' <url>\`); ` +
-    `ok is true when something answers, false when nothing does, null when the target names no url or ` +
+    `   - reach: probe the target's url a cold-start tolerant probe: first send one warm-up request and ignore its result, then run ` +
+    `\`curl -s -o /dev/null --max-time 60 -w '%{http_code}' <url>\` and retry it until about 90 seconds ` +
+    `have passed in total. Put the whole retry loop inside ONE Bash call (keep it under the Bash tool's ` +
+    `default 120 second limit) so the budget fits a single call; ` +
+    `ok is true when something answers, false only when nothing answered after that, null when the target names no url or ` +
     `there is no way to test it.\n` +
     `   - identity: when the target's identity command is not "", run it exactly as given and record ` +
     `its stdout and exit code; do not invent a method when none is declared.\n` +
@@ -1010,6 +1044,8 @@ const JUDGE_CRITERION_SCHEMA = {
     // KIND_BY_CAUSE and is the authority. `settled` is the script's marker; the Judge may echo it.
     kind: { type: ['string', 'null'], enum: ['build-defect', 'evidence-gap', 'not-checkable-here', null] },
     settled: { type: ['string', 'null'], enum: ['definition-problem', null] },
+    // NEW (triage D8, D20): the verification.md digest a not-checkable-here verdict was made under.
+    verificationDigest: { type: ['string', 'null'] },
   },
 }
 
@@ -1365,7 +1401,7 @@ function reconcileJudgeKinds(judgeResult, iteration) {
   const closed = new Set()
   const criteria = (judgeResult.criteria || []).map((c) => {
     if (settled.has(c.id)) return c // ignored by the fold: the carried-forward entry wins
-    const { kind: returned, settled: _echoed, ...rest } = c
+    const { kind: returned, settled: _echoed, verificationDigest: returnedDigest, ...rest } = c
     if (c.status === 'met') return rest // a met entry carries no kind
     const derived = kindOf(c.cause)
     let kind = derived
@@ -1392,6 +1428,13 @@ function reconcileJudgeKinds(judgeResult, iteration) {
       changed = true
       closed.add(c.id)
       log(`iteration ${iteration}: ${c.id} is still an evidence gap after its one re-capture -- settling it as a definition problem`)
+    }
+    // D8, D20: a not-checkable verdict records the digest it was made under, so a later resume can
+    // tell whether verification.md has changed since. The script's stamp is authoritative; the Judge
+    // was given the literal digest and normally wrote the same one. An empty digest stamps nothing.
+    if (out.status === 'not_verifiable' && out.kind === 'not-checkable-here' && VERIFICATION_DIGEST !== '') {
+      out.verificationDigest = VERIFICATION_DIGEST
+      if (returnedDigest !== VERIFICATION_DIGEST) changed = true
     }
     return out
   })
@@ -1438,7 +1481,7 @@ function buildStateSyncPrompt(iteration, stateJson, patches) {
   )
 }
 
-const STATE_KEYS = ['tier1', 'artifact', 'reason', 'cause', 'image', 'ui', 'imageExcluded', 'kind', 'settled']
+const STATE_KEYS = ['tier1', 'artifact', 'reason', 'cause', 'image', 'ui', 'imageExcluded', 'kind', 'settled', 'verificationDigest']
 
 async function syncKindState(judgeResult, iteration, exiting) {
   const byId = new Map((judgeResult.criteria || []).map((c) => [c.id, c]))
@@ -1754,21 +1797,31 @@ let previousGaps = RESUME_CRITERIA ? RESUME_CRITERIA.filter((c) => c.status === 
 // --------------------------------------------------------------------------- settled/open (D1, D2, §3.4)
 //
 // The loop's memory. Held here, in the script, never re-derived by an agent: the Judge is an
-// agent and the open set is arithmetic. Seeded from `resume.criteria` filtering for `met` ONLY
-// (D2) -- a `not_verifiable` entry from a previous invocation goes back into the open set,
-// because the preflight has re-read verification.md since and an environment the owner
-// unblocked is what a resume is for. `not_met` was never settled to begin with. `unbuilt` is
+// agent and the open set is arithmetic. Seeded from `resume.criteria` with `met` entries and,
+// since triage D8, `not-checkable-here` entries whose recorded verification.md digest equals this
+// invocation's (non-empty). Any other `not_verifiable` entry from a previous invocation goes back
+// into the open set, because the preflight has re-read verification.md since and an environment
+// the owner unblocked is what a resume is for. Preclassified ids (D11) are seeded after this
+// block and overwrite a resume entry for the same id. `not_met` was never settled to begin with. `unbuilt` is
 // deliberately not seeded either: `decideNext` exits terminally the moment `unbuilt.length > 0`,
 // so `--verify --resume` never re-enters a run that produced one (D2) -- there is no later pass,
 // in this run or a resumed one, that would consult an `unbuilt` entry here.
 //
 // Within ONE invocation, `met`, `not_verifiable` and `unbuilt` are all settled and stop being
 // re-walked (see the fold below, after each Judge return) -- it is only ACROSS invocations that
-// the seeding narrows to `met` alone.
+// the seeding narrows to `met` plus digest-matched not-checkable entries.
 const settled = new Map()
 if (RESUME_CRITERIA) {
   for (const c of RESUME_CRITERIA) {
-    if (c.status === 'met') {
+    // D8: a not-checkable-here entry persists only while verification.md is unchanged: its recorded
+    // digest is non-empty and equals this invocation's. An older entry has no digest and re-opens.
+    const persists =
+      c.status === 'not_verifiable' &&
+      c.kind === 'not-checkable-here' &&
+      typeof c.verificationDigest === 'string' &&
+      c.verificationDigest !== '' &&
+      c.verificationDigest === VERIFICATION_DIGEST
+    if (c.status === 'met' || persists) {
       settled.set(c.id, {
         status: c.status,
         tier1: c.tier1 ?? null,
@@ -1818,6 +1871,23 @@ if (iteration > CAP) {
     mustPass: mustPassSummary(RESUME_CRITERIA, false), // NEW (verification-must-pass D11) -- no Judge exit, so nothing to override
     setup: setupSummary(), // NEW (preflight D10) -- nothing was checked this invocation
   }
+}
+// D11: preclassified criteria are settled before the loop (provenAt 0), so the open set -- which is
+// computed by subtraction from `settled` -- never hands them to Exercise, a setup target or the
+// Judge. Seeded last so a resume entry for the same id loses: preclassification is recomputed
+// from the current inputs every invocation. (Not the per-entry `settled:` marker -- this is the Map.)
+for (const e of PRECLASSIFIED) {
+  settled.set(e.id, {
+    status: 'not_verifiable',
+    tier1: null,
+    artifact: null,
+    reason: e.reason ?? null,
+    cause: e.cause ?? 'capability-absent',
+    provenAt: 0,
+    kind: 'not-checkable-here',
+    preclassified: true,
+    ...(VERIFICATION_DIGEST !== '' ? { verificationDigest: VERIFICATION_DIGEST } : {}),
+  })
 }
 if (SETUP_TARGETS.length === 0) log('no setupTargets supplied -- the setup check is off')
 const debugAttempts = []
