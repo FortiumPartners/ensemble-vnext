@@ -5,5 +5,17 @@
     "url": "https://claude.ai/artifact/NLTgnWha3fVN9bTVJt7b6q",
     "updated_at": "2026-11-12T18:26:35.542Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/every-waived-failure-filed-as-a-defect-issue/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-12T18:46:20.156Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/every-waived-failure-filed-as-a-defect-issue/verification-report.md",
+    "url": "https://claude.ai/artifact/EiiTDJvRxwYCSCRdJHqXJx",
+    "updated_at": "2026-11-12T20:38:37.802Z",
+    "command": "/implement-trd"
   }
 }

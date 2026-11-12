@@ -1,0 +1,730 @@
+{
+  "feature": "every-waived-failure-filed-as-a-defect-issue",
+  "prd": "docs/TRD/every-waived-failure-filed-as-a-defect-issue.md#Intended Change",
+  "definitionPath": ".trd-state/every-waived-failure-filed-as-a-defect-issue/success-definition.md",
+  "outcome": "exit-satisfied",
+  "reason": "no gaps remain — every criterion is met, not verifiable here, or settled as an evidence gap",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "Given a feature state dir whose ledger holds one unfiled waived row and a `stack.md` declaring a reachable tracker, `node .claude/lib/waived-defects.js gate --state-dir <dir> --stack <stack.md>` files exactly one issue, labelled `defect`, whose title carries the criterion id and statement, and prints JSON with keys `ok`, `filed`, `already`, `failed` and `ok: true`",
+      "cites": "item 1: \"For each unfiled one it files one issue in the declared tracker, labelled `defect`, titled with the criterion id and statement\"; \"It prints `{ ok, filed, already, failed }`\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-2/waived-defects/walk.txt",
+      "reason": "Gate on one waived row with a reachable GitHub tracker printed ok:true with filed/already/failed keys and filed one issue: the stub gh log has a single issue create with --label defect and title 'Defect: FS-9 Totals render without NaN'.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-2",
+      "statement": "The issue body the gate files carries the criterion statement, the failure, its evidence, the feature, TRD, branch and ledger row, and the verbatim line \"Shipped waived under `Blocking: must-pass only` (verification.md §5c). This issue stays open until someone decides not to fix it; no Ensemble step closes it.\"",
+      "cites": "item 1: \"whose body carries the criterion statement, the failure, its evidence, the feature/TRD/branch/ledger row, and the line …\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/exercise-2/fs-audit-gh-calls.log",
+      "reason": "The issue body the stub gh received carries the criterion statement, the failure, its evidence, the feature, TRD, branch and ledger row, plus the verbatim 'Shipped waived under `Blocking: must-pass only` (verification.md §5c)... no Ensemble step closes it.' line.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "attempts": null,
+      "blocker": null
+    },
+    {
+      "id": "FS-3",
+      "statement": "Run with `--closed-by owner`, the gate words the body's waiver line \"Waived under … when the feature was closed by its owner\" instead of \"Shipped waived under …\"",
+      "cites": "item 1: \"(`--closed-by owner`, the `/close-feature` path, words it \"Waived under … when the feature was closed by its owner\", since an abandoned feature shipped nothing.)\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/exercise-2/fs-owner-gh-calls.log",
+      "reason": "Run with --closed-by owner, the body reads 'Waived under ... when the feature was closed by its owner.' and does not contain 'Shipped waived'.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "attempts": null,
+      "blocker": null
+    },
+    {
+      "id": "FS-4",
+      "statement": "After filing, the gate records the issue URL on the waived row as an append-only `filed <url>` resolve marker in the ledger; no existing ledger line is rewritten",
+      "cites": "item 1: \"It then records the URL on the row (an append-only `filed <url>` resolve marker, `file-followups`' own convention)\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-1/waived-defects/walk.txt",
+      "reason": "Fresh walk: original ledger line unchanged byte-for-byte, plus one appended resolve marker 'filed https://github.com/stub-owner/stub-repo/issues/101'.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "attempts": null,
+      "blocker": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-5",
+      "statement": "A project whose `stack.md` declares `Tracker: none` and whose ledger holds no waived row passes the gate (`ok: true`) and the tracker is never consulted",
+      "cites": "item 1: \"It reads the ledger FIRST and looks at the tracker only when an unfiled waived row exists, so a project with `Tracker: none` and no waived rows closes exactly as today\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-2/waived-defects/walk.txt",
+      "reason": "Tracker: none with no waived rows: gate printed ok:true and the stub gh log for that run is empty.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-6",
+      "statement": "A criterion that had a `[non-blocking]` row but whose latest row is a later `met` row is not filed",
+      "cites": "item 1: \"a criterion a later pass retired with a `met` row is not filed\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-2/waived-defects/walk.txt",
+      "reason": "Ledger with a [non-blocking] FS-9 row then a later met FS-9 row: gate ok:true with FS-9 in neither filed nor failed, and no gh call.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-7",
+      "statement": "When an issue cannot be filed (tracker create fails), the gate prints `ok: false` with that row in `failed` and the reason it could not be filed",
+      "cites": "item 1: \"`ok: false` means no close record is written … naming each row (its criterion and summary) and why it could not be filed\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-1/waived-defects/walk.txt",
+      "reason": "Refused issue create: ok:false, failed entry naming FS-9, its summary and 'stub: issue create refused'.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "attempts": null,
+      "blocker": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-8",
+      "statement": "An issue that was created but whose `filed <url>` marker could not be written is reported in `failed` with its URL printed",
+      "cites": "item 1: \"An issue created whose marker could not be written is `failed` with its URL printed, so the refusal names it\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-1/waived-defects/walk.txt",
+      "reason": "Ledger unwritable after issue create: ok:false, failed entry with 'issue filed but the filed marker could not be written' and URL issues/101.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "attempts": null,
+      "blocker": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-9",
+      "statement": "`/audit-build`, at its close step, runs the gate with `--state-dir .trd-state/<feature>` and `--stack` before writing `closed.json`; when the gate passes, the feature closes",
+      "cites": "item 1: \"Before writing `closed.json`, both `/audit-build` (its close step) and `/close-feature` run `node .claude/lib/waived-defects.js gate …`\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-2/waived/fa-ok-transcript.txt",
+      "reason": "Headless /audit-build on fa-ok ran waived-defects.js gate --state-dir .trd-state/fa-ok --stack ... --closed-by audit before writing the close record; the after-listing shows closed.json and the run ended COMMAND COMPLETE.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-10",
+      "statement": "`/close-feature` runs the gate (with `--closed-by owner`) before writing `closed.json`; when the gate passes, the feature closes",
+      "cites": "item 1: \"both `/audit-build` (its close step) and `/close-feature` run …\"; \"(`--closed-by owner`, the `/close-feature` path …)\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-2/waived/fc-ok-transcript.txt",
+      "reason": "Headless /close-feature on fc-ok ran the gate with --closed-by owner, then wrote closed.json (closedBy owner); the after-listing shows closed.json.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-11",
+      "statement": "When the gate returns `ok: false`, `/audit-build` writes no `closed.json`, opens no PR, and ends `COMMAND STUCK` naming each unfiled row (criterion and summary) and why it could not be filed; its `Next:` names fixing the tracker, or filing by hand and running `waived-defects.js record-filed`, then re-running `/audit-build` (never `/close-feature`)",
+      "cites": "item 1: \"`ok: false` means **no close record is written** … no PR is opened, and the command ends `COMMAND STUCK`, naming each row …\"; \"The way out of a refusal, named in the STUCK `Next:` … re-run the same command — `/audit-build` after an audit refusal, never `/close-feature`\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-2/waived/fa-fail-transcript.txt",
+      "reason": "Fresh /audit-build on fa-fail with FS-2's issue create refused: no closed.json in the after-listing, no pr create in the gh log, and it ended COMMAND STUCK naming FS-2, its summary (report total shows NaN) and the refusal error. Next names fixing the tracker, or filing FS-2 by hand and running record-filed, then /audit-build docs/TRD/fa-fail.md.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-12",
+      "statement": "When the gate returns `ok: false`, `/close-feature` writes no `closed.json` and ends `COMMAND STUCK` naming each unfiled row and why, with a `Next:` naming the way out",
+      "cites": "item 1: same refusal sentence, applied to \"both\" commands",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-2/waived/fc-fail-transcript.txt",
+      "reason": "/close-feature on fc-fail with FS-2's create refused: no closed.json written, ended COMMAND STUCK naming FS-2 and the refusal error, with a Next naming the tracker fix or record-filed, then /close-feature.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-13",
+      "statement": "On a re-audit of an already-closed feature whose gate refuses, the existing `closed.json` is removed so the feature is not left closed with an unfiled row",
+      "cites": "item 1: \"on a re-audit of an already-closed feature, the existing `closed.json` is removed — deleting it is the documented way to reopen\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-2/waived/fa-reopen-transcript.txt",
+      "reason": "Before-listing shows closed.json; the refused /audit-build removed it (rm $S/closed.json) and the after-listing has none; the session ended COMMAND STUCK: /audit-build.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-14",
+      "statement": "On a refusal, both `/audit-build` and `/close-feature` still perform the records-ref write, so `filed <url>` markers of rows that were filed in that run survive",
+      "cites": "item 1: \"The records-ref write still runs on a refusal, in both commands, so the `filed <url>` markers of rows that WERE filed survive a temporary worktree\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-2/waived/fa-fail-records-ref.txt",
+      "reason": "On a partial refusal both commands ran record-ref.js write: refs/ensemble/records/fa-fail and refs/ensemble/records/fc-fail each hold the ledger with FS-1's 'filed https://github.com/stub-owner/stub-repo/issues/101' marker.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-15",
+      "statement": "`read-blocking-policy --stack <stack.md>` with `Blocking: must-pass only` declared returns `policy: 'all'`, `declared: 'must-pass'` and a `waiverRefused` reason for each of the 4 tracker states: absent, `none`, unparseable, and a GitHub tracker a read-only `gh repo view` cannot reach",
+      "cites": "item 2: \"When the declared policy is `must-pass` and the tracker is absent, `none`, unparseable, or (GitHub) not reachable by a read-only `gh repo view`, it returns `policy: 'all'` with `declared: 'must-pass'` and a `waiverRefused` reason\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-1/waived-defects/walk.txt",
+      "reason": "All four tracker states return policy 'all', declared 'must-pass' and a non-empty waiverRefused.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "attempts": null,
+      "blocker": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-16",
+      "statement": "With `must-pass` declared and a reachable GitHub tracker, `read-blocking-policy --stack` keeps `policy: 'must-pass'` and reports no `waiverRefused`",
+      "cites": "item 2: the refusal applies only \"when … the tracker is absent, `none`, unparseable, or … not reachable\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-2/waived-defects/walk.txt",
+      "reason": "must-pass declared with a stub gh repo view that succeeds: read-blocking-policy returned {policy:'must-pass', status:'declared', raw:'must-pass only'} with no waiverRefused.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-17",
+      "statement": "`/implement-trd` (its §8.1a policy read) and `/verify-build` both pass `--stack` to `read-blocking-policy` and hand its `waiverRefused` to the verification workflow as `blockingNote` beside `blocking`",
+      "cites": "item 2: \"Both `/implement-trd` §8.1a and `/verify-build` pass `--stack` and hand `waiverRefused` to the workflow as a new arg `blockingNote` (string or null) beside `blocking`\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-1/fs-vb/vb-session.jsonl",
+      "reason": "/verify-build called read-blocking-policy with --stack and passed blockingNote (the waiverRefused text) to the Workflow beside blocking:'all'. The /implement-trd half is proven from its §8.1a command text, not a live run.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "attempts": null,
+      "blocker": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-18",
+      "statement": "When the waiver is refused, a failing criterion that proves no must-pass objective blocks: the run is not `satisfied` and lists no non-blocking failures",
+      "cites": "item 2: title \"No tracker, no waiver\"; policy returned as `'all'`; report line \"every failing criterion blocks\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-1/fs-vb/cap1-verification-report.md",
+      "reason": "Tracker-none fixture with must-pass declared: outcome stuck, FS-2 not_met, no non-blocking entries in report or state.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "attempts": null,
+      "blocker": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-19",
+      "statement": "The verification report carries one `**Blocking**:` header line reading \"must-pass only is declared but not applied: <reason>; every failing criterion blocks\" when `blockingNote` is present, and a report rendered without `blockingNote` is byte-identical to one rendered before this change",
+      "cites": "item 2: \"`renderReport` renders one `**Blocking**:` header line from `input.blockingNote` (…), gated on its presence so every other report stays byte-identical\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/exercise-2/fs19/report-with-note.md",
+      "reason": "Rendered with blockingNote, the report has one **Blocking** line in the required wording. Rendered without it, the report is byte-identical (cmp) to the pre-change main render, and the two renders differ only by that line.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "attempts": null,
+      "blocker": null
+    },
+    {
+      "id": "FS-20",
+      "statement": "The `**Blocking**:` line survives every re-render of the report — fix rounds and the re-proof retry",
+      "cites": "item 2: \"The workflow carries it into every report input the way it carries `nonBlocking` … Because it is rendered, not patched, every re-render (fix rounds, the re-proof retry) keeps it\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/exercise-2/fs20-final-report.md",
+      "reason": "The final report of a fixture run that went through a fix round (a cause closed at iteration 2) and a regression-pass re-render still carries the **Blocking** line.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "attempts": null,
+      "blocker": null
+    },
+    {
+      "id": "FS-21",
+      "statement": "The command readout's DECISIONS section states that must-pass only was declared but not applied, and why, when the waiver is refused",
+      "cites": "item 2: \"The readout's DECISIONS says the same\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-2/waived/vb-transcript.txt",
+      "reason": "Headless /verify-build with Tracker: none: DECISIONS says the must-pass-only policy was declared but not applied, because must-pass only needs an issue tracker and stack.md declares none; every failure blocks.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-22",
+      "statement": "A criterion that already has a recorded issue URL is never filed again: a resumed run, a fix round's `recordNonBlockingFollowups`, a repeated gate, and `file-followups` all leave it unfiled, and a newer waived row for it is marked with the same URL rather than producing a new issue or a new open ledger row",
+      "cites": "item 1: \"'Never twice' is per criterion: a criterion with any recorded URL is never filed again; a newer waived row for it is marked with that same URL\"; item 3: \"`recordNonBlockingFollowups` treats a `[non-blocking]` row whose issue is already filed as recorded (it reads resolved rows too), so no new open row appears for it\"; \"`file-followups` files a `[non-blocking]` row only through `waived-defects.js gate`, which skips a row with a recorded URL\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/exercise-2/fs22-summary.txt",
+      "reason": "The sequence ran three gates, recordNonBlockingFollowups, a newer waived row and /ship-build file-followups, and the gh log has exactly one issue create. The second gate lists FS-9 in already, recordNonBlockingFollowups skips FS-9, the newer row is marked filed with the same URL, and no open waived rows remain.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "attempts": null,
+      "blocker": null
+    },
+    {
+      "id": "FS-23",
+      "statement": "After a refusal, filing the issue by hand and running `waived-defects.js record-filed --state-dir <dir> --ref <ref> --url <url>` lets the next gate pass without filing that criterion",
+      "cites": "item 1: \"file the issue by hand and run `node .claude/lib/waived-defects.js record-filed --state-dir <dir> --ref <ref> --url <url>` (any tracker), then re-run the same command\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-1/waived-defects/walk.txt",
+      "reason": "record-filed wrote the issues/777 marker; next gate ok:true with FS-9 in already, no gh call.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "attempts": null,
+      "blocker": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-24",
+      "statement": "`waived-defects.js` never closes, edits or comments on an issue: across every gate run its runner is handed only `issue create`, `label list`, `label create` and `repo view`; and the document governing `close-issue` carries a sentence that a later feature written to fix a waived-defect issue may cite and close it on ship",
+      "cites": "item 4: \"`waived-defects.js` runs no close, edit or comment command (its runner is only ever handed `issue create`, `label list`, `label create` and `repo view`, which a test asserts by recording every call)\"; \"The contract gains one sentence saying so\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-2/waived-defects/walk.txt",
+      "reason": "Across every gate run the stub gh log holds only issue create, label create, label list and repo view (none outside the four), and the close-issue contract (.claude/contracts/ship-primitive-close-issue.md:34) says a waived-defect issue is closed only when a later feature cites it as its source.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-25",
+      "statement": "When the close succeeds having filed waived rows, both `/audit-build` and `/close-feature` list each filed issue's URL with its criterion in the readout's STATE section",
+      "cites": "item 5: \"Filed waived rows drop out of the DISCOVERED summary (resolved rows are hidden), so both close commands list each filed issue's URL with its criterion in STATE\"",
+      "status": "met",
+      "artifact": ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/regression-2/waived/fc-ok-transcript.txt",
+      "reason": "On a successful close, /close-feature's STATE lists FS-1 with issues/101 and FS-2 with issues/102; /audit-build's STATE in fa-ok-transcript.txt lists the same two criteria beside their URLs.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    }
+  ],
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  },
+  "mustPass": [
+    "FS-1",
+    "FS-2",
+    "FS-3",
+    "FS-4",
+    "FS-7",
+    "FS-8",
+    "FS-9",
+    "FS-10",
+    "FS-11",
+    "FS-12",
+    "FS-13",
+    "FS-15",
+    "FS-17",
+    "FS-18",
+    "FS-19",
+    "FS-20",
+    "FS-22",
+    "FS-23"
+  ],
+  "mustPassUncovered": [],
+  "causes": [
+    {
+      "key": "issue-body-waiver-line",
+      "representative": "FS-2",
+      "members": [
+        "FS-2"
+      ],
+      "status": "closed",
+      "closedAt": 2
+    },
+    {
+      "key": "gate-closed-by-owner-missing",
+      "representative": "FS-3",
+      "members": [
+        "FS-3",
+        "FS-10"
+      ],
+      "status": "closed",
+      "closedAt": 2
+    },
+    {
+      "key": "blocking-line-wording",
+      "representative": "FS-19",
+      "members": [
+        "FS-19"
+      ],
+      "status": "closed",
+      "closedAt": 2
+    },
+    {
+      "key": "stuck-next-omits-record-filed",
+      "representative": "FS-11",
+      "members": [
+        "FS-11"
+      ],
+      "status": "closed",
+      "closedAt": 2
+    }
+  ],
+  "regression": {
+    "rounds": [
+      {
+        "round": 1,
+        "iteration": 2,
+        "scope": [
+          {
+            "id": "FS-1",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/audit-build.md",
+              ".claude/commands/close-feature.md",
+              ".claude/lib/waived-defects.js",
+              "packages/core/commands/audit-build.md",
+              "packages/core/commands/close-feature.md",
+              "packages/core/lib/waived-defects.js",
+              "packages/core/lib/waived-defects.test.js"
+            ]
+          },
+          {
+            "id": "FS-4",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/waived-defects.js",
+              "packages/core/lib/waived-defects.js",
+              "packages/core/lib/waived-defects.test.js"
+            ]
+          },
+          {
+            "id": "FS-5",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-6",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-7",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/waived-defects.js",
+              "packages/core/lib/waived-defects.js",
+              "packages/core/lib/waived-defects.test.js"
+            ]
+          },
+          {
+            "id": "FS-8",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/waived-defects.js",
+              "packages/core/lib/waived-defects.js",
+              "packages/core/lib/waived-defects.test.js"
+            ]
+          },
+          {
+            "id": "FS-9",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/audit-build.md",
+              ".claude/lib/waived-defects.js",
+              "packages/core/commands/audit-build.md",
+              "packages/core/lib/waived-defects.js"
+            ]
+          },
+          {
+            "id": "FS-10",
+            "reason": "cause-member"
+          },
+          {
+            "id": "FS-11",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/audit-build.md",
+              ".claude/lib/waived-defects.js",
+              "packages/core/commands/audit-build.md",
+              "packages/core/lib/waived-defects.js"
+            ]
+          },
+          {
+            "id": "FS-12",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/close-feature.md",
+              ".claude/lib/waived-defects.js",
+              "packages/core/commands/close-feature.md",
+              "packages/core/lib/waived-defects.js"
+            ]
+          },
+          {
+            "id": "FS-13",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/audit-build.md",
+              ".claude/lib/waived-defects.js",
+              "packages/core/commands/audit-build.md",
+              "packages/core/lib/waived-defects.js"
+            ]
+          },
+          {
+            "id": "FS-14",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-15",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/functional-verification.js",
+              "packages/core/lib/functional-verification.js"
+            ]
+          },
+          {
+            "id": "FS-16",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-17",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/functional-verification.js",
+              "packages/core/lib/functional-verification.js"
+            ]
+          },
+          {
+            "id": "FS-18",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/functional-verification.js",
+              "packages/core/lib/functional-verification.js"
+            ]
+          },
+          {
+            "id": "FS-21",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-23",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/waived-defects.js",
+              "packages/core/lib/waived-defects.js"
+            ]
+          },
+          {
+            "id": "FS-24",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-25",
+            "reason": "no-covers"
+          }
+        ],
+        "caught": [
+          "FS-11"
+        ],
+        "debug": {
+          "causes": [
+            "stuck-next-omits-record-filed"
+          ],
+          "filesChanged": [
+            ".claude/commands/audit-build.md",
+            ".claude/commands/close-feature.md",
+            "packages/core/commands/audit-build.md",
+            "packages/core/commands/close-feature.md",
+            "packages/core/commands/waived-defects-close-prose.test.js"
+          ]
+        }
+      },
+      {
+        "round": 2,
+        "iteration": 2,
+        "scope": [
+          {
+            "id": "FS-1",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/audit-build.md",
+              ".claude/commands/close-feature.md",
+              "packages/core/commands/audit-build.md",
+              "packages/core/commands/close-feature.md",
+              "packages/core/commands/waived-defects-close-prose.test.js"
+            ]
+          },
+          {
+            "id": "FS-5",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-6",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-9",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/audit-build.md",
+              "packages/core/commands/audit-build.md"
+            ]
+          },
+          {
+            "id": "FS-10",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/close-feature.md",
+              "packages/core/commands/close-feature.md"
+            ]
+          },
+          {
+            "id": "FS-11",
+            "reason": "sent-to-debug"
+          },
+          {
+            "id": "FS-12",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/close-feature.md",
+              "packages/core/commands/close-feature.md"
+            ]
+          },
+          {
+            "id": "FS-13",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/audit-build.md",
+              "packages/core/commands/audit-build.md"
+            ]
+          },
+          {
+            "id": "FS-14",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-16",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-21",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-24",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-25",
+            "reason": "no-covers"
+          }
+        ],
+        "caught": []
+      }
+    ],
+    "notRewalked": [
+      "FS-2",
+      "FS-3",
+      "FS-19",
+      "FS-20",
+      "FS-22"
+    ],
+    "unclaimedChanges": [
+      "packages/core/lib/functional-verification.test.js"
+    ],
+    "gateBeforeEdits": false
+  }
+}
