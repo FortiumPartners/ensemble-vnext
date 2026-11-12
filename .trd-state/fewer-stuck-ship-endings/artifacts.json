@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/UD7pg2gH3MQ2wVfoR11QCb",
     "updated_at": "2026-11-12T01:44:07.004Z",
     "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/fewer-stuck-ship-endings/audit-build-report.md",
+    "url": "https://claude.ai/artifact/9iM5QEcMfr9iCGqcBtubZB",
+    "updated_at": "2026-11-12T01:51:08.937Z",
+    "command": "/audit-build"
   }
 }
