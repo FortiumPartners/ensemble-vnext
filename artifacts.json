@@ -5,5 +5,17 @@
     "url": "https://claude.ai/artifact/766Sftev3f7Y2oUtiVhGdv",
     "updated_at": "2026-11-12T14:43:26.020Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/cutover-for-existing-projects/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-12T15:07:04.061Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/cutover-for-existing-projects/verification-report.md",
+    "url": "https://claude.ai/artifact/4AXwU7ig6qu1dAXKPfkMTX",
+    "updated_at": "2026-11-12T15:39:39.430Z",
+    "command": "/implement-trd"
   }
 }

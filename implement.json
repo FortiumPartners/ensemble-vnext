@@ -109,6 +109,7 @@
         "status": "unusable",
         "reason": "must not be touched"
       }
-    }
+    },
+    "outcome": "satisfied"
   }
 }

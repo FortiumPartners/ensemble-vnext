@@ -1,0 +1,601 @@
+{
+  "feature": "cutover-for-existing-projects",
+  "prd": "docs/TRD/cutover-for-existing-projects.md § Intended Change",
+  "definitionPath": ".trd-state/cutover-for-existing-projects/success-definition.md",
+  "outcome": "exit-satisfied",
+  "reason": "no gaps remain — every criterion is met, not verifiable here, or settled as an evidence gap",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "Running `scaffold-project.sh --records-cutover <dir>` on a project whose `.trd-state/<slug>/` run records are tracked first writes the framework ignore lines into `.gitignore`, then removes from the index every path `git ls-files -ci --exclude-standard -- .trd-state` listed, printing one `Untracked <path>` line per path",
+      "cites": "lines 40-44; lines 5-9 (the lines are delivered but nothing untracks them today); lines 21-22",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/fs1-5-cutover.txt",
+      "reason": "--records-cutover added the ignore lines (ending .trd-state/* and !.trd-state/_docs-audit/) first, then printed one Untracked line for each of the 4 tracked record paths; git ls-files -ci --exclude-standard -- .trd-state printed nothing afterwards.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-2",
+      "statement": "The untracking is index-only and staged: every untracked file is still present on disk with its content unchanged, and `git status` shows each as a staged deletion",
+      "cites": "line 42 (\"`git rm --cached`, staged, never committed\")",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/fs1-5-cutover.txt",
+      "reason": "git status shows a staged D line for each of the 4 untracked records, and the sha1 of every file is identical before and after: index-only removal, files still on disk.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-3",
+      "statement": "The whole cutover (untracking and seeding) creates no commit: `HEAD` of the target worktree and of every other worktree is the same commit before and after `--records-cutover`",
+      "cites": "line 42 (\"never committed\"); line 15 and line 36 (`fallback: false` never commits and never folds)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/fs1-5-cutover.txt",
+      "reason": "HEAD of the main worktree and the linked worktree is a53d11f before and after. The log --all line moved only because the seed added a commit on refs/ensemble/records/x, which is not a branch or worktree HEAD.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-4",
+      "statement": "`.trd-state/_docs-audit/` files stay tracked through the cutover: none is printed as `Untracked`, and each is still in `git ls-files` afterwards",
+      "cites": "lines 5-6 (the `!.trd-state/_docs-audit/` exception); lines 21-22 (the listing honours that negation)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/fs1-5-cutover.txt",
+      "reason": ".trd-state/_docs-audit/run1.md is not among the Untracked lines and is still listed by git ls-files after the cutover.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-5",
+      "statement": "No other scaffold mode untracks a run record: after `scaffold-project.sh --refresh`, a plain `scaffold-project.sh`, and `scaffold-project.sh --git-files`, each run on a repo with tracked `.trd-state/<slug>/` records, those records are still tracked",
+      "cites": "line 44-45 (\"No other mode untracks a record\"); lines 10-11 (`--git-files` untracks only the scratch lines above the marker)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/fs5-all-modes.txt",
+      "reason": "After --refresh (exit 0), --git-files (exit 0) and a plain scaffold, .trd-state/x records are still in git ls-files with no D status entry. The plain run exited 1 on the known macOS cp chmod error; in the script, untracking of records exists only in the --records-cutover entry point, so the early exit does not hide one.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-6",
+      "statement": "`/rebase-project` runs the cutover as Step 4.7b, immediately after Step 4.7a, by invoking `scaffold-project.sh --records-cutover`; a `/rebase-project` run on a project with tracked records leaves them untracked (staged) and seeds the in-flight feature's ref",
+      "cites": "line 46",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/fixture-state.txt",
+      "reason": "Step 4.7b in rebase-project.md sits right after 4.7a and runs scaffold-project.sh --records-cutover. After a headless /rebase-project in a fixture, git status shows staged D lines for the 6 record files and refs/ensemble/records/live-feat exists locally and on origin.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-7",
+      "statement": "The `/rebase-project` report lists the files it untracked, the refs it seeded and the features it skipped",
+      "cites": "lines 46-47",
+      "status": "not_met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/rebase-readout.txt",
+      "reason": "Tier 1 failed: the claimed locator \"other-feat has no worktree checked out\" is not in the readout, which writes the slug in backticks. Read anyway, the readout names the seeded live-feat ref and the three skipped features with reasons, but gives only a count of untracked files (6), not their paths.",
+      "cause": "locator-not-found",
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": "evidence-gap",
+      "settled": "regression-unchecked",
+      "regression": 1
+    },
+    {
+      "id": "FS-8",
+      "statement": "The `/rebase-project` Rollback section says how to undo the staged removals and states that a pushed ref is not undone by `git restore`",
+      "cites": "lines 47-48",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/it2-FS8-rollback.txt",
+      "reason": "Rollback gives git restore --staged .trd-state to undo the cutover's untracking. It states that git restore does not undo a seeded ref and never undoes a pushed one, and gives the commands to delete the ref both locally and on origin.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-9",
+      "statement": "`node records-cutover.js seed` prints exactly one line of JSON with `ok`, `seeded` (entries with `slug`, `worktree`, `branch`, `ref`, `commit`, `push`) and `skipped` (entries with `slug`, `worktree`, `reason`), and exits 0",
+      "cites": "lines 30-32",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/seed-main.txt",
+      "reason": "The seed printed one stdout line, zero stderr bytes, exit 0; the JSON has ok/seeded/skipped, seeded entries carry slug, worktree, branch, ref, commit, push and skipped entries slug, worktree, reason.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-10",
+      "statement": "`records-cutover.js seed` never throws: run outside a git repository, or over a folder with a malformed `implement.json` or `shipped.json`, it still prints one JSON line and exits 0",
+      "cites": "line 32 (\"exit 0, never throws\")",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/fs10-never-throws.txt",
+      "reason": "In a non-git directory the seed printed one JSON line (ok:false, reason \"not a git work tree\") and exited 0; over a repo with corrupt implement.json/shipped.json it printed one JSON line and exited 0; no stderr either time.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-11",
+      "statement": "An in-flight `.trd-state/<slug>/` folder in a worktree whose checked-out branch is the branch its records name, with no existing ref, gets `refs/ensemble/records/<slug>` created, and the `implement.json` in that ref is byte-identical to the folder's",
+      "cites": "lines 34-36 (in-flight, defined at line 35 by reference to O2); line 12 (`write` builds the ref from the folder)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/seed-details.txt",
+      "reason": "The ref implement.json diffed against the folder copy shows NO DIFFERENCE, and the seeded slugs appear in the seed output seeded array.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-12",
+      "statement": "Which copy of a ship run is current is decided as `ship-record-dir.js resolveRun` decides it: a folder whose current ship run has `status` `running`, `waiting` or `stuck` is treated as in flight and seeded, while one whose current run is `done` and is otherwise finished is skipped as `finished`",
+      "cites": "lines 19-20 (`shipped.json` statuses; `resolveRun` decides the current copy); line 35 (in-flight by reference to O2); line 38 (`finished`)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/seed-details.txt",
+      "reason": "shipwait (resolved ship run waiting) was seeded and its ref exists; shipdone (resolved run done) is in skipped with reason finished and show-ref finds no ref.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-13",
+      "statement": "The seed walks every worktree `git worktree list --porcelain` lists, not only the one it runs in: an in-flight folder in a second linked worktree is seeded with that worktree as `cwd`, and its `seeded` entry names that worktree and that worktree's branch",
+      "cites": "lines 32-33; line 36 (`cwd: <that worktree>`); line 14 (identity is the branch of the worktree `write` runs in)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/seed-details.txt",
+      "reason": "Run from the main worktree, the seed created wtfeat from the linked worktree wtx: its seeded entry names worktree wtx and branch feature/x, and the ref record.json names feature/x.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-14",
+      "statement": "Detached-HEAD and prunable worktrees are skipped: no ref is seeded from a folder that lives only in such a worktree",
+      "cites": "line 33 (\"skipping bare, prunable and detached ones\")",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/seed-details.txt",
+      "reason": "Folders detf (detached worktree) and prunf (prunable worktree) are not in seeded, and show-ref finds no ref for either.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-15",
+      "statement": "`_`-prefixed folders (for example `.trd-state/_docs-audit/`, `.trd-state/_shared/`) and folders with unsafe slugs are never seeded",
+      "cites": "line 34 (\"skipping `_`-prefixed and unsafe slugs\")",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/it2-FS15-FS23-seed.txt",
+      "reason": "The fixture held _shared, 'bad slug' and .hidden beside f-a and f-b. The seed lists only f-a and f-b, and no ref exists for the other three.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-16",
+      "statement": "A finished feature's folder gets no ref and is reported in `skipped` with `reason: \"finished\"`",
+      "cites": "line 38 (`finished`)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/seed-main.txt",
+      "reason": "fin is in skipped with reason finished, and show-ref for refs/ensemble/records/fin exits non-zero.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-17",
+      "statement": "A folder whose recorded branch is not the branch checked out in its worktree gets no ref and is reported with `reason: \"branch-mismatch\"`",
+      "cites": "line 38 (`branch-mismatch`); line 18 (`implement.json` carries `branch`)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/seed-main.txt",
+      "reason": "mism is in skipped with reason branch-mismatch and has no ref.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-18",
+      "statement": "A folder whose records name no branch gets no ref and is reported with `reason: \"no-branch\"`",
+      "cites": "line 38 (`no-branch`)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/seed-main.txt",
+      "reason": "nobr is in skipped with reason no-branch and has no ref.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-19",
+      "statement": "After the cutover, a finished feature's records remain readable from the history of the branch they were committed on",
+      "cites": "domain-derived: line 42 makes the untracking index-only and never committed, so the commits that already hold those files are not rewritten; that is what keeps a finished feature, which gets no ref (line 38), readable at all",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/fs19-history.txt",
+      "reason": "After the cutover and a commit of the staged removals (HEAD 42a7c67), git show of the pre-cutover commit prints the finished feature implement.json, exit 0.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-20",
+      "statement": "A ref that already exists locally is never seeded or overwritten: the slug is reported with `reason: \"ref-exists\"` and the ref still points at its original commit",
+      "cites": "line 35 (\"whose ref does not exist\"); line 38 (`ref-exists`)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/seed-main.txt",
+      "reason": "refs/ensemble/records/refpre points at c87b66a before and after the seed, and refpre is in skipped with reason ref-exists.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-21",
+      "statement": "A ref that exists on origin but not locally is never seeded or overwritten: the slug is reported with `reason: \"ref-exists\"`, and origin's ref still points at its original commit",
+      "cites": "line 35 (\"whose ref does not exist\"); line 38 (`ref-exists`, with `remote-unknown` showing origin is consulted)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/seed-main.txt",
+      "reason": "remoteonly exists only on origin: origin still lists it at c87b66a after the seed, no local ref was created, and it is in skipped with reason ref-exists.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-22",
+      "statement": "When origin cannot be checked for an existing ref (for example origin unreachable), nothing is seeded for that folder: it is reported with `reason: \"remote-unknown\"` and the output carries `remoteError`",
+      "cites": "line 38 (`remote-unknown`); line 32 (`remoteError?`)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/fs22-remote-unknown.txt",
+      "reason": "With origin pointed at a missing path, the in-flight slug is in skipped with reason remote-unknown, the JSON carries remoteError, and no local ref was created.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-23",
+      "statement": "A seeded ref's recorded Forge feature id is the folder's own: it is `shipped.json` `work.forge_feature_id` when present, and null when the folder has no such value, even when the session running the seed has `FORGE_FEATURE_ID` set to something else",
+      "cites": "lines 36-37 (`forgeFeatureId` from the folder's own `shipped.json`, else null); lines 26-27 (the option replaces `process.env.FORGE_FEATURE_ID`, null included)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/it2-FS15-FS23-seed.txt",
+      "reason": "With FORGE_FEATURE_ID=session-id exported, f-a's record.json shows feat-123, taken from its shipped.json. f-b, which has no shipped.json, shows null. session-id appears in neither.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-24",
+      "statement": "A seeded ref carries the evidence images the folder's `verification-report.md` references, alongside its records",
+      "cites": "lines 12-13 (`write` adds the referenced evidence images); lines 16-17 (`writeFiles`, which drops them on a new ref, is not used)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/seed-details.txt",
+      "reason": "git ls-tree of the seeded ref lists evidence/shot-1.png beside implement.json, record.json and verification-report.md, whose content references that image.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-25",
+      "statement": "`record-ref.js write` called without the `forgeFeatureId` key behaves as before, taking the Forge feature id from `FORGE_FEATURE_ID` in the environment; called with the key, the key's value is used instead",
+      "cites": "lines 26-28 (\"Nothing else in `write` changes\"); line 14",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/fs25-forge-id.txt",
+      "reason": "With FORGE_FEATURE_ID=env-id exported, a write without the key recorded env-id and a write with forgeFeatureId \"opt-id\" recorded opt-id.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-26",
+      "statement": "`seed` pushes each seeded ref to origin by default, and with `--no-push` creates it locally without reaching origin; each `seeded` entry's `push` field says which happened",
+      "cites": "line 30 (`seed [--no-push]`); lines 31, 36 (`push` passed to `write`, reported per entry)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/regression-1/fs26-no-push.txt",
+      "reason": "Default seed: every seeded entry says push pushed and origin lists the refs afterwards (seed-main.txt). With --no-push: push skipped, the ref exists locally and ls-remote origin lists nothing.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-27",
+      "statement": "In a scaffolded project, the vendored `--records-cutover` finds and runs the vendored `records-cutover.js` (from `.claude/lib/`, the scaffold's `../lib/`) and prints its JSON line after the `Untracked` lines",
+      "cites": "lines 29-30 (vendored to `.claude/lib/`); lines 43-44 (run from `${SCRIPT_DIR}/../lib/`, JSON line printed)",
+      "status": "met",
+      "artifact": ".trd-state/cutover-for-existing-projects/evidence/it2-FS27-vendored.txt",
+      "reason": "The scaffolded fixture has .claude/lib/records-cutover.js. The scaffold found records-cutover.js at its ../lib/ and printed the Untracked lines first, then the seed JSON, so the earlier ordering defect is fixed. Two caveats: no scaffold script is vendored into a project, so the plugin's copy was the one exercised, and the JSON line starts with an '[INFO] Records seed: ' prefix instead of '{\"ok\":'.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  },
+  "mustPass": [
+    "FS-1",
+    "FS-2",
+    "FS-3",
+    "FS-4",
+    "FS-5",
+    "FS-6",
+    "FS-11",
+    "FS-12",
+    "FS-13",
+    "FS-16",
+    "FS-17",
+    "FS-19",
+    "FS-20",
+    "FS-21",
+    "FS-22",
+    "FS-23",
+    "FS-24"
+  ],
+  "mustPassUncovered": [],
+  "causes": [
+    {
+      "key": "rebase-rollback-omits-pushed-ref",
+      "representative": "FS-8",
+      "members": [
+        "FS-8"
+      ],
+      "status": "closed",
+      "closedAt": 2
+    },
+    {
+      "key": "cutover-seed-runs-before-untrack",
+      "representative": "FS-27",
+      "members": [
+        "FS-27"
+      ],
+      "status": "closed",
+      "closedAt": 2
+    }
+  ],
+  "regression": {
+    "rounds": [
+      {
+        "round": 1,
+        "iteration": 2,
+        "scope": [
+          {
+            "id": "FS-1",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-2",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-3",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-4",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-5",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-6",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-7",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-9",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-10",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-11",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-12",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-13",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-14",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-16",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-17",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-18",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-19",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-20",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-21",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-22",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-24",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-25",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-26",
+            "reason": "no-covers"
+          }
+        ],
+        "caught": []
+      }
+    ],
+    "notRewalked": [
+      "FS-8",
+      "FS-15",
+      "FS-23",
+      "FS-27"
+    ],
+    "unclaimedChanges": [
+      ".claude/commands/rebase-project.md",
+      "packages/core/commands/rebase-project.md",
+      "packages/core/commands/records-cutover-prose.test.js",
+      "packages/core/scripts/scaffold-project.sh",
+      "packages/core/scripts/scaffold-project.test.sh",
+      "packages/full/commands/plugin-only/rebase-project.md"
+    ],
+    "gateBeforeEdits": false
+  }
+}
