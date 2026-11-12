@@ -40,10 +40,10 @@ describe('records-ref readers: ensure before the first state read', () => {
     expect(s.indexOf(ENSURE)).toBeLessThan(s.indexOf('`.trd-state/<feature>/closed.json` exists'));
   });
 
-  test('task names the single task-* fetch, read --local and list --remote', () => {
+  test('task names the single task-* fetch, read-record --local and list --remote', () => {
     const s = read('task.md');
     expect(s).toContain("git fetch origin '+refs/ensemble/records/task-*:refs/ensemble/records/task-*'");
-    expect(s).toContain('record-ref.js read --local');
+    expect(s).toContain('record-ref.js read-record --local');
     expect(s).toContain('record-ref.js list --remote');
   });
 
@@ -57,5 +57,11 @@ describe('records-ref readers: ensure before the first state read', () => {
     for (const f of Object.keys(FIRST_READ)) {
       expect(fs.readFileSync(path.join(__dirname, '../../../.claude/commands', f), 'utf8')).toBe(read(f));
     }
+  });
+
+  test('ship-build restores only under --resume and otherwise reads closed.json alone, with the identity check', () => {
+    const s = fs.readFileSync(path.join(__dirname, 'ship-build.md'), 'utf8');
+    expect(s).toContain('Under\n`--resume`, restore the folder');
+    expect(s).toContain('record-ref.js read-record --state-dir .trd-state/<feature> --file closed.json');
   });
 });

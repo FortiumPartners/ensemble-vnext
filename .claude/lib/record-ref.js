@@ -23,6 +23,8 @@
  *   node record-ref.js read    --slug <slug> --file <path-in-tree> [--local]
  *   node record-ref.js list    [--remote]
  *   node record-ref.js restore --state-dir <dir> [--local]
+ *   node record-ref.js read-record --state-dir <dir> --file <name> [--local] [--branch <b>]
+ *       (worktree first; the ref only when the folder holds no records and its identity matches)
  *   node record-ref.js ensure  --state-dir <dir> [--local] [--branch <b>]
  *
  * `--local` never fetches (hooks). `ensure` prints {ok, outcome: present|restored|no-record|mismatch|
@@ -1083,7 +1085,8 @@ function main(argv) {
   else if (cmd === 'list') result = list({ remote: a.remote });
   else if (cmd === 'restore') result = restore({ stateDir: a['state-dir'], local: a.local });
   else if (cmd === 'ensure') result = ensure({ stateDir: a['state-dir'], local: a.local, branch: a.branch });
-  else result = refused('usage: record-ref.js write|read|list|restore|ensure ...');
+  else if (cmd === 'read-record') result = readRecord({ stateDir: a['state-dir'], file: a.file, local: a.local, branch: a.branch });
+  else result = refused('usage: record-ref.js write|read|list|restore|ensure|read-record ...');
   process.stdout.write(JSON.stringify(result) + '\n');
   process.exitCode = 0;
 }

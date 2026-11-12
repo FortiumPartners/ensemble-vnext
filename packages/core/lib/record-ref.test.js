@@ -1061,6 +1061,20 @@ describe('CLI', () => {
     expect(r.status).toBe(0);
     expect(JSON.parse(r.stdout).outcome).toBe('refused');
   });
+
+  test('read-record reads a file from the ref once the folder is gone, and nothing for another branch', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/closed.json`, '{"closedBy":"audit"}');
+    expect(doWrite(repo, { push: false }).outcome).toBe('ref');
+    fs.rmSync(path.join(repo, STATE), { recursive: true, force: true });
+    const r = runCli(repo, ['read-record', '--local', '--state-dir', STATE, '--file', 'closed.json']);
+    expect(r.status).toBe(0);
+    const out = JSON.parse(r.stdout);
+    expect(out).toMatchObject({ found: true, source: 'ref' });
+    expect(JSON.parse(out.content).closedBy).toBe('audit');
+    const other = runCli(repo, ['read-record', '--local', '--state-dir', STATE, '--file', 'closed.json', '--branch', 'some-other-branch']);
+    expect(JSON.parse(other.stdout).found).toBe(false);
+  });
 });
 
 describe('vendoring', () => {

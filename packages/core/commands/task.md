@@ -207,8 +207,8 @@ back is closed, not a candidate), then restore the one chosen:
 ```bash
 node .claude/lib/record-ref.js list --remote
 timeout 15 git fetch origin '+refs/ensemble/records/task-*:refs/ensemble/records/task-*'
-node .claude/lib/record-ref.js read --local --slug task-<slug> --file implement.json
-node .claude/lib/record-ref.js read --local --slug task-<slug> --file closed.json
+node .claude/lib/record-ref.js read-record --local --state-dir .trd-state/task-<slug> --file implement.json
+node .claude/lib/record-ref.js read-record --local --state-dir .trd-state/task-<slug> --file closed.json
 node .claude/lib/record-ref.js ensure --state-dir .trd-state/task-<slug>
 ```
 
