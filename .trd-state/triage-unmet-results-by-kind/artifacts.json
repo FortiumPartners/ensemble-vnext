@@ -11,5 +11,11 @@
     "url": "",
     "updated_at": "2026-11-12T05:39:08.858Z",
     "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/triage-unmet-results-by-kind/verification-report.md",
+    "url": "https://claude.ai/artifact/NVbkJRJNGU5b58DKhCNZec",
+    "updated_at": "2026-11-12T05:49:57.978Z",
+    "command": "/implement-trd"
   }
 }
