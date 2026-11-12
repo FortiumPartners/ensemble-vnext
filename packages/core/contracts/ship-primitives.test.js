@@ -159,6 +159,10 @@ describe('the custody gate (ship-custody-gate.md)', () => {
     expect(gateFlat.indexOf('--reverified', iVerify)).toBeGreaterThan(iVerify);
     expect(gateFlat).toMatch(/reverify\/verification-state\.json/);
   });
+  test('names the merged re-proof file and the retried flag', () => {
+    expect(gateFlat).toMatch(/holds the merged result after the re-proof's one retry/);
+    expect(gateFlat).toMatch(/`retried: true` marks a criterion re-judged on the second try/);
+  });
   test('refused returns stop, and reused and excused are reported in data.custody', () => {
     expect(gateFlat).toMatch(/refused[^.]*stop/);
     // tie both id lists to data.custody; bare /reused/ and /excused/ match any prose that mentions them
@@ -424,6 +428,69 @@ describe('collect-findings and fix-findings', () => {
     expect(t).toMatch(/fixed by reconcile at <sha>/);
     expect(t).toMatch(/not built/);
     expect(t).toMatch(/custody gate before the merge re-verifies/);
+  });
+  test('collect-findings records the files a CI failure points at, for fix-findings to size the fix by', () => {
+    const t = flat('collect-findings');
+    expect(t).toMatch(/`files`/);
+    expect(t).toMatch(/what `fix-findings` sizes the fix by/);
+  });
+  test('routeRow sends test-only and CI-config rows to the direct path and product code to reconcile', () => {
+    const { routeRow } = require('../lib/ci-fix-route');
+    expect(routeRow({ summary: 'ci: unit', files: ['packages/x/foo.test.js'] }).route).toBe('direct');
+    expect(routeRow({ summary: 'ci: lint workflow', file: '.github/workflows/ci.yml' }).route).toBe('direct');
+    expect(routeRow({ summary: 'ci: unit', files: ['packages/core/lib/custody.js'] }).route).toBe('reconcile');
+  });
+  test('fix-findings contract: direct path avoids implement-trd and /code-review, with its guards', () => {
+    const t = flat('fix-findings');
+    const iRoute = t.indexOf('ci-fix-route.js route');
+    const iDirect = t.indexOf('**Direct path.**');
+    const iReconcile = t.indexOf('**Reconcile path.**');
+    expect(iRoute).toBeGreaterThan(-1);
+    expect(iRoute).toBeLessThan(iDirect);
+    expect(iDirect).toBeLessThan(iReconcile);
+    const direct = t.slice(iDirect, iReconcile);
+    for (const w of ['ci-fix-route.js check-diff', 'needs-product', 'actionlint', 'fixed directly at <sha>', 'git add --']) {
+      expect(direct).toContain(w);
+    }
+    expect(direct).not.toMatch(/implement-trd/);
+    expect(direct).not.toMatch(/\/code-review/);
+  });
+  test('fix-findings contract: product-code rows take the reconcile path, sweep step unchanged', () => {
+    const t = flat('fix-findings');
+    const reconcile = t.slice(t.indexOf('**Reconcile path.**'));
+    expect(reconcile).toContain('--reconcile --chained --shipping');
+    expect(t).toMatch(/\/plan <the findings>/);
+  });
+  test('fix-findings contract: sweep work goes to step 4 before any routing', () => {
+    const t = flat('fix-findings');
+    const sentence = 'Sweep work (`work.kind` is `sweep`) goes to step 4 first, before any routing';
+    expect(t).toContain(sentence);
+    expect(t.indexOf(sentence)).toBeLessThan(t.indexOf('ci-fix-route.js route'));
+  });
+  test('fix-findings contract: direct path names the clean-tree rule and the diff-only judge', () => {
+    const t = flat('fix-findings');
+    const direct = t.slice(t.indexOf('**Direct path.**'), t.indexOf('**Reconcile path.**'));
+    expect(direct).toContain('git status --porcelain');
+    expect(direct).toMatch(/otherwise every row takes the reconcile path/);
+    expect(direct).toMatch(/subagent_type: "code-reviewer"/);
+    expect(direct).toMatch(/reads only that diff/);
+    expect(direct).toMatch(/subagent_type: "app-debugger"/);
+  });
+  test('fix-findings contract: Result names a direct fix', () => {
+    const t = flat('fix-findings');
+    const iResult = t.indexOf('## Result');
+    const iWaiting = t.indexOf('## Waiting');
+    expect(iResult).toBeGreaterThan(-1);
+    expect(iWaiting).toBeGreaterThan(iResult);
+    expect(t.slice(iResult, iWaiting)).toContain('a direct fix');
+  });
+  test('fix-findings contract: reconcile path runs only when reconcile rows remain, and step 4 keeps its sweep sentence', () => {
+    const t = flat('fix-findings');
+    const reconcile = t.slice(t.indexOf('**Reconcile path.**'), t.indexOf('4. **Sweep work has no TRD**'));
+    expect(reconcile).toMatch(/Run only when reconcile rows remain/);
+    const step4 = t.slice(t.indexOf('4. **Sweep work has no TRD**'), t.indexOf('## Result'));
+    expect(step4).toMatch(/return `stop` naming `\/plan <the findings>`/);
+    expect(step4).toMatch(/handed to \/plan/);
   });
   test('run leaves a command\'s commit to the custody gate', () => {
     expect(flat('run')).toMatch(/reconciled by the custody gate before the next merge or release/);

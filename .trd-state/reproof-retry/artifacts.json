@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/reproof-retry.md",
+    "url": "https://claude.ai/artifact/W1jaxyhFiGS4NKNVnqL8rJ",
+    "updated_at": "2026-11-11T23:11:06.824Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/reproof-retry/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-11T23:37:43.311Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/reproof-retry/verification-report.md",
+    "url": "https://claude.ai/artifact/SRHnaBrAyDZLXVBD4UZCre",
+    "updated_at": "2026-11-11T23:57:04.798Z",
+    "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/reproof-retry/audit-build-report.md",
+    "url": "https://claude.ai/artifact/4mpmK2n4E7cyWtAwgmDxA6",
+    "updated_at": "2026-11-12T00:04:24.277Z",
+    "command": "/audit-build"
+  }
+}

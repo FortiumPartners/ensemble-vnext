@@ -35,7 +35,9 @@ The caller gives the gate `work`, `context`, and which act it guards (`merge` or
      setup check waits for the environment as `verification.md` declares), then repeat the
      reconcile above with `--reverified <work.stateDir>/reverify/verification-state.json` (the
      subset run writes there; the feature's own `verification-state.json` is the old full run and
-     would pass stale). `moved`: go on.
+     would pass stale). That file holds the merged result after the re-proof's one retry, and
+     `retried: true` marks a criterion re-judged on the second try (a criterion met on retry
+     passes custody; its flag keeps the flake visible). `moved`: go on.
    - `refused`, or any failure: return `stop` with the reason, naming the criteria that are not
      `met` and the differing files. This includes "local HEAD has shipped changes not on the PR
      head": push (or pull, when the PR head is the one ahead), let CI pass, then

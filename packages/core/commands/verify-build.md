@@ -328,6 +328,8 @@ Workflow({ name: "verify-functional", args: {
 `feature` stays `<feature>`, but `evidenceDir`, `statePath`, `reportPath` and `pagesDir` sit
 under `.trd-state/<feature>/reverify/`, `cap` is `1`, `criteria` is the filtered subset, and
 `checks`, `fullRunCommand`, `coverageFloor`, `mustPassIds` and `mustPassUncovered` are as above.
+After this dispatch, the "`--criteria`" section's one retry may dispatch the workflow once more
+into `.trd-state/<feature>/reverify/retry/`.
 No field is added or removed: the list stays the 26 fields.
 
 ### 5. Report
@@ -473,7 +475,8 @@ belong to its full run, so a subset must never overwrite them. Under it:
   `evidence`, `verification-artifacts`). The feature's own `verification-state.json` and
   `verification-report.md` are not touched.
 - **`cap: 1`**: one iteration, so the loop never reaches its in-place Debug stage; a Debug pass
-  would edit code outside the recorded path. `--no-fix` is implied: skip the fix loop.
+  would edit code outside the recorded path. `--no-fix` is implied: skip the fix loop. The one
+  retry below is not a second iteration of the loop.
 - **Rulings stand**: if `.trd-state/<feature>/verification-plan.md` exists, fold its
   `## Owner rulings` and `## Accepted as not verifiable` tables into `notes` (under a
   `## Owner rulings (verification-plan.md)` heading), whatever the plan's `**Written**`
@@ -482,6 +485,23 @@ belong to its full run, so a subset must never overwrite them. Under it:
 - **Only the named criteria**: read the feature's `success-definition.md` (present, as for any
   run), then filter `criteria` to the named ids. Restrict `mustPassIds` to them,
   `mustPassUncovered: []`, `coverageFloor: null` (no coverage floor).
+- **One retry, no Debug**: a re-proof can fail on a flaky first look, so it gets at most once
+  more chance, for only the criteria that were not met. After the first dispatch, run
+  `node .claude/lib/functional-verification.js reproof-retry-set .trd-state/<feature>/reverify/verification-state.json`.
+  An empty `retry` list means no retry: report as today. Otherwise remove
+  `.trd-state/<feature>/reverify/retry/` left by any earlier re-proof, then dispatch the
+  `verify-functional` workflow once more, with the same 26 fields except: `criteria` is the
+  retry set, `mustPassIds` is restricted to it, `resume: null`, `statePath`, `reportPath`,
+  `evidenceDir` and `pagesDir` all sit under `.trd-state/<feature>/reverify/retry/`, and
+  `since` recomputed as the later of the HEAD commit time and the retry's own start. `cap` stays
+  `1` and `--no-fix` holds: no Debug pass, no code edit and no build. Then run
+  `node .claude/lib/functional-verification.js merge-reproof-retry --first .trd-state/<feature>/reverify/verification-state.json --second .trd-state/<feature>/reverify/retry/verification-state.json`.
+  It writes the merged state back to the first path: each retried criterion takes its second
+  result and is marked `retried: true`, and the outcome is `satisfied` only when every criterion
+  is met, else the retry's. The `RETURN` line uses the merged `outcome`, `met` and `total` it
+  prints, over the whole named subset. `reverify/verification-report.md` stays the first run's
+  report and `reverify/retry/verification-report.md` is the retry's; the merged state file is
+  the record. No second retry.
 - **No check-skill rows** (skip step 3b), **no full deploy** (`fullRunCommand: ""`), **no
   publish** and **no `artifacts.js record`**: skip the Artifact link section entirely.
 - **An unknown id fails loudly**: if any named id is not a criterion of the definition, run

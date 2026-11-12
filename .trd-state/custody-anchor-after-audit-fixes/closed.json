@@ -1,0 +1,13 @@
+{
+  "feature": "custody-anchor-after-audit-fixes",
+  "trd": "docs/TRD/custody-anchor-after-audit-fixes.md",
+  "closedAt": "2026-11-12T00:23:45Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this change has no PRD; it comes from item 1 of the ship-cost-reduction roadmap); the live /audit-build then /ship-build run on github-live-test has not happened yet (the plan deferred it until after this build); the wait for the background review before the close and the STUCK-vs-success reading of the fix run's RETURN line are model-followed prose, and only contract tests check them",
+    "report": ".trd-state/custody-anchor-after-audit-fixes/audit-build-report.md",
+    "auditedCommit": "1d5b3791ceda1d941cf7425f3186ed8c1c43dc03",
+    "anchorCommit": null
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "feature": "ci-fix-sized-to-failure",
+  "trd": "docs/TRD/ci-fix-sized-to-failure.md",
+  "closedAt": "2026-11-12T00:19:04Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: the fix-findings contract test does not yet assert the sweep-first rule, the clean-tree rule or the diff-only judge (sent to the fix run); the direct path has not been proven on a live ship (needs github-live-test)",
+    "report": ".trd-state/ci-fix-sized-to-failure/audit-build-report.md",
+    "auditedCommit": "4d5f902a84dcf6971827d0ce0fae5b2c033beaef"
+  }
+}

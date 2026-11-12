@@ -27,6 +27,8 @@ const {
   LOCATOR_SCAN_BYTES,
   readFullDeploy,
   BUILD_TOKEN,
+  reproofRetrySet,
+  mergeReproofRetry,
 } = require('./functional-verification');
 
 const MODULE_PATH = path.join(__dirname, 'functional-verification.js');
@@ -4118,5 +4120,136 @@ describe('BUILD_TOKEN export (SHIP-B001)', () => {
     expect(BUILD_TOKEN.source).toBe('(?:\\b|(?<=\\bg))[0-9a-f]{7,40}\\b');
     expect('v4.13.8-3-gabc1234'.match(BUILD_TOKEN)).toEqual(['abc1234']);
     expect('deployed 1234567'.match(BUILD_TOKEN)).toEqual(['1234567']);
+  });
+});
+
+describe('re-proof retry', () => {
+  const first = () => ({
+    iteration: 2,
+    gapsClosed: 1,
+    outcome: 'stalled',
+    criteria: [
+      { id: 'A', status: 'met' },
+      { id: 'B', status: 'not_met' },
+      { id: 'C', status: 'not_verifiable' },
+      { id: 'D', status: 'unbuilt' },
+    ],
+  });
+
+  test('retry set is every id whose status is not met', () => {
+    expect(reproofRetrySet(first())).toEqual({ retry: ['B', 'C', 'D'] });
+  });
+
+  test('retry set is empty when all met or state unreadable', () => {
+    expect(reproofRetrySet({ criteria: [{ id: 'A', status: 'met' }] })).toEqual({ retry: [] });
+    expect(reproofRetrySet(null)).toEqual({ retry: [] });
+    expect(reproofRetrySet({})).toEqual({ retry: [] });
+  });
+
+  test('merge replaces only retried entries and flags them', () => {
+    const second = {
+      outcome: 'stalled',
+      criteria: [
+        { id: 'B', status: 'met' },
+        { id: 'C', status: 'not_verifiable' },
+        { id: 'D', status: 'unbuilt' },
+      ],
+    };
+    const m = mergeReproofRetry(first(), second);
+    expect(m.criteria.map((c) => c.status)).toEqual(['met', 'met', 'not_verifiable', 'unbuilt']);
+    expect(m.criteria[0].retried).toBeUndefined();
+    expect(m.criteria.slice(1).every((c) => c.retried === true)).toBe(true);
+    expect(m.retried).toEqual(['B', 'C', 'D']);
+    expect(m.outcome).toBe('stalled');
+    expect(Object.keys(m).sort()).toEqual(['criteria', 'gapsClosed', 'iteration', 'outcome', 'retried']);
+  });
+
+  test('outcome is satisfied only when every criterion ends met', () => {
+    const second = {
+      outcome: 'stalled',
+      criteria: ['B', 'C', 'D'].map((id) => ({ id, status: 'met' })),
+    };
+    expect(mergeReproofRetry(first(), second).outcome).toBe('satisfied');
+  });
+
+  test('missing second keeps first statuses and outcome, still marks retried', () => {
+    const m = mergeReproofRetry(first(), null);
+    expect(m.outcome).toBe('stalled');
+    expect(m.criteria.map((c) => c.status)).toEqual(['met', 'not_met', 'not_verifiable', 'unbuilt']);
+    expect(m.retried).toEqual(['B', 'C', 'D']);
+  });
+
+  test('an already-merged state gets no second retry and merges idempotently', () => {
+    const second = { outcome: 'stalled', criteria: [{ id: 'B', status: 'met' }, { id: 'C', status: 'not_met' }, { id: 'D', status: 'unbuilt' }] };
+    const merged = mergeReproofRetry(first(), second);
+    expect(reproofRetrySet(merged)).toEqual({ retry: [] });
+    expect(mergeReproofRetry(merged, null)).toEqual(merged);
+  });
+
+  test('a retry reporting satisfied but missing an id does not make the merge satisfied', () => {
+    const second = { outcome: 'satisfied', criteria: [{ id: 'B', status: 'met' }, { id: 'C', status: 'met' }] };
+    const m = mergeReproofRetry(first(), second);
+    expect(m.criteria.find((c) => c.id === 'D').status).toBe('unbuilt');
+    expect(m.outcome).toBe('stalled');
+  });
+
+  test('a null criterion entry does not throw', () => {
+    const f = { ...first(), criteria: [null, ...first().criteria] };
+    expect(() => mergeReproofRetry(f, null)).not.toThrow();
+  });
+
+  describe('CLI', () => {
+    let dir;
+    beforeEach(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reproof-'));
+    });
+    afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const run = (args) => spawnSync('node', [MODULE_PATH, ...args], { encoding: 'utf8' });
+
+    test('reproof-retry-set prints the set; missing file gives empty', () => {
+      const p = path.join(dir, 's.json');
+      fs.writeFileSync(p, JSON.stringify(first()));
+      expect(JSON.parse(run(['reproof-retry-set', p]).stdout)).toEqual({ retry: ['B', 'C', 'D'] });
+      expect(JSON.parse(run(['reproof-retry-set', path.join(dir, 'nope.json')]).stdout)).toEqual({ retry: [] });
+    });
+
+    test('merge-reproof-retry writes the merged state to --first and prints a summary', () => {
+      const a = path.join(dir, 'a.json');
+      const b = path.join(dir, 'b.json');
+      fs.writeFileSync(a, JSON.stringify(first()));
+      fs.writeFileSync(
+        b,
+        JSON.stringify({ outcome: 'stalled', criteria: [{ id: 'B', status: 'met' }, { id: 'C', status: 'not_met' }, { id: 'D', status: 'unbuilt' }] })
+      );
+      const r = run(['merge-reproof-retry', '--first', a, '--second', b]);
+      expect(r.status).toBe(0);
+      expect(JSON.parse(r.stdout)).toEqual({ outcome: 'stalled', met: 2, total: 4, retried: ['B', 'C', 'D'] });
+      const written = JSON.parse(fs.readFileSync(a, 'utf8'));
+      expect(Object.keys(written).sort()).toEqual(['criteria', 'gapsClosed', 'iteration', 'outcome', 'retried']);
+      expect(written.criteria[1]).toEqual({ id: 'B', status: 'met', retried: true });
+    });
+
+    test('merge-reproof-retry ignores a --second older than --first (stale earlier re-proof)', () => {
+      const a = path.join(dir, 'a.json');
+      const b = path.join(dir, 'b.json');
+      fs.writeFileSync(b, JSON.stringify({ outcome: 'satisfied', criteria: ['B', 'C', 'D'].map((id) => ({ id, status: 'met' })) }));
+      fs.writeFileSync(a, JSON.stringify(first()));
+      const old = new Date(Date.now() - 60000);
+      fs.utimesSync(b, old, old);
+      const r = run(['merge-reproof-retry', '--first', a, '--second', b]);
+      expect(r.status).toBe(0);
+      expect(JSON.parse(r.stdout)).toEqual({ outcome: 'stalled', met: 1, total: 4, retried: ['B', 'C', 'D'] });
+    });
+
+    test('merge-reproof-retry tolerates a missing --second and rejects a bad --first', () => {
+      const a = path.join(dir, 'a.json');
+      fs.writeFileSync(a, JSON.stringify(first()));
+      const ok = run(['merge-reproof-retry', '--first', a, '--second', path.join(dir, 'none.json')]);
+      expect(ok.status).toBe(0);
+      expect(JSON.parse(ok.stdout).outcome).toBe('stalled');
+      const bad = run(['merge-reproof-retry', '--first', path.join(dir, 'none.json')]);
+      expect(bad.status).not.toBe(0);
+      expect(bad.stderr).toMatch(/--first/);
+    });
   });
 });
