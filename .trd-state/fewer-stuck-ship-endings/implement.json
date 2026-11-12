@@ -4,7 +4,7 @@
   "trd_hash": "b1d93152663bfc853fa52dc7208e84f040ed998d4de8e62185c9857fe5e28069",
   "branch": "feature/50-fewer-stuck-endings-in-a-ship-run",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "Sequencer step-level recovery loop",
@@ -75,10 +75,19 @@
       "last_advanced": "2026-11-12T00:54:01.379Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "6dd3ed06366201f524812c78a10b44d6dd79f4b9",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T01:10:16.270Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "2519a53",
-    "last_checkpoint_timestamp": "2026-11-12T00:41:20.731Z",
+    "last_healthy_checkpoint": "6dd3ed06366201f524812c78a10b44d6dd79f4b9",
+    "last_checkpoint_timestamp": "2026-11-12T01:10:16.270Z",
     "interrupted": false,
     "interrupt_reason": null
   },
