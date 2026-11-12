@@ -5,5 +5,17 @@
     "url": "https://claude.ai/artifact/E29y4yBSC2UzjnWhHdqbeT",
     "updated_at": "2026-11-11T23:06:14.661Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/custody-anchor-after-audit-fixes/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-11T23:57:05.467Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/custody-anchor-after-audit-fixes/verification-report.md",
+    "url": "https://claude.ai/artifact/9vPekKXeM4xDgeVCuESFJk",
+    "updated_at": "2026-11-12T00:15:11.321Z",
+    "command": "/implement-trd"
   }
 }
