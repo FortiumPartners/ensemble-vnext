@@ -93,6 +93,18 @@ const BLOCKING = a.blocking === undefined || a.blocking === null ? 'all' : a.blo
 if (BLOCKING !== 'all' && BLOCKING !== 'must-pass') {
   throw new Error(`verify-functional: args.blocking must be 'all' or 'must-pass' when supplied, got ${JSON.stringify(a.blocking)}`)
 }
+// NEW (every-waived-failure-filed-as-a-defect-issue). When the command downgraded a declared
+// 'must-pass' policy to 'all' because no tracker is reachable, it hands the reason in here so the
+// report says why failures are blocking. Report-only: copied into every report input and never put
+// in the Judge's decide-next payload. Absent = null; a non-string throws.
+const BLOCKING_NOTE = a.blockingNote === undefined || a.blockingNote === null ? null : a.blockingNote
+if (BLOCKING_NOTE !== null && typeof BLOCKING_NOTE !== 'string') {
+  throw new Error(`verify-functional: args.blockingNote must be a string or null when supplied, got ${JSON.stringify(a.blockingNote)}`)
+}
+// The clause every report-input instruction appends; empty when there is no note.
+const BLOCKING_NOTE_CLAUSE = BLOCKING_NOTE
+  ? `"blockingNote": ${JSON.stringify(BLOCKING_NOTE)} (copied verbatim as a top-level key of the report input)`
+  : ''
 // NEW (verification-reuses-evidence). Evidence a `[LIVE]` task captured earlier in the build and
 // recorded in live-manifest.jsonl, handed in by the command (`live-evidence.js read`). It is the
 // ONLY source of a claim's `covers`: reconcileClaims attaches them by artifact path, so the
@@ -1040,7 +1052,8 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `completeness rule as STEP 4's state file (the already-settled ones carried verbatim with ` +
     `their "provenAt", "cause" and image keys, plus the ones you judged this iteration): id, statement, ` +
     `cites, status, artifact, reason, cause, provenAt, attempts, blocker, image, ui, imageExcluded, kind, settled), ` +
-    `plus each criterion's "causeKey" and "awaiting" where it has them, and "causes", the same array you wrote in STEP 4 (causes D16), then run:\n` +
+    `plus each criterion's "causeKey" and "awaiting" where it has them, and "causes", the same array you wrote in STEP 4 (causes D16), ` +
+    (BLOCKING_NOTE_CLAUSE ? `plus ${BLOCKING_NOTE_CLAUSE}, ` : '') + `then run:\n` +
     `  node ${CHECKER} render-report --file ${reportInputFile}\n` +
     `and write the output to ${REPORT_PATH}.\n` +
     `On "exit-setup-failure" the report input also carries "setup": {"problems": [ {"environment": ` +
@@ -2211,6 +2224,7 @@ function buildStateSyncPrompt(iteration, stateJson, patches, causesJson, reportF
         ? `Set the file's top-level "outcome" to ${JSON.stringify(reportFix.outcome)} and its top-level "reason" to ` +
           `${JSON.stringify(reportFix.reason)}: the workflow replaced the action the Judge wrote.\n`
         : '') +
+      (BLOCKING_NOTE_CLAUSE ? `Set the file's top-level ${BLOCKING_NOTE_CLAUSE}.\n` : '') +
       `Leave every other key of every criterion, and of ` +
       `the file, exactly as it is. Write it back to ${reportInputFile}.\n` +
       `3. Run  node ${CHECKER} render-report --file ${reportInputFile}  and write its output to ${REPORT_PATH}.\n\n`
@@ -2339,7 +2353,9 @@ async function reconcileOutcome(judgeResult, iteration) {
     `2. Read ${reportInputFile} (JSON), set its "outcome" to ${JSON.stringify(outcome)} and its "reason" to ` +
     `${JSON.stringify(judgeResult.reason)}, and set "mustPass" to ${JSON.stringify(MUST_PASS_IDS)} and ` +
     `"mustPassUncovered" to ${JSON.stringify(MUST_PASS_UNCOVERED)} (these two even if the Judge left ` +
-    `them out). Leave every other key exactly as it is. Write it back to ${reportInputFile}.\n` +
+    `them out)` +
+    (BLOCKING_NOTE_CLAUSE ? `, and set its top-level ${BLOCKING_NOTE_CLAUSE}` : '') +
+    `. Leave every other key exactly as it is. Write it back to ${reportInputFile}.\n` +
     `3. Run  node ${CHECKER} render-report --file ${reportInputFile}  and write its output to ${REPORT_PATH}.\n\n` +
     `Change nothing else and read no evidence. Return { "reconciled": <true when all three steps ` +
     `completed>, "reason": "<string, present when reconciled is false>" }.`
@@ -2395,6 +2411,7 @@ async function endOnSetupFailure(problems, iteration, openCriteria, settled, deb
     finalEnvironmentRun: null,
     mustPass: MUST_PASS_IDS,
     mustPassUncovered: MUST_PASS_UNCOVERED,
+    ...(BLOCKING_NOTE ? { blockingNote: BLOCKING_NOTE } : {}),
     setup: { problems },
   })
   const recorded = await agent(buildRecordPrompt(iteration, stateJson, reportInputJson), {

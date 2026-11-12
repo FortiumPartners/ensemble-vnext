@@ -695,8 +695,8 @@ base outcomes are unchanged.
 
 **Blocking: must-pass only.** When `verification.md` sets this and at least one criterion is
 marked `Must pass`, a `satisfied` run may carry non-blocking failures: `not_met` criteria that
-prove no must-pass objective. They are listed on the result and filed as follow-ups, not
-built. Check rows never carry a mark, so they never block under it. An `unbuilt` criterion
+prove no must-pass objective. Each is filed as a defect issue in the declared tracker (the run blocks as under
+`all criteria` when none is declared or reachable) and listed on the result, not built. Check rows never carry a mark, so they never block under it. An `unbuilt` criterion
 still blocks, and with no must-pass criterion the setting changes nothing.
 
 **`setup-failure`** says the environment, not the code, was broken, so the run did not

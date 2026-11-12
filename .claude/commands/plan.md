@@ -390,8 +390,8 @@ does today.
 Mark an objective `yes` when its failure would break a main user flow, leave data lost or
 corrupted, expose private data, or charge money or AI spend wrongly. The mark is what decides
 blocking when the owner sets `Blocking: must-pass only` in `verification.md`: a failing
-criterion that proves a marked objective blocks, and any other failure is listed and filed as
-a follow-up.
+criterion that proves a marked objective blocks, and any other failure is filed as a defect
+issue in the project's declared tracker, so `must-pass only` needs a tracker and nothing else.
 
 ## Reproduction | ## Intended Change | ## Behaviour Preserved
 <whichever the kind calls for — Step 2's findings, not a summary of them>
@@ -585,8 +585,8 @@ does today.
 Mark an objective `yes` when its failure would break a main user flow, leave data lost or
 corrupted, expose private data, or charge money or AI spend wrongly. The mark is what decides
 blocking when the owner sets `Blocking: must-pass only` in `verification.md`: a failing
-criterion that proves a marked objective blocks, and any other failure is listed and filed as
-a follow-up.
+criterion that proves a marked objective blocks, and any other failure is filed as a defect
+issue in the project's declared tracker, so `must-pass only` needs a tracker and nothing else.
 
 **State the objective the DEFECT implies, not the one the fix happens to satisfy.** Live run:
 the reproduction correctly said the failure was *"silent in effect — the nudge never reaches
@@ -841,8 +841,8 @@ does today.
 Mark an objective `yes` when its failure would break a main user flow, leave data lost or
 corrupted, expose private data, or charge money or AI spend wrongly. The mark is what decides
 blocking when the owner sets `Blocking: must-pass only` in `verification.md`: a failing
-criterion that proves a marked objective blocks, and any other failure is listed and filed as
-a follow-up.
+criterion that proves a marked objective blocks, and any other failure is filed as a defect
+issue in the project's declared tracker, so `must-pass only` needs a tracker and nothing else.
 
 ## Reproduction | ## Intended Change | ## Behaviour Preserved
 <whichever the kind calls for>

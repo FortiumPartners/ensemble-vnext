@@ -650,6 +650,11 @@ interface VerifyFunctionalArgs {
                                          //   the must-pass set returns satisfied, the failures in
                                          //   `nonBlocking`. Any other value throws before any agent
                                          //   is dispatched. Never sent to the Judge
+  blockingNote?: string | null;          // NEW (`docs/TRD/every-waived-failure-filed-as-a-defect-issue.md`).
+                                         //   Why a must-pass-only policy was refused (no reachable
+                                         //   tracker to file the waived failures in); absent = null.
+                                         //   Copied into every report input, never sent to the Judge;
+                                         //   a non-string, non-null value throws before any agent runs
   checks: { [skill: string]: string };  // NEW (VART D11). Each selected verification-check
                                         //   skill's SKILL.md text, keyed by skill name; {} when
                                         //   none were selected. Every criterion whose

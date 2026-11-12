@@ -3001,6 +3001,12 @@ describe('verify-functional: must-pass enforcement', () => {
     expect(reconcileCalls(agent)).toHaveLength(1);
   });
 
+  it('carries a supplied blockingNote into the reconcile prompt', async () => {
+    const note = 'refused: no tracker';
+    const { agent } = await run({ judge: satisfiedJudge({ criteria: unprovenCriteria }), args: { blockingNote: note } });
+    expect(reconcileCalls(agent)[0].prompt).toContain(`"blockingNote": ${JSON.stringify(note)}`);
+  });
+
   it('runs the re-check on the zero-criteria branch too, reconciling against iteration 0', async () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'judge') return satisfiedJudge({ criteria: [], reason: 'no criteria' });
@@ -5809,6 +5815,26 @@ describe('verify-functional: blocking policy (block-only-on-material-failures)',
     const agent = makeAgentStub(() => null);
     await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ blocking: 'some' }) })).rejects.toThrow(/args\.blocking must be 'all' or 'must-pass'.*"some"/);
     expect(agent.calls).toHaveLength(0);
+  });
+
+  it.each([42, true, {}, ['x']])('rejects a non-string blockingNote (%j) before any agent runs', async (blockingNote) => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ blockingNote }) })).rejects.toThrow(/args\.blockingNote must be a string or null/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('a supplied blockingNote appears in every report-input instruction (judge, state-sync, reconcile) and never in the decide-next payload', async () => {
+    const note = 'the must-pass-only policy was refused: no tracker is declared';
+    const { agent } = await run(nonMustPassFailure(), { mustPassIds: ['FS-2'], blocking: 'must-pass', blockingNote: note });
+    const judgePrompt = agent.calls.find((c) => c.opts.label === 'judge').prompt;
+    expect(judgePrompt).toContain(`"blockingNote": ${JSON.stringify(note)}`);
+    expect(judgePrompt).not.toMatch(/"blockingNote"[^\n]*decide-next/);
+    for (const c of syncs(agent)) expect(c.prompt).toContain(JSON.stringify(note));
+  });
+
+  it('no blockingNote: nothing about it is added to the prompts', async () => {
+    const { agent } = await run(nonMustPassFailure(), { mustPassIds: ['FS-2'], blocking: 'must-pass' });
+    for (const c of agent.calls) expect(c.prompt).not.toContain('blockingNote');
   });
 
   it.each([undefined, 'all', 'must-pass'])("the Judge's decide-next payload carries no blocking key (blocking: %s)", async (blocking) => {

@@ -329,11 +329,27 @@ caveat. **Uncovered items (`covered: false`) are never recorded for the fix run 
 They are reported for design, and the feature stays open.
 
 **4. Close, or re-audit.**
-- `close` true: after the chained run's RETURN line, perform `/close-feature`'s "The close step"
+- `close` true: after the chained run's RETURN line, first run the waived-defect gate:
+  `node .claude/lib/waived-defects.js gate --state-dir .trd-state/<feature> --stack "$(node .claude/lib/owner-rules.js path stack.md)" --closed-by audit`
+  (the same step 0 as `/close-feature`'s close step, including filing Linear and Jira rows through
+  their skills and `record-filed` before reading `ok`; the owner's 2026-11-12 rule plus the project's opt-in to
+  `must-pass only` is the authority, so filing needs no `ship.md` step and no `autonomy.md`
+  sentence). STATE lists each filed issue URL with its criterion. When its `ok` is false the
+  feature does not close: write no close record (a re-audit removes an existing `closed.json`
+  rather than rewriting it), open no PR, skip the chain-to-close steps below, and still write
+  the records ref, the report and the round record as for any audit. End `COMMAND STUCK` with
+  `Reason:` naming each row in `failed` (its criterion, from `summary`, and its `error`) and a
+  `Next:` that names BOTH ways out on every refusal, whatever the tracker (GitHub, Linear or
+  Jira) and whatever the error: fix the tracker (or `## Issue Tracker` in `stack.md`), **or**
+  file each row's issue by hand (label `defect`) and run `record-filed` for it
+  (`node .claude/lib/waived-defects.js record-filed --state-dir .trd-state/<feature> --ref <ref> --url <url>`;
+  a row whose `url` is already in `failed` needs only `record-filed` with that URL); then
+  `/audit-build docs/TRD/<feature>.md`, which runs the gate again. Never omit the by-hand
+  `record-filed` way out because the tracker is GitHub. Never NEXT `/close-feature` here. When `ok` is true, perform `/close-feature`'s "The close step"
   (`.claude/commands/close-feature.md`) with `"closedBy": "audit"`, `"note": null` and
   `"audit": { "verdict": "<the VERDICT line>", "report": ".trd-state/<feature>/audit-build-report.md", "auditedCommit": "<the header's value>", "anchorCommit": <below> }`
   (`anchorCommit` goes inside `audit`, never at the top level: `custody.js` reads only
-  `audit.anchorCommit`), except that its step 4 (the records write) is skipped here: the one write below carries it. Then commit the TRD (if needed), publish, write the records and open the PR as
+  `audit.anchorCommit`), except that its step 0 (the gate, which already ran above with `--closed-by audit`) and its step 4 (the records write) are skipped here: the one write below carries it. Then commit the TRD (if needed), publish, write the records and open the PR as
   below, and print the run's single banner. Add every caveat `decide` returned, and anything
   the fix run did not finish, to the readout. A feature that is already closed (a re-audit)
   gets its `closed.json` rewritten with this run's audit fields.

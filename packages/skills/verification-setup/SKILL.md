@@ -127,7 +127,7 @@ empty.
 The question itself states, in one sentence before asking: "Blocking policy decides which
 failed criteria stop a run from reporting satisfied: `all criteria` means any failure blocks,
 and `must-pass only` means only a failure on a criterion marked must-pass blocks, while any
-other failure is recorded as a follow-up; it has no effect on work with no must-pass
+other failure is filed as a defect issue in your declared tracker (so it needs one); it has no effect on work with no must-pass
 criterion, and verification-check rows never carry a must-pass mark, so they never block
 under must-pass only." It is asked in one `AskUserQuestion` call that offers `all criteria`
 first, as the default (and the value an absent section means), then `must-pass only`, then

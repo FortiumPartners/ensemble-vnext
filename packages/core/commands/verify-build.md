@@ -290,8 +290,8 @@ records them).
 
 **Blocking policy — read as `/implement-trd` §8.1a reads it, except that an invalid line ends
 this command STUCK (below) rather than rendering a `not run` report.** Run
-`node .claude/lib/functional-verification.js read-blocking-policy "$(node .claude/lib/owner-rules.js path verification.md)"`
-and hold its `policy` as `blocking` (`'all'` when none is declared). On `status: 'invalid'` the
+`node .claude/lib/functional-verification.js read-blocking-policy "$(node .claude/lib/owner-rules.js path verification.md)" --stack "$(node .claude/lib/owner-rules.js path stack.md)"`
+and hold its `policy` as `blocking` (`'all'` when none is declared). Hold `blockingNote` as its `waiverRefused` (a string), else `null`: when present, `policy` is already `'all'` (a declared `must-pass` is not applied because no tracker can take the waived failures) and DECISIONS says so. On `status: 'invalid'` the
 run ends `═══ COMMAND STUCK: /verify-build ═══`, with `Reason:` naming the raw line
 ("verification.md's blocking policy does not parse (`<raw>`)") and `Next:` `/verification-setup`;
 nothing is dispatched. Under `--chained` it ends on the `RETURN → STUCK: <reason>` line instead.
@@ -313,7 +313,7 @@ preclassified id that is not in `criteria`).
 
 ### 4. Dispatch
 
-All 31 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
+All 32 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
 command's own resolution (Steps 1–3c), not copied from `/implement-trd`:
 
 `criterionCovers` is derived first, from the definition as it now stands (after Step 3 or 3a
@@ -366,6 +366,7 @@ Workflow({ name: "verify-functional", args: {
   preclassified,                                                 // resolved per implement-trd.md §8.1a step 8 (step 3c here) -- preclassify's output; [] when none
   offHostProofs,                                                 // `node .claude/lib/functional-verification.js off-host-proofs` (see above) -- its `proofs`, fresh before every dispatch; [] for a sweep file, when none is declared or the call fails
   blocking,                                                      // resolved at step 3c (read-blocking-policy) -- 'all' (default, when none is declared) or 'must-pass'
+  blockingNote,                                                  // resolved at step 3c (read-blocking-policy) -- its `waiverRefused`, else null; report-only
 } })
 ```
 
@@ -376,7 +377,7 @@ under `.trd-state/<feature>/reverify/`, `cap` is `1`, `criteria` is the filtered
 and `preclassified` is `[]` (a subset is not the whole definition).
 After this dispatch, the "`--criteria`" section's one retry may dispatch the workflow once more
 into `.trd-state/<feature>/reverify/retry/`.
-`criterionCovers` is the one field the regression pass added: the list is the 31 fields, `blocking` last.
+`criterionCovers` is the one field the regression pass added: the list is the 32 fields, `blockingNote` last.
 
 ### 5. Report
 
@@ -396,7 +397,7 @@ the line in verification.md does not parse" when `read-coverage-floor` returned 
 
 **State `nonBlocking` whenever the result carries it:** "Not blocking: {n} criteria failed but
 are not must-pass, so verification passed under verification.md's blocking policy — {each in
-plain words, with its reason}; each is recorded as a follow-up."
+plain words, with its reason}; each is filed as a defect issue in the project's tracker when the feature closes."
 
 **State must-pass whenever this run reached step 4 (D15):** "Must pass: none declared in the
 TRD's Objectives" when `mustPass.criteria` and `mustPass.uncovered` are both empty (always the
@@ -468,6 +469,8 @@ line. Never re-derive the verdict here; this is a count, not a second judgement.
 per O4, above: "refine the plan with `/refine-verification` (add `--auto` to let an agent
 answer), then run `/verify-build`" — followed by `/refine-verification` and `/verify-build`,
 each in its own fenced block, in that order; never both commands inline as the only NEXT.
+
+**DECISIONS for a refused waiver.** When 3c's `read-blocking-policy` returned `waiverRefused`: "verification.md declares a must-pass-only blocking policy, but it was not applied: {waiverRefused}. Every failure blocks."
 
 **STATE for non-blocking failures.** STATE carries the "Not blocking" line from step 5 whenever
 the result's `nonBlocking` is non-empty.
@@ -570,7 +573,7 @@ belong to its full run, so a subset must never overwrite them. Under it:
   `node .claude/lib/functional-verification.js reproof-retry-set .trd-state/<feature>/reverify/verification-state.json`.
   An empty `retry` list means no retry: report as today. Otherwise remove
   `.trd-state/<feature>/reverify/retry/` left by any earlier re-proof, then dispatch the
-  `verify-functional` workflow once more, with the same 31 fields except: `criteria` is the
+  `verify-functional` workflow once more, with the same 32 fields except: `criteria` is the
   retry set, `mustPassIds` is restricted to it, `offHostProofs` is recomputed with `--ids <retry set>`, `resume: null`, `preclassified: []`, `statePath`, `reportPath`,
   `evidenceDir` and `pagesDir` all sit under `.trd-state/<feature>/reverify/retry/`, and
   `since` recomputed as the later of the HEAD commit time and the retry's own start. `cap` stays

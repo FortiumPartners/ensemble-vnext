@@ -149,8 +149,8 @@ does today.
 Mark an objective `yes` when its failure would break a main user flow, leave data lost or
 corrupted, expose private data, or charge money or AI spend wrongly. The mark is what decides
 blocking when the owner sets `Blocking: must-pass only` in `verification.md`: a failing
-criterion that proves a marked objective blocks, and any other failure is listed and filed as
-a follow-up.
+criterion that proves a marked objective blocks, and any other failure is filed as a defect
+issue in the project's declared tracker, so `must-pass only` needs a tracker and nothing else.
 
 **Off-host proof** is an optional fifth column, found by header name at any position (hyphens and
 underscores read as spaces). It is only for a must-pass objective whose proof lives in CI rather

@@ -236,8 +236,8 @@ does today.
 Mark an objective `yes` when its failure would break a main user flow, leave data lost or
 corrupted, expose private data, or charge money or AI spend wrongly. The mark is what decides
 blocking when the owner sets `Blocking: must-pass only` in `verification.md`: a failing
-criterion that proves a marked objective blocks, and any other failure is listed and filed as
-a follow-up.
+criterion that proves a marked objective blocks, and any other failure is filed as a defect
+issue in the project's declared tracker, so `must-pass only` needs a tracker and nothing else.
 
 Placed after the Changelog and before the Overview, without renumbering either.
 

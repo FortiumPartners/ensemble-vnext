@@ -1860,11 +1860,11 @@ no environment; every "exercisable" criterion resolves to exactly one.
    **Read the owner's blocking policy (block-only-on-material-failures):**
 
    ```bash
-   node .claude/lib/functional-verification.js read-blocking-policy "$(node .claude/lib/owner-rules.js path verification.md)"
+   node .claude/lib/functional-verification.js read-blocking-policy "$(node .claude/lib/owner-rules.js path verification.md)" --stack "$(node .claude/lib/owner-rules.js path stack.md)"
    ```
 
    Set `blocking` from the result's `policy` (`'all'` or `'must-pass'`; an absent section is
-   `'all'`, today's behaviour). On `status: 'invalid'` — the `Blocking:` line under the
+   `'all'`, today's behaviour). Set `blockingNote` from the result's `waiverRefused` (a string), else `null`. When `waiverRefused` is present, `policy` is already `'all'` (the owner declared `must-pass` but no tracker can take the waived failures, so nothing is waived) and DECISIONS says so: "verification.md declares a must-pass-only blocking policy, but it was not applied: {waiverRefused}. Every failure blocks.". On `status: 'invalid'` — the `Blocking:` line under the
    blocking-policy section does not parse — the workflow is not dispatched and verification
    reports `not run: verification.md's blocking policy does not parse ("<raw>")` with `<raw>`
    the result's `raw`, rendered through `render-report` exactly as §8.1's two `not run` exits
@@ -2042,6 +2042,7 @@ Workflow({ name: "verify-functional", args: {
   preclassified,                                                 // §8.1a step 8 -- preclassify's output (entries already settled not-checkable-here, never exercised); [] when none
   offHostProofs,                                                 // `node .claude/lib/functional-verification.js off-host-proofs` (see above) -- its `proofs`, fresh before this dispatch; [] when none is declared or the call fails
   blocking,                                                      // §8.1a -- the blocking policy from verification.md: 'all' (default, when none is declared) or 'must-pass'
+  blockingNote,                                                  // §8.1a -- the result's `waiverRefused` (why a declared must-pass policy was not applied), else null; report-only
 } })
 ```
 
@@ -2216,7 +2217,7 @@ STATE
    owner did declare one.}
   {if `nonBlocking` is non-empty: "Not blocking: {n} criteria failed but are not must-pass, so
    verification passed under verification.md's blocking policy — {each in plain words, with
-   its reason}; each is recorded as a follow-up." Otherwise omit the line.}
+   its reason}; each is filed as a defect issue in the project's tracker when the feature closes." Otherwise omit the line.}
   {for each selected check, from `criteria` and `pages`: one line naming the check in plain
    words and its verdict counts, with its page link when rendered — e.g. "Screens against
    their designs: 32 compared — 28 match, 2 minor, 2 deviate and are still open — <link>".}
@@ -2242,6 +2243,7 @@ DECISIONS
    whether the loop can refresh it, "none declared" where it is) and §3.6a's target decision
    (the TRD's `## Verification Environment` target, or "none" and why).}
   {for each entry in `setup.flags`: "{environment}: {flag} — default applied: {default}."}
+  {if §8.1a's `read-blocking-policy` returned `waiverRefused`: "verification.md declares a must-pass-only blocking policy, but it was not applied: {waiverRefused}. Every failure blocks."}
   {if none: "none"}
 
 ISSUES

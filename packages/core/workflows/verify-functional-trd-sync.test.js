@@ -67,8 +67,8 @@ describe('§3.3 VerifyFunctionalArgs declares exactly what the workflow reads', 
   const declared = interfaceFields(section('3.3'), 'VerifyFunctionalArgs');
   const read = sorted([...WORKFLOW.matchAll(/\ba\.([A-Za-z_]\w*)/g)].map((m) => m[1]));
 
-  it('the workflow reads 31 fields (sanity check on the extraction itself)', () => {
-    expect(read).toHaveLength(31);
+  it('the workflow reads 32 fields (sanity check on the extraction itself)', () => {
+    expect(read).toHaveLength(32);
   });
 
   it('every field the workflow reads is declared, and nothing is declared that it does not read', () => {

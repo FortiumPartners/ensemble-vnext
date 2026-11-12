@@ -433,6 +433,12 @@ with the returned outcome.
 | `not run: no definition produced` | The derive agent wrote nothing | re-run `/verify-build` |
 | `not run (--no-verify set)` | You opted out | `/verify-build` |
 
+**Blocking: must-pass only and the defect issue.** Under this setting in `verification.md`, a
+`not_met` criterion that proves no must-pass objective does not block, but it is not dropped:
+each is filed as a defect issue in the project's declared tracker (GitHub, Linear or Jira), and
+the run reports `satisfied`. The setting needs a declared tracker and nothing else; with none
+declared or reachable the run blocks as under `all criteria`.
+
 The two `not run` reports are rendered by the same `render-report` with `outcome: "not-run"`,
 without calling the workflow (`implement-trd.md` §8.1). Only the five short outcomes get a
 **Next** line in the report itself (§10); the rest of that column is the commands' readouts.
