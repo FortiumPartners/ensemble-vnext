@@ -65,7 +65,7 @@ is an outward act nothing authorized.
    reported, never filed: its job's one issue is the `[flaky-ci]` row (`ref: "flaky:<job>"`).
    A label D17 does not know is filed, since there is no judge here.
 4. **File,** the selected rows in that order (product first). Issue body: the work, TRD, branch, PR URL, ledger path and row key. GitHub through
-   `gh issue create`; Linear and Jira through their skills. A `[non-blocking]` row is filed only through `node .claude/lib/waived-defects.js gate --state-dir <dir>` (its `<dir>` is the row's own), never with a plain `gh issue create`, and is never refiled when it already carries a `filed <url>` marker. Then `discovered.resolve(dir, row,
+   `gh issue create`; Linear and Jira through their skills. A `[non-blocking]` row is filed only through `node .claude/lib/waived-defects.js gate --state-dir <dir> --stack "$(node .claude/lib/owner-rules.js path stack.md)"` (its `<dir>` is the row's own), never with a plain `gh issue create`, and is never refiled when it already carries a `filed <url>` marker. Then `discovered.resolve(dir, row,
    "filed <url>")` against its own `dir` (the one the row came back with), so a re-run files nothing twice, and add
    `{ summary, url, class }` for that row to `data.filed`: the row's own summary and the URL its own call returned. Two rows given the same
    URL are both named in `data.issues` (the tracker did not create distinct issues).

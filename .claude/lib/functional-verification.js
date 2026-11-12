@@ -1201,14 +1201,13 @@ function applyTrackerGate(result, stackText, runner) {
   let refused = null;
   if (tracker === 'none') {
     refused = 'must-pass only needs an issue tracker to file the waived failures in, and stack.md declares none (Tracker: none)';
+  } else if (!project) {
+    refused = `stack.md declares Tracker: ${tracker} with no Project, so waived failures cannot be filed`;
   } else if (tracker === 'github') {
-    if (!project) {
-      refused = 'stack.md declares Tracker: github with no Project, so waived failures cannot be filed';
-    } else {
-      const run = runner || ((cmd, args) => spawnSync(cmd, args, { encoding: 'utf8' }));
-      const r = run('gh', ['repo', 'view', project, '--json', 'name']);
-      if (!r || r.status !== 0) refused = `the GitHub tracker ${project} is not reachable, so waived failures cannot be filed`;
-    }
+    // Bounded like owner-rules.js's network calls: a hung `gh` must not hang the verification start.
+    const run = runner || ((cmd, args) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 30000, env: { ...process.env, GH_PROMPT_DISABLED: '1' } }));
+    const r = run('gh', ['repo', 'view', project, '--json', 'name']);
+    if (!r || r.status !== 0) refused = `the GitHub tracker ${project} is not reachable, so waived failures cannot be filed`;
   }
   if (!refused) return result;
   return { ...result, policy: 'all', declared: 'must-pass', waiverRefused: refused };
@@ -3248,7 +3247,9 @@ if (require.main === module) {
   } else if (subcommand === 'read-blocking-policy') {
     const [projectPath] = rest;
     const sti = rest.indexOf('--stack');
-    const stackPath = sti >= 0 ? rest[sti + 1] : undefined;
+    // `--stack` with no value reads as an empty stack.md (no tracker), never as "no --stack": a
+    // dropped value must not let a must-pass waiver through unchecked.
+    const stackPath = sti >= 0 ? rest[sti + 1] ?? '' : undefined;
     if (!projectPath) {
       usage();
     } else if (!fs.existsSync(projectPath)) {

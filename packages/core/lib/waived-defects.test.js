@@ -173,6 +173,47 @@ describe('waived-defects', () => {
     expect(r).toMatchObject({ ok: false, reason: 'tracker not reachable' });
   });
 
+  test('(h2) the newer waived row of a filed criterion is marked with the same URL, so it is no longer open', () => {
+    const { root, stateDir } = setup();
+    wd.recordFiled(stateDir, 'C-1', URL1);
+    discovered.record(stateDir, { kind: 'gap', foundBy: 'x', status: 'not_met', ref: 'C-1', summary: '[non-blocking] C-1: again' }, '2999-01-01T00:00:00.000Z');
+    wd.gate(stateDir, { root, runner: stub().run });
+    expect(discovered.readAll(stateDir, { open: true }).filter((r) => r.ref === 'C-1')).toHaveLength(0);
+  });
+
+  test('a criterion the latest verification run proved met is retired, not filed', () => {
+    const { root, stateDir } = setup();
+    fs.writeFileSync(path.join(stateDir, 'verification-state.json'), JSON.stringify({ criteria: [{ id: 'C-1', status: 'met' }] }));
+    const s = stub();
+    const r = wd.gate(stateDir, { root, runner: s.run });
+    expect(r).toMatchObject({ ok: true, retired: [{ ref: 'C-1' }], filed: [] });
+    expect(s.calls).toHaveLength(0);
+    expect(wd.listWaived(stateDir)).toHaveLength(0);
+  });
+
+  test('--stack reads the named stack.md, not the branch copy', () => {
+    const { root, stateDir } = setup({ tracker: 'none', project: '' });
+    const other = path.join(root, 'base-stack.md');
+    fs.writeFileSync(other, '## Issue Tracker\nTracker: github\nProject: o/r\n');
+    const r = wd.gate(stateDir, { root, runner: stub().run, stackPath: other });
+    expect(r).toMatchObject({ ok: true, tracker: 'github', filed: [{ ref: 'C-1', url: URL1 }] });
+  });
+
+  test('a Linear tracker with no Project refuses on the missing Project', () => {
+    const { root, stateDir } = setup({ tracker: 'linear', project: '' });
+    expect(wd.gate(stateDir, { root, runner: stub().run }).reason).toMatch(/no Project/);
+  });
+
+  test('the issue body names the feature, branch and ledger row', () => {
+    const { stateDir } = setup();
+    fs.writeFileSync(path.join(stateDir, 'implement.json'), JSON.stringify({ branch: 'feature/x', trd_file: 'docs/TRD/f.md' }));
+    const [row] = wd.listWaived(stateDir);
+    const { body } = wd.buildIssue(stateDir, row);
+    expect(body).toContain('**Feature:** f (TRD `docs/TRD/f.md`)');
+    expect(body).toContain('**Branch:** feature/x');
+    expect(body).toContain(row.ts);
+  });
+
   test('bad CLI usage exits non-zero', () => {
     expect(spawnSync('node', [path.join(__dirname, 'waived-defects.js'), 'gate'], { encoding: 'utf8' }).status).toBe(2);
   });

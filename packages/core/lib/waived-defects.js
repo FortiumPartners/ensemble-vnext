@@ -11,13 +11,14 @@
  * GitHub is filed here with `gh` (spawnSync, array args, body via --body-file). Linear and Jira are
  * filed by the command through their skills, then recorded with `record-filed`; until then the
  * gate reports the row `failed` so the close still refuses. Reachability for those two is assumed
- * from the declaration (no read-only probe exists without the skill).
+ * from the declaration (no read-only probe exists without the skill). `--stack` names the stack.md
+ * copy to read (`owner-rules.js path stack.md`, the copy `read-blocking-policy --stack` used).
  *
  * Never creates an issue to probe the tracker: every `gh issue create` files one waived row.
  *
  * CLI (one JSON line on stdout; exit 0 even on a refusal, non-zero only on bad usage):
- *   node waived-defects.js tracker      [--root <dir>]
- *   node waived-defects.js gate         --state-dir <dir> [--root <dir>]
+ *   node waived-defects.js tracker      [--root <dir>] [--stack <stack.md>]
+ *   node waived-defects.js gate         --state-dir <dir> [--root <dir>] [--stack <stack.md>]
  *   node waived-defects.js record-filed --state-dir <dir> --ref <id> --url <url>
  *
  * functional-verification.js requires this lazily and vice versa; neither requires the other at
@@ -50,9 +51,13 @@ function parseTracker(stackText) {
   return out;
 }
 
-function readTracker(root) {
+/**
+ * `stackPath` is the owner-rules-resolved stack.md (`owner-rules.js path stack.md`), the same copy
+ * `read-blocking-policy --stack` judged the waiver against; without it, the branch copy under `root`.
+ */
+function readTracker(root, stackPath) {
   try {
-    return parseTracker(fs.readFileSync(path.join(root, '.claude', 'rules', 'stack.md'), 'utf8'));
+    return parseTracker(fs.readFileSync(stackPath || path.join(root, '.claude', 'rules', 'stack.md'), 'utf8'));
   } catch {
     return { tracker: 'none', project: '' };
   }
@@ -126,21 +131,33 @@ function criterionFacts(stateDir, ref, summary) {
 /** Title and body of the defect issue for one waived row. */
 function buildIssue(stateDir, row) {
   const f = criterionFacts(stateDir, row.ref, row.summary);
+  const impl = readJson(path.join(stateDir, 'implement.json')) || {};
   const title = `Defect: ${row.ref} ${f.statement || f.failure}`.replace(/\s+/g, ' ').slice(0, 120);
   const body = [
-    `Criterion ${row.ref} failed verification and was waived (it is not must-pass), so the feature closed without it.`,
+    `Criterion ${row.ref} failed verification and was waived under \`Blocking: must-pass only\` (it is not must-pass) when the feature was closed.`,
     '',
     `**Criterion:** ${f.statement || '(statement not found in success-definition.md)'}`,
     `**Failure:** ${f.failure}`,
     `**Evidence:** ${f.evidence || '(none recorded)'}`,
+    '',
+    `**Feature:** ${path.basename(path.resolve(stateDir))}${impl.trd_file ? ` (TRD \`${impl.trd_file}\`)` : ''}`,
+    `**Branch:** ${impl.branch || '(not recorded)'}`,
+    `**Ledger row:** \`${discovered.ledgerPath(stateDir)}\` ts \`${row.ts}\``,
     '',
     'This is a defect, not a follow-up idea: it stays open until someone decides not to fix it.',
   ].join('\n');
   return { title, body };
 }
 
+/** Network calls must never hang a close: a timed-out call counts as failed (owner-rules.js's bound). */
+const NETWORK_TIMEOUT_MS = 30000;
+
 function defaultRunner(cmd, args) {
-  const r = spawnSync(cmd, args, { encoding: 'utf8' });
+  const r = spawnSync(cmd, args, {
+    encoding: 'utf8',
+    timeout: NETWORK_TIMEOUT_MS,
+    env: { ...process.env, GH_PROMPT_DISABLED: '1' },
+  });
   return { status: r.status === null ? 1 : r.status, stdout: r.stdout || '', stderr: r.error ? String(r.error.message) : r.stderr || '' };
 }
 
@@ -165,14 +182,31 @@ function ensureLabel(run, project) {
  * File every waived row that has no recorded URL. Refuses (`ok: false`) when any row stays unfiled.
  * @returns {{ok: boolean, tracker: string, filed: object[], already: object[], failed: object[], reason?: string}}
  */
-function gate(stateDir, { root = process.cwd(), runner = defaultRunner } = {}) {
-  const out = { ok: true, tracker: 'none', filed: [], already: [], failed: [] };
+function gate(stateDir, { root = process.cwd(), runner = defaultRunner, stackPath } = {}) {
+  const out = { ok: true, tracker: 'none', filed: [], already: [], retired: [], failed: [] };
   const rows = listWaived(stateDir);
+  // A criterion the latest full verification run proved `met` is no longer failing: only
+  // verify-build's fix loop records a `met` row, so without this a later passing run would still
+  // file a defect for it. Its row is resolved so no reader lists it as open again.
+  const state = readJson(path.join(stateDir, 'verification-state.json'));
+  const metNow = new Set(
+    (state && Array.isArray(state.criteria) ? state.criteria : []).filter((c) => c && c.status === 'met').map((c) => c.id)
+  );
   const todo = [];
-  for (const r of rows) (r.url ? out.already.push({ ref: r.ref, url: r.url }) : todo.push(r));
+  for (const r of rows) {
+    if (r.url) {
+      // "Never twice" is per criterion: a newer waived row of a filed criterion is marked with the
+      // same URL, so it does not stay open in the ledger for file-followups to list forever.
+      if (!r.resolvedAt) discovered.resolve(stateDir, { ts: r.ts, summary: r.summary }, `filed ${r.url}`);
+      out.already.push({ ref: r.ref, url: r.url });
+    } else if (metNow.has(r.ref)) {
+      discovered.resolve(stateDir, { ts: r.ts, summary: r.summary }, 'met in the latest verification run');
+      out.retired.push({ ref: r.ref });
+    } else todo.push(r);
+  }
   if (todo.length === 0) return out;
 
-  const { tracker, project } = readTracker(root);
+  const { tracker, project } = readTracker(root, stackPath);
   out.tracker = tracker;
   const refuse = (reason, error) => {
     out.ok = false;
@@ -181,8 +215,8 @@ function gate(stateDir, { root = process.cwd(), runner = defaultRunner } = {}) {
     return out;
   };
   if (tracker === 'none') return refuse('no tracker declared in stack.md');
-  if (tracker !== 'github') return refuse(`file via the ${tracker} skill`);
   if (!project) return refuse('no Project declared under ## Issue Tracker in stack.md');
+  if (tracker !== 'github') return refuse(`file via the ${tracker} skill`);
 
   const view = runner('gh', ['repo', 'view', project, '--json', 'name']);
   if (view.status !== 0) return refuse('tracker not reachable', errText(view));
@@ -235,9 +269,9 @@ function main(argv) {
     opt[rest[i].slice(2)] = rest[i + 1];
   }
   const root = opt.root || process.cwd();
-  if (cmd === 'tracker') return emit({ ok: true, ...readTracker(root) });
+  if (cmd === 'tracker') return emit({ ok: true, ...readTracker(root, opt.stack) });
   if (!opt['state-dir']) return usage();
-  if (cmd === 'gate') return emit(gate(opt['state-dir'], { root }));
+  if (cmd === 'gate') return emit(gate(opt['state-dir'], { root, stackPath: opt.stack }));
   if (cmd === 'record-filed' && opt.ref && opt.url) return emit(recordFiled(opt['state-dir'], opt.ref, opt.url));
   return usage();
 }
@@ -246,7 +280,7 @@ function emit(o) {
   return 0;
 }
 function usage() {
-  process.stderr.write('usage: waived-defects.js tracker [--root d] | gate --state-dir d [--root d] | record-filed --state-dir d --ref id --url u\n');
+  process.stderr.write('usage: waived-defects.js tracker [--root d] [--stack f] | gate --state-dir d [--root d] [--stack f] | record-filed --state-dir d --ref id --url u\n');
   return 2;
 }
 

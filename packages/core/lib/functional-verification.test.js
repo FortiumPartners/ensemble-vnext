@@ -2624,6 +2624,16 @@ describe('readBlockingPolicy', () => {
         expect(run(['--stack', writeStack('linear', 'ENS')]).policy).toBe('must-pass');
       });
 
+      test('a declared Linear tracker with no Project is refused', () => {
+        const out = run(['--stack', writeStack('linear')]);
+        expect(out.policy).toBe('all');
+        expect(out.waiverRefused).toMatch(/no Project/);
+      });
+
+      test('--stack with no value is no tracker, never an unchecked waiver', () => {
+        expect(run(['--stack']).policy).toBe('all');
+      });
+
       test('an all-criteria policy is untouched by --stack', () => {
         fs.writeFileSync(path.join(tmpDir, 'verification.md'), withPolicy('Blocking: all criteria'));
         expect(run(['--stack', writeStack('none')])).toEqual({ policy: 'all', status: 'declared', raw: 'all criteria' });

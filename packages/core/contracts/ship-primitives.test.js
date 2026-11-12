@@ -570,7 +570,7 @@ describe('the after-shipping primitives', () => {
   });
   test('file-followups files a [non-blocking] row only through waived-defects.js gate, never twice', () => {
     const t = flat('file-followups');
-    expect(t).toMatch(/`\[non-blocking\]` row is filed only through `node \.claude\/lib\/waived-defects\.js gate --state-dir <dir>`/);
+    expect(t).toMatch(/`\[non-blocking\]` row is filed only through `node \.claude\/lib\/waived-defects\.js gate --state-dir <dir> --stack "\$\(node \.claude\/lib\/owner-rules\.js path stack\.md\)"`/);
     expect(t).toMatch(/never with a plain `gh issue create`/);
     expect(t).toMatch(/never refiled when it already carries a `filed <url>` marker/);
   });
