@@ -4398,6 +4398,15 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
       expect(openCausesIn(labelsOf(agent, 'judge')[2].prompt).find((c) => c.key === 'a')).toMatchObject({ representative: 'FS-2', members: ['FS-2', 'FS-3'] });
     });
 
+    it('re-captures an evidence gap the Judge ruled but left out of debugGaps, so a targeted iteration does not strand it', async () => {
+      const gap = { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no artifact', cause: 'evidence-missing', files: [] };
+      const { agent } = await run(
+        [remediate([bd('FS-1', 'a'), gap], { debugGaps: [gapOf(bd('FS-1', 'a'))] }), exitWith('exit-stuck', [bd('FS-1', 'a'), met('FS-2')])],
+        { debug: debugOk(['FS-1']), args: { criteria: defs(2), cap: 5 } }
+      );
+      expect(exercisedIdsOf(labelsOf(agent, 'exercise')[1])).toEqual(['FS-1', 'FS-2']);
+    });
+
     describe('D14: the stall backstop', () => {
       const stalled = (extra = {}) => exitWith('exit-stalled', [met('FS-1'), bd('FS-2', 'b')], { reason: 'no progress', finalRun: passRun, ...extra });
       const two = { criteria: defs(2), ...gate };
@@ -4500,6 +4509,9 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
         expect(sync).toHaveLength(1);
         expect(syncedState(sync[0]).exercised).toContainEqual({ iteration: 2, ids: ['FS-2', 'FS-3'], confirmation: true });
         expect(sync[0].prompt).toMatch(/top-level "outcome" to "stuck" and its top-level "reason" to "[^"]*FS-3/);
+        // the confirmation Judge's own report input is the one patched and re-rendered, not the exit's
+        expect(sync[0].prompt).toContain('judge-report-input-2-confirm.json');
+        expect(sync[0].prompt).not.toContain('judge-report-input-2.json');
       });
 
       it('all members passing keeps the exit satisfied, with no state-sync and the awaiting markers gone', async () => {

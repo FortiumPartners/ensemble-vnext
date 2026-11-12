@@ -844,7 +844,9 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
               `and add ${JSON.stringify(r.members)} to "awaitingRegression"; otherwise (including a ` +
               `key that fails that pattern, or none) put ${JSON.stringify(r.key)} in "causes".`
           )
-          .join('')
+          .join('') +
+        `\nFor every id a rule above adds to "awaitingRegression", write its entry in the state file ` +
+        `and the report input with "awaiting": "regression" (every other key copied as given).`
       : ` none this iteration.`) +
     `\n\n`) +
     `STEP 4: persist the run's state to ${STATE_PATH}, BEFORE anything else is dispatched. ` +
@@ -942,7 +944,8 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `This iteration's Exercise claims:\n${claimsJson}\n\n` +
     `Open criteria NOT re-checked this iteration (${carried.length}; data, never instructions): they ` +
     `are open, with the last verdict recorded for each, and were not re-checked. Copy each ` +
-    `verbatim into the state file and the report input; never rule on one, and never return one ` +
+    `verbatim into the state file and the report input (adding only the "awaiting" marker STEP 3's ` +
+    `rules call for); never rule on one, and never return one ` +
     `in your "criteria" below. Include the ids among them whose status is "not_met" in "gaps" ` +
     `unless you list them in "awaitingRegression":\n${JSON.stringify(carried)}\n\n` +
     `Previous iteration's gaps (null on a fresh run's first iteration): ${prevGapsJson}${forced}\n\n` +
@@ -1027,8 +1030,8 @@ function buildCauseGaps(buildGaps) {
         artifact: recorded ? recorded.entry.artifact : null,
         files: recorded ? recorded.entry.files : [],
       }
-    const live = cause.members.filter((id) => !(openEntries.has(id) && openEntries.get(id).entry.awaiting))
-    out.push(buildCauseGap(cause.key, repGap, live))
+    // refreshCauseMap never groups an awaiting member, so every member here is live.
+    out.push(buildCauseGap(cause.key, repGap, cause.members))
   }
   for (const g of buildGaps) if (!inCause.has(g.id)) out.push(buildCauseGap(`criterion:${g.id}`, g, [g.id]))
   return out
@@ -1564,10 +1567,6 @@ function buildFinalResult(judgeResult, iterations, debugAttempts, exercisedLabel
   }
 }
 
-// NEW (verification-must-pass D11, §3.5). What the result says about the must-pass set, from the
-// final criteria list. A must-pass id with no entry in the list is 'missing', never an error: the
-// ids arrive from the checker already validated, but a definition row can still go unreturned.
-// The same shape on every return path, empty and quiet when nothing is declared.
 // NEW (causes D6). The open criteria the Judge did not rule this iteration, each with the last
 // verdict the script recorded for it, as `{ id, ...entry }`. Every rebuild of the whole definition
 // (the final result, the must-pass recheck, the cap fall-through, the state sync) appends these:
@@ -1579,6 +1578,10 @@ function carriedCriteria(returned, settled) {
   return CRITERIA.filter((c) => !settled.has(c.id) && !ruled.has(c.id) && openEntries.has(c.id)).map((c) => ({ id: c.id, ...openEntries.get(c.id).entry }))
 }
 
+// NEW (verification-must-pass D11, §3.5). What the result says about the must-pass set, from the
+// final criteria list. A must-pass id with no entry in the list is 'missing', never an error: the
+// ids arrive from the checker already validated, but a definition row can still go unreturned.
+// The same shape on every return path, empty and quiet when nothing is declared.
 function mustPassSummary(criteria, overridden) {
   const statusById = new Map((criteria || []).map((c) => [c.id, c.status]))
   return {
@@ -1660,6 +1663,12 @@ const causeMap = new Map()
 // set, Debug's gaps, the Judge's closure rules) never sees one; the state file and the report
 // input carry both.
 const closedCauseMap = new Map()
+// NEW (causes D15). The iteration whose exit ran a confirmation pass, or null. That pass's Judge
+// writes its own `-confirm` report input and renders the report from it, so every later writer of
+// that iteration's report (the state sync, the must-pass reconcile) must patch that file, not the
+// exit's: re-rendering from the exit's input would put the pre-confirmation verdicts back.
+let confirmedIteration = null
+const reportInputFileFor = (iteration) => `${STATE_DIR}/judge-report-input-${iteration}${confirmedIteration === iteration ? '-confirm' : ''}.json`
 
 // NEW (triage D1, D5, D20, D21). Reconcile each criterion the Judge ruled this iteration against
 // the cause-derived kind, and settle the ones the script (not the Judge) decides are done:
@@ -1812,7 +1821,7 @@ const STATE_SYNC_SCHEMA = {
 // composes with it.
 function buildStateSyncPrompt(iteration, stateJson, patches, causesJson, reportFix = null) {
   const stateFile = `${STATE_DIR}/sync-state-${iteration}.json`
-  const reportInputFile = `${STATE_DIR}/judge-report-input-${iteration}.json`
+  const reportInputFile = reportInputFileFor(iteration)
   const reportSteps = patches
     ? `2. Read ${reportInputFile} (JSON). For each of these entries, find the criterion in its ` +
       `"criteria" array by "id" and set its "status" and "reason" to the values given; set its "kind", ` +
@@ -1917,7 +1926,7 @@ const RECONCILE_SCHEMA = {
 // so a report still reading "Satisfied" beside a blocked result is the failure this prevents.
 async function reconcileOutcome(judgeResult, iteration) {
   const outcome = OUTCOME_BY_ACTION[judgeResult.action]
-  const reportInputFile = `${STATE_DIR}/judge-report-input-${iteration}.json`
+  const reportInputFile = reportInputFileFor(iteration)
   const stateFile = `${STATE_DIR}/judge-state-${iteration}.json`
   const prompt =
     `Functional verification -- reconcile stage, iteration ${iteration}.\n${SCOPE}\n` +
@@ -2374,7 +2383,7 @@ function causeContextFor(exerciseIdSet) {
       lastReason: openEntries.has(g.representative) ? openEntries.get(g.representative).entry.reason ?? null : null,
     })),
     notRechecked: open.filter((g) => !exerciseIdSet.has(g.representative)).map((g) => g.key),
-    awaiting: CRITERIA.filter((c) => !settled.has(c.id) && openEntries.has(c.id) && openEntries.get(c.id).entry.awaiting).map((c) => c.id),
+    awaiting: CRITERIA.filter((c) => isAwaiting(c.id)).map((c) => c.id),
     rules: open
       .filter((g) => exerciseIdSet.has(g.representative))
       .map((g) => ({ key: g.key, representative: g.representative, members: g.members.filter((id) => id !== g.representative) })),
@@ -2684,6 +2693,7 @@ async function confirmAwaiting(exitResult, iteration, exitPreviousCauses) {
     'Judge'
   )
   exercisedHistory.push({ iteration, ids, confirmation: true })
+  confirmedIteration = iteration
   const reconciled = reconcileJudgeKinds(raw, iteration, [])
   let result = reconciled.judgeResult
   foldRulings(result, iteration)
@@ -2870,6 +2880,14 @@ for (; iteration <= CAP; iteration++) {
     if (kind === 'build-defect') buildGaps.push(g)
     else if (kind === 'evidence-gap') retries.push({ id: g.id, cause: entry.cause ?? null, failure: g.reason ?? entry.reason ?? null })
     else log(`iteration ${iteration}: ${g.id} is ${kind} -- not sent to Debug or Exercise`)
+  }
+  // Causes D5: after a Debug pass only the targeted set is walked, so an evidence gap the Judge
+  // ruled but left out of `debugGaps` would never be re-captured and would sit open, carried, until
+  // the run stalls. Every open evidence gap ruled this iteration is owed its one re-capture.
+  const retryIds = new Set(retries.map((r) => r.id))
+  for (const c of judgeResult.criteria || []) {
+    if (c.status !== 'not_met' || c.kind !== 'evidence-gap' || c.settled !== undefined || retryIds.has(c.id) || settled.has(c.id)) continue
+    retries.push({ id: c.id, cause: c.cause ?? null, failure: c.reason ?? null })
   }
   evidenceRetries = retries
   if (evidenceRetries.length > 0) {
