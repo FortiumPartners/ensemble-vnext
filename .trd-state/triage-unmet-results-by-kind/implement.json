@@ -4,7 +4,7 @@
   "trd_hash": "c8741db87afd33638730204962a8adfe8943df3dd817a3d0360e910369869323",
   "branch": "feature/10-triage-unmet-results-by-kind",
   "strategy": "tdd",
-  "phase_cursor": 3,
+  "phase_cursor": 4,
   "tasks": {
     "TRIAGE-B001": {
       "description": "In functional-verification.js, add KINDS, KIND_BY_CAUSE, KIND_LABEL and kindOf beside CAUSES (§3.1). Add the required settledEvidenceGaps input to decideNext (§3.2). Add the verification-digest CLI (D",
@@ -131,25 +131,25 @@
     "TRIAGE-B008": {
       "description": "Command wiring, in implement-trd.md (§8.1a: run the digest and preclassify; §8.3: 28 fields) and verify-build.md (§4: 28 fields; --resume prose; fix loop steps 2, 4 and 6 per D14). Update the field-co",
       "phase": 4,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-11-12T05:01:41.373Z",
       "completed_at": null
     },
     "TRIAGE-D001": {
       "description": "Sibling TRD amendments (D18): inline AMENDED 2026-11-11 markers on functional-verification.md D8 and D14, verification-convergence.md D2, and verification-fix-loop.md D3, D4 and D8, each pointing at t",
       "phase": 4,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-11-12T05:01:41.373Z",
       "completed_at": null
     },
     "TRIAGE-T001": {
@@ -181,11 +181,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-12T04:56:15.476Z"
+    },
+    {
+      "phase": 3,
+      "commit": "6522cf0a333f141634654be31ab15fd966eff48b",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T05:01:41.372Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "61079d7b52dde520121dc595253a7aaf27c366b6",
-    "last_checkpoint_timestamp": "2026-11-12T04:56:15.476Z",
+    "last_healthy_checkpoint": "6522cf0a333f141634654be31ab15fd966eff48b",
+    "last_checkpoint_timestamp": "2026-11-12T05:01:41.372Z",
     "interrupted": false,
     "interrupt_reason": null
   },
