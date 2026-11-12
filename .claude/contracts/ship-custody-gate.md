@@ -32,7 +32,13 @@ The caller gives the gate `work`, `context`, and which act it guards (`merge` or
    - `reverify` (shipped source changed since the anchor and the listed must-pass criteria need
      proof again): the head is already pushed, so a preview of it exists or is building. Run
      `/verify-build <work.trd> --criteria <ids> --no-fix --chained` (a synchronous Skill call; its
-     setup check waits for the environment as `verification.md` declares), then repeat the
+     setup check waits for the environment as `verification.md` declares). Note the time (ISO)
+     before that call. When it returns, and BEFORE the repeat reconcile, record the re-proof in
+     the ship record: `node .claude/lib/ship-sequencer.js reproof --state-dir <work.stateDir>
+     --custody '<the reconcile JSON line that returned reverify>' --reverified
+     <work.stateDir>/reverify/verification-state.json --started-at <that time> --outcome <the
+     outcome word from /verify-build's RETURN line>`. A refused call (`ok:false`) is one readout
+     line, never a stop: the record is reporting, not proof. Then repeat the
      reconcile above with `--reverified <work.stateDir>/reverify/verification-state.json` (the
      subset run writes there; the feature's own `verification-state.json` is the old full run and
      would pass stale). That file holds the merged result after the re-proof's one retry, and

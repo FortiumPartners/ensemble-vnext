@@ -317,3 +317,40 @@ later reconcile or check reads and writes that copy (`ship-sequencer.js status` 
   anchor. The readout reports the commit released from this work.
 
 Nothing is fixed automatically: a failed link is reported and the run stops.
+
+### Re-proof record
+
+Each time the custody gate re-proves criteria (the `reverify` row above), the run keeps a trace in
+the `reproof` block of `shipped.json`, so Forge can read what was re-proved and how it went. A new
+record starts with `reproof: { count: 0, runs: [] }`. The custody gate writes one entry per
+re-proof through `ship-sequencer.js reproof --state-dir <d> --custody '<the reconcile line that
+returned reverify>' --reverified <path> --started-at <ISO time taken before /verify-build>
+[--outcome <word>]`; never write the block by hand. A call is refused, leaving the record
+unchanged, when there is no record, the run is done, the custody value is not JSON or lacks
+`action` or an `ids` list, or `--started-at` is not a time. The block is reporting, not proof.
+
+After a merge the record, and so this block, lives in the detached file under the git directory
+that `ship-sequencer.js status` reports as `recordPath`; read it there, not in the tracked state
+directory.
+
+| Field | Meaning |
+|---|---|
+| `reproof` | The block itself, holding `count` and `runs`. |
+| `count` | Number of re-proofs recorded so far; always the length of `runs`. |
+| `runs` | One entry per re-proof, oldest first. |
+| `step` | Id of the ship step handed out when the gate ran, so the entry names the act the gate was guarding. `null` when no step was handed out. |
+| `primitive` | The primitive of that step (for example `merge` or `release`). `null` when no step was handed out. |
+| `pass` | The pass number (of a `repeat`) the step was on. `null` when no step was handed out. |
+| `criteria` | The success-definition criterion ids re-proved: the `ids` of the custody line, exactly what was passed to `/verify-build --criteria`. |
+| `met` | The criteria, among `criteria`, that the re-verification file marks `met`. Empty when that file is missing, unreadable, or older than `startedAt` (a leftover from an earlier re-proof). |
+| `id` | Inside a `met` item: the criterion id. |
+| `retried` | Inside a `met` item: true when the verification re-judged that criterion after a first failed attempt. |
+| `outcome` | The verification outcome: `--outcome` when given, else the outcome in the re-verification file, else `null`. |
+| `custody` | What the gate saw when it asked for the re-proof. |
+| `action` | Inside `custody`: the gate's action, always `reverify` here. |
+| `classes` | Inside `custody`: the distinct classes of the differing paths (today `shipped`), plus `base` when `excused` is non-empty. So `["shipped"]`, `["base"]` or both. |
+| `differing` | Inside `custody`: the shipped paths that differ from the anchor. |
+| `excused` | Inside `custody`: paths that differ only because they came from the base, so were not counted. Empty when none. |
+| `startedAt` | When the re-proof began, the time taken before `/verify-build` ran (ISO time). |
+| `endedAt` | When the entry was recorded (ISO time). |
+| `durationSeconds` | Whole seconds from `startedAt` to the recording call. |
