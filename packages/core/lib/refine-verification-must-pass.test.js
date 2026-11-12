@@ -44,3 +44,38 @@ describe('refine-verification.md must-pass handling (D16)', () => {
     expect(fs.readFileSync(MIRROR, 'utf8')).toBe(text);
   });
 });
+
+describe('refine-verification.md routes by kind (TRIAGE-B005, D15/D20/D24)', () => {
+  const blockers = () => derive().split('- **Blockers**')[1].split('- **Slices**')[0];
+  const accepted = () => derive().split('- **Accepted as not verifiable**')[1].split('- **Owner rulings**')[0];
+  const rulings = () => derive().split('- **Owner rulings**')[1].split('- **Extra checks**')[0];
+
+  test('Blockers are keyed on kind build-defect, with the cause fallback named', () => {
+    expect(blockers()).toMatch(/`build-defect`/);
+    expect(blockers()).toMatch(/`kind` is absent/);
+    expect(blockers()).toMatch(/`judged-failed`/);
+    expect(blockers()).toMatch(/`not-built`/);
+  });
+
+  test('Accepted is keyed on kind not-checkable-here, with the cause fallback named', () => {
+    expect(accepted()).toMatch(/`not-checkable-here`/);
+    expect(accepted().replace(/\s+/g, ' ')).toMatch(/`kind` is absent/);
+    expect(accepted()).toMatch(/`environment-unreachable`/);
+  });
+
+  test('a settled definition problem goes under Owner rulings, never Blockers', () => {
+    expect(rulings()).toMatch(/settled: 'definition-problem'/);
+    expect(rulings()).toMatch(/definition problem/i);
+    expect(rulings()).toMatch(/OWNER-CALL/);
+    expect(blockers()).toMatch(/never a Blocker/i);
+  });
+
+  test('reader rule: a non-null kindOf(cause) wins over a disagreeing stored kind', () => {
+    expect(derive()).toMatch(/kindOf\(cause\)/);
+    expect(derive()).toMatch(/stored `kind` stands/);
+  });
+
+  test('a satisfied run with definition problems applies', () => {
+    expect(text).toMatch(/satisfied.{0,80}definition problem/s);
+  });
+});

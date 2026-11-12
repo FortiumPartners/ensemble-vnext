@@ -1671,7 +1671,11 @@ straight to Step 9 exactly as §8.1 already sends them.
 3. **Build the rows (D15).** For each selected check, follow its **Criteria** section over the
    inputs just resolved: list the frames directory, read the journeys, read the data views. An
    input that does not resolve yields no rows for that check and one ISSUES line naming it —
-   never STUCK; the run continues with whatever other checks did resolve.
+   never STUCK; the run continues with whatever other checks did resolve. **Record the path of
+   every `design-map.json` the `verify-design-structure` check resolved** (its Inputs table:
+   `docs/ui/<slug>/design-map.json`) as the `designMaps` list, empty when that check was not
+   selected: §8.1a step 8 passes each one to the preclassify call, and has nothing to pass
+   without them.
 4. **Write them (D15).** Re-read `.trd-state/<feature>/success-definition.md` immediately
    before writing — §8.1a's habit of re-reading a file at the moment it is needed, applied here
    too, since another agent produced it. Keep every derived row (the deriver's own, non-`check:`
@@ -1843,6 +1847,36 @@ no environment; every "exercisable" criterion resolves to exactly one.
    the loop can refresh it (or "none declared" when it cannot). Step 9's DECISIONS carries
    that line.
 
+8. **Digest `verification.md` and preclassify what cannot be checked here (triage-unmet-results-by-kind
+   D8-D11).** Both calls read files in code; never hash or scan `verification.md` yourself, and
+   name it only through `owner-rules.js` as everywhere else in this section:
+
+   ```bash
+   node .claude/lib/functional-verification.js verification-digest "$(node .claude/lib/owner-rules.js path verification.md)"
+   # → {"digest": "<sha256 hex>"}   ("" when the file is absent)
+   ```
+
+   Hold `digest` as `verificationDigest`. An empty digest never matches a recorded one, so with
+   no `verification.md` no not-checkable result persists. Then write the payload
+   `{ "criteria": <criteria>, "environmentByCriterion": { "<id>": "<environment name>" } }` to
+   `.trd-state/<feature>/preclassify-input.json` with a file write (never on the command line: a
+   reason string can hold an apostrophe), using the per-criterion environments this section
+   recorded, and run:
+
+   ```bash
+   node .claude/lib/functional-verification.js preclassify --file .trd-state/<feature>/preclassify-input.json \
+        --verification "$(node .claude/lib/owner-rules.js path verification.md)" \
+        [--design-map <path> ...]    # one per path in `designMaps` (§8.1b step 3); none when empty
+   # → [{id, status: 'not_verifiable', kind: 'not-checkable-here', cause: 'capability-absent', reason, preclassified: true}]
+   ```
+
+   Hold the output unchanged as `preclassified` (`[]` when nothing qualifies). These are the
+   structure-check rows for a parts board and for a minified environment: the workflow settles
+   them before the first Exercise pass, so nothing is exercised for them, and they still appear
+   in the state file and report. The `--resume` path reaches this step through §8.2, so neither
+   call is repeated there, and `resume` is passed on unfiltered: the workflow alone applies the
+   digest to a prior `not-checkable-here` entry.
+
 **When no environment resolves any lane at all** — no criteria are exercisable, or the file is
 still unfilled — pass no `exerciseLanes` to §8.3 and let the workflow's own default apply: one
 lane of concurrency 1 over every criterion, exactly today (§3.3).
@@ -1922,6 +1956,8 @@ Workflow({ name: "verify-functional", args: {
   pagesDir,                                                       // §8.1b -- ".trd-state/<feature>/verification-artifacts"; always set, even with no checks selected
   mustPassIds,                                                   // §8.1 -- must-pass-coverage's `criteria`, unchanged; [] when none is declared
   mustPassUncovered,                                             // §8.1 -- must-pass-coverage's `uncovered` ([{id, text}]), unchanged; [] when none
+  verificationDigest,                                            // §8.1a step 8 -- verification-digest's `digest` (sha256 hex of verification.md); "" when the file is absent (nothing persists)
+  preclassified,                                                 // §8.1a step 8 -- preclassify's output (entries already settled not-checkable-here, never exercised); [] when none
 } })
 ```
 
@@ -2081,9 +2117,13 @@ STATE
   {if the TRD's `## Verification Artifacts` section omitted an applicable check: one line
    naming it and its stated reason.}
   {if outcome is stalled/stuck/unbuilt/insufficient-coverage/must-pass-unproven — never
-   setup-failure (verification-fix-loop TRD §3.1, D3): a Diagnosis line by cause, counted over `criteria`'s non-`met` entries exactly as
-   `renderReport` counts them for the report — descending by count, in words, cause-less
-   entries as "unrecorded" — e.g. "**Diagnosis**: 14 open — 6 evidence missing, 5 judged
+   setup-failure (verification-fix-loop TRD §3.1, D3): a Diagnosis line over `criteria`'s non-`met` entries that leads with counts by kind
+   and then gives the cause counts, matching how `renderReport` words them for the report —
+   kinds first ("2 build defects, 1 evidence gap, 1 not checkable here"), then causes
+   descending by count, in words, cause-less entries as "unrecorded". Read a criterion's kind
+   from `kindOf(cause)` when that is non-null, else the stored `kind`; a `not_met` entry with
+   neither is a build defect (D20). A state with no `kind` anywhere keeps the cause-only line,
+   e.g. "**Diagnosis**: 14 open — 6 evidence missing, 5 judged
    failed, 3 not built." Never re-derive the verdict itself here; this is a count, not a
    second judgement.}
 
@@ -2115,6 +2155,9 @@ ISSUES
   {for each entry in `pages` with `rendered: false`: "{skill}'s page did not render at
     iteration {iteration} — {reason}."}
   {for each check input that did not resolve at §8.1b: name the check and the input.}
+  {for each entry in `criteria` with `settled: 'definition-problem'` (D24): "{criterion in words} asks for
+    evidence the build does not produce — {reason}. Change the criterion or the build's outputs
+    (the owner, via `/refine-verification`)."}
   {if §8.1a's `read-coverage-floor` returned `status: 'invalid'`: "verification.md's coverage
     floor reads `{raw}`, which is not a percentage or `none`, so no floor was applied — fix it
     with `/verification-setup`." (D9)}
@@ -2134,6 +2177,8 @@ NEXT
    problem, as plain text, not a block; (2) re-run the check once the environment is fixed:}
   1. fix the environment named above
   2. /verify-build
+  {if any entry in `criteria` carries `settled: 'definition-problem'` (D24), even on a `satisfied` run: NEXT is the
+   two `/refine-verification` then `/verify-build` steps of the branch below, and the `/audit-build` branch after it does not apply.}
   {if outcome is stalled/stuck/unbuilt/insufficient-coverage/must-pass-unproven (O4, D15): the line "refine the plan
    with `/refine-verification` (add `--auto` to let an agent answer), then run
    `/verify-build`" — the exact wording `renderReport` puts under its own Diagnosis line

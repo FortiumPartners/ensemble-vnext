@@ -22,10 +22,16 @@ const {
   isEmbeddableImagePath,
   reportPublishPlan,
   CAUSES,
+  KINDS,
+  KIND_BY_CAUSE,
+  KIND_LABEL,
+  kindOf,
   DEFAULT_CAP,
   COVERAGE_FLOOR,
   LOCATOR_SCAN_BYTES,
   readFullDeploy,
+  readMinifiedEnvironments,
+  preclassifyNotCheckable,
   BUILD_TOKEN,
   reproofRetrySet,
   mergeReproofRetry,
@@ -409,6 +415,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -425,6 +432,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -439,6 +447,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: ['FS-1'],
     });
@@ -453,6 +462,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -470,6 +480,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -490,6 +501,7 @@ describe('decideNext', () => {
       previousGaps: [],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       cap: 3,
@@ -505,6 +517,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       cap: 3,
@@ -522,6 +535,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       cap: 3,
@@ -539,6 +553,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       cap: 1,
@@ -555,6 +570,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -567,6 +583,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -575,11 +592,11 @@ describe('decideNext', () => {
 
   test('every result includes a non-empty reason string', () => {
     for (const input of [
-      { iteration: 1, gaps: [], unbuilt: ['FS-1'], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
-      { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
-      { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
-      { iteration: 3, gaps: ['FS-1'], unbuilt: [], previousGaps: [], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
-      { iteration: 1, gaps: ['FS-1'], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
+      { iteration: 1, gaps: [], unbuilt: ['FS-1'], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] },
+      { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] },
+      { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] },
+      { iteration: 3, gaps: ['FS-1'], unbuilt: [], previousGaps: [], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] },
+      { iteration: 1, gaps: ['FS-1'], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] },
     ]) {
       const result = decideNext(input);
       expect(typeof result.reason).toBe('string');
@@ -604,6 +621,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: ['FS-1'],
       total: 10,
@@ -624,6 +642,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: ['FS-3'],
       total: 10,
@@ -640,6 +659,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: ['FS-3'],
       total: 10,
@@ -657,6 +677,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       total: 10,
@@ -673,6 +694,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       total: 10,
@@ -689,6 +711,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: ['FS-1'],
       total: 62, // the PRD's own 18% (11 of 62) shape, exaggerated further to 1/62
@@ -705,6 +728,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       total: 10,
@@ -721,6 +745,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: ['FS-1', 'FS-2', 'FS-3', 'FS-4', 'FS-5'],
       total: 10,
@@ -737,6 +762,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       coverageFloor: 0.5,
@@ -753,6 +779,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       total: 0,
@@ -1169,6 +1196,7 @@ describe('CLI', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -1300,7 +1328,7 @@ describe('CLI', () => {
     const inputFile = path.join(tmpDir, 'decide.json');
     fs.writeFileSync(
       inputFile,
-      JSON.stringify({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false })
+      JSON.stringify({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] })
     );
 
     const stdout = execFileSync('node', [MODULE_PATH, 'decide-next', '--file', inputFile]).toString();
@@ -2960,7 +2988,7 @@ describe('CLI: decide-fix-round and render-fix-summary', () => {
 describe('the existing functional-verification.test.js cases still pass', () => {
   test('sanity: decideNext and renderReport basics are untouched by the VFIX-B001 changes', () => {
     expect(
-      decideNext({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false })
+      decideNext({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] })
     ).toMatchObject({ action: 'exit-satisfied' });
     expect(renderReport({
       feature: 'demo',
@@ -2980,7 +3008,7 @@ describe('the existing functional-verification.test.js cases still pass', () => 
 // ---------------------------------------------------------------------------
 
 describe('decideNext: the must-pass step (D8, D9, D10)', () => {
-  const clean = { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: ['FS-1'], total: 2, refreshFailed: false };
+  const clean = { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: ['FS-1'], total: 2, refreshFailed: false, settledEvidenceGaps: [] };
 
   test('a base exit-satisfied with an unproven must-pass criterion becomes exit-must-pass-unproven', () => {
     const r = decideNext({ ...clean, mustPass: ['FS-2'], mustPassUncovered: [] });
@@ -3003,14 +3031,14 @@ describe('decideNext: the must-pass step (D8, D9, D10)', () => {
   });
 
   test('a must-pass criterion in gaps still remediates / stalls / sticks', () => {
-    const base = { iteration: 1, gaps: ['FS-2'], unbuilt: [], previousGaps: null, met: ['FS-1'], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false };
+    const base = { iteration: 1, gaps: ['FS-2'], unbuilt: [], previousGaps: null, met: ['FS-1'], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] };
     expect(decideNext(base).action).toBe('remediate');
     expect(decideNext({ ...base, iteration: 2, previousGaps: ['FS-2'] }).action).toBe('exit-stalled');
     expect(decideNext({ ...base, iteration: 3 }).action).toBe('exit-stuck');
   });
 
   test('a must-pass criterion in unbuilt still exits unbuilt', () => {
-    const r = decideNext({ iteration: 1, gaps: [], unbuilt: ['FS-2'], previousGaps: null, met: [], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false });
+    const r = decideNext({ iteration: 1, gaps: [], unbuilt: ['FS-2'], previousGaps: null, met: [], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] });
     expect(r.action).toBe('exit-unbuilt');
   });
 
@@ -3968,7 +3996,7 @@ describe('CLI: decide-setup (§3.1)', () => {
 });
 
 describe('decideNext: the failed-refresh guard (D16, §3.1a)', () => {
-  const open = { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [] };
+  const open = { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [], settledEvidenceGaps: [] };
 
   test('refreshFailed with open gaps and nothing closed returns exit-setup-failure, not exit-stalled', () => {
     const r = decideNext({ ...open, refreshFailed: true });
@@ -4251,5 +4279,368 @@ describe('re-proof retry', () => {
       expect(bad.status).not.toBe(0);
       expect(bad.stderr).toMatch(/--first/);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Triage by kind (TRIAGE-B001): KIND_BY_CAUSE, settledEvidenceGaps, verification-digest
+// ---------------------------------------------------------------------------
+
+describe('KIND_BY_CAUSE (triage D1)', () => {
+  test('its keys equal CAUSES in order and its values are all in KINDS', () => {
+    expect(Object.keys(KIND_BY_CAUSE)).toEqual(CAUSES);
+    for (const kind of Object.values(KIND_BY_CAUSE)) expect(KINDS).toContain(kind);
+  });
+
+  test('every kind has a label, and kindOf maps causes and returns null otherwise', () => {
+    expect(Object.keys(KIND_LABEL).sort()).toEqual([...KINDS].sort());
+    expect(kindOf('judged-failed')).toBe('build-defect');
+    expect(kindOf('never-exercised')).toBe('evidence-gap');
+    expect(kindOf('capability-absent')).toBe('not-checkable-here');
+    expect(kindOf(null)).toBeNull();
+    expect(kindOf('toString')).toBeNull();
+    expect(kindOf('nonsense')).toBeNull();
+  });
+});
+
+describe('decideNext: settledEvidenceGaps (triage D6)', () => {
+  const base = { iteration: 2, unbuilt: [], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false };
+
+  test('throws a TypeError naming the field when absent or not an array', () => {
+    const input = { ...base, gaps: [], previousGaps: null };
+    expect(() => decideNext(input)).toThrow(TypeError);
+    expect(() => decideNext(input)).toThrow(/input\.settledEvidenceGaps is required/);
+    expect(() => decideNext({ ...input, settledEvidenceGaps: 'X' })).toThrow(/settledEvidenceGaps/);
+  });
+
+  test('a settled id is not a closure: [X,B] after [X,B] with X settled still stalls', () => {
+    const r = decideNext({ ...base, gaps: ['X', 'B'], previousGaps: ['X', 'B'], settledEvidenceGaps: ['X'] });
+    expect(r.action).toBe('exit-stalled');
+    expect(r.closed).toEqual([]);
+  });
+
+  test('gaps [X] with X settled exits satisfied', () => {
+    const r = decideNext({ ...base, gaps: ['X'], previousGaps: ['X'], settledEvidenceGaps: ['X'] });
+    expect(r.action).toBe('exit-satisfied');
+  });
+
+  test('the same with X must-pass exits must-pass-unproven', () => {
+    const r = decideNext({ ...base, gaps: ['X'], previousGaps: ['X'], settledEvidenceGaps: ['X'], mustPass: ['X'] });
+    expect(r.action).toBe('exit-must-pass-unproven');
+  });
+
+  test('a settled id does not hold the run to the cap', () => {
+    const r = decideNext({ ...base, iteration: 3, gaps: ['X'], previousGaps: null, settledEvidenceGaps: ['X'] });
+    expect(r.action).toBe('exit-satisfied');
+  });
+});
+
+describe('verification-digest CLI (triage D9)', () => {
+  const digestOf = (p) => JSON.parse(execFileSync('node', [MODULE_PATH, 'verification-digest', p]).toString()).digest;
+  let dir;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vdigest-')); });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+
+  test('is stable across CRLF/LF and surrounding whitespace', () => {
+    const a = path.join(dir, 'a.md');
+    const b = path.join(dir, 'b.md');
+    fs.writeFileSync(a, '# V\nline two\n');
+    fs.writeFileSync(b, '\n# V\r\nline two\r\n\n');
+    expect(digestOf(a)).toMatch(/^[0-9a-f]{64}$/);
+    expect(digestOf(a)).toBe(digestOf(b));
+  });
+
+  test('differs when content changes', () => {
+    const a = path.join(dir, 'a.md');
+    const b = path.join(dir, 'b.md');
+    fs.writeFileSync(a, 'one');
+    fs.writeFileSync(b, 'two');
+    expect(digestOf(a)).not.toBe(digestOf(b));
+  });
+
+  test('is "" for an absent file, and a missing path argument prints usage and fails', () => {
+    expect(digestOf(path.join(dir, 'nope.md'))).toBe('');
+    const bad = spawnSync('node', [MODULE_PATH, 'verification-digest']);
+    expect(bad.status).not.toBe(0);
+    expect(bad.stderr.toString()).toMatch(/verification-digest/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// preclassify (TRIAGE-B003)
+// ---------------------------------------------------------------------------
+
+describe('readMinifiedEnvironments', () => {
+  const table = (rows) =>
+    ['## 1. Environments', '', '| Name | URL / how to reach it | What it is for |', '|---|---|---|', ...rows].join('\n');
+
+  test('names production and rows whose text says minified or production build', () => {
+    const text = table([
+      '| local | http://localhost:3000 | dev |',
+      '| production | https://x.example | live |',
+      '| staging | https://s.example | Production Build, minified bundle |',
+      '| qa | https://q.example | MINIFIED output |',
+    ]);
+    expect(readMinifiedEnvironments(text).sort()).toEqual(['production', 'qa', 'staging']);
+  });
+
+  test('older file without the write column is still read; no table gives none', () => {
+    expect(readMinifiedEnvironments(table(['| preview | u | prod build |']))).toEqual(['preview']);
+    expect(readMinifiedEnvironments('# nothing here')).toEqual([]);
+  });
+
+  test('a negated form ("unminified", "non-minified", "non-production build") is not read as minified', () => {
+    const text = table([
+      '| local | http://localhost:3000 | dev server, unminified bundle |',
+      '| preview | https://p.example | non-minified preview |',
+      '| qa | https://q.example | a non-production build |',
+      '| dev | https://d.example | dev server, not minified |',
+      '| demo | https://e.example | non minified demo |',
+    ]);
+    expect(readMinifiedEnvironments(text)).toEqual([]);
+  });
+
+  test('rejects a non-string', () => {
+    expect(() => readMinifiedEnvironments(null)).toThrow(TypeError);
+  });
+});
+
+describe('preclassifyNotCheckable', () => {
+  const crit = (id, derivation, extra = {}) => ({ id, derivation, skill: 'verify-design-structure', ...extra });
+  const boards = [
+    { id: '01-home', components: ['Header'] },
+    { id: '02-parts', components: [] },
+  ];
+
+  test('parts board row is classified with the parts-board reason', () => {
+    const out = preclassifyNotCheckable({
+      criteria: [crit('ST-02-parts', 'check:verify-design-structure')],
+      boards, environmentByCriterion: {}, minifiedEnvironments: [],
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      id: 'ST-02-parts', status: 'not_verifiable', kind: 'not-checkable-here',
+      cause: 'capability-absent', preclassified: true,
+    });
+    expect(out[0].reason).toMatch(/parts board/);
+  });
+
+  test('real board on a minified environment is classified with the minified reason', () => {
+    const out = preclassifyNotCheckable({
+      criteria: [crit('ST-01-home', 'check:verify-design-structure')],
+      boards, environmentByCriterion: { 'ST-01-home': 'Production' }, minifiedEnvironments: ['production'],
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].reason).toMatch(/minified/);
+  });
+
+  test('environment row saying minified classifies; real board elsewhere does not', () => {
+    const args = (env) => ({
+      criteria: [crit('ST-01-home', 'check:verify-design-structure')],
+      boards, environmentByCriterion: { 'ST-01-home': env }, minifiedEnvironments: ['staging'],
+    });
+    expect(preclassifyNotCheckable(args('staging'))).toHaveLength(1);
+    expect(preclassifyNotCheckable(args('local'))).toEqual([]);
+  });
+
+  test('unknown board id and non-structure rows are left alone', () => {
+    const out = preclassifyNotCheckable({
+      criteria: [
+        crit('ST-99-ghost', 'check:verify-design-structure'),
+        crit('ST-02-parts', 'check:verify-flow-as-built'),
+        { id: 'C1', derivation: 'prd', skill: null },
+      ],
+      boards, environmentByCriterion: { 'ST-99-ghost': 'production', C1: 'production' }, minifiedEnvironments: ['production'],
+    });
+    expect(out).toEqual([]);
+  });
+
+  test('throws on bad input', () => {
+    expect(() => preclassifyNotCheckable(null)).toThrow(TypeError);
+  });
+});
+
+describe('CLI: preclassify', () => {
+  let dir;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'preclassify-cli-')); });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+  const run = (args) => spawnSync('node', [MODULE_PATH, 'preclassify', ...args], { encoding: 'utf8' });
+  const write = (name, obj) => {
+    const f = path.join(dir, name);
+    fs.writeFileSync(f, typeof obj === 'string' ? obj : JSON.stringify(obj));
+    return f;
+  };
+
+  test('reads payload, verification and every --design-map; skips an unparseable one with stderr', () => {
+    const payload = write('p.json', {
+      criteria: [
+        { id: 'ST-01-a', derivation: 'check:verify-design-structure' },
+        { id: 'ST-02-b', derivation: 'check:verify-design-structure' },
+      ],
+      environmentByCriterion: {},
+    });
+    const ver = write('verification.md', '| Name | URL |\n|---|---|\n| local | x |\n');
+    const m1 = write('m1.json', { boards: [{ id: '01-a', components: [] }] });
+    const m2 = write('m2.json', { boards: [{ id: '02-b', components: [] }] });
+    const bad = write('bad.json', '{nope');
+    const r = run(['--file', payload, '--verification', ver, '--design-map', m1, '--design-map', bad, '--design-map', m2]);
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout).map((e) => e.id).sort()).toEqual(['ST-01-a', 'ST-02-b']);
+    expect(r.stderr).toMatch(/bad\.json/);
+  });
+
+  test('missing --verification is a usage exit', () => {
+    const payload = write('p.json', { criteria: [], environmentByCriterion: {} });
+    const r = run(['--file', payload]);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/Usage/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renderReport: kind rendering (triage D16, D24) -- all of it gated on a criterion carrying `kind`
+// ---------------------------------------------------------------------------
+describe('renderReport: kind rendering', () => {
+  const crit = (id, status, extra = {}) => ({
+    id,
+    statement: `statement for ${id}`,
+    cites: 'FR-1',
+    status,
+    artifact: null,
+    reason: `reason ${id}`,
+    attempts: [],
+    blocker: null,
+    ...extra,
+  });
+  const baseFor = (outcome, criteria, extra = {}) => ({
+    feature: 'demo',
+    prd: 'docs/PRD/demo.md',
+    definitionPath: '.trd-state/demo/success-definition.md',
+    outcome,
+    reason: 'r',
+    criteria,
+    ...extra,
+  });
+  const mixed = [
+    crit('FS-1', 'met', { kind: null }),
+    crit('FS-2', 'not_met', { cause: 'judged-failed', kind: 'build-defect' }),
+    crit('FS-3', 'not_met', { cause: 'not-built', kind: 'build-defect' }),
+    crit('FS-4', 'not_met', { cause: 'evidence-missing', kind: 'evidence-gap' }),
+    crit('FS-5', 'not_verifiable', { cause: 'capability-absent', kind: 'not-checkable-here' }),
+  ];
+
+  test('Diagnosis leads with kind counts, plural rule pinned, then cause counts', () => {
+    const report = renderReport(baseFor('stalled', mixed));
+    expect(report).toContain(
+      '**Diagnosis**: 4 open — 2 build defects, 1 evidence gap, 1 not checkable here — '
+    );
+    expect(report).toContain('judged failed');
+    const two = renderReport(
+      baseFor('stalled', [
+        crit('A', 'not_verifiable', { cause: 'capability-absent', kind: 'not-checkable-here' }),
+        crit('B', 'not_verifiable', { cause: 'capability-absent', kind: 'not-checkable-here' }),
+        crit('C', 'not_met', { cause: 'never-exercised', kind: 'evidence-gap' }),
+        crit('D', 'not_met', { cause: 'locator-not-found', kind: 'evidence-gap' }),
+      ])
+    );
+    expect(two).toContain('2 evidence gaps, 2 not checkable here');
+  });
+
+  test('each non-met row shows its kind', () => {
+    const report = renderReport(baseFor('stalled', mixed));
+    expect(report).toMatch(/\| FS-2 \|.*build defect/);
+    expect(report).toMatch(/\| FS-4 \|.*evidence gap/);
+    expect(report).toMatch(/\| FS-5 \|.*not checkable here/);
+  });
+
+  test('falls back to the cause-derived kind, else unrecorded, on a mixed input', () => {
+    const report = renderReport(
+      baseFor('stalled', [
+        crit('A', 'not_met', { cause: 'judged-failed', kind: 'build-defect' }),
+        crit('B', 'not_met', { cause: 'evidence-stale' }),
+        crit('C', 'not_met', {}),
+      ])
+    );
+    expect(report).toContain('1 build defect, 1 evidence gap, 1 unrecorded');
+  });
+
+  const settled = crit('FS-9', 'not_met', {
+    cause: 'evidence-missing',
+    kind: 'evidence-gap',
+    settled: 'definition-problem',
+    reason: 'no output | names it',
+  });
+
+  test('a settled evidence gap is in its own section, not under Not Met', () => {
+    const report = renderReport(baseFor('satisfied', [crit('FS-1', 'met', { kind: null }), settled]));
+    expect(report).toContain('## Evidence gaps (definition problems)');
+    expect(report).toContain(
+      'The criterion asks for evidence the build does not produce — change the criterion or the build\'s outputs'
+    );
+    const section = report.split('## Evidence gaps (definition problems)')[1].split('\n## ')[0];
+    expect(section).toContain('FS-9');
+    expect(section).toContain('no output \\| names it');
+    const notMet = report.split('## Not Met')[1].split('\n## ')[0];
+    expect(notMet).not.toContain('FS-9');
+    expect(notMet).toContain('_None._');
+  });
+
+  test('the section sits before ## Evidence', () => {
+    const report = renderReport(
+      baseFor('satisfied', [crit('FS-1', 'met', { kind: null, image: 'a.png', ui: true }), settled])
+    );
+    expect(report.indexOf('## Evidence gaps (definition problems)')).toBeLessThan(report.indexOf('## Evidence\n'));
+    expect(report.indexOf('## Evidence\n')).toBeGreaterThan(0);
+  });
+
+  test('preclassified rows are marked', () => {
+    const report = renderReport(
+      baseFor('satisfied', [
+        crit('FS-1', 'met', { kind: null }),
+        crit('FS-2', 'not_verifiable', {
+          cause: 'capability-absent',
+          kind: 'not-checkable-here',
+          preclassified: true,
+          reason: 'parts board',
+        }),
+      ])
+    );
+    expect(report).toContain('parts board (classified before exercise)');
+  });
+
+  test('satisfied suffix counts settled evidence gaps beside not-verifiable ones', () => {
+    const report = renderReport(
+      baseFor('satisfied', [
+        crit('FS-1', 'met', { kind: null }),
+        crit('FS-2', 'not_verifiable', { kind: 'not-checkable-here', cause: 'capability-absent' }),
+        settled,
+      ])
+    );
+    expect(report).toContain('**Outcome**: Satisfied (1 of 3 not verifiable, 1 evidence gap — definition problem)');
+  });
+
+  test('Next line: refine-verification for a satisfied non-sweep run with a definition problem, audit-build without', () => {
+    const withDp = renderReport(baseFor('satisfied', [crit('FS-1', 'met', { kind: null }), settled]));
+    expect(withDp).toContain('/refine-verification');
+    expect(withDp).not.toContain('**Next**: `/audit-build`');
+    const without = renderReport(baseFor('satisfied', [crit('FS-1', 'met', { kind: null })]));
+    expect(without).toContain('**Next**: `/audit-build`');
+    const sweep = renderReport({ ...baseFor('satisfied', [crit('FS-1', 'met', { kind: null }), settled]), prd: 'x.sweep.md' });
+    expect(sweep).toContain('commit the swept fixes');
+  });
+
+  test('gate: an all-met input with kind: null renders exactly as one with no kind key', () => {
+    const withNull = baseFor('satisfied', [crit('FS-1', 'met', { kind: null }), crit('FS-2', 'met', { kind: null })]);
+    const without = baseFor('satisfied', [crit('FS-1', 'met'), crit('FS-2', 'met')]);
+    expect(renderReport(withNull)).toBe(renderReport(without));
+  });
+
+  test('gate closed: no Kind column, no section, old Diagnosis line', () => {
+    const old = mixed.map(({ kind, ...rest }) => rest);
+    const report = renderReport(baseFor('stalled', old));
+    expect(report).not.toContain('Kind');
+    expect(report).not.toContain('Evidence gaps (definition problems)');
+    expect(report).toContain('**Diagnosis**: 4 open — ');
+    expect(report).not.toMatch(/build defects?,/);
   });
 });

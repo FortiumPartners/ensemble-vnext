@@ -312,6 +312,8 @@ function formatCoveragePercent(fraction) {
  *   met: string[],              // NEW (D8) — settled-met membership; the reason can name the ratio
  *   mustPass: string[],         // NEW (D10) — ids of the must-pass criteria; required, `[]` when none
  *   mustPassUncovered: string[],// NEW (D10) — ids of must-pass objectives no criterion covers; required
+ *   settledEvidenceGaps: string[], // NEW (triage D6) — ids settled as evidence gaps; removed from `gaps` and
+ *                               //     `previousGaps` before closed/stall/cap; required, `[]` when none
  *   refreshFailed: boolean,     // NEW (preflight D16) — the last Debug pass's refresh ran and exited
  *                               //     non-zero, and no Setup check consumed that fact; required
  *   total?: number,             // NEW (D8) — the definition's whole criterion count
@@ -323,7 +325,7 @@ function formatCoveragePercent(fraction) {
  *   reason: string, closed: string[]}}
  */
 function decideNext(input) {
-  const { iteration, gaps, unbuilt, previousGaps, met, total } = input;
+  const { iteration, gaps, unbuilt, previousGaps: inputPreviousGaps, met, total } = input;
 
   // Validate rather than default. Found twice independently by the phase review and the
   // end-of-run review on the 2026-08-19 live smoke run, where an omitted key died with a bare
@@ -362,12 +364,24 @@ function decideNext(input) {
   if (typeof refreshFailed !== 'boolean') {
     throw new TypeError('decideNext: input.refreshFailed is required and must be a boolean (an absent value would read as "the last Debug refresh succeeded" and blame the code for a stale build — D16)');
   }
+  // Required, never defaulted (triage D6): an absent list would silently read as "none settled",
+  // so a settled evidence gap would hold the run to the cap. Checked after `refreshFailed` so
+  // callers that omit several fields still see the earlier field's message.
+  const { settledEvidenceGaps } = input;
+  if (!Array.isArray(settledEvidenceGaps)) {
+    throw new TypeError('decideNext: input.settledEvidenceGaps is required and must be an array (an absent value would read as "no evidence gap is settled" and hold the run to the iteration cap — D6)');
+  }
   const cap = input.cap ?? DEFAULT_CAP;
   const coverageFloor = input.coverageFloor ?? COVERAGE_FLOOR;
 
-  // `closed` is previousGaps \ gaps — computed unconditionally so it is always accurate on
+  // A settled evidence gap is neither a closure (it must not fake progress past the stall rule)
+  // nor an open gap (it must not hold the run to the cap): drop it from both lists up front.
+  const openGaps = gaps.filter((id) => !settledEvidenceGaps.includes(id));
+  const previousGaps = inputPreviousGaps == null ? inputPreviousGaps : inputPreviousGaps.filter((id) => !settledEvidenceGaps.includes(id));
+
+  // `closed` is previousGaps \ openGaps — computed unconditionally so it is always accurate on
   // the returned object, regardless of which branch below fires.
-  const closed = previousGaps == null ? [] : previousGaps.filter((id) => !gaps.includes(id));
+  const closed = previousGaps == null ? [] : previousGaps.filter((id) => !openGaps.includes(id));
 
   // Evaluation order is the specification (D14; preflight D16): unbuilt, satisfied, setup-failure,
   // stalled, stuck, remediate. Unbuilt wins even over a clean gap set,
@@ -382,10 +396,10 @@ function decideNext(input) {
       reason: `${unbuilt.length} criterion/criteria absent (unbuilt), not misbehaving — loop stops rather than debugging missing code`,
       closed,
     };
-  } else if (gaps.length === 0) {
+  } else if (openGaps.length === 0) {
     result = {
       action: 'exit-satisfied',
-      reason: 'no gaps remain — every criterion is met or not verifiable here',
+      reason: 'no gaps remain — every criterion is met, not verifiable here, or settled as an evidence gap',
       closed,
     };
   } else if (refreshFailed) {
@@ -414,13 +428,13 @@ function decideNext(input) {
   } else if (iteration >= cap) {
     result = {
       action: 'exit-stuck',
-      reason: `iteration cap (${cap}) reached with ${gaps.length} gap(s) still open`,
+      reason: `iteration cap (${cap}) reached with ${openGaps.length} gap(s) still open`,
       closed,
     };
   } else {
     result = {
       action: 'remediate',
-      reason: `${gaps.length} gap(s) open — dispatching debug stage`,
+      reason: `${openGaps.length} gap(s) open — dispatching debug stage`,
       closed,
     };
   }
@@ -1059,6 +1073,31 @@ const CAUSES = [
   'capability-absent',
 ];
 
+// The three kinds a not-met result falls into (triage D1). Kind is a function of cause: the
+// workflow's own copy of this map is pinned equal to this export by a test, because the script
+// cannot `require` this file. Keys are in `CAUSES` order (a test pins that too).
+const KINDS = ['build-defect', 'evidence-gap', 'not-checkable-here'];
+const KIND_BY_CAUSE = {
+  'evidence-missing': 'evidence-gap',
+  'evidence-stale': 'evidence-gap',
+  'locator-not-found': 'evidence-gap',
+  'never-exercised': 'evidence-gap',
+  'judged-failed': 'build-defect',
+  'not-built': 'build-defect',
+  'environment-unreachable': 'not-checkable-here',
+  'capability-absent': 'not-checkable-here',
+};
+const KIND_LABEL = {
+  'build-defect': 'build defect',
+  'evidence-gap': 'evidence gap',
+  'not-checkable-here': 'not checkable here',
+};
+
+/** @returns {string|null} the kind for a cause, or null when the cause is null or unknown. */
+function kindOf(cause) {
+  return Object.prototype.hasOwnProperty.call(KIND_BY_CAUSE, cause) ? KIND_BY_CAUSE[cause] : null;
+}
+
 // Words a Diagnosis line and the Fix run table render instead of the enum spelling (§3.1:
 // "environment not reachable", not `environment-unreachable`) -- the same fixed small-
 // vocabulary table-lookup shape as `OUTCOME_LABEL`, per this task's own `<follow>` grounding,
@@ -1242,6 +1281,17 @@ function renderReport(input) {
   // Image layout (verification-report-images D7). When no criterion carries an image field the
   // gate is closed and every line below is skipped, so older reports stay byte-identical.
   const images = classifyImages(criteria);
+  // Kind rendering (triage D16) is gated on SOME criterion carrying a non-null `kind`, not on the
+  // key existing: a state written for an all-`met` run has `kind: null` throughout and must keep
+  // its old bytes. A closed gate skips every line below that mentions kind.
+  const kindGate = criteria.some((c) => c.kind != null);
+  // The kind a row shows, read the D20 way: a non-null kind of the cause wins over a disagreeing
+  // recorded one; else the recorded one; else "unrecorded" (mirrors the `unrecorded` cause bucket).
+  const rowKind = (c) => kindOf(c.cause) ?? c.kind ?? 'unrecorded';
+  const kindWords = (c) => KIND_LABEL[rowKind(c)] ?? rowKind(c);
+  // Settled evidence gaps (D5, D7): listed in their own section, never under Not Met.
+  const isSettledGap = (c) => c.settled === 'definition-problem';
+  const settledGaps = kindGate ? criteria.filter((c) => c.status === 'not_met' && isSettledGap(c)) : [];
 
   const lines = [];
   lines.push(`# Functional Verification Report: ${feature}`);
@@ -1253,10 +1303,18 @@ function renderReport(input) {
   // the headline reads as a clean pass even when a chunk of the criteria were never checked.
   // Surface that count on the outcome line itself, not just in the `Criteria` tally three
   // lines down, since a banner quoting this line alone must not imply full coverage.
-  const outcomeSuffix =
+  let outcomeSuffix =
     outcome === 'satisfied' && notVerifiable.length > 0
       ? ` (${notVerifiable.length} of ${criteria.length} not verifiable)`
       : '';
+  if (outcome === 'satisfied' && settledGaps.length > 0) {
+    // A satisfied run gets no Diagnosis line, so this suffix and the section below are the only
+    // places a settled evidence gap shows (D7, D16).
+    const parts = [];
+    if (notVerifiable.length > 0) parts.push(`${notVerifiable.length} of ${criteria.length} not verifiable`);
+    parts.push(`${settledGaps.length} evidence gap${settledGaps.length === 1 ? '' : 's'} — definition problem`);
+    outcomeSuffix = ` (${parts.join(', ')})`;
+  }
   // The full-environment gate's own suffix (D14, §3.6), appended to whatever the coverage
   // suffix above already produced. Three renderings, not two: a `fail` carries the failure
   // even when the outcome is `satisfied` — that combination is the one the suffix exists for,
@@ -1352,13 +1410,30 @@ function renderReport(input) {
       const cause = c.cause ?? 'unrecorded';
       counts.set(cause, (counts.get(cause) ?? 0) + 1);
     }
+    // Kind counts lead the line when the gate is open (D16). One plural rule: append "s" unless
+    // the label ends in "here" ("not checkable here" has no plural form).
+    let kindPrefix = '';
+    if (kindGate) {
+      const kindCounts = new Map();
+      for (const c of open) kindCounts.set(rowKind(c), (kindCounts.get(rowKind(c)) ?? 0) + 1);
+      kindPrefix = [...KINDS, 'unrecorded']
+        .filter((k) => kindCounts.get(k) > 0)
+        .map((k) => {
+          const n = kindCounts.get(k);
+          const label = KIND_LABEL[k] ?? k;
+          return `${n} ${n === 1 || label.endsWith('here') ? label : `${label}s`}`;
+        })
+        .join(', ');
+    }
     const causeWords = Array.from(counts.entries())
       .filter(([, count]) => count > 0)
       .sort((a, b) => b[1] - a[1])
       .map(([cause, count]) => `${count} ${CAUSE_LABEL[cause] ?? cause}`)
       .join(', ');
     lines.push(
-      `**Diagnosis**: ${open.length} open` + (causeWords ? ` — ${causeWords}` : '')
+      `**Diagnosis**: ${open.length} open` +
+        (kindPrefix ? ` — ${kindPrefix}` : '') +
+        (causeWords ? ` — ${causeWords}` : '')
     );
     lines.push(
       isSweep
@@ -1379,8 +1454,13 @@ function renderReport(input) {
     lines.push("**Next**: commit the swept fixes, then build the core TRD named on the sweep file's `**Core TRD**:` line");
   } else if (outcome === 'satisfied') {
     // O4 (docs/TRD/refine-verification.md): the report's Next line follows the same rule as
-    // both commands' readouts, so a satisfied run names its successor too.
-    lines.push('**Next**: `/audit-build`');
+    // both commands' readouts, so a satisfied run names its successor too. A settled definition
+    // problem is the owner's to rule on first (D16, D24), same Next as a run that fell short.
+    lines.push(
+      settledGaps.length > 0
+        ? '**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`'
+        : '**Next**: `/audit-build`'
+    );
   }
 
   lines.push('');
@@ -1412,10 +1492,12 @@ function renderReport(input) {
       'Implementation did not deliver these criteria. The loop stopped rather than debugging absent code (D14).'
     );
     lines.push('');
-    lines.push('| ID | Statement | Reason |');
-    lines.push('|----|-----------|--------|');
+    lines.push(kindGate ? '| ID | Statement | Reason | Kind |' : '| ID | Statement | Reason |');
+    lines.push(kindGate ? '|----|-----------|--------|------|' : '|----|-----------|--------|');
     for (const c of unbuilt) {
-      lines.push(`| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.reason)} |`);
+      lines.push(
+        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.reason)} |` + (kindGate ? ` ${kindWords(c)} |` : '')
+      );
     }
     lines.push('');
   }
@@ -1444,20 +1526,30 @@ function renderReport(input) {
 
   lines.push('## Not Met');
   lines.push('');
-  if (notMet.length === 0) {
+  // Settled evidence gaps have their own section below (D16), so the gate-open table skips them.
+  const notMetShown = kindGate ? notMet.filter((c) => !isSettledGap(c)) : notMet;
+  if (notMetShown.length === 0) {
     lines.push('_None._');
   } else {
     // `Tier 1` (D8, §3.6), sourced from the state file's persisted `tier1` verdict -- it is
     // what separates a criterion that was never reached from one that was reached and failed.
     // Blank, not a fabricated value, when the report input carries no `tier1` at all.
-    lines.push('| ID | Statement | Tier 1 | Reason | Blocker | Attempts |');
-    lines.push('|----|-----------|--------|--------|---------|----------|');
-    for (const c of notMet) {
+    lines.push(
+      kindGate
+        ? '| ID | Statement | Kind | Tier 1 | Reason | Blocker | Attempts |'
+        : '| ID | Statement | Tier 1 | Reason | Blocker | Attempts |'
+    );
+    lines.push(
+      kindGate
+        ? '|----|-----------|------|--------|--------|---------|----------|'
+        : '|----|-----------|--------|--------|---------|----------|'
+    );
+    for (const c of notMetShown) {
       const attempts = (c.attempts || [])
         .map((a) => `iter ${a.iteration}: ${a.result}`)
         .join('; ');
       lines.push(
-        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.tier1 ?? '')} | ${escapeCell(c.reason)} | ${escapeCell(c.blocker)} | ${escapeCell(attempts)} |`
+        `| ${c.id} | ${escapeCell(c.statement)} | ${kindGate ? `${kindWords(c)} | ` : ''}${escapeCell(c.tier1 ?? '')} | ${escapeCell(c.reason)} | ${escapeCell(c.blocker)} | ${escapeCell(attempts)} |`
       );
     }
   }
@@ -1468,13 +1560,34 @@ function renderReport(input) {
   if (notVerifiable.length === 0) {
     lines.push('_None._');
   } else {
-    lines.push('| ID | Statement | Reason |');
-    lines.push('|----|-----------|--------|');
+    lines.push(kindGate ? '| ID | Statement | Kind | Reason |' : '| ID | Statement | Reason |');
+    lines.push(kindGate ? '|----|-----------|------|--------|' : '|----|-----------|--------|');
     for (const c of notVerifiable) {
-      lines.push(`| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.reason)} |`);
+      // The mark is ours, appended after escaping (D16).
+      const mark = kindGate && c.preclassified === true ? ' (classified before exercise)' : '';
+      lines.push(
+        `| ${c.id} | ${escapeCell(c.statement)} | ${kindGate ? `${kindWords(c)} | ` : ''}${escapeCell(c.reason)}${mark} |`
+      );
     }
   }
   lines.push('');
+
+  // Before `## Evidence`: images.gate makes that the report's last section (/verify-build step 6
+  // appends `## Fix run` after it).
+  if (settledGaps.length > 0) {
+    lines.push('## Evidence gaps (definition problems)');
+    lines.push('');
+    lines.push(
+      'The criterion asks for evidence the build does not produce — change the criterion or the build\'s outputs.'
+    );
+    lines.push('');
+    lines.push('| ID | Statement | Reason |');
+    lines.push('|----|-----------|--------|');
+    for (const c of settledGaps) {
+      lines.push(`| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.reason)} |`);
+    }
+    lines.push('');
+  }
 
   if (images.gate) {
     // The report's last section (D7c): /verify-build step 6 appends `## Fix run` after it, and
@@ -2020,6 +2133,83 @@ function mergeReproofRetry(first, second) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// readMinifiedEnvironments / preclassifyNotCheckable -- TRIAGE D10
+// ---------------------------------------------------------------------------
+
+/**
+ * Names of the environments in `verification.md` section 1 that serve minified component names
+ * (so the design-structure walk cannot match them): one named `production`, or whose row text
+ * contains `production build`, `prod build` or `minified` (case-insensitive). The table is the
+ * one whose first header cell is `Name`; the "Loop may WRITE data?" column is not keyed on, so an
+ * older file still reads. No such table returns `[]`; it never throws on content.
+ *
+ * @param {string} verificationText - the full contents of a `verification.md`
+ * @returns {string[]} environment names, as written (backticks and bold stripped)
+ * @example
+ *   readMinifiedEnvironments('| Name | URL |\n|---|---|\n| production | https://x |') // ['production']
+ */
+function readMinifiedEnvironments(verificationText) {
+  if (typeof verificationText !== 'string') {
+    throw new TypeError('readMinifiedEnvironments: verificationText must be a string');
+  }
+  const clean = (h) => String(h ?? '').replace(/\*\*|`/g, '').replace(/\s+/g, ' ').trim();
+  const lines = maskFencedLines(verificationText.replace(/\r\n?/g, '\n').split('\n'));
+  const table = findTables(lines, 0, lines.length).find((t) => clean(t.headerCells[0]).toLowerCase() === 'name');
+  if (!table) return [];
+  const names = [];
+  for (const r of table.dataRows) {
+    const name = clean(r.cells[0]);
+    if (!name) continue;
+    const text = r.cells.join(' ').toLowerCase();
+    // The lookbehinds keep a negated form ("unminified", "non-minified", "non-production build",
+    // "not minified", "non minified") from reading as the thing it negates.
+    if (name.toLowerCase() === 'production' || /(?<![\w-])(?<!\b(?:not|non)\s+)(?:production build|prod build|minified)\b/.test(text)) names.push(name);
+  }
+  return names;
+}
+
+/**
+ * Classifies, before Exercise, the design-structure criteria that cannot be checked: a row for a
+ * parts board (empty `components`: the structure check does not run) or one resolved to a minified
+ * environment. A row is a design-structure row when its derivation is `check:verify-design-structure`;
+ * its board is the id after exactly one leading `ST-`, compared whole to `boards[].id`. An unknown
+ * board is left alone.
+ *
+ * @param {{criteria: Array<{id: string, derivation?: string}>, boards: Array<{id: string, components?: string[]}>,
+ *   environmentByCriterion: Object<string,string>, minifiedEnvironments: string[]}} input
+ * @returns {Array<{id: string, status: 'not_verifiable', kind: 'not-checkable-here', cause: 'capability-absent',
+ *   reason: string, preclassified: true}>}
+ */
+function preclassifyNotCheckable(input) {
+  if (!input || typeof input !== 'object' || !Array.isArray(input.criteria)) {
+    throw new TypeError('preclassifyNotCheckable: input.criteria must be an array');
+  }
+  const boards = Array.isArray(input.boards) ? input.boards : [];
+  const envs = input.environmentByCriterion && typeof input.environmentByCriterion === 'object' ? input.environmentByCriterion : {};
+  const minified = new Set((Array.isArray(input.minifiedEnvironments) ? input.minifiedEnvironments : []).map((e) => String(e).toLowerCase()));
+  const out = [];
+  for (const c of input.criteria) {
+    const m = /^check:([\w-]+)/.exec(String((c && c.derivation) || ''));
+    if (!m || m[1] !== 'verify-design-structure' || typeof c.id !== 'string') continue;
+    const boardId = c.id.replace(/^ST-/, '');
+    const board = boards.find((b) => b && b.id === boardId);
+    if (!board) continue;
+    const entry = (reason) => ({
+      id: c.id, status: 'not_verifiable', kind: 'not-checkable-here', cause: 'capability-absent', reason, preclassified: true,
+    });
+    if (!Array.isArray(board.components) || board.components.length === 0) {
+      out.push(entry(`parts board ${board.id}: the structure check does not run`));
+      continue;
+    }
+    const env = envs[c.id];
+    if (typeof env === 'string' && minified.has(env.toLowerCase())) {
+      out.push(entry(`environment ${env} serves minified component names, so the structure walk cannot match board ${board.id}`));
+    }
+  }
+  return out;
+}
+
 module.exports = {
   checkEvidence,
   decideNext,
@@ -2037,6 +2227,8 @@ module.exports = {
   recommendCoverageFloor,
   readNeverUnattended,
   readFullDeploy,
+  readMinifiedEnvironments,
+  preclassifyNotCheckable,
   reproofRetrySet,
   mergeReproofRetry,
   // Exported for custody.js's deploy link. Global flag: use String.prototype.match only,
@@ -2044,6 +2236,10 @@ module.exports = {
   BUILD_TOKEN,
   VERIFICATION_SECTION_LABELS,
   CAUSES,
+  KINDS,
+  KIND_BY_CAUSE,
+  KIND_LABEL,
+  kindOf,
   DEFAULT_CAP,
   COVERAGE_FLOOR,
   LOCATOR_SCAN_BYTES,
@@ -2090,6 +2286,9 @@ module.exports = {
 //        returned; prints {batches, remove, rejected})
 //   node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>
 //       (reads both files itself — not a JSON payload; prints {criteria, uncovered, unknown})
+//   node functional-verification.js preclassify --file <payload> --verification <path> [--design-map <path> ...]
+//       (payload {criteria, environmentByCriterion}; prints the preclassified entries; an unparseable
+//        --design-map is skipped with a stderr line)
 //   node functional-verification.js reproof-retry-set <statePath>
 //       (prints {retry: [ids not met]}; {retry: []} when the file is missing or unparseable)
 //   node functional-verification.js merge-reproof-retry --first <path> --second <path>
@@ -2110,6 +2309,8 @@ if (require.main === module) {
         '  node functional-verification.js report-publish-plan --report <path> [--published-file <path>]\n' +
         '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
+        '  node functional-verification.js verification-digest <verificationPath>\n' +
+        '  node functional-verification.js preclassify --file <payload> --verification <path> [--design-map <path> ...]\n' +
         '  node functional-verification.js reproof-retry-set <statePath>\n' +
         '  node functional-verification.js merge-reproof-retry --first <path> --second <path>\n' +
         '  node functional-verification.js recommend-coverage-floor <trdStateDir>\n' +
@@ -2237,6 +2438,41 @@ if (require.main === module) {
     } else {
       console.log(JSON.stringify(mustPassCoverageFromFiles(trdPath, definitionPath)));
     }
+  } else if (subcommand === 'preclassify') {
+    // Files read here, in code, as with must-pass-coverage. --design-map repeats, so collect
+    // every occurrence (flag() returns only the first); each names a FILE.
+    const payloadPath = flag('--file');
+    const verificationPath = flag('--verification');
+    if (!payloadPath || !verificationPath) {
+      usage();
+    } else {
+      const payload = readJsonOrNull(payloadPath);
+      if (!payload || !Array.isArray(payload.criteria)) {
+        console.error(`preclassify: cannot read a payload with criteria from ${payloadPath}`);
+        process.exit(1);
+      }
+      const boards = [];
+      rest.forEach((arg, i) => {
+        const p = arg === '--design-map' ? rest[i + 1] : undefined;
+        if (!p || p.startsWith('--')) return;
+        const map = readJsonOrNull(p);
+        if (map && Array.isArray(map.boards)) boards.push(...map.boards);
+        else console.error(`preclassify: skipping unparseable --design-map ${p}`);
+      });
+      let verificationText = '';
+      try {
+        verificationText = fs.readFileSync(verificationPath, 'utf8');
+      } catch (err) {
+        console.error(`preclassify: cannot read ${verificationPath}: ${err.message}`);
+        process.exit(1);
+      }
+      console.log(JSON.stringify(preclassifyNotCheckable({
+        criteria: payload.criteria,
+        boards,
+        environmentByCriterion: payload.environmentByCriterion || {},
+        minifiedEnvironments: readMinifiedEnvironments(verificationText),
+      })));
+    }
   } else if (subcommand === 'report-publish-plan') {
     const reportPath = flag('--report');
     const publishedPath = flag('--published-file');
@@ -2319,6 +2555,17 @@ if (require.main === module) {
           );
         }
       }
+    }
+  } else if (subcommand === 'verification-digest') {
+    // Triage D9: sha256 of the normalised file; "" for an absent file, which never matches.
+    const [digestPath] = rest;
+    if (!digestPath) {
+      usage();
+    } else if (!fs.existsSync(digestPath)) {
+      console.log(JSON.stringify({ digest: '' }));
+    } else {
+      const normalized = normalizeVerificationContent(fs.readFileSync(digestPath, 'utf8'));
+      console.log(JSON.stringify({ digest: crypto.createHash('sha256').update(normalized).digest('hex') }));
     }
   } else if (subcommand === 'read-coverage-floor') {
     const [projectPath] = rest;

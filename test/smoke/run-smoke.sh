@@ -125,6 +125,11 @@ declare -A SCENARIO_TIMEOUT=(
     # like verify-fix's TIMEOUT_RUN1; this cap covers that plus one scaffold
     # and fixture-write overhead. Raise both together (VSET-T001).
     [verification-md-setup]=1800
+    # verify-triage-kinds runs ONE live `/verify-build` on a pre-seeded three-criterion
+    # definition (no derive agent) and may iterate up to 3 times with Debug.
+    # TIMEOUT_RUN in the scenario is 1500s, sized like verify-fix's TIMEOUT_RUN1; this
+    # cap covers that plus one scaffold. Raise both together (TRIAGE-T001).
+    [verify-triage-kinds]=1800
     # close-feature: five model calls -- three `/close-feature`, one
     # `/implement-trd --resume` and one `/amend`, the last two stopping at the
     # closed-feature guard -- across two throwaway projects. The command only
@@ -178,7 +183,7 @@ ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts)
 # appeared") — output QUALITY is test/evals/'s job, deliberately deferred (see
 # test/smoke/README.md). Run explicitly by name, or pass --with-llm to add
 # the whole set to whatever's already selected.
-LLM_OPT_IN_SCENARIOS=(implement-one-task prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker plan-light-fix plan-decoy-root-cause plan-medium-weight verification-artifacts verify-fix verification-md-setup close-feature)
+LLM_OPT_IN_SCENARIOS=(implement-one-task prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker plan-light-fix plan-decoy-root-cause plan-medium-weight verification-artifacts verify-fix verification-md-setup verify-triage-kinds close-feature)
 
 WITH_LLM=false
 EXPLICIT_NAMES=()
