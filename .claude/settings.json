@@ -161,7 +161,9 @@
     "publishArtifacts": true,
     "openPullRequest": "auto",
     "records": "ref",
-    "version": "4.16.1",
-    "refreshed_at": "2026-11-07T07:26:01Z"
+    "version": "4.17.7",
+    "refreshed_at": "2026-11-12T22:22:01Z",
+    "rebased_at": "2026-11-12T22:22:01Z",
+    "previous_version": "4.16.1"
   }
 }

@@ -155,7 +155,7 @@ test/
   integration/  # BATS integration tests
   evals/        # Eval framework
 
-.trd-state/     # Implementation tracking (git-tracked)
+.trd-state/     # Implementation tracking (on git refs)
 ```
 
 ---

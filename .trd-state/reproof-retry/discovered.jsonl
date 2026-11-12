@@ -1,3 +1,0 @@
-{"ts":"2026-11-11T23:37:31.377Z","kind":"gap","foundBy":"code-review","phase":1,"summary":"[review-pending] /code-review on 5c619a322e66eba7bb95edeaab40829e3f834501","blocksFeature":false}
-{"ts":"2026-11-11T23:52:27.163Z","resolves":"2026-11-11T23:37:31.377Z","resolvesSummary":"[review-pending] /code-review on 5c619a322e66eba7bb95edeaab40829e3f834501","summary":"review returned: 5 findings, all applied, committed"}
-{"ts":"2026-11-11T23:52:27.165Z","kind":"gap","foundBy":"code-review","phase":1,"summary":"[review:style] verify-build.md retry bullet reads \"and `since` recomputed as\" (missing \"is\"); left because a test pins the wording","blocksFeature":false,"file":"packages/core/commands/verify-build.md"}
