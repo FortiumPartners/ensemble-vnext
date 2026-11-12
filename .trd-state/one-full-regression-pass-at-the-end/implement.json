@@ -137,14 +137,20 @@
     "REGR-T001": {
       "description": "Add test/smoke/scenarios/verify-regression-pass.sh (D17); register it in test/smoke/run-smoke.sh (LLM_OPT_IN_SCENARIOS and a SCENARIO_TIMEOUT entry) and test/smoke/README.md (table row and tree line).",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": "implement",
-      "current_problem": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": "live run INCONCLUSIVE: Debug did not edit the covered file, so the regression pass was not exercised live",
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "test/smoke/scenarios/verify-regression-pass.sh",
+        "test/smoke/run-smoke.sh",
+        "test/smoke/README.md",
+        "test/smoke/scenarios/verify-inner-loop-causes.sh"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-12T11:17:34.649Z",
+      "completed_at": "2026-11-12T11:28:29.719Z",
+      "last_advanced": "2026-11-12T11:28:19.325Z"
     }
   },
   "checkpoints": [

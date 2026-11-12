@@ -310,7 +310,7 @@ else
 fi
 
 # --- 2. Iteration 1 walked everything; iteration 2 (not the confirmation entry) is targeted. ---
-ex1="$(jq -r '[.exercised[]? | select(.iteration == 1 and ((.confirmation // false) | not))][0].ids // [] | sort | join(" ")' "$STATE_FILE" 2>/dev/null)"
+ex1="$(jq -r '[.exercised[]? | select(.iteration == 1 and ((.confirmation // false) or (.regression // false) | not))][0].ids // [] | sort | join(" ")' "$STATE_FILE" 2>/dev/null)"
 want1="$(printf '%s\n' "${IDS_A[@]}" "${IDS_B[@]}" | sort | tr '\n' ' ' | sed 's/ $//')"
 if [[ "$ex1" == "$want1" ]]; then
     assert_pass_raw "iteration 1 exercised all six criteria (${ex1})"
@@ -318,14 +318,14 @@ else
     assert_fail_raw "iteration 1 exercised [${ex1}], expected [${want1}] — INCONCLUSIVE"
 fi
 
-HAS_ITER2="$(jq -r '[.exercised[]? | select(.iteration == 2 and ((.confirmation // false) | not))] | length' "$STATE_FILE" 2>/dev/null)"
+HAS_ITER2="$(jq -r '[.exercised[]? | select(.iteration == 2 and ((.confirmation // false) or (.regression // false) | not))] | length' "$STATE_FILE" 2>/dev/null)"
 if [[ "$HAS_ITER2" != "1" ]]; then
     assert_fail_raw "no iteration-2 exercised entry (count ${HAS_ITER2}) — INCONCLUSIVE: the run never reached a second iteration; outcome $(jq -r '.outcome // "none"' "$STATE_FILE")"
     smoke_finish
 fi
 
 REP_A="$(jq -r --arg k "$KEY_A" '[.causes[] | select(.key == $k)][0].representative // "none"' "$STATE_FILE" 2>/dev/null)"
-ex2="$(jq -r '[.exercised[] | select(.iteration == 2 and ((.confirmation // false) | not))][0].ids | sort | join(" ")' "$STATE_FILE" 2>/dev/null)"
+ex2="$(jq -r '[.exercised[] | select(.iteration == 2 and ((.confirmation // false) or (.regression // false) | not))][0].ids | sort | join(" ")' "$STATE_FILE" 2>/dev/null)"
 
 # Frozen files: if Debug edited them, cause B's representative is addressed and iteration 2 is
 # legitimately wider than expected.
