@@ -12,6 +12,54 @@ the work is actually released.
 
 ## [Unreleased]
 
+## [4.17.6] - 2026-11-12
+
+Two pieces of work. **Run records leave the feature branch:** each feature's `.trd-state/<slug>/`
+records are written to the git ref `refs/ensemble/records/<slug>` and pushed beside the branch,
+so they no longer merge into the base branch or clash between parallel features (#116, #118,
+#119, #121, #122, #124; plan `docs/plans/run-records-off-branch/roadmap.md`). **The verification
+loop fixes in a targeted loop and proves once at the end** (#114, #115, #117, #120, #123, #125;
+plan `docs/plans/verification-targeted-loop/roadmap.md`, issue #113).
+
+### Upgrading
+
+- Run `/rebase-project`. Its records cutover (Step 4.7b) untracks the run records already
+  committed in the project (staged, not committed) and seeds a records ref for each in-flight
+  feature. Commit the removal on the base branch.
+- **Do not set `Blocking: must-pass only` in `verification.md` yet.** Under the owner's rule of
+  2026-11-12, every failure it lets through must be filed as a defect issue, and that guarantee is
+  not built yet (it is the next feature of the verification-loop plan). Until then a waived failure
+  reaches the tracker only if `ship.md` lists `file-followups`. The default, `Blocking: all
+  criteria`, behaves exactly as before.
+
+### Changed: the verification loop
+
+- **Unmet results are triaged by kind (#115).** Each unmet criterion is a `build-defect`, an
+  `evidence-gap` or `not-checkable-here`. Only build defects reach Debug; an evidence gap gets one
+  re-capture and is then reported as a definition problem; a not-checkable result is settled once
+  and not re-opened on resume unless `verification.md` changed; predictable ones are classified at
+  preflight. The setup check tolerates a dev server's cold start.
+- **The inner loop fixes by shared cause (#117).** Build defects are grouped by root cause; after a
+  Debug pass only one representative per fixed cause is re-checked, not every open criterion.
+- **One scoped regression pass at the end (#120).** Met criteria whose covered files changed after
+  they were proven, every member of each fixed cause, and met criteria with no covers record are
+  re-checked once at the end; a regression gets one more inner round and one more pass, never a
+  third.
+- **Off-host proof for must-pass criteria (#123).** A must-pass criterion the host cannot run may
+  declare, up front, a CI job whose green result on the same commit proves it. The loop never
+  accepts a gap by itself.
+- **Opt-in blocking policy (#125).** `verification.md` §5c, `Blocking: all criteria` (default,
+  unchanged) or `Blocking: must-pass only`: under the latter a run whose remaining failures after
+  the fix loop are all on criteria not marked must-pass ends `satisfied`, each failure listed and
+  recorded as a product follow-up. A must-pass failure always blocks. See Upgrading.
+- **Follow-ups are ranked, product items first (#114).** `file-followups` and `/ship-build`'s
+  readout list product, host, tooling, paperwork, then not-verifiable rows.
+
+### Changed: run records off the branch
+
+- **Raw verification output is git-ignored (#116):** evidence folders, findings and judge,
+  record and setup scratch files are no longer committed.
+
 `/rebase-project` gains Step 4.7b, the records cutover (`scaffold-project.sh --records-cutover`):
 it untracks (staged, never committed) every tracked `.trd-state/` path the ignore lines now cover,
 and seeds the records ref of each in-flight feature (one whose branch is checked out in a worktree
@@ -79,6 +127,21 @@ Added `packages/core/lib/record-ref.js` (vendored to `.claude/lib/`): a library 
 `HEAD` or the real index, pushes it best effort, and falls back to a branch commit when the ref
 cannot be written or pushed. Nothing calls it yet; wiring it in is a later item of the
 records-ref-library plan (`docs/TRD/records-ref-library.md`).
+
+### Not yet proven
+
+- The records ref has not run inside a real Forge-driven feature from start to ship; the fixture
+  proof (all six checks passed) used a local bare `origin`. A command run whose verification
+  report carries screenshots onto the ref is proven only by a direct writer call.
+- Whether a Claude Code Web session can push or fetch `refs/ensemble/*` cannot be checked here;
+  the branch-commit fallback covers it.
+- The verification-loop changes are proven by unit tests and one headless fixture run each, not
+  yet on a real product's verification run.
+
+### Known defects
+
+- `/implement-trd`'s first state save fails with ENOENT when `.trd-state/<slug>/` does not exist
+  yet (seen in a `--no-verify` `/plan --implement` run); the session recovers by creating the folder.
 
 ## [4.17.5] - 2026-11-11
 
