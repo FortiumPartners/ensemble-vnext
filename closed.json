@@ -1,0 +1,26 @@
+{
+  "feature": "task-cutover-proof-on-a-fixture-project",
+  "trd": null,
+  "closedAt": "2026-11-12T16:26:53Z",
+  "closedBy": "task",
+  "note": "Six checks: 1 /plan --implement to a passing audit PASS; 2 no records-only branch commit PASS; 3 ref local+origin with record.json branch and FORGE_FEATURE_ID PASS; 4 ref carries implement.json, closed.json, verification-report.md and referenced images PASS (images via direct writer call; run's report referenced none); 5 fresh clone resume restores from the ref PASS; 6 refused ref push falls back to branch commits, command completes PASS.",
+  "audit": null,
+  "reason": "task-complete",
+  "outputs": [
+    ".trd-state/task-cutover-proof-on-a-fixture-project/report.md",
+    ".trd-state/task-cutover-proof-on-a-fixture-project/checks-2-4.txt",
+    ".trd-state/task-cutover-proof-on-a-fixture-project/check-4b-images.txt",
+    ".trd-state/task-cutover-proof-on-a-fixture-project/check-5a.txt",
+    ".trd-state/task-cutover-proof-on-a-fixture-project/check-5b-slot1.txt",
+    ".trd-state/task-cutover-proof-on-a-fixture-project/check-6.txt",
+    ".trd-state/task-cutover-proof-on-a-fixture-project/check-6-writer-lines.txt",
+    ".trd-state/task-cutover-proof-on-a-fixture-project/evidence/live/work/plan-implement.jsonl",
+    ".trd-state/task-cutover-proof-on-a-fixture-project/evidence/live/work/audit-build.jsonl",
+    ".trd-state/task-cutover-proof-on-a-fixture-project/evidence/live/work/resume-fresh-clone.jsonl",
+    ".trd-state/task-cutover-proof-on-a-fixture-project/evidence/live/work/plan-implement-refused.jsonl"
+  ],
+  "followups": [
+    { "summary": "implement-state.js save() does not create the state folder: /implement-trd's first save threw ENOENT when .trd-state/<slug>/ did not yet exist (a --no-verify /plan --implement run); the session recovered with mkdir -p. Make save() create the parent folder, or have the command's seed step do it.", "evidence": ".trd-state/task-cutover-proof-on-a-fixture-project/evidence/live/work/plan-implement-refused.jsonl (tool result after the first save( call: ENOENT ... implement.json.tmp.25309.*)" },
+    { "summary": "No command-run proof that a verification report's screenshots ride the records ref: the fixture's report referenced no images, so this was proven only by a direct record-ref.js write. A UI fixture whose verification captures screenshots would close it.", "evidence": ".trd-state/task-cutover-proof-on-a-fixture-project/checks-2-4.txt (empty image list) and .trd-state/task-cutover-proof-on-a-fixture-project/check-4b-images.txt" }
+  ]
+}

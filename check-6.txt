@@ -1,0 +1,29 @@
+$ git log --format="%h %s" --stat main..HEAD
+b898564 records(add-multiply): /implement-trd - run complete
+
+ .trd-state/add-multiply/discovered.jsonl | 6 ++++++
+ 1 file changed, 6 insertions(+)
+04998ce records(add-multiply): /implement-trd - phase 1 checkpoint
+
+ .trd-state/add-multiply/implement.json | 42 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
+6979804 chore(phase 1): checkpoint (battery green; verify-app pass)
+
+ docs/TRD/add-multiply.md | 52 ++++++++++++++++++++++++++++++++++++++++++++++++
+ src/calc.js              |  7 ++++++-
+ test/calc.test.js        |  7 ++++++-
+ 3 files changed, 64 insertions(+), 2 deletions(-)
+
+$ git for-each-ref refs/ensemble
+5c08301e4702c696ed796bcd6438cf359d3b2dd8 commit	refs/ensemble/records/add-multiply
+
+$ git ls-remote origin
+7f1581bbbe88a9ffa11a70198e7385d344a0f2fa	HEAD
+0317ca654c4cc745ef77fa5a6eda55fc53b20c39	refs/ensemble/records/add-subtract
+d71441f96cf2a8bcfa321b61c7cf6706fa9d9188	refs/ensemble/records/image-probe
+04998cec90663d0e00e9b9f33d054e11404cbcfa	refs/heads/feature/60-add-multiply
+8462001c7c492f2ecf5c872c3a560b4d4e737fbc	refs/heads/feature/60-add-subtract
+7f1581bbbe88a9ffa11a70198e7385d344a0f2fa	refs/heads/main
+
+$ git status --short
+[end]

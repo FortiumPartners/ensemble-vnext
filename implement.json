@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "kind": "task",
+  "trd_file": null,
+  "brief": null,
+  "phase_cursor": 1,
+  "tasks": {
+    "STEP-001": {
+      "description": "Scaffold a fixture repo (fixtures slot) with a bare local origin and run a small change through /plan --implement to a passing audit, with FORGE_FEATURE_ID set",
+      "status": "success",
+      "started_at": "2026-11-12T16:13:33.352Z",
+      "completed_at": "2026-11-12T16:21:05.435Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/task-cutover-proof-on-a-fixture-project/evidence/live/work/plan-implement.jsonl",
+        ".trd-state/task-cutover-proof-on-a-fixture-project/evidence/live/work/audit-build.jsonl"
+      ],
+      "current_problem": null
+    },
+    "STEP-002": {
+      "description": "Confirm the feature branch carries no commit that touches only .trd-state/",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-12T16:22:16.143Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/task-cutover-proof-on-a-fixture-project/checks-2-4.txt"
+      ],
+      "current_problem": null
+    },
+    "STEP-003": {
+      "description": "Confirm refs/ensemble/records/<slug> exists locally and on origin, and its root record.json names the branch and the FORGE_FEATURE_ID",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-12T16:22:16.191Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/task-cutover-proof-on-a-fixture-project/checks-2-4.txt"
+      ],
+      "current_problem": null
+    },
+    "STEP-004": {
+      "description": "Confirm the ref carries implement.json, closed.json, verification-report.md and each image the report references",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-12T16:22:16.239Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/task-cutover-proof-on-a-fixture-project/checks-2-4.txt",
+        ".trd-state/task-cutover-proof-on-a-fixture-project/check-4b-images.txt"
+      ],
+      "current_problem": null
+    },
+    "STEP-005": {
+      "description": "Delete the worktree's .trd-state/<slug>/, clone origin afresh, and confirm the resume path finds the records from the ref",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-12T16:22:16.287Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/task-cutover-proof-on-a-fixture-project/check-5a.txt",
+        ".trd-state/task-cutover-proof-on-a-fixture-project/check-5b-slot1.txt",
+        ".trd-state/task-cutover-proof-on-a-fixture-project/evidence/live/work/resume-fresh-clone.jsonl"
+      ],
+      "current_problem": null
+    },
+    "STEP-006": {
+      "description": "Make origin refuse the ref push and confirm the write falls back to committing records on the branch without failing",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-12T16:25:51.711Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/task-cutover-proof-on-a-fixture-project/check-6.txt",
+        ".trd-state/task-cutover-proof-on-a-fixture-project/check-6-writer-lines.txt"
+      ],
+      "current_problem": null
+    },
+    "STEP-007": {
+      "description": "Write the findings with commands and output to the task report",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-12T16:26:41.465Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/task-cutover-proof-on-a-fixture-project/report.md"
+      ],
+      "current_problem": null
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": null,
+      "review": null,
+      "timestamp": "2026-11-12T16:26:41.466Z"
+    }
+  ],
+  "created_at": "2026-11-12T16:12:20.038Z",
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": "2026-11-12T16:26:41.466Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  }
+}

@@ -1,0 +1,34 @@
+$ ls -R .trd-state/image-probe
+evidence
+implement.json
+verification-report.md
+
+.trd-state/image-probe/evidence:
+chart.png
+screens
+
+.trd-state/image-probe/evidence/screens:
+calc-referenced.png
+not-referenced.png
+
+$ FORGE_FEATURE_ID=f6-cutover-proof-0001 node .claude/lib/record-ref.js write --state-dir .trd-state/image-probe --command /task --step "image probe"
+{"ok":true,"outcome":"ref","push":"pushed","folded":[],"commit":"d71441f96cf2a8bcfa321b61c7cf6706fa9d9188","files":4,"missingImages":[],"slug":"image-probe","ref":"refs/ensemble/records/image-probe","skipped":[]}
+[exit 0]
+
+$ git ls-tree -r --name-only refs/ensemble/records/image-probe
+evidence/chart.png
+evidence/screens/calc-referenced.png
+implement.json
+record.json
+verification-report.md
+
+$ git ls-remote origin refs/ensemble/records/image-probe
+d71441f96cf2a8bcfa321b61c7cf6706fa9d9188	refs/ensemble/records/image-probe
+$ git cat-file -p refs/ensemble/records/image-probe:record.json
+{
+  "forge_feature_id": "f6-cutover-proof-0001",
+  "branch": "feature/60-image-probe",
+  "slug": "image-probe"
+}
+$ git status --short; git log --oneline main..HEAD
+[end]

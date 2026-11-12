@@ -1,0 +1,101 @@
+### Check 2: no records-only commit on the branch
+$ git log --format=%h %s main..feature/60-add-subtract
+0af7931 docs(audit): audit-build citation fixes for add-subtract
+8462001 chore(phase 1): checkpoint (battery green; verify-app pass)
+[exit 0]
+
+commit 0af79318537a2d58d7127ac09817f34690c90a9a touches:
+  docs/TRD/add-subtract.md
+  -> paths outside .trd-state/: 1
+commit 8462001c7c492f2ecf5c872c3a560b4d4e737fbc touches:
+  docs/TRD/add-subtract.md
+  src/calc.js
+  test/calc.test.js
+  -> paths outside .trd-state/: 3
+$ git log --format=%h %s main..feature/60-add-subtract -- .trd-state
+[exit 0]
+
+### Check 3: ref locally and on origin; record.json identity
+$ git for-each-ref --format=%(objectname) %(refname) refs/ensemble
+0317ca654c4cc745ef77fa5a6eda55fc53b20c39 refs/ensemble/records/add-subtract
+[exit 0]
+
+$ git ls-remote ../origin.git refs/ensemble/*
+0317ca654c4cc745ef77fa5a6eda55fc53b20c39	refs/ensemble/records/add-subtract
+[exit 0]
+
+$ git rev-parse --abbrev-ref HEAD
+feature/60-add-subtract
+[exit 0]
+
+$ git cat-file -p refs/ensemble/records/add-subtract:record.json
+{
+  "forge_feature_id": "f6-cutover-proof-0001",
+  "branch": "feature/60-add-subtract",
+  "slug": "add-subtract"
+}
+[exit 0]
+
+$ git log --format=%h %s refs/ensemble/records/add-subtract
+0317ca6 records(add-subtract): /audit-build - round 1: proceed with caveats (no PRD); closed
+5be57e1 records(add-subtract): /implement-trd - run complete
+145b9dd records(add-subtract): /implement-trd - phase 1 checkpoint
+[exit 0]
+
+### Check 4: ref carries the records
+$ git ls-tree -r --name-only refs/ensemble/records/add-subtract
+artifacts.json
+audit-build-report.md
+audit-index.json
+audit-rounds.jsonl
+closed.json
+criterion-covers.json
+discovered.jsonl
+implement.json
+judge-claims-1.json
+judge-decide-1.json
+judge-report-input-1.json
+judge-state-1.json
+preclassify-input.json
+record.json
+setup-decide-1.json
+success-definition.md
+verification-report.md
+verification-state.json
+[exit 0]
+
+implement.json: blob
+closed.json: blob
+verification-report.md: blob
+
+$ git cat-file -p refs/ensemble/records/add-subtract:closed.json
+{
+  "feature": "add-subtract",
+  "trd": "docs/TRD/add-subtract.md",
+  "closedAt": "2026-11-12T16:20:28Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this change has no PRD, so the code was checked against the TRD only)",
+    "report": ".trd-state/add-subtract/audit-build-report.md",
+    "auditedCommit": "8462001c7c492f2ecf5c872c3a560b4d4e737fbc",
+    "anchorCommit": null
+  }
+}
+[exit 0]
+
+Images referenced by verification-report.md (png/jpg/jpeg/gif/webp/svg):
+[end image list]
+Worktree evidence folder:
+  .trd-state/add-subtract/evidence/fs5-calc.test.js.txt
+  .trd-state/add-subtract/evidence/criterion-covers.json
+  .trd-state/add-subtract/evidence/fs6.txt
+  .trd-state/add-subtract/evidence/fs4.txt
+  .trd-state/add-subtract/evidence/fs1.txt
+  .trd-state/add-subtract/evidence/fs3.txt
+  .trd-state/add-subtract/evidence/fs2.txt
+$ node -e const s=JSON.parse(require("child_process").execFileSync("git",["cat-file","-p",process.argv[1]]));const t=s.tasks;console.log(Object.keys(t).map(k=>k+" "+t[k].status).join("\n"));console.log("checkpoints",(s.checkpoints||[]).map(c=>c.commit)) refs/ensemble/records/add-subtract:implement.json
+FIX-001 success
+checkpoints [ '8462001c7c492f2ecf5c872c3a560b4d4e737fbc' ]
+[exit 0]
+

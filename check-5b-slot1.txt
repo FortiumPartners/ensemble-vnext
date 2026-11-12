@@ -1,0 +1,16 @@
+$ FORGE_FEATURE_ID=<an unrelated id, this session's own> node .claude/lib/record-ref.js ensure --state-dir .trd-state/add-subtract --local
+{"ok":false,"outcome":"mismatch"}
+[exit 0]
+$ env -u FORGE_FEATURE_ID node .claude/lib/record-ref.js ensure --state-dir .trd-state/add-subtract --local
+{"ok":true,"outcome":"restored","files":17}
+[exit 0]
+$ FORGE_FEATURE_ID=f6-cutover-proof-0001 node .claude/lib/record-ref.js ensure --state-dir .trd-state/add-subtract --local
+{"ok":true,"outcome":"restored","files":17}
+[exit 0]
+$ FORGE_FEATURE_ID=f6-cutover-proof-0001 node .claude/lib/record-ref.js ensure --state-dir .trd-state/add-subtract --local   (again)
+{"ok":true,"outcome":"present"}
+[exit 0]
+$ node -e "require(\"./.claude/lib/implement-state\").load(...)"
+FIX-001 success
+$ git status --short
+[end]

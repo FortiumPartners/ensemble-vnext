@@ -1,0 +1,14 @@
+$ rm -rf slot-1/.trd-state/add-subtract
+_command-runs
+current.json
+
+$ git clone -q origin.git clone-fresh && git -C clone-fresh checkout -q feature/60-add-subtract
+[exit 0]
+$ git for-each-ref refs/ensemble   (fresh clone: expect nothing)
+[exit 0]
+$ ls .trd-state
+ls: .trd-state: No such file or directory
+
+$ git log --oneline -1
+8462001 chore(phase 1): checkpoint (battery green; verify-app pass)
+
