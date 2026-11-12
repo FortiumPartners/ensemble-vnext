@@ -1867,7 +1867,11 @@ no environment; every "exercisable" criterion resolves to exactly one.
    `'all'`, today's behaviour). On `status: 'invalid'` — the `Blocking:` line under the
    blocking-policy section does not parse — the workflow is not dispatched and verification
    reports `not run: verification.md's blocking policy does not parse ("<raw>")` with `<raw>`
-   the result's `raw`; Step 9's ISSUES says to fix it with `/verification-setup`. Unlike the
+   the result's `raw`, rendered through `render-report` exactly as §8.1's two `not run` exits
+   are (`outcome: "not-run"`, that text after `not run: ` as `reason`, `criteria: []`) so no
+   earlier run's `verification-report.md` is left standing as this run's; record the outcome as
+   `not-run-blocking-policy` for Step 9's banner. Step 9's ISSUES says to fix it with
+   `/verification-setup`. Unlike the
    coverage floor this is never defaulted: defaulting would silently ignore a policy the owner
    meant to set, or let failures through on a typo.
 7. **Resolve `setupTargets` (preflight D7, D8, D9)** — the environments the loop's setup check
@@ -2101,8 +2105,11 @@ never STUCK: the verification outcome stands without it.
 a stall into `satisfied`, else absent or `[]`) into Step 9's block, and when it is non-empty
 record each entry as a follow-up beside `record-criteria`, once, after the workflow returns:
 
+Write the `nonBlocking` array as JSON to `/tmp/fv-nonblocking-<feature>.json` first (a file, not
+an inline `--payload`: the reasons are Judge-written text whose quotes would break the shell line):
+
 ```bash
-node .claude/lib/functional-verification.js record-nonblocking --state-dir <state-dir> --payload '<the nonBlocking array as JSON>'
+node .claude/lib/functional-verification.js record-nonblocking --state-dir <state-dir> --file /tmp/fv-nonblocking-<feature>.json
 ```
 
 It writes one non-blocking discovery row per entry (skipping one already recorded, so a resume

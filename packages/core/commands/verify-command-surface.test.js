@@ -2624,7 +2624,7 @@ describe('blocking policy wiring in implement-trd.md and verify-build.md', () =>
 
   test('both commands run record-nonblocking beside record-criteria', () => {
     for (const t of [impl(), vb()]) {
-      expect(t).toContain('functional-verification.js record-nonblocking --state-dir <state-dir> --payload');
+      expect(t).toContain('functional-verification.js record-nonblocking --state-dir <state-dir> --file');
       expect(t).toMatch(/`nonBlocking`/);
     }
     expect(vb()).toMatch(/after each workflow return/);

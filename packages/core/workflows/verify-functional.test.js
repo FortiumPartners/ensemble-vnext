@@ -5747,6 +5747,19 @@ describe('verify-functional: blocking policy (block-only-on-material-failures)',
     expect(syncedState(syncs(agent)[0]).outcome).toBe('stuck');
   });
 
+  it.each([undefined, 'must-pass'])("a Judge exit-insufficient-coverage over an open must-pass failure stays insufficient-coverage (blocking: %s)", async (blocking) => {
+    // decide-next re-labels a stalled/stuck base with open gaps when the floor is missed; that is today's outcome.
+    const { result } = await run(exitOf('exit-insufficient-coverage', [met('FS-1'), bd('FS-2')]), { mustPassIds: ['FS-2'], blocking, coverageFloor: 1 });
+    expect(result.outcome).toBe('insufficient-coverage');
+    expect(result.nonBlocking).toEqual([]);
+  });
+
+  it('a converted stalled exit syncs the state once, with the final outcome', async () => {
+    const { agent } = await run(exitOf('exit-stalled', [bd('FS-1'), met('FS-2')]), { mustPassIds: ['FS-2'], blocking: 'must-pass' });
+    expect(syncs(agent)).toHaveLength(1);
+    expect(syncedState(syncs(agent)[0]).outcome).toBe('satisfied');
+  });
+
   it('an exit-satisfied over an unbuilt criterion becomes stuck', async () => {
     const { result } = await run(exitOf('exit-satisfied', [met('FS-1'), { ...bd('FS-2'), status: 'unbuilt' }], { gaps: [], unbuilt: ['FS-2'] }), { mustPassIds: [] });
     expect(result.outcome).toBe('stuck');

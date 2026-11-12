@@ -1565,9 +1565,11 @@ function classifyImages(criteria) {
 /**
  * Record the failures the must-pass-only policy let through as product follow-ups, one
  * `discovered.jsonl` row per entry (block-only-on-material-failures). `blocksFeature: false`
- * keeps `promotable()` from turning a row into a TRD task. An id that already has an open row
- * with that `ref` and the `[non-blocking]` summary prefix is skipped, so a resumed run or a fix
- * round writes no duplicate; an empty list writes nothing and creates no file.
+ * keeps `promotable()` from turning a row into a TRD task. An id whose LATEST open row for that
+ * `ref` is already a `[non-blocking]` one is skipped, so a resumed run or a fix round writes no
+ * duplicate; one whose latest row is something else (a later `met` that retired it, a failing
+ * row) is recorded again, because the ledger reads only the latest row per ref and an older
+ * follow-up would otherwise be lost. An empty list writes nothing and creates no file.
  *
  * @param {string} stateDir
  * @param {Array<string|{id: string, reason?: string}>} nonBlocking  the result's `nonBlocking`
@@ -1577,7 +1579,13 @@ function classifyImages(criteria) {
 function recordNonBlockingFollowups(stateDir, nonBlocking, nowIso) {
   const out = { recorded: [], skipped: [] };
   if (!stateDir || !Array.isArray(nonBlocking) || nonBlocking.length === 0) return out;
-  const open = discovered.readAll(stateDir, { open: true });
+  // The latest open row per ref, as discovered.latestPerRef orders them (by `ts`, later wins).
+  const latest = new Map();
+  for (const r of discovered.readAll(stateDir, { open: true })) {
+    if (!r.ref) continue;
+    const cur = latest.get(r.ref);
+    if (!cur || String(r.ts ?? '') >= String(cur.ts ?? '')) latest.set(r.ref, r);
+  }
   for (const e of nonBlocking) {
     const id = e && typeof e === 'object' ? e.id : e;
     if (typeof id !== 'string' || !id) continue;
@@ -1585,7 +1593,8 @@ function recordNonBlockingFollowups(stateDir, nonBlocking, nowIso) {
       e && typeof e === 'object' && e.reason
         ? String(e.reason)
         : 'failing criterion left open under the must-pass-only blocking policy';
-    const already = open.some((r) => r.ref === id && String(r.summary).startsWith('[non-blocking] '));
+    const last = latest.get(id);
+    const already = Boolean(last) && String(last.summary).startsWith('[non-blocking] ');
     if (already) {
       out.skipped.push(id);
       continue;
@@ -1603,6 +1612,7 @@ function recordNonBlockingFollowups(stateDir, nonBlocking, nowIso) {
       },
       nowIso
     );
+    if (ok) latest.set(id, { ref: id, summary: `[non-blocking] ${id}` }); // a repeated id in one list writes once
     (ok ? out.recorded : out.skipped).push(id);
   }
   return out;
@@ -1764,7 +1774,7 @@ function renderReport(input) {
     .filter((id) => typeof id === 'string' && id);
   if (nonBlockingIds.length > 0) {
     lines.push(
-      `Not blocking: ${nonBlockingIds.length} failure(s) on criteria not marked must-pass, filed as product follow-ups: ${nonBlockingIds.map(escapeCell).join(', ')} (verification.md: Blocking: must-pass only)`
+      `**Not blocking**: ${nonBlockingIds.length} failure(s) on criteria not marked must-pass, filed as product follow-ups: ${nonBlockingIds.map(escapeCell).join(', ')} (verification.md: Blocking: must-pass only)`
     );
   }
   // One line per setup problem (preflight §3.3), only under `setup-failure`, so every other
@@ -2847,7 +2857,7 @@ if (require.main === module) {
         '  node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>\n' +
         '  node functional-verification.js off-host-proofs --trd <TRD path> --definition <definition path> [--covers <json file>] [--ids <id,id,...>]\n' +
         '  node functional-verification.js off-host-proven --state-dir <dir>\n' +
-        '  node functional-verification.js record-nonblocking --state-dir <dir> --payload <json>\n' +
+        '  node functional-verification.js record-nonblocking --state-dir <dir> (--payload <json> | --file <json file>)\n' +
         '  node functional-verification.js report-publish-plan --report <path> [--published-file <path>]\n' +
         '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
@@ -3005,15 +3015,18 @@ if (require.main === module) {
     }
   } else if (subcommand === 'record-nonblocking') {
     const stateDir = flag('--state-dir');
-    const payload = flag('--payload');
-    if (!stateDir || payload === undefined) {
+    // `--file` takes the JSON from a file: the entries carry Judge-written reasons, whose quotes
+    // would break a single-quoted `--payload` on the command line.
+    const payloadFile = flag('--file');
+    const payload = payloadFile !== undefined ? undefined : flag('--payload');
+    if (!stateDir || (payload === undefined && payloadFile === undefined)) {
       usage();
     } else {
       let list;
       try {
-        list = JSON.parse(payload);
+        list = JSON.parse(payloadFile !== undefined ? fs.readFileSync(payloadFile, 'utf8') : payload);
       } catch (err) {
-        console.error(`record-nonblocking: --payload is not JSON: ${err.message}`);
+        console.error(`record-nonblocking: ${payloadFile !== undefined ? `--file ${payloadFile}` : '--payload'} is not readable JSON: ${err.message}`);
         process.exit(1);
       }
       console.log(JSON.stringify(recordNonBlockingFollowups(stateDir, list)));

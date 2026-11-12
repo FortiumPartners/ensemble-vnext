@@ -415,12 +415,14 @@ It writes `<state-dir>/evidence/criterion-covers.json` and prints `{"recorded":[
 A failure is one ISSUES line, never STUCK: the verification outcome stands without it.
 
 **Record the follow-ups the blocking policy let through, after each workflow return** (the first
-dispatch, each fix round's step 4, and the re-proof retry; skip under `--criteria`'s first
-dispatch only when the result carries no `nonBlocking`). When the result's `nonBlocking`
+dispatch, each fix round's step 4, and the re-proof retry). When the result's `nonBlocking`
 (`Array<{ id, reason }>`) is non-empty, run beside `record-criteria`:
 
+Write the `nonBlocking` array as JSON to `/tmp/fv-nonblocking-<feature>.json` first (a file, not
+an inline `--payload`: the reasons are Judge-written text whose quotes would break the shell line):
+
 ```bash
-node .claude/lib/functional-verification.js record-nonblocking --state-dir <state-dir> --payload '<the nonBlocking array as JSON>'
+node .claude/lib/functional-verification.js record-nonblocking --state-dir <state-dir> --file /tmp/fv-nonblocking-<feature>.json
 ```
 
 It writes one non-blocking discovery row per entry and skips one already recorded, so repeated

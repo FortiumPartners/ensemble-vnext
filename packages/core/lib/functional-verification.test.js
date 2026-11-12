@@ -5323,6 +5323,25 @@ describe('recordNonBlockingFollowups and the Not blocking report line (FIX-003)'
     expect(run()).toEqual({ recorded: [], skipped: ['FS-2', 'FS-3'] });
   });
 
+  test('CLI record-nonblocking --file reads the payload from a file (reasons with quotes)', () => {
+    const file = path.join(dir, 'payload.json');
+    fs.writeFileSync(file, JSON.stringify([{ id: 'FS-4', reason: "the button doesn't render" }]));
+    const out = JSON.parse(execFileSync('node', [MODULE_PATH, 'record-nonblocking', '--state-dir', dir, '--file', file], { encoding: 'utf8' }));
+    expect(out).toEqual({ recorded: ['FS-4'], skipped: [] });
+    expect(discovered.readAll(dir)[0].summary).toContain("doesn't render");
+  });
+
+  test('records again once a later row for the ref has superseded the follow-up', () => {
+    recordNonBlockingFollowups(dir, [entries[0]], '2026-11-12T00:00:00.000Z');
+    discovered.record(dir, { kind: 'gap', foundBy: 'verify-build --fix', status: 'met', ref: 'FS-2', summary: 'FS-2 met' }, '2026-11-12T01:00:00.000Z');
+    const again = recordNonBlockingFollowups(dir, [entries[0]], '2026-11-12T02:00:00.000Z');
+    expect(again).toEqual({ recorded: ['FS-2'], skipped: [] });
+  });
+
+  test('a repeated id in one list writes once', () => {
+    expect(recordNonBlockingFollowups(dir, ['FS-5', 'FS-5'])).toEqual({ recorded: ['FS-5'], skipped: ['FS-5'] });
+  });
+
   describe('renderReport', () => {
     const base = {
       feature: 'f',
@@ -5336,7 +5355,7 @@ describe('recordNonBlockingFollowups and the Not blocking report line (FIX-003)'
       const lines = renderReport({ ...base, nonBlocking: entries }).split('\n');
       const i = lines.findIndex((l) => l.startsWith('**Reason**'));
       expect(lines[i + 1]).toBe(
-        'Not blocking: 2 failure(s) on criteria not marked must-pass, filed as product follow-ups: FS-2, FS-3 (verification.md: Blocking: must-pass only)'
+        '**Not blocking**: 2 failure(s) on criteria not marked must-pass, filed as product follow-ups: FS-2, FS-3 (verification.md: Blocking: must-pass only)'
       );
     });
     test('is byte-identical without nonBlocking', () => {

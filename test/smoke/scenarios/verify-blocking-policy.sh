@@ -20,7 +20,7 @@
 #              .claude/verification-notes.md marks read-only, so Debug has no business fixing it
 #              and the failure stays open.
 #   Expected: FS-1 ends met, FS-2 stays not_met, outcome satisfied, the state file names FS-2
-#   in nonBlocking, the report carries a `Not blocking:` line, and discovered.jsonl holds one
+#   in nonBlocking, the report carries a `**Not blocking**:` line, and discovered.jsonl holds one
 #   [non-blocking] row for FS-2 with rankClass "product".
 #
 #   The live model decides what Debug edits, not the fixture. A run where the setup did not
@@ -339,10 +339,10 @@ else
     assert_fail_raw "the must-pass criterion ${BLOCKING_ID} appears in nonBlocking"
 fi
 
-if grep -q 'Not blocking:' "$REPORT_FILE" && grep 'Not blocking:' "$REPORT_FILE" | grep -q "$LENIENT_ID"; then
-    assert_pass_raw "the report has a 'Not blocking:' line naming ${LENIENT_ID}"
+if grep -q 'Not blocking\*\*:' "$REPORT_FILE" && grep 'Not blocking\*\*:' "$REPORT_FILE" | grep -q "$LENIENT_ID"; then
+    assert_pass_raw "the report has a '**Not blocking**:' line naming ${LENIENT_ID}"
 else
-    assert_fail_raw "the report has no 'Not blocking:' line naming ${LENIENT_ID}"
+    assert_fail_raw "the report has no '**Not blocking**:' line naming ${LENIENT_ID}"
 fi
 
 # --- 3. The follow-up row. ---

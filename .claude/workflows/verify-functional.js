@@ -1750,6 +1750,12 @@ function mustPassSummary(criteria, overridden) {
   }
 }
 
+// An open failure: `not_met` and not a settled definition problem or an unchecked regression capture
+// (both are `not_met` by status but are not open gaps). Shared by mustPassCheckState and openFailuresOf.
+function isOpenNotMet(c) {
+  return c.status === 'not_met' && c.settled !== 'definition-problem' && c.settled !== 'regression-unchecked'
+}
+
 // NEW (off-host proof D8). The checks applyMustPassRecheck makes, over the criteria as they now stand
 // (settled entries, this iteration's returns and the carried open ones), in one place so the off-host
 // upgrade below repeats exactly the same ones and the two cannot drift. `blocked` is a `not_met` that is
@@ -1761,11 +1767,7 @@ function mustPassCheckState(judgeResult, settled) {
   // must-pass one falls through to the unproven check (D7).
   // Under an active 'must-pass' policy (block-only-on-material-failures) a failure outside the must-pass
   // set does not block; under 'all' the extra clause is always true, so this is today's expression.
-  const blocked = criteria.some(
-    (c) =>
-      (c.status === 'not_met' && c.settled !== 'definition-problem' && c.settled !== 'regression-unchecked' && (!BLOCKING_ACTIVE || MUST_PASS_IDS.includes(c.id))) ||
-      c.status === 'unbuilt'
-  )
+  const blocked = criteria.some((c) => (isOpenNotMet(c) && (!BLOCKING_ACTIVE || MUST_PASS_IDS.includes(c.id))) || c.status === 'unbuilt')
   const unproven = mustPassSummary(criteria, false).unproven.map((u) => u.id)
   const uncoveredIds = MUST_PASS_UNCOVERED.map((o) => o.id)
   const coverage = coverageOf(criteria)
@@ -1773,16 +1775,6 @@ function mustPassCheckState(judgeResult, settled) {
   return { criteria, blocked, unproven, uncoveredIds, coverage, floorMissed }
 }
 
-// NEW (verification-must-pass D11). The deterministic backstop for the Judge's decide-next call,
-// which is a model's run of a CLI: recompute, from the final criteria list (settled entries plus
-// this iteration's returns), whether an exit may stand. The recheck itself is one-directional -- it
-// only ever blocks; the one place an exit is un-blocked is upgradeOffHostExit below, which repeats
-// these same checks (off-host proof D8).
-// It acts only on an `exit-satisfied` or `exit-insufficient-coverage` action over a clean base
-// (no not_met, no unbuilt), so a stalled, stuck or unbuilt exit, and a remediate, are never
-// touched. The floor then picks the target, so the precedence decideNext applies holds here too:
-// a floor really missed keeps (or becomes) insufficient-coverage, anything else becomes
-// must-pass-unproven. Returns the judge result to use from here on, and whether it changed.
 // Same wording as decideNext's re-label (D19): the floor as a percentage, never a bare fraction.
 function belowFloorText(coverage) {
   const pct = ((coverage.proven / N) * 100).toFixed(1)
@@ -1795,9 +1787,7 @@ function belowFloorText(coverage) {
 // regression capture is not a gap), `unbuilt` the never-built ones.
 function openFailuresOf(judgeResult, settled) {
   const { criteria } = mustPassCheckState(judgeResult, settled)
-  const open = criteria
-    .filter((c) => c.status === 'not_met' && c.settled !== 'definition-problem' && c.settled !== 'regression-unchecked')
-    .map((c) => c.id)
+  const open = criteria.filter(isOpenNotMet).map((c) => c.id)
   for (const id of judgeResult.gaps || []) if (!settled.has(id) && !open.includes(id)) open.push(id)
   const unbuilt = [...new Set([...criteria.filter((c) => c.status === 'unbuilt').map((c) => c.id), ...(judgeResult.unbuilt || [])])]
   return { criteria, open, unbuilt }
@@ -1806,9 +1796,12 @@ function openFailuresOf(judgeResult, settled) {
 // NEW (block-only-on-material-failures). The script's own, deterministic application of the blocking
 // policy, once the inner loop and the regression pass are done (the library's decideNext holds the same
 // rule as its specification; the Judge is never handed the policy). Two moves:
-//   (a) under EITHER policy, a `satisfied` / `insufficient-coverage` exit that carries an open failing
-//       must-pass criterion, or any unbuilt one, becomes `exit-stuck` naming them: applyMustPassRecheck
-//       trusts decide-next could not have said satisfied there, and this is the backstop. It only blocks.
+//   (a) under EITHER policy, a `satisfied` exit that carries an open failing must-pass criterion, or any
+//       unbuilt one, becomes `exit-stuck` naming them: applyMustPassRecheck trusts decide-next could not
+//       have said satisfied there, and this is the backstop. It only blocks. An `insufficient-coverage`
+//       exit is left alone: decide-next legitimately re-labels a stalled or stuck base (open gaps,
+//       must-pass ones included) to it when the floor is missed, it is already a blocking outcome, and
+//       the floor's precedence (D9) says a run below the floor reports it.
 //   (b) under an active 'must-pass' policy, a `stalled` / `stuck` exit whose open failures are all outside
 //       the must-pass set (and none unbuilt: missing work is `/implement-trd --reconcile`'s, not a
 //       follow-up) becomes `satisfied`, or `insufficient-coverage` when the floor is missed. `remediate` is
@@ -1817,7 +1810,7 @@ function openFailuresOf(judgeResult, settled) {
 function applyBlockingPolicy(judgeResult, settled) {
   const action = judgeResult.action
   const { criteria, open, unbuilt } = openFailuresOf(judgeResult, settled)
-  if (action === 'exit-satisfied' || action === 'exit-insufficient-coverage') {
+  if (action === 'exit-satisfied') {
     const openMust = open.filter((id) => MUST_PASS_IDS.includes(id))
     if (openMust.length === 0 && unbuilt.length === 0) return judgeResult
     const named = [openMust.length > 0 ? `must-pass criteria failing: ${openMust.join(', ')}` : null, unbuilt.length > 0 ? `criteria unbuilt: ${unbuilt.join(', ')}` : null]
@@ -1847,6 +1840,16 @@ function nonBlockingOf(judgeResult, settled) {
   return open.filter((id) => !MUST_PASS_IDS.includes(id)).map((id) => ({ id, reason: reasonOf.get(id) || 'failing criterion left open under the must-pass-only blocking policy' }))
 }
 
+// NEW (verification-must-pass D11). The deterministic backstop for the Judge's decide-next call,
+// which is a model's run of a CLI: recompute, from the final criteria list (settled entries plus
+// this iteration's returns), whether an exit may stand. The recheck itself is one-directional -- it
+// only ever blocks; the one place an exit is un-blocked is upgradeOffHostExit below, which repeats
+// these same checks (off-host proof D8).
+// It acts only on an `exit-satisfied` or `exit-insufficient-coverage` action over a clean base
+// (no not_met, no unbuilt), so a stalled, stuck or unbuilt exit, and a remediate, are never
+// touched. The floor then picks the target, so the precedence decideNext applies holds here too:
+// a floor really missed keeps (or becomes) insufficient-coverage, anything else becomes
+// must-pass-unproven. Returns the judge result to use from here on, and whether it changed.
 function applyMustPassRecheck(judgeResult, settled) {
   const unchanged = { judgeResult, overridden: false }
   if (MUST_PASS_IDS.length === 0 && MUST_PASS_UNCOVERED.length === 0) return unchanged
@@ -3688,7 +3691,10 @@ for (; iteration <= CAP; iteration++) {
   // files stand.
   // NEW (regression pass D18b). On an exit after a Debug pass the regression pass owns the state write
   // (the exit Judge was told to write `outcome: null`), so the loop does not sync that exit itself.
-  const exitSyncDeferred = judgeResult.action !== 'remediate' && debugChanges.length > 0
+  // NEW (block-only-on-material-failures). Likewise when the blocking policy will change this exit:
+  // runRegressionPass then always syncs, with the final action, so a sync here would be a second
+  // state-sync agent writing an outcome that is replaced moments later.
+  const exitSyncDeferred = judgeResult.action !== 'remediate' && (debugChanges.length > 0 || applyBlockingPolicy(judgeResult, settled) !== judgeResult)
   if ((reconciledKinds.changed || closure.changed || replaced || (judgeResult.action !== 'remediate' && hasOffHostProof())) && !exitSyncDeferred) {
     await syncState(judgeResult, iteration, judgeResult.action !== 'remediate', replaced && judgeResult.action !== 'remediate' ? reportFixOf(judgeResult) : null)
   }

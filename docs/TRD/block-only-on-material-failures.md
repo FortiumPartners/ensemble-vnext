@@ -74,9 +74,11 @@ written once with the final action. `remediate` is never converted, and the stal
 **A must-pass failure behind a `satisfied` exit is demoted, under either setting.** Today
 `applyMustPassRecheck` leaves an exit untouched when an open failure exists (`blocked`), trusting
 that decide-next could not have said `satisfied`. `applyBlockingPolicy` adds the backstop: an
-`exit-satisfied` (or `exit-insufficient-coverage`) over an open, unsettled `not_met` on a must-pass
-criterion, or any `unbuilt`, becomes `exit-stuck` with a reason naming the criteria. This only
-ever blocks.
+`exit-satisfied` over an open, unsettled `not_met` on a must-pass criterion, or any `unbuilt`,
+becomes `exit-stuck` with a reason naming the criteria. This only ever blocks. An
+`exit-insufficient-coverage` is left alone: `decideNext` legitimately re-labels a stalled or stuck
+base with open gaps (must-pass ones included) to it when the floor is missed, and it already
+blocks (code review: demoting it would change today's outcome under `all`, against O2).
 
 **With no must-pass criterion the policy is inert.** Converting would let every failure through on
 a sweep file (always `mustPassIds: []`) or any TRD with none marked, contradicting "a TRD with none
