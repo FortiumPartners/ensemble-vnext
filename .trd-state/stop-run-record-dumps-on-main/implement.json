@@ -4,7 +4,7 @@
   "trd_hash": "d5a43adc2542a34e1ad2f25eeeaf99349be4aedfb4a3ccf95f22b93e28178f53",
   "branch": "feature/0-stop-run-record-dumps-on-main",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "template lines + header + ensure_gitignore pathspec",
@@ -55,10 +55,19 @@
       "last_advanced": "2026-11-12T07:08:42.693Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "234abbfce86b36341893750f4eab4b3d51379aef",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T07:29:04.676Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "59773e9c2f51795b58aeb00a70be4c232d29169f",
-    "last_checkpoint_timestamp": "2026-11-12T07:04:55.048Z",
+    "last_healthy_checkpoint": "234abbfce86b36341893750f4eab4b3d51379aef",
+    "last_checkpoint_timestamp": "2026-11-12T07:29:04.676Z",
     "interrupted": false,
     "interrupt_reason": null
   },
