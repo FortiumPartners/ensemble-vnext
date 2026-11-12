@@ -34,6 +34,9 @@
  * `--local` never fetches (hooks). `ensure` prints {ok, outcome: present|restored|no-record|mismatch|
  * refused|failed}.
  *
+ * `kept` (additive, only when set): the ship records (`["shipped.json","custody.json"]`) the ref
+ * already held further along than the worktree's copy and so were not replaced.
+ *
  * `write` outcomes: "ref" (on the ref; `push` is "pushed" | "no-remote" | "skipped"),
  * "fallback" (committed on the branch; `fallbackReason` "push-failed" | "ref-write-failed";
  * `commit` is the branch commit, null when nothing needed committing; `refCommit` is the
@@ -688,6 +691,42 @@ function write(opts = {}) {
   }
 }
 
+/**
+ * Which of the folder's ship records the tip must keep. After a merge `ship-sequencer` writes the
+ * post-merge `shipped.json` and `custody.json` straight to the ref; a worktree folder still
+ * holding the pre-merge copies must not roll them back. The tip's `shipped.json` is further along
+ * when it is the same run (same `startedAt`) or a later one and holds more step `results`, or
+ * equally many with a later `updatedAt`. `custody.json` follows that decision. An unreadable
+ * copy on either side means "worktree wins" (today's behaviour). Never throws.
+ */
+function shipRecordsToKeep(top, tip, files) {
+  const mine = files.find((f) => f.rel === 'shipped.json');
+  if (!tip || !mine) return [];
+  const parse = (buf) => {
+    try {
+      const v = JSON.parse(buf.toString('utf8'));
+      return v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+    } catch {
+      return null;
+    }
+  };
+  const tipBuf = blobAt(top, tip, 'shipped.json');
+  let wt;
+  try {
+    wt = parse(fs.readFileSync(mine.abs));
+  } catch {
+    wt = null;
+  }
+  const tp = tipBuf && parse(tipBuf);
+  if (!tp || !wt) return [];
+  const n = (v) => (Array.isArray(v.results) ? v.results.length : 0);
+  const started = (v) => String(v.startedAt || '');
+  const updated = (v) => String(v.updatedAt || '');
+  if (started(tp) < started(wt)) return []; // the worktree holds a newer run
+  const ahead = n(tp) > n(wt) || (n(tp) === n(wt) && updated(tp) > updated(wt));
+  return ahead ? ['shipped.json', 'custody.json'] : [];
+}
+
 function writeInner(opts) {
   const cwd = opts.cwd || process.cwd();
   const top = topLevel(cwd);
@@ -768,6 +807,7 @@ function writeInner(opts) {
     let built = null;
     let refError = null;
     let priorTip = null;
+    let kept = [];
     const identityRefusal = (theirs, tip) =>
       refused('identity', { ref, detail: `${ref} belongs to another feature (branch ${theirs.branch || 'unknown'})`, tip });
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -777,6 +817,8 @@ function writeInner(opts) {
       // that feature's records with ours.
       const theirs = ctx.guardIdentity && tip ? foreignIdentity(ctx, tip) : null;
       if (theirs) return identityRefusal(theirs, tip);
+      kept = shared ? [] : shipRecordsToKeep(top, tip, sel.files);
+      ctx.files = sel.files.filter((f) => !kept.includes(f.rel));
       const b = commitOn(ctx, tip, tip ? [tip] : []);
       if (b.error) {
         refError = b.error;
@@ -794,7 +836,7 @@ function writeInner(opts) {
       refError = `ref moved under the writer (${attempt} of ${MAX_ATTEMPTS}): ${s.err}`;
     }
 
-    const base = { slug, ref, skipped: sel.skipped };
+    const base = { slug, ref, skipped: sel.skipped, ...(kept.length ? { kept } : {}) };
     // On a fallback, `commit` is the BRANCH commit that now holds the records (null when nothing
     // was staged for them); a ref commit that moved but could not be pushed is `refCommit`.
     const fallback = (reason, detail, extra = {}) => {

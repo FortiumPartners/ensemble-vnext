@@ -1413,6 +1413,50 @@ describe('writeFiles', () => {
   });
 });
 
+describe('write keeps a further-along ship record on the ref (FIX-011)', () => {
+  const RUN = { branch: 'feature/x', forge_feature_id: null };
+  const ship = (n, at, extra = {}) =>
+    JSON.stringify({ startedAt: '2026-11-01T00:00:00Z', updatedAt: at, results: Array.from({ length: n }, (_, i) => ({ step: String(i + 1) })), ...extra }) + '\n';
+  function setup(tipShip, tipCustody, wtShip) {
+    const repo = initRepo();
+    sh(repo, ['checkout', '-q', '-b', 'feature/x']);
+    const w = recordRef.writeFiles({
+      cwd: repo, slug: SLUG, identity: RUN, command: 'ship-build', step: 'merge',
+      files: [{ rel: 'shipped.json', content: tipShip }, { rel: 'custody.json', content: tipCustody }, { rel: 'implement.json', content: '{"v":1}\n' }],
+    });
+    expect(w.ok).toBe(true);
+    put(repo, `${STATE}/shipped.json`, wtShip);
+    put(repo, `${STATE}/custody.json`, '{"from":"worktree"}\n');
+    put(repo, `${STATE}/implement.json`, '{"v":2}\n');
+    return repo;
+  }
+
+  test('the tip is further along: shipped.json and custody.json stay, the rest is written', () => {
+    const repo = setup(ship(5, '2026-11-02T00:00:00Z'), '{"from":"ref"}\n', ship(3, '2026-11-01T01:00:00Z'));
+    const r = doWrite(repo, { push: false });
+    expect(r).toMatchObject({ ok: true, outcome: 'ref', kept: ['shipped.json', 'custody.json'] });
+    expect(JSON.parse(showBlob(repo, REF, 'shipped.json')).results).toHaveLength(5);
+    expect(showBlob(repo, REF, 'custody.json')).toBe('{"from":"ref"}');
+    expect(showBlob(repo, REF, 'implement.json')).toBe('{"v":2}');
+  });
+
+  test('the worktree copy is further along: it wins as before, no kept field', () => {
+    const repo = setup(ship(3, '2026-11-01T01:00:00Z'), '{"from":"ref"}\n', ship(5, '2026-11-02T00:00:00Z'));
+    const r = doWrite(repo, { push: false });
+    expect(r.kept).toBeUndefined();
+    expect(JSON.parse(showBlob(repo, REF, 'shipped.json')).results).toHaveLength(5);
+    expect(showBlob(repo, REF, 'custody.json')).toBe('{"from":"worktree"}');
+  });
+
+  test('an unparseable worktree shipped.json falls back to the worktree winning, without throwing', () => {
+    const repo = setup(ship(5, '2026-11-02T00:00:00Z'), '{"from":"ref"}\n', '{not json');
+    const r = doWrite(repo, { push: false });
+    expect(r).toMatchObject({ ok: true, outcome: 'ref' });
+    expect(r.kept).toBeUndefined();
+    expect(showBlob(repo, REF, 'shipped.json')).toBe('{not json');
+  });
+});
+
 describe('vendoring', () => {
   test('.claude/lib and packages/full/lib copies are byte-identical to the source', () => {
     const src = fs.readFileSync(LIB);
