@@ -26,38 +26,53 @@
     "CAUSE-B002": {
       "description": "Cause map and targeting: causeKey in JUDGE_CRITERION_SCHEMA and the Judge prompt (D1, D2); causeGroups (D3); openEntries replacing lastRulings (D6); the Exercise set (D5) driving slicing, the setup fi",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        ".claude/workflows/verify-functional.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-12T07:51:45.182Z",
+      "completed_at": "2026-11-12T08:20:44.480Z",
+      "last_advanced": "2026-11-12T08:20:01.985Z"
     },
     "CAUSE-B003": {
       "description": "Debug per cause: per-cause gaps (D7) to the one app-debugger per iteration, as today (D8, an OWNER-CALL); per-cause DEBUG_SCHEMA with refresh kept, preCheck: { command, exitCode } and unbuilt per caus",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        ".claude/workflows/verify-functional.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-12T07:51:45.182Z",
+      "completed_at": "2026-11-12T08:20:44.482Z",
+      "last_advanced": "2026-11-12T08:20:01.986Z"
     },
     "CAUSE-B004": {
       "description": "How a cause ends: closure and awaiting (D4), including the different-key case, the fallback-key rule and the departure route (pendingConfirmation); awaiting members kept out of Exercise, the Judge's o",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        ".claude/workflows/verify-functional.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-12T07:51:45.182Z",
+      "completed_at": "2026-11-12T08:20:44.482Z",
+      "last_advanced": "2026-11-12T08:20:01.986Z"
     },
     "CAUSE-B005": {
       "description": "Command readers: implement-trd.md Step 8.2 passes exercised in the resume it composes (D18); verify-build.md --resume needs no change for it, because it passes the whole state file. verify-build.md fi",
