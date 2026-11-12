@@ -23,5 +23,11 @@
     "url": "",
     "updated_at": "2026-11-12T11:47:40.101Z",
     "command": "/refine-verification"
+  },
+  "audit-build": {
+    "path": ".trd-state/one-full-regression-pass-at-the-end/audit-build-report.md",
+    "url": "https://claude.ai/artifact/GLyriTTfe4GUrrFPGxwuGE",
+    "updated_at": "2026-11-12T12:15:52.156Z",
+    "command": "/audit-build"
   }
 }
