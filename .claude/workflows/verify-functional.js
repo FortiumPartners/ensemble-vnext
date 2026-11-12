@@ -1017,7 +1017,7 @@ function buildCauseGaps(buildGaps) {
   const out = []
   for (const cause of causeMap.values()) {
     for (const id of cause.members) inCause.add(id)
-    if (cause.status !== 'open' || cause.pendingConfirmation) continue
+    if (cause.pendingConfirmation) continue
     const rep = cause.representative
     const recorded = openEntries.get(rep)
     const repGap =
@@ -1881,12 +1881,13 @@ async function syncState(judgeResult, iteration, exiting, reportFix = null) {
     return { id: c.id, status: 'not_met', tier1: null, artifact: null, reason: null, cause: null, provenAt: null }
   }
   const entries = CRITERIA.map(entryOf)
+  const causes = causeRecords()
   const stateJson = JSON.stringify({
     iteration,
     criteria: entries,
     gapsClosed: gapsClosedHistory,
     outcome: exiting ? OUTCOME_BY_ACTION[judgeResult.action] || null : null,
-    causes: causeRecords(),
+    causes,
     exercised: exercisedHistory,
   })
   const patches = exiting
@@ -1899,7 +1900,7 @@ async function syncState(judgeResult, iteration, exiting, reportFix = null) {
         return p
       })
     : null
-  const result = await agent(buildStateSyncPrompt(iteration, stateJson, patches, JSON.stringify(causeRecords()), exiting ? reportFix : null), {
+  const result = await agent(buildStateSyncPrompt(iteration, stateJson, patches, JSON.stringify(causes), exiting ? reportFix : null), {
     label: 'state-sync',
     phase: 'Judge',
     model: 'sonnet',
@@ -2372,7 +2373,7 @@ function carriedView(id) {
 // given: open causes for key reuse, the keys whose representative is not re-checked, the ids
 // already awaiting, one closure rule per cause whose representative is re-checked, and the map.
 function causeContextFor(exerciseIdSet) {
-  const open = [...causeMap.values()].filter((g) => g.status === 'open')
+  const open = [...causeMap.values()] // causeMap holds open causes only; closed ones live in closedCauseMap
   return {
     previousCauses: previousCauseKeys,
     openCauses: open.map((g) => ({
@@ -2710,8 +2711,22 @@ async function confirmAwaiting(exitResult, iteration, exitPreviousCauses) {
   }
   // The gate ran once, for the exit; the confirmation result carries the exit's, not the Judge's copy.
   result = { ...result, finalRun: exitResult.finalRun }
-  const failing = ids.filter((id) => !settled.has(id) && openEntries.has(id))
+  // Only a member re-ruled a build defect "still fails its regression check". One ruled an evidence
+  // gap (a dead slice, a bad capture) or not returned at all (still awaiting) was not shown to fail,
+  // and naming it as a regression would send the owner after a fix that may well have worked.
+  const failing = ids.filter(
+    (id) => !settled.has(id) && openEntries.has(id) && !isAwaiting(id) && openEntries.get(id).entry.kind === 'build-defect'
+  )
   if (failing.length > 0) needsSync = true // the script's cause map reopens the causes these members belong to
+  // decide-next was handed `cap` = the exit iteration, so a coverage exit built on its cap branch
+  // reads "iteration cap (<exit iteration>) reached" -- the same misstatement the exit-stuck rewrite
+  // below fixes. Correct it in place when the run had budget left.
+  const falseCap = `iteration cap (${iteration}) reached`
+  if (result.action !== 'exit-stuck' && iteration < CAP && typeof result.reason === 'string' && result.reason.includes(falseCap)) {
+    result = { ...result, reason: result.reason.split(falseCap).join(`the run ended at iteration ${iteration} of ${CAP}`) }
+    needsSync = true
+    reportFix = true
+  }
   if (result.action === 'exit-stuck') {
     const open = (result.gaps || []).length
     result = {
