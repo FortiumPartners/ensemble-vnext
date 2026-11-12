@@ -4,7 +4,7 @@
   "trd_hash": "c8741db87afd33638730204962a8adfe8943df3dd817a3d0360e910369869323",
   "branch": "feature/10-triage-unmet-results-by-kind",
   "strategy": "tdd",
-  "phase_cursor": 4,
+  "phase_cursor": 5,
   "tasks": {
     "TRIAGE-B001": {
       "description": "In functional-verification.js, add KINDS, KIND_BY_CAUSE, KIND_LABEL and kindOf beside CAUSES (§3.1). Add the required settledEvidenceGaps input to decideNext (§3.2). Add the verification-digest CLI (D",
@@ -169,13 +169,13 @@
     "TRIAGE-T001": {
       "description": "Add test/smoke/scenarios/verify-triage-kinds.sh, following test/smoke/lib/project.sh and the existing verify-fix.sh scenario. It scaffolds a fixture slot (verification.md §1a's create command), seeds ",
       "phase": 5,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-11-12T05:12:12.843Z",
       "completed_at": null
     }
   },
@@ -203,11 +203,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-12T05:01:41.372Z"
+    },
+    {
+      "phase": 4,
+      "commit": "75a7ace5ead27818d27fbd1a3d2eb18beacf073c",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T05:12:12.842Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "6522cf0a333f141634654be31ab15fd966eff48b",
-    "last_checkpoint_timestamp": "2026-11-12T05:01:41.372Z",
+    "last_healthy_checkpoint": "75a7ace5ead27818d27fbd1a3d2eb18beacf073c",
+    "last_checkpoint_timestamp": "2026-11-12T05:12:12.842Z",
     "interrupted": false,
     "interrupt_reason": null
   },
