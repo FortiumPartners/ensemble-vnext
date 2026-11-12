@@ -271,8 +271,25 @@
         "closedBelow": 1,
         "errors": []
       },
-      "rounds": [],
-      "stopped": false
+      "rounds": [
+        {
+          "round": 1,
+          "tasksPromoted": [
+            "AMEND-001",
+            "AMEND-002",
+            "AMEND-003"
+          ],
+          "criteriaClosed": [
+            "FS-1",
+            "FS-12"
+          ],
+          "criteriaOpen": [
+            "FS-19"
+          ],
+          "buildable": []
+        }
+      ],
+      "stopped": true
     }
   }
 }

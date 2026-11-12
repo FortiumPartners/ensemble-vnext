@@ -9,14 +9,14 @@
   "success-definition": {
     "path": ".trd-state/one-full-regression-pass-at-the-end/success-definition.md",
     "url": "",
-    "updated_at": "2026-11-12T11:28:51.238Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-12T12:03:39.584Z",
+    "command": "/verify-build"
   },
   "verification-report": {
     "path": ".trd-state/one-full-regression-pass-at-the-end/verification-report.md",
-    "url": "https://claude.ai/artifact/YDmDBT2cy8D422HeRUWrXJ",
-    "updated_at": "2026-11-12T11:43:59.929Z",
-    "command": "/implement-trd"
+    "url": "https://claude.ai/artifact/YNqwPRnjLXF1TPKh7G1pV3",
+    "updated_at": "2026-11-12T12:03:54.487Z",
+    "command": "/verify-build"
   },
   "verification-plan": {
     "path": ".trd-state/one-full-regression-pass-at-the-end/verification-plan.md",
