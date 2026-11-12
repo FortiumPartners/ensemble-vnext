@@ -1,0 +1,215 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/block-only-on-material-failures.md",
+  "trd_hash": "6992be7aae02b3ce6aa9aed108fa44950f9a38dbc750cf335f4da2a4aa28525a",
+  "branch": "feature/50-block-only-on-material-failures",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "Add ## 5c. Blocking policy to the shipped verification.md template (one-paragraph explanation, then Blocking: all criteria); add readBlockingPolicy(content) beside readCoverageFloor and the CLI subcom",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/templates/claude-directory/rules/verification.md",
+        "packages/core/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js",
+        "packages/core/lib/__fixtures__/verification.artifact-service-v1.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T16:15:18.648Z",
+      "completed_at": "2026-11-12T16:51:47.926Z",
+      "last_advanced": "2026-11-12T16:17:42.255Z"
+    },
+    "FIX-002": {
+      "description": "decideNext gains optional blocking ('all' default; 'must-pass'; anything else throws a TypeError naming the value). Under 'must-pass' with a non-empty mustPass, a base exit-stalled or exit-stuck with ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T16:15:18.649Z",
+      "completed_at": "2026-11-12T16:51:47.927Z",
+      "last_advanced": "2026-11-12T16:17:42.255Z"
+    },
+    "FIX-003": {
+      "description": "Add recordNonBlockingFollowups(stateDir, nonBlocking, nowIso) and CLI record-nonblocking --state-dir <dir> --payload <json> per the Decision; renderReport prints Not blocking: <n> failure(s) on criter",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T16:15:18.649Z",
+      "completed_at": "2026-11-12T16:51:47.927Z",
+      "last_advanced": "2026-11-12T16:17:42.255Z"
+    },
+    "FIX-004": {
+      "description": "Workflow verify-functional.js: read and validate args.blocking (absent → 'all'; not 'all'/'must-pass' → throw naming the value). Do NOT put it in the Judge's decide-next payload. Add applyBlockingPoli",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        "docs/TRD/functional-verification.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T16:15:18.649Z",
+      "completed_at": "2026-11-12T16:51:47.928Z",
+      "last_advanced": "2026-11-12T16:17:42.255Z"
+    },
+    "FIX-005": {
+      "description": "Commands: implement-trd.md §8.1a gains a step running node .claude/lib/functional-verification.js read-blocking-policy \"$(node .claude/lib/owner-rules.js path verification.md)\" and setting blocking fr",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T16:15:18.649Z",
+      "completed_at": "2026-11-12T16:51:47.928Z",
+      "last_advanced": "2026-11-12T16:17:42.255Z"
+    },
+    "FIX-006": {
+      "description": "Custody regression guard only (no change to custody.js; it already reads must-pass ids only, so this guards O3 rather than proving new behaviour): a feature whose state records a non-must-pass criteri",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/custody.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T16:15:18.649Z",
+      "completed_at": "2026-11-12T16:51:47.927Z",
+      "last_advanced": "2026-11-12T16:17:42.255Z"
+    },
+    "FIX-007": {
+      "description": "Authoring guidance: after the \"Mark sparingly\" paragraph in trd-authoring.md §1a, all three plan.md Objectives templates and create-trd.md, add the test for marking must-pass: mark an objective must-p",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/trd-authoring.md",
+        "packages/core/contracts/functional-verification.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T16:15:18.649Z",
+      "completed_at": "2026-11-12T16:51:47.928Z",
+      "last_advanced": "2026-11-12T16:17:42.255Z"
+    },
+    "FIX-008": {
+      "description": "/verification-setup (packages/skills/verification-setup/SKILL.md): new topic §5c Blocking policy after §5b in the Topics list, a ## Blocking policy section with the question (one sentence stating what",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/skills/verification-setup/SKILL.md",
+        "packages/skills/verification-setup/__tests__/skill-md.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T16:15:18.649Z",
+      "completed_at": "2026-11-12T16:51:47.927Z",
+      "last_advanced": "2026-11-12T16:17:42.255Z"
+    },
+    "FIX-009": {
+      "description": "Mirror every changed file under packages/core/{lib,workflows,commands,contracts}/ and packages/skills/verification-setup/SKILL.md into its vendored .claude/ copy (they are byte-identical today)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/skills/verification-setup/SKILL.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T16:15:18.649Z",
+      "completed_at": "2026-11-12T16:51:47.928Z",
+      "last_advanced": "2026-11-12T16:17:42.255Z"
+    },
+    "FIX-010": {
+      "description": "[LIVE] Headless fixture scenario test/smoke/scenarios/verify-blocking-policy.sh in the fixtures environment: a scaffolded fixture whose verification.md sets Blocking: must-pass only, whose TRD marks O",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/smoke/scenarios/verify-blocking-policy.sh",
+        "test/smoke/run-smoke.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T16:15:18.649Z",
+      "completed_at": "2026-11-12T16:51:47.929Z",
+      "last_advanced": "2026-11-12T16:17:42.255Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "afbcc8c4e33e24160f64be4dd58f1cb69e721730",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T16:51:48.148Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "afbcc8c4e33e24160f64be4dd58f1cb69e721730",
+    "interrupted": false,
+    "interrupt_reason": null,
+    "last_checkpoint_timestamp": "2026-11-12T16:51:48.148Z"
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/block-only-on-material-failures.md § Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "jest, bats, pytest and node installed (§4)"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI headless and scaffold script installed (§4)"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized (§1)"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login present per §3; authorized for /ship-build merge-order only"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched (§1)"
+      }
+    }
+  }
+}
