@@ -1,0 +1,177 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "From the merge onward, /ship-build writes the run record (shipped.json) and custody anchor (custody.json) to refs/ensemble/records/<slug> through the records ref library, and writes nothing new under <git common dir>/ensemble/ship/.",
+      "source": "TRD Objectives O1 (must pass: yes); roadmap item 4 brief; PM instruction 2026-11-12",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "FIX-003",
+        "FIX-004",
+        "FIX-005",
+        "FIX-006"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "A ship run started before this change (records in the detached folder, nothing on the ref) still loads and resumes from that folder; the folder is read after the ref.",
+      "source": "TRD Objectives O2 (must pass: yes); roadmap item 4 brief",
+      "served_by": [
+        "FIX-002",
+        "FIX-003",
+        "FIX-004"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "shipped.json on the ref carries work.branch and work.forge_feature_id (Forge's reader matches on them).",
+      "source": "TRD Objectives O3 (must pass: no); roadmap item 4 brief; forge-vnext reader contract D5",
+      "served_by": [
+        "FIX-001",
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "O4",
+      "statement": "Custody's merge and deploy links resolve the anchor from the ref after the merge.",
+      "source": "TRD Objectives O4 (must pass: yes); roadmap item 4 How it will be checked",
+      "served_by": [
+        "FIX-004",
+        "FIX-005"
+      ]
+    },
+    {
+      "id": "O5",
+      "statement": "A plain /ship-build start (no --resume) on a fresh checkout or re-created worktree, with closed.json only on the records ref, anchors custody at the audited commit, not HEAD; with closed.json in neither place, an unclosed feature is still refused.",
+      "source": "TRD Objectives O5 (must pass: yes); PM instruction 2026-11-12; deferred review finding",
+      "served_by": [
+        "FIX-003",
+        "FIX-005",
+        "FIX-006"
+      ]
+    },
+    {
+      "id": "O6",
+      "statement": "ship-sequencer.js and custody.js keep sharing one path rule (ship-record-dir.js); neither takes the other's.",
+      "source": "TRD Objectives O6 (must pass: no); roadmap item 4 brief",
+      "served_by": [
+        "FIX-002",
+        "FIX-003",
+        "FIX-004"
+      ]
+    },
+    {
+      "id": "IC-CHECK-1",
+      "statement": "After a merged record in a git repo, git cat-file -p refs/ensemble/records/<slug>:shipped.json shows the record, and no detached folder is created.",
+      "source": "TRD Intended Change, How it will be checked (bullet 1)",
+      "served_by": [
+        "FIX-003",
+        "FIX-005"
+      ]
+    },
+    {
+      "id": "IC-CHECK-2",
+      "statement": "A fixture detached folder (record plus pointer, no ref) is loaded by status and continued by start --resume.",
+      "source": "TRD Intended Change, How it will be checked",
+      "served_by": [
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "IC-CHECK-3",
+      "statement": "custody check --link merge and --link deploy pass against the ref's anchor when the tracked custody.json disagrees.",
+      "source": "TRD Intended Change, How it will be checked",
+      "served_by": [
+        "FIX-004"
+      ]
+    },
+    {
+      "id": "IC-CHECK-4",
+      "statement": "With the detached folder deleted and closed.json (audit.auditedCommit = X) only on the ref, a plain start anchors custody at X, not HEAD.",
+      "source": "TRD Intended Change, How it will be checked",
+      "served_by": [
+        "FIX-005"
+      ]
+    },
+    {
+      "id": "IC-CHECK-5",
+      "statement": "A ref owned by another feature is never overwritten; a refused ref write is refused and the ref is unchanged.",
+      "source": "TRD Intended Change, Decision (ref ownership rule); FIX-001 acceptance",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "IC-CHECK-6",
+      "statement": "When the ref cannot be written, the record still lands in the detached folder (fallback).",
+      "source": "TRD Intended Change, Decision; OQ-1 assumption",
+      "served_by": [
+        "FIX-002"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "record-ref.js: add writeFiles({cwd, slug, files, identity, command, step, push}) committing files onto the ref tip with CAS, push when origin exists, refuse foreign-owned refs; export it.",
+      "touches": [
+        "packages/core/lib/record-ref.js",
+        "packages/core/lib/record-ref.test.js"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "ship-record-dir.js: shared path rule: refRun, writeRunRecord (ref first, detached fallback), readCustody/writeCustody, custodyPath naming <ref>:custody.json for ref-held runs; writePointer kept for reading only.",
+      "touches": [
+        "packages/core/lib/ship-record-dir.js"
+      ]
+    },
+    {
+      "id": "FIX-003",
+      "description": "ship-sequencer.js: detach to the ref via writeRunRecord (no pointer); start stores work.forge_feature_id; loadState reads tracked, ref, then detached folder; start --resume fetches the ref; plain start restores and drops restored shipped.json; update header and test (d).",
+      "touches": [
+        "packages/core/lib/ship-sequencer.js",
+        "packages/core/lib/ship-sequencer.test.js"
+      ]
+    },
+    {
+      "id": "FIX-004",
+      "description": "custody.js: readCustody/writeCustody through the shared rule; detach writes the anchor to the ref for ref-held runs; header comment.",
+      "touches": [
+        "packages/core/lib/custody.js",
+        "packages/core/lib/custody.test.js"
+      ]
+    },
+    {
+      "id": "FIX-005",
+      "description": "ship-build.seam.test.js: new CLI-level cases for the full merge-detach run on the ref, plain start with folder deleted anchoring at audited commit, and read-record refusal when closed.json is nowhere.",
+      "touches": [
+        "packages/core/lib/ship-build.seam.test.js"
+      ]
+    },
+    {
+      "id": "FIX-006",
+      "description": "Docs and vendoring: ship-build.md Step 1, Step 5 and readout; docs/guides/ship-build.md; CHANGELOG.md [Unreleased]; surface tests; copy changed libs and command to .claude/.",
+      "touches": [
+        "packages/core/commands/ship-build.md",
+        ".claude/commands/ship-build.md",
+        "docs/guides/ship-build.md",
+        "CHANGELOG.md",
+        "packages/core/commands/ship-build-surface.test.js",
+        "packages/core/contracts/ship-primitives.test.js",
+        ".claude/lib/record-ref.js",
+        ".claude/lib/ship-record-dir.js",
+        ".claude/lib/ship-sequencer.js",
+        ".claude/lib/custody.js"
+      ]
+    }
+  ],
+  "open_questions": [
+    "OQ-1 (owner-only: no): Should a failed ref write fall back to the detached folder, or stop the run? Assumed: fall back and report it, because the merge already happened and the record must survive."
+  ],
+  "could_not_verify": [
+    "Pushing the ref to GitHub and Forge's reader consuming the post-merge shipped.json: tests use a local bare origin, and the reader lives in forge-vnext.",
+    "record-ref.js write (the folder writer) run on a merged worktree would overwrite the ref's detached shipped.json with the stale tracked copy; 'Writers move to the ref' (roadmap item 3) must not call it after the detach. Not exercised here."
+  ]
+}

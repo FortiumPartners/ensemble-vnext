@@ -1077,6 +1077,111 @@ describe('CLI', () => {
   });
 });
 
+describe('writeFiles', () => {
+  const RUN = { branch: 'feature/x', forge_feature_id: null };
+  const doWriteFiles = (repo, extra = {}) =>
+    recordRef.writeFiles({
+      cwd: repo,
+      slug: SLUG,
+      files: [{ rel: 'shipped.json', content: '{"steps":[]}\n' }],
+      identity: RUN,
+      command: 'ship-build',
+      step: 'merge',
+      ...extra,
+    });
+
+  test('adds the file beside the tip files; record.json carries the given branch; the worktree stays clean', () => {
+    const repo = initRepo();
+    sh(repo, ['checkout', '-q', '-b', 'feature/x']);
+    put(repo, `${STATE}/closed.json`, '{"closedBy":"audit"}\n');
+    expect(doWrite(repo).outcome).toBe('ref');
+    sh(repo, ['checkout', '-q', 'main']); // the checked-out branch is no longer the run's
+    sh(repo, ['rm', '-rq', '--cached', '--ignore-unmatch', STATE]);
+    fs.rmSync(path.join(repo, STATE), { recursive: true, force: true });
+    const headBefore = sh(repo, ['rev-parse', 'HEAD']);
+
+    const r = doWriteFiles(repo);
+    expect(r).toMatchObject({ ok: true, outcome: 'ref', push: 'no-remote' });
+    expect(treeFiles(repo, REF).sort()).toEqual(['closed.json', 'record.json', 'shipped.json']);
+    expect(showBlob(repo, REF, 'shipped.json')).toBe('{"steps":[]}');
+    expect(JSON.parse(showBlob(repo, REF, 'record.json'))).toMatchObject({ branch: 'feature/x', slug: SLUG });
+    expect(sh(repo, ['status', '--porcelain'])).toBe('');
+    expect(sh(repo, ['rev-parse', 'HEAD'])).toBe(headBefore);
+    expect(fs.existsSync(path.join(repo, STATE))).toBe(false);
+  });
+
+  test('creates the ref when none exists, and a second write replaces the file in place', () => {
+    const repo = initRepo();
+    expect(doWriteFiles(repo).outcome).toBe('ref');
+    expect(doWriteFiles(repo, { files: [{ rel: 'shipped.json', content: 'v2\n' }] }).outcome).toBe('ref');
+    expect(showBlob(repo, REF, 'shipped.json')).toBe('v2');
+    expect(sh(repo, ['rev-list', '--count', REF])).toBe('2');
+  });
+
+  test('a tip naming another feature is refused and the ref is unchanged', () => {
+    const repo = initRepo();
+    sh(repo, ['checkout', '-q', '-b', 'other']);
+    put(repo, `${STATE}/closed.json`, '{}\n');
+    expect(doWrite(repo).outcome).toBe('ref');
+    const before = sh(repo, ['rev-parse', REF]);
+    const r = doWriteFiles(repo);
+    expect(r).toMatchObject({ ok: false, outcome: 'refused' });
+    expect(sh(repo, ['rev-parse', REF])).toBe(before);
+  });
+
+  test('an identity with neither branch nor feature id is refused', () => {
+    const repo = initRepo();
+    const r = doWriteFiles(repo, { identity: { branch: null, forge_feature_id: null } });
+    expect(r).toMatchObject({ ok: false, outcome: 'refused' });
+    expect(sh(repo, ['for-each-ref', 'refs/ensemble'])).toBe('');
+  });
+
+  test('refuses a bad slug, an unsafe path, record.json, and a non-repo', () => {
+    const repo = initRepo();
+    expect(doWriteFiles(repo, { slug: '../x' }).outcome).toBe('refused');
+    expect(doWriteFiles(repo, { files: [{ rel: '../x', content: 'a' }] }).outcome).toBe('refused');
+    expect(doWriteFiles(repo, { files: [{ rel: 'record.json', content: 'a' }] }).outcome).toBe('refused');
+    expect(doWriteFiles(repo, { files: [] }).outcome).toBe('refused');
+    expect(doWriteFiles(mkTmp('plain')).outcome).toBe('refused');
+  });
+
+  test('with a bare origin the ref is pushed', () => {
+    const repo = initRepo();
+    const origin = initBare();
+    withOrigin(repo, origin);
+    const r = doWriteFiles(repo);
+    expect(r).toMatchObject({ ok: true, outcome: 'ref', push: 'pushed' });
+    expect(sh(origin, ['rev-parse', REF])).toBe(sh(repo, ['rev-parse', REF]));
+  });
+
+  test('push: false keeps the commit local', () => {
+    const repo = initRepo();
+    const origin = initBare();
+    withOrigin(repo, origin);
+    expect(doWriteFiles(repo, { push: false })).toMatchObject({ ok: true, push: 'skipped' });
+    expect(sh(origin, ['for-each-ref', 'refs/ensemble'])).toBe('');
+  });
+
+  test('a non-fast-forward push is reconciled and keeps the remote files', () => {
+    const repo = initRepo();
+    const origin = initBare();
+    withOrigin(repo, origin);
+    const other = cloneOf(origin);
+    expect(doWriteFiles(other, { files: [{ rel: 'a.json', content: 'A\n' }] }).push).toBe('pushed');
+    expect(doWriteFiles(repo, { files: [{ rel: 'b.json', content: 'B\n' }] })).toMatchObject({ ok: true, push: 'pushed' });
+    expect(treeFiles(origin, REF).sort()).toEqual(['a.json', 'b.json', 'record.json']);
+  });
+
+  test('a failed push still leaves the record on the local ref and says so', () => {
+    const repo = initRepo();
+    withOrigin(repo, path.join(os.tmpdir(), 'rr-no-such-origin-dir'));
+    const r = doWriteFiles(repo);
+    expect(r).toMatchObject({ ok: true, outcome: 'ref', push: 'failed' });
+    expect(showBlob(repo, REF, 'shipped.json')).toBe('{"steps":[]}');
+    expect(sh(repo, ['status', '--porcelain'])).toBe('');
+  });
+});
+
 describe('vendoring', () => {
   test('.claude/lib and packages/full/lib copies are byte-identical to the source', () => {
     const src = fs.readFileSync(LIB);

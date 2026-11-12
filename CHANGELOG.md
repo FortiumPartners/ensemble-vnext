@@ -12,6 +12,20 @@ the work is actually released.
 
 ## [Unreleased]
 
+After the merge, `/ship-build`'s run record and custody anchor (`shipped.json`, `custody.json`) are
+written to the feature's records ref `refs/ensemble/records/<feature>` and pushed with it when there
+is an origin, instead of the untracked file under the git common directory; that file and its pointer
+remain the fallback when a ref write fails, and runs started earlier keep loading from it, after the
+ref. `record-ref.js` gains `writeFiles` (commit given contents onto the ref, never touching the
+worktree, index or branch; refuses a ref owned by another feature); `ship-record-dir.js` holds the
+shared path rule; when two copies of a run exist the later `updatedAt` wins. `status` reports
+`recordPath` / `custodyPath` as `<ref>:shipped.json` / `<ref>:custody.json` (read with `git show`).
+`ship-sequencer.js start` now restores the state folder from the ref, plain start included (with
+`--branch`), then drops a restored `shipped.json` and a restored `custody.json` stamped with an
+earlier run, so a plain start stays a fresh run; this replaces the earlier rule that a plain start
+restores nothing. `shipped.json` now carries `work.forge_feature_id`. Plan:
+`docs/TRD/fold-the-detached-ship-record-into-the-ref.md`.
+
 Readers now fall back to the records ref (`refs/ensemble/records/<slug>`) when a feature's
 `.trd-state/<slug>/` folder is missing from the worktree, so a re-created worktree can resume.
 `record-ref.js` gains `ensure` (restore the folder from the ref before ordinary reads run; CLI
