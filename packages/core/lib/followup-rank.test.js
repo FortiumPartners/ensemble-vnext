@@ -62,6 +62,12 @@ describe('CLI', () => {
     const rows = JSON.parse(r.stdout);
     expect(rows.map((x) => [x.class, x.dir])).toEqual([['product', b], ['tooling', a]]);
   });
+  it('reads a ledger named twice only once', () => {
+    const a = mk();
+    rec(a, { summary: 'p' });
+    const rows = JSON.parse(run(['open', '--state-dir', a, '--state-dir', path.join(a, '.')]).stdout);
+    expect(rows.map((x) => x.summary)).toEqual(['p']);
+  });
   it('missing ledger yields []', () => {
     expect(JSON.parse(run(['open', '--state-dir', path.join(mk(), 'none')]).stdout)).toEqual([]);
   });

@@ -335,7 +335,8 @@ describe('file-followups files product items first (issue #113)', () => {
     });
 
     expect(filed.map((f) => f.class)).toEqual(['product', 'product', 'host', 'tooling', 'paperwork', 'paperwork', 'not-verifiable']);
-    expect(filed.map((f) => f.summary).slice(0, 2).sort()).toEqual(['[review:major] missing null check', 'product row']);
+    // Within a class, ledger order is kept: the work ledger is read before the task ledger.
+    expect(filed.map((f) => f.summary).slice(0, 2)).toEqual(['product row', '[review:major] missing null check']);
     const byClass = Object.fromEntries(filed.map((f) => [f.summary, f.class]));
     expect(byClass['[not-verifiable] cannot reach staging']).toBe('not-verifiable');
     expect(byClass['[flaky-ci] lint job flaked']).toBe('tooling');

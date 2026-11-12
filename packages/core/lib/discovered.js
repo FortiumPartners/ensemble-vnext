@@ -46,12 +46,13 @@ const RESOLVE_KEY_LEN = 80;
 
 const KINDS = ['bug', 'scope-conflict', 'stale-grounding', 'gap', 'risk'];
 
-// A verification-outcome record (a functional-verification criterion, recorded through this
-// same channel) carries a `status` alongside the usual fields. Only these ever promote --
-// `met` and `not_verifiable` are deliberately absent below.
 // Ranking classes for follow-up filing order (see followup-rank.js, which re-exports this).
 // Lives here so `record` can validate `rankClass` without a circular require.
 const RANK_CLASSES = ['product', 'host', 'tooling', 'paperwork', 'not-verifiable'];
+
+// A verification-outcome record (a functional-verification criterion, recorded through this
+// same channel) carries a `status` alongside the usual fields. Only these ever promote --
+// `met` and `not_verifiable` are deliberately absent below.
 const VERIFICATION_STATUSES = ['met', 'not_met', 'not_verifiable', 'unbuilt', 'stalled'];
 const PROMOTABLE_STATUSES = ['not_met', 'stalled', 'unbuilt'];
 

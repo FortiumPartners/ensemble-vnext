@@ -17,6 +17,7 @@
  *   Bad usage: usage on stderr, exit 2. A missing ledger yields no rows.
  */
 
+const path = require('path');
 const discovered = require('./discovered');
 
 const RANK_CLASSES = discovered.RANK_CLASSES;
@@ -46,10 +47,17 @@ function rank(rows) {
     .map((x) => x.row);
 }
 
-/** Open rows of every ledger in `dirs`, each tagged with its `dir`, merged and ranked. */
+/**
+ * Open rows of every ledger in `dirs`, each tagged with its `dir`, merged and ranked. A ledger
+ * named twice (the same directory, however spelled) is read once, so no row is filed twice.
+ */
 function openRanked(dirs) {
   const all = [];
+  const seen = new Set();
   for (const dir of dirs) {
+    const key = path.resolve(dir);
+    if (seen.has(key)) continue;
+    seen.add(key);
     for (const row of discovered.readAll(dir, { open: true })) all.push({ ...row, dir });
   }
   return rank(all);

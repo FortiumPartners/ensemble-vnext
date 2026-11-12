@@ -71,7 +71,8 @@ is an outward act nothing authorized.
    URL are both named in `data.issues` (the tracker did not create distinct issues).
 5. **What could not be filed (AC-F9.5).** No tracker, or a failed call: file nothing for that row
    and leave it open. Then put in `data.issues` one line per item, each naming the row by its summary and its ledger path, never folded into a
-   count. Row lines come in rank order, each starting with the row's class
+   count. Row lines come in one rank order across all the kinds listed below (not grouped by
+kind), each starting with the row's class
    (`product · <summary> — <ledger path> — <why>`):
    - every row step 3 selected that was not filed, with why (`no tracker declared in stack.md`,
      or the call's error), the imported `[not-verifiable]`, `[task-followup]` and `[flaky-ci]` rows included;
