@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/4XbtPiwS6iPX2rXpGRqarZ",
     "updated_at": "2026-11-12T09:51:29.644Z",
     "command": "/implement-trd"
+  },
+  "verification-plan": {
+    "path": ".trd-state/records-ref-library/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-11-12T09:52:54.793Z",
+    "command": "/refine-verification"
   }
 }
