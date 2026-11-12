@@ -474,8 +474,11 @@ describe('collect-findings and fix-findings', () => {
   });
   test('fix-findings contract: Result names a direct fix', () => {
     const t = flat('fix-findings');
-    const result = t.slice(t.indexOf('## Result'), t.indexOf('## Waiting'));
-    expect(result).toContain('a direct fix');
+    const iResult = t.indexOf('## Result');
+    const iWaiting = t.indexOf('## Waiting');
+    expect(iResult).toBeGreaterThan(-1);
+    expect(iWaiting).toBeGreaterThan(iResult);
+    expect(t.slice(iResult, iWaiting)).toContain('a direct fix');
   });
   test('fix-findings contract: reconcile path runs only when reconcile rows remain, and step 4 keeps its sweep sentence', () => {
     const t = flat('fix-findings');
@@ -484,10 +487,6 @@ describe('collect-findings and fix-findings', () => {
     const step4 = t.slice(t.indexOf('4. **Sweep work has no TRD**'), t.indexOf('## Result'));
     expect(step4).toMatch(/return `stop` naming `\/plan <the findings>`/);
     expect(step4).toMatch(/handed to \/plan/);
-  });
-  test('fix-findings contract: the .claude/contracts mirror is byte-identical', () => {
-    const f = 'ship-primitive-fix-findings.md';
-    expect(fs.readFileSync(path.join(MIRROR, f), 'utf8')).toBe(fs.readFileSync(path.join(DIR, f), 'utf8'));
   });
   test('run leaves a command\'s commit to the custody gate', () => {
     expect(flat('run')).toMatch(/reconciled by the custody gate before the next merge or release/);

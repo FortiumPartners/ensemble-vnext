@@ -82,7 +82,7 @@
       "files_changed": [
         "packages/core/contracts/ship-primitives.test.js"
       ],
-      "commit": null,
+      "commit": "bf531bd62434f373edf297f7e0d83026d22822db",
       "started_at": "2026-11-12T00:07:04.535Z",
       "completed_at": "2026-11-12T00:15:39.142Z",
       "last_advanced": "2026-11-12T00:10:41.422Z"
