@@ -4,7 +4,7 @@
   "trd_hash": "d7abf6da6efd8cb3bb6b99aae18e2c3896fd57a04788a4f5a3d8e7bd7d0bddf9",
   "branch": "feature/30-one-full-regression-pass-at-the-end",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "REGR-B001": {
       "description": "live-evidence.js: deriveCriterionCovers accepts ids: null meaning every id in the definition's id column; new CLI subcommand derive-criteria --state-dir D --trd T --definition P prints {id: [paths]} (",
@@ -118,10 +118,19 @@
       "completed_at": null
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "78e37e61",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T10:35:54.022Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "3fa237c8",
-    "last_checkpoint_timestamp": "2026-11-12T10:26:06.401Z",
+    "last_healthy_checkpoint": "78e37e61",
+    "last_checkpoint_timestamp": "2026-11-12T10:35:54.022Z",
     "interrupted": false,
     "interrupt_reason": null
   },
