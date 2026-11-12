@@ -184,14 +184,17 @@
     "AMEND-002": {
       "description": "Run the live verify-blocking-policy fixture scenario and keep its evidence",
       "phase": 1,
-      "status": "in_progress",
-      "cycle_position": "debug",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        ".trd-state/block-only-on-material-failures/evidence/live/AMEND-002/run.log",
+        ".trd-state/block-only-on-material-failures/evidence/live/AMEND-002/verification-state.json"
+      ],
       "commit": null,
       "started_at": "2026-11-12T17:09:25.282Z",
-      "completed_at": null,
+      "completed_at": "2026-11-12T17:16:17.689Z",
       "last_advanced": "2026-11-12T17:10:26.089Z"
     }
   },
