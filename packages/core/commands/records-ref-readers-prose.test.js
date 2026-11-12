@@ -42,7 +42,8 @@ describe('records-ref readers: ensure before the first state read', () => {
 
   test('task names the single task-* fetch, read-record --local and list --remote', () => {
     const s = read('task.md');
-    expect(s).toContain("git fetch origin '+refs/ensemble/records/task-*:refs/ensemble/records/task-*'");
+    expect(s).toContain("fetch origin '+refs/ensemble/records/task-*:refs/ensemble/records/task-*'");
+    expect(s).not.toMatch(/^timeout /m); // GNU timeout is not on macOS
     expect(s).toContain('record-ref.js read-record --local');
     expect(s).toContain('record-ref.js list --remote');
   });

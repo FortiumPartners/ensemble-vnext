@@ -1044,7 +1044,10 @@ function readRecord({ stateDir, file, cwd, local, branch } = {}) {
     }
     const top = topLevel(wd);
     if (!top) return none;
-    const dest = path.join(realOr(path.dirname(folder)), path.basename(folder));
+    // Resolve as restore does: `top` is a realpath, and `.trd-state/` may not exist yet, so a
+    // symlinked cwd (macOS /tmp) must be resolved first or the folder reads as outside the repo.
+    const resolved = path.resolve(realOr(wd), stateDir);
+    const dest = path.join(realOr(path.dirname(resolved)), path.basename(resolved));
     const rel = path.relative(top, dest);
     if (!rel || rel.startsWith('..') || path.isAbsolute(rel) || path.posix.dirname(toPosix(rel)) !== STATE_ROOT) return none;
     const slug = path.basename(dest);
