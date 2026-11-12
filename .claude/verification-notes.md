@@ -1443,3 +1443,27 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] Pass `--plugin-dir` to `scaffold-project.sh` as an ABSOLUTE path (`$PWD/packages/full`). With the relative `packages/full` shown in the verification.md/dispatch recipe it exits 0 but copies "Commands: 0 files", so the headless session answers `/plan isn't available in this environment`. With an absolute path (and `--force`, as `test/smoke/lib/project.sh` does) it copies 13 agents and 26 commands. Commit the scaffold on the feature branch before running.
 - [ran] macOS has no `timeout`/`gtimeout`; launch the headless session with `nohup claude --print ... &` and poll `pgrep -f "claude --print --verbose"`. A trivial `/plan --implement --no-verify` change finishes in about 90s.
 - [ran] A one-file `/plan --implement` run leaves the branch with only the code commit (add.js, add.test.js, TRD); the records commits exist only on `refs/ensemble/records/<slug>`, and its `implement.json` checkpoint `commit` equals the code commit hash.
+
+## Exercising `scaffold-project.sh --records-cutover` and `records-cutover.js seed` (cutover-for-existing-projects)
+
+- [ran] A scaffolded project does not vendor `scaffold-project.sh` (no `.claude/scripts/`); the "vendored" cutover is run as `packages/full/scripts/scaffold-project.sh --records-cutover [--no-push] <dir>`, whose `${SCRIPT_DIR}/../lib/` resolves to `packages/full/lib/records-cutover.js` (symlink). `.claude/lib/records-cutover.js` is a copy placed in the project by the scaffold.
+- [ran] `--records-cutover` prints the `Records seed: {json}` line AFTER the `Untracked <path>` lines (it printed it before them until the verification-loop fix, 4b6eee57), and the JSON is prefixed `[INFO] Records seed: `, not bare.
+- [ran] Fixtures: build under `mktemp -d /tmp/fv-cutover.XXXXXX` with a local bare origin; `git worktree add` for linked/detached, `rm -rf` a worktree dir for a prunable one. A folder present in the main worktree AND a linked worktree is classified in both (skipped `branch-mismatch` in the main one when its recorded branch is the linked one's).
+- [ran] Packaging `cp -RL`/chmod errors during plain/`--refresh` scaffold on macOS are environmental (known), exit stays 0.
+
+## Exercising `/rebase-project` records cutover (cutover-for-existing-projects)
+
+- [ran] A headless `claude --print --plugin-dir packages/full --setting-sources project --permission-mode bypassPermissions "/rebase-project"` in a throwaway git repo under the OS temp dir (local bare origin, `main` plus a checked-out `feature/<slug>` branch, `.trd-state/<slug>/implement.json` carrying `branch`) runs Step 4.7b end to end in about 3 minutes: files staged `D`, `refs/ensemble/records/<slug>` seeded and pushed to the bare origin. A pre-existing local ref is skipped (`ref-exists`).
+- [ran] `scaffold-project.sh --force` into a fresh `/tmp` dir exits 1 on macOS (`cp: chmod ... Operation not permitted` in the skills copy) yet leaves a usable `.claude/`; `/rebase-project` then repaired the broken skill links itself.
+
+## Exercising cutover-for-existing-projects (iteration 2)
+
+- [ran] In zsh, `"refs/x/$s:record.json"` expands `$s:r` as a modifier and corrupts the ref name; write `${s}:record.json`.
+- [ran] A scaffolded project has no `.claude/scripts/`; the "vendored" `--records-cutover` is `packages/full/scripts/scaffold-project.sh`, whose `../lib/records-cutover.js` is the symlink in `packages/full/lib`. To see `Untracked` lines the fixture needs a record force-added (`git add -f`), since the scaffold's `.gitignore` already ignores `.trd-state/`.
+- [ran] The seed JSON is printed as `[INFO] Records seed: {"ok":...}`, so the JSON line begins after that prefix; `record.json` in a ref is pretty-printed (`"forge_feature_id": null`, with a space).
+
+- [ran] Regression pass 1 (cutover-for-existing-projects): `node packages/core/lib/records-cutover.js` needs the `seed` argument, otherwise it prints a `usage` JSON line (ok false); a folder whose `implement.json` and `shipped.json` are both unparseable is silently omitted from both `seeded` and `skipped`. After `--records-cutover`, `git log --all -1` changes because the seed adds a commit on `refs/ensemble/records/<slug>`; compare `git rev-parse HEAD` per worktree for "no commit on a branch". In zsh use `bash script.sh` for fixtures that use `PIPESTATUS`.
+
+## Exercising `/rebase-project` records cutover (cutover-for-existing-projects, regression-1)
+
+- [ran] A headless `/rebase-project` in a bare git repo with no `.claude/` stops at Step 0 (COMMAND STUCK, nothing written). The fixture must first be scaffolded (`scaffold-project.sh --plugin-dir packages/full .`, exits 1 on macOS but leaves `.claude/`) and committed; then the run completes in about 3 minutes with the cutover applied.

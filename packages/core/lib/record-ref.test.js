@@ -150,6 +150,17 @@ describe('write: basic landing and record.json', () => {
     expect(rec).toEqual({ forge_feature_id: null, branch: 'main', slug: SLUG });
   });
 
+  test('forgeFeatureId, when the key is given, replaces FORGE_FEATURE_ID (string or null)', () => {
+    const repo = initRepo();
+    put(repo, `${STATE}/implement.json`, '{}\n');
+    process.env.FORGE_FEATURE_ID = 'env-id';
+    expect(doWrite(repo, { forgeFeatureId: 'own-id' }).outcome).toBe('ref');
+    expect(JSON.parse(showBlob(repo, REF, 'record.json')).forge_feature_id).toBe('own-id');
+    sh(repo, ['update-ref', '-d', REF]);
+    expect(doWrite(repo, { forgeFeatureId: null }).outcome).toBe('ref');
+    expect(JSON.parse(showBlob(repo, REF, 'record.json')).forge_feature_id).toBeNull();
+  });
+
   test('(O3) a detached HEAD writes branch: null, never "HEAD" or a branch name', () => {
     const repo = initRepo();
     put(repo, `${STATE}/implement.json`, '{}\n');

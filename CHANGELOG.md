@@ -12,6 +12,13 @@ the work is actually released.
 
 ## [Unreleased]
 
+`/rebase-project` gains Step 4.7b, the records cutover (`scaffold-project.sh --records-cutover`):
+it untracks (staged, never committed) every tracked `.trd-state/` path the ignore lines now cover,
+and seeds the records ref of each in-flight feature (one whose branch is checked out in a worktree
+and whose folder is not finished); finished features get no ref. The owner commits the removal on
+the base branch; the Rollback section names `git restore --staged .trd-state` to undo it and no
+longer claims the rebase is exactly one commit's worth of change.
+
 Run records now leave the worktree through `record-ref.js write` and nowhere else. Every command
 that used to `git add`/`git commit` its `.trd-state/<feature>/` records (`/implement-trd`,
 `/audit-build`, `/close-feature`, `/plan` and its sweep chain, `/amend`, `/sweep`, `/task`,

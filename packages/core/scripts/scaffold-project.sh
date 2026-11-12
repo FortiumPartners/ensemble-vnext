@@ -12,6 +12,7 @@
 #   ./scaffold-project.sh --sync-agents [--new-only] --plugin-dir DIR [project-directory]
 #   ./scaffold-project.sh --stamp-version --plugin-dir DIR [project-directory]
 #   ./scaffold-project.sh --git-files [project-directory]
+#   ./scaffold-project.sh --records-cutover [--no-push] [project-directory]
 #
 # Options:
 #   --plugin-dir DIR   Plugin directory containing agents, skills, hooks
@@ -38,6 +39,14 @@
 #                       never committed) any listed path that is tracked. Needs no
 #                       --plugin-dir. Exclusive with --refresh, --force, --agent-status,
 #                       --sync-agents, --stamp-version. --refresh never touches the index.
+#   --records-cutover  Strict standalone mode (/rebase-project Step 4.7b): deliver the ignore and
+#                       merge-union lines as --git-files does, untrack (index only, staged, never
+#                       committed) every tracked path under .trd-state/ that is now ignored, and
+#                       seed the records ref of each in-flight feature (records-cutover.js).
+#                       Files stay on disk. Needs no --plugin-dir. Exclusive with every other
+#                       mode. Only this mode untracks records; scaffold, --refresh and --git-files
+#                       leave them tracked.
+#   --no-push          With --records-cutover: keep seeded refs local (tests, offline use).
 #   --new-only         With --sync-agents: copy only new agents (--preserve-all).
 #
 # If project-directory is not provided, uses current directory.
@@ -60,6 +69,8 @@ AGENT_STATUS=false
 SYNC_AGENTS=false
 STAMP_VERSION=false
 GIT_FILES=false
+RECORDS_CUTOVER=false
+NO_PUSH=false
 NEW_ONLY=false
 PROJECT_DIR=""
 
@@ -103,6 +114,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --git-files)
             GIT_FILES=true
+            shift
+            ;;
+        --records-cutover)
+            RECORDS_CUTOVER=true
+            shift
+            ;;
+        --no-push)
+            NO_PUSH=true
             shift
             ;;
         --new-only)
@@ -166,6 +185,17 @@ if [[ "$GIT_FILES" == "true" ]]; then
         echo "Error: --git-files cannot be combined with --refresh, --force, --agent-status, --sync-agents or --stamp-version" >&2
         exit 1
     fi
+fi
+# --records-cutover is strict and standalone too.
+if [[ "$RECORDS_CUTOVER" == "true" ]]; then
+    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$STAMP_VERSION" == "true" || "$GIT_FILES" == "true" ]]; then
+        echo "Error: --records-cutover cannot be combined with --refresh, --force, --agent-status, --sync-agents, --stamp-version or --git-files" >&2
+        exit 1
+    fi
+fi
+if [[ "$NO_PUSH" == "true" && "$RECORDS_CUTOVER" != "true" ]]; then
+    echo "Error: --no-push is only valid with --records-cutover" >&2
+    exit 1
 fi
 if [[ "$NEW_ONLY" == "true" && "$SYNC_AGENTS" != "true" ]]; then
     echo "Error: --new-only is only valid with --sync-agents" >&2
@@ -1826,6 +1856,76 @@ ensure_gitignore() {
     return 0
 }
 
+# --records-cutover entry point. Delivers the ignore/merge-union lines, untracks every tracked
+# path under .trd-state/ that the ignore lines now cover (`git ls-files -ci --exclude-standard`
+# is exactly "tracked and now ignored", and honours the _docs-audit negation), then seeds the
+# records ref of each in-flight feature and prints its JSON line, after the Untracked lines.
+# Seeding reads the folders on disk (never the index), which untracking leaves in place, so the
+# order does not change what is seeded. Errors warn and return 0. Never commits.
+records_cutover() {
+    local target_dir="$1"
+    local lib="${SCRIPT_DIR}/../lib/records-cutover.js"
+
+    cd "$target_dir" || { warn "Cannot access $target_dir — skipping cutover"; return 0; }
+    ensure_gitignore
+    ensure_gitattributes
+
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        warn "Not a git work tree — lines delivered, nothing untracked or seeded"
+        return 0
+    fi
+
+    local -a paths=()
+    local p
+    while IFS= read -r -d '' p; do
+        paths+=("$p")
+    done < <(git ls-files -z -ci --exclude-standard -- .trd-state ':(exclude).trd-state/_docs-audit' 2>/dev/null || true)
+    if [[ ${#paths[@]} -gt 0 ]]; then
+        # `git rm` is all-or-nothing per call: one path with staged content that differs from both
+        # HEAD and the file fails its whole chunk, so a failed chunk is retried one path at a time.
+        # --literal-pathspecs: these are file names from ls-files, never globs (a `[` or `*` in a
+        # record's name must not match its neighbours).
+        local i=0 chunk=200 done_count=0 failed=0 q
+        while [[ $i -lt ${#paths[@]} ]]; do
+            if git --literal-pathspecs rm --cached --quiet --ignore-unmatch -- "${paths[@]:i:chunk}" >/dev/null 2>&1; then
+                for q in "${paths[@]:i:chunk}"; do
+                    info "Untracked $q"
+                    done_count=$((done_count + 1))
+                done
+            else
+                for q in "${paths[@]:i:chunk}"; do
+                    if git --literal-pathspecs rm --cached --quiet --ignore-unmatch -- "$q" >/dev/null 2>&1; then
+                        info "Untracked $q"
+                        done_count=$((done_count + 1))
+                    else
+                        warn "Could not untrack $q"
+                        failed=$((failed + 1))
+                    fi
+                done
+            fi
+            i=$((i + chunk))
+        done
+        info "Untracked ${done_count} record path(s) under .trd-state/ (index only); commit this removal on the base branch"
+        [[ $failed -eq 0 ]] || warn "Could not untrack ${failed} .trd-state/ path(s)"
+    fi
+
+    if ! command -v node >/dev/null 2>&1; then
+        warn "node not found — skipping records ref seeding"
+    elif [[ ! -f "$lib" ]]; then
+        warn "records-cutover.js missing — skipping records ref seeding"
+    else
+        local args=(seed) out
+        [[ "$NO_PUSH" == "true" ]] && args+=(--no-push)
+        out="$(node "$lib" "${args[@]}" 2>/dev/null || true)"
+        if [[ -n "$out" ]]; then
+            info "Records seed: $out"
+        else
+            warn "Records ref seeding produced no result"
+        fi
+    fi
+    return 0
+}
+
 # --refresh entry point (RUNTIME-B007..B010).
 #
 # Replaces only components already present under the target's .claude/,
@@ -2125,7 +2225,9 @@ scaffold_project() {
 
 # Run if executed directly (not sourced)
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    if [[ "$GIT_FILES" == "true" ]]; then
+    if [[ "$RECORDS_CUTOVER" == "true" ]]; then
+        records_cutover "$PROJECT_DIR"
+    elif [[ "$GIT_FILES" == "true" ]]; then
         (cd "$PROJECT_DIR" && ensure_gitignore untrack && ensure_gitattributes)
     elif [[ "$STAMP_VERSION" == "true" ]]; then
         stamp_ensemble_version "$PROJECT_DIR" strict

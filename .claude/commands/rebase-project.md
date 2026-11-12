@@ -148,7 +148,7 @@ Examples:
 
 **This command writes no backups, and that is deliberate.** `.claude/` is committed —
 `constitution.md`'s Architecture Invariants require it ("Runtime is committed to git for
-reproducibility"), and `.gitignore` excludes `*.local.*`, the framework-written working files that differ on every branch (`.trd-state/current.json`, the dispatch logs; Step 4.7a) and, ignore-only, the run records under `.trd-state/` (they live on the records ref). So git already holds every
+reproducibility"), and `.gitignore` excludes `*.local.*`, the framework-written working files that differ on every branch (`.trd-state/current.json`, the dispatch logs; Step 4.7a) and the run records under `.trd-state/` (they live on the records ref; Step 4.7b untracks them, staged). So git already holds every
 byte this command is about to replace, with better tooling than a copied directory: `git
 diff` shows exactly what the rebase changed, which a timestamped parallel tree cannot.
 
@@ -1104,7 +1104,7 @@ Report:
 
 #### 4.7a Framework git files (always)
 
-Runs in every mode that applies changes, just before 4.8. It makes sure the framework's own
+Runs in every mode that applies changes, just before 4.7b. It makes sure the framework's own
 write-clash files are ignored and its merge-union lines are present, so parallel feature
 branches stop conflicting on them:
 
@@ -1113,7 +1113,7 @@ branches stop conflicting on them:
 ```
 
 It adds the lines from `templates/gitignore-framework.txt` to `.gitignore` and
-`templates/gitattributes-additions.txt` to `.gitattributes` when missing (including the ignore-only `.trd-state/*` lines, which are never untracked), and untracks (`git rm
+`templates/gitattributes-additions.txt` to `.gitattributes` when missing (including the ignore-only `.trd-state/*` lines; this step leaves those alone, Step 4.7b untracks what they cover), and untracks (`git rm
 --cached`, staged, never committed) any listed file the project had been committing, such as
 `.trd-state/current.json`. Files stay on disk.
 
@@ -1125,6 +1125,41 @@ Report:
 A non-zero exit goes under ISSUES in the rebase report with the stderr line. The script
 warns rather than failing on a missing template, an unwritable file or a path it could not
 untrack (it still exits 0), so each `[WARN]` line it prints also goes under ISSUES.
+
+#### 4.7b Records cutover (always)
+
+Runs in every mode that applies changes, after 4.7a and before 4.8. Run records now live on each
+feature's records ref, so a project that tracked them on its base branch has to stop tracking
+them. `--dry-run` only says the cutover would run; it lists nothing.
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-project.sh" --records-cutover .
+```
+
+It delivers the same ignore and merge-union lines as 4.7a, then does two things. It untracks (`git rm
+--cached`: staged, never committed, files stay on disk) every tracked path under `.trd-state/` that
+the ignore lines now cover, finished features' records and the shared logs included; once the owner
+commits the removal those records leave the base branch's tree and stay readable in its history. And
+it seeds the records ref of each in-flight feature: one whose folder is not closed (or whose ship
+run is not done) and whose recorded branch is checked out in a worktree. Finished features get no
+ref. A feature whose branch has no worktree is not seeded; its records move onto its ref on its own
+next write. A feature whose ref already exists locally or on `origin` is skipped, and when `origin`
+exists but cannot be listed every in-flight feature is skipped rather than risk overwriting newer
+records. The ref is pushed best effort; a failed push keeps it local and is not fatal.
+
+Report:
+- "Records cutover: N files untracked (staged, not committed) from <each `.trd-state/<folder>/` they came from, or the shared logs>; refs seeded: <slug> on <branch> (pushed or kept local), ...; skipped: <slug> (why), ..."
+  (name the folders, not every file: a large project untracks hundreds; the full list is
+  `git diff --cached --name-only --diff-filter=D -- .trd-state`, which the report names too)
+  (count the `finished` and `branch-mismatch` skips rather than naming them: every worktree carries
+  the base branch's old folders, so they repeat once per worktree)
+- If any file was untracked: "Commit this removal on the base branch so every feature branch stops
+  carrying the records; until it lands there, branches still clash."
+
+A non-zero exit goes under ISSUES with the stderr line. The script warns rather than failing, so
+each `[WARN]` line it prints, and each seed that failed or was skipped for a reason other than
+`finished`, `branch-mismatch` (an old folder, or a feature whose branch has no worktree, which
+crosses over on its own next write) or `ref-exists`, also goes under ISSUES.
 
 #### 4.8 Stamp the version (always)
 
@@ -1227,7 +1262,8 @@ Everything above was written to a git-tracked tree that was clean before the run
 ```bash
 git diff --stat .claude/          # what this rebase changed
 git diff .claude/rules/           # e.g. just the framework rules
-git restore .claude/              # undo the whole rebase
+git restore .claude/              # undo the rebase's runtime changes
+git restore --staged .trd-state   # undo the records cutover's untracking (Step 4.7b)
 git restore .claude/agents/foo.md # undo one file
 ```
 
@@ -1266,11 +1302,22 @@ No backup directories are created — see "Recovery is git".
 ## Rollback
 
 The working tree was clean before this ran (the precondition in "Recovery is git" enforces
-it), so the rebase is exactly one commit's worth of uncommitted change:
+it), so everything the rebase did is an uncommitted change:
 
 ```bash
 git restore .claude/          # undo everything this command wrote
 git restore --staged .claude/ # if you already staged it
+git restore --staged .trd-state # undo the records cutover's untracking (Step 4.7b); files never left disk
+```
+
+The cutover's seeded refs (`refs/ensemble/records/<slug>`) are not part of the working tree, so
+**`git restore` does not undo a seeded ref, and it never undoes a ref that was pushed**: the copy on
+`origin` stays there whatever you restore locally. The refs are additive, so leaving them is
+harmless. To remove one anyway, delete it on both sides:
+
+```bash
+git update-ref -d refs/ensemble/records/<slug>              # the local ref
+git push origin --delete refs/ensemble/records/<slug>       # only if the report said it was pushed
 ```
 
 Undo one component by narrowing the path — `git restore .claude/skills/`. Inspect before
