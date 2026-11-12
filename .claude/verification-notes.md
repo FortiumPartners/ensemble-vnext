@@ -1467,3 +1467,8 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 ## Exercising `/rebase-project` records cutover (cutover-for-existing-projects, regression-1)
 
 - [ran] A headless `/rebase-project` in a bare git repo with no `.claude/` stops at Step 0 (COMMAND STUCK, nothing written). The fixture must first be scaffolded (`scaffold-project.sh --plugin-dir packages/full .`, exits 1 on macOS but leaves `.claude/`) and committed; then the run completes in about 3 minutes with the cutover applied.
+
+## custody-test-all-digit-hash-flake (2026-11-12, iteration 1)
+
+- [ran] The filtered custody run (`npx jest packages/core/lib/custody.test.js -t 'deploy link|merge and deploy links'`) takes about 4s, so a 40-iteration loop is about 3 min; the full `custody.test.js` took 1m43s wall here (181 tests, all passing). The "181 total" baseline in the success definition was the count at HEAD with the 3 `tokenOf` tests included; the base commit 77b2849b has 178 `test(` entries (grep count 100 vs 103 now), so compare totals against HEAD, not base.
+- [ran] To show an all-digit prefix is handled without editing source, `eval` the `tokenOf` function text extracted from `custody.test.js` in a `node -e` and feed it a sha whose first 8 and 9 characters are digits (`fs2-tokenOf-demo.txt`).
