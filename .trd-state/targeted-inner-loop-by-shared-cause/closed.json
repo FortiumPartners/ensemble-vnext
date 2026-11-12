@@ -1,0 +1,13 @@
+{
+  "feature": "targeted-inner-loop-by-shared-cause",
+  "trd": "docs/TRD/targeted-inner-loop-by-shared-cause.md",
+  "closedAt": "2026-11-12T09:22:12Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: the resumed-run half of FS-4 (a resume's first iteration exercises the whole open set) is built but no test proves it; the Playwright pre-check row in Could Not Verify stays open because there is no Playwright project here",
+    "report": ".trd-state/targeted-inner-loop-by-shared-cause/audit-build-report.md",
+    "auditedCommit": "759e95a5f4b9bf170585a0c87c2736072619b451",
+    "anchorCommit": "772f6309ff6a8d3ceac72da146d31e7253698133"
+  }
+}

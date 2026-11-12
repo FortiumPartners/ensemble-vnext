@@ -10,6 +10,15 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [Unreleased]
+
+Added `packages/core/lib/record-ref.js` (vendored to `.claude/lib/`): a library and CLI
+(`write`, `read`, `list`, `restore`) that writes a feature's run records to the git ref
+`refs/ensemble/records/<slug>` (shared logs on `_shared`) without touching the checked-out branch,
+`HEAD` or the real index, pushes it best effort, and falls back to a branch commit when the ref
+cannot be written or pushed. Nothing calls it yet; wiring it in is a later item of the
+records-ref-library plan (`docs/TRD/records-ref-library.md`).
+
 ## [4.17.5] - 2026-11-11
 
 The ship-cost reductions: `/ship-build` re-proves less and stops less. A ship starts from the
