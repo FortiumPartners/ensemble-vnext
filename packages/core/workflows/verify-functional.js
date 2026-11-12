@@ -537,9 +537,16 @@ function causeGroups(entries, previousReps) {
 // regression pass, whose slice holds only the criteria the pass re-checks. A round captures every
 // criterion afresh into its own folder, because an artifact captured earlier in the run predates
 // the fixes the pass is checking against.
+// The folder a regression round captures into. One spelling for the prompt and for keepFreshClaims'
+// prefix check: a trailing slash on `evidenceDir` would otherwise put `//` in the folder the exerciser
+// is told to copy, and a path it normalised to one slash would fail the check.
+function regressionEvidenceDir(round) {
+  return `${EVIDENCE_DIR.replace(/\/+$/, '')}/regression-${round}`
+}
+
 function buildExercisePrompt(iteration, slice, concurrentSlices = 1, regressionRound = null) {
   const { lane, criteria } = slice
-  const evidenceDir = regressionRound ? `${EVIDENCE_DIR}/regression-${regressionRound}` : EVIDENCE_DIR
+  const evidenceDir = regressionRound ? regressionEvidenceDir(regressionRound) : EVIDENCE_DIR
   const sliceIds = new Set(criteria.map((c) => c.id))
   const retries = evidenceRetries.filter((r) => sliceIds.has(r.id))
   const retryBlock = retries.length === 0
@@ -1118,13 +1125,26 @@ function buildDebugPrompt(causeGaps) {
   // deleted files that `git diff` of the index would miss. The temporary index leaves the real one
   // (and whatever the owner has staged) untouched. The state and pages folders are excluded because
   // other agents write them while Debug runs.
+  //
+  // The temp index path must not exist yet (git rejects the empty file `mktemp` creates) and is
+  // seeded from the real index: that keeps tracked files under an ignored path in both trees (a fresh
+  // index would leave them out of both, so an edit to one would never show) and lets `add -A` reuse
+  // the stat cache instead of hashing the whole tree. The excluded folders are left out by pathspec,
+  // not only by filtering the output: an embedded repository with no commit under them (a scaffolded
+  // fixture slot) makes a bare `git add -A` fail outright, which would turn every pass into "unknown".
   const excluded = [STATE_DIR, PAGES_DIR].filter(Boolean)
+  const excludeSpecs = excluded.map((d) => `':(exclude)${d}'`).join(' ')
   const changeStep =
     `\n\nCHANGE RECORD (the workflow scopes its closing regression check from it). As your FIRST act, ` +
     `before you change anything, take a tree id of the working tree with a temporary index, so the ` +
-    `real index is left alone: choose a fresh temp path, run  GIT_INDEX_FILE=<fresh temp path> git add -A  ` +
+    `real index is left alone. From the project root: make a temp folder with  mktemp -d  and use ` +
+    `<that folder>/index as a fresh temp path (it must NOT exist yet: git rejects an empty file, so never ` +
+    `pass a file  mktemp  created); copy the real index to it first when one exists ` +
+    `( cp "$(git rev-parse --git-path index)" <fresh temp path> ); then run  ` +
+    `GIT_INDEX_FILE=<fresh temp path> git add -A -- .${excludeSpecs ? ` ${excludeSpecs}` : ''}  ` +
     `and then  GIT_INDEX_FILE=<that same path> git write-tree , and keep the id it prints as BEFORE. ` +
-    `As your LAST act, after the refresh and any pre-check, do the same with a new temp path and keep ` +
+    `As your LAST act, after the refresh and any pre-check, do the same with a new temp path (copied ` +
+    `from the real index again) and keep ` +
     `the id as AFTER. Return, as "filesChanged", the paths printed by  git -c core.quotePath=false ` +
     `diff --name-only <BEFORE> <AFTER>  (one repo-relative path per entry, as git prints it), leaving ` +
     `out every path under ${excluded.map((d) => JSON.stringify(d)).join(' or ')} -- other agents write ` +
@@ -2841,8 +2861,13 @@ function globToRegex(glob) {
 
 // True when `file` (a repo-relative changed path) is covered by `cover`: a glob when the cover holds
 // `* ? [ {`, otherwise the exact path or anything under that directory (trailing slashes ignored).
+// regressionScope tests every cover against every changed file, so each glob is compiled once.
+const globRegexCache = new Map()
 function coverMatches(cover, file) {
-  if (/[*?[{]/.test(cover)) return globToRegex(cover).test(file)
+  if (/[*?[{]/.test(cover)) {
+    if (!globRegexCache.has(cover)) globRegexCache.set(cover, globToRegex(cover))
+    return globRegexCache.get(cover).test(file)
+  }
   const dir = cover.replace(/\/+$/, '')
   return file === cover || file.startsWith(`${dir}/`)
 }
@@ -2935,12 +2960,14 @@ function regressionScope(records, awaitingIds = [], sentIds = []) {
 // kept goes to the Judge exactly as the exerciser wrote it. A claim with no artifact has no old
 // artifact to reuse, so it is kept, and its reason is what the Judge rules on.
 function keepFreshClaims(claims, round) {
-  const folder = `${EVIDENCE_DIR}/regression-${round}`.replace(/^(\.\/)+/, '')
+  const folder = regressionEvidenceDir(round).replace(/^(\.\/)+/, '')
   const relative = !folder.startsWith('/')
   return claims.map((claim) => {
     if (claim.judgeOnly || typeof claim.artifact !== 'string' || claim.artifact === '') return claim
     const file = claim.artifact.replace(/^(\.\/)+/, '')
-    if (file.startsWith(`${folder}/`) || (relative && file.startsWith('/') && file.includes(`/${folder}/`))) return claim
+    // A `..` segment can climb from inside the folder back to an artifact captured earlier.
+    const inside = file.startsWith(`${folder}/`) || (relative && file.startsWith('/') && file.includes(`/${folder}/`))
+    if (inside && !file.split('/').includes('..')) return claim
     log(`regression pass ${round}: ${claim.criterion} claims ${claim.artifact}, which is outside ${folder}/ -- replacing the claim with a capture gap`)
     return { criterion: claim.criterion, artifact: null, reason: 'not captured in the regression pass', judgeOnly: false }
   })
@@ -3016,7 +3043,18 @@ async function regressionRound(round, iteration, plan, ctx) {
     criteria: [...(result.criteria || []), ...standIns].map((c) => (scopeSet.has(c.id) ? { ...c, regression: round } : c)),
   }
   foldRulings(result, iteration)
+  // A round runs no closeCauses, so an open cause whose members it re-proved would simply drop out
+  // of the rebuilt map and leave no record at all (and a key round 1 re-opened has already lost its
+  // closed record). Close such a cause here, the way the loop would have.
+  const openBefore = [...causeMap.values()]
   refreshCauseMap()
+  for (const cause of openBefore) {
+    if (causeMap.has(cause.key)) continue
+    if (cause.members.every((id) => settled.has(id) && settled.get(id).status === 'met')) {
+      closedCauseMap.set(cause.key, { key: cause.key, representative: cause.representative, members: cause.members, status: 'closed', closedAt: iteration })
+      log(`regression pass ${round}: cause ${cause.key} closed -- every member was re-proved`)
+    }
+  }
   // Only an id re-ruled a build defect is a regression. One ruled an evidence gap (a dead slice, a bad
   // capture) was not shown to fail, and naming it as a regression would send the owner after a fix
   // that may well have worked.

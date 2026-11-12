@@ -4970,6 +4970,11 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
         expect(prompt).toContain('".trd-state/example"');
         expect(prompt).toContain('".trd-state/example/pages"');
         expect(prompt).toMatch(/Return null if either git step fails/);
+        // the temp index is a copy of the real one at a path that did not exist, and the excluded
+        // folders are left out by pathspec, so an empty mktemp file or an embedded repo cannot fail it
+        expect(prompt).toMatch(/mktemp -d/);
+        expect(prompt).toContain('cp "$(git rev-parse --git-path index)" <fresh temp path>');
+        expect(prompt).toContain("git add -A -- . ':(exclude).trd-state/example' ':(exclude).trd-state/example/pages'");
       });
 
       it('filesChanged is required and nullable in the schema', async () => {
@@ -5099,6 +5104,14 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
         expect(result.debugAttempts[1]).toMatchObject({ iteration: 2, gaps: ['FS-1'] });
         expect(result.outcome).toBe('satisfied');
         expect(result.criteria.find((c) => c.id === 'FS-1')).toMatchObject({ status: 'met', provenAt: 2, regression: 2 });
+      });
+
+      it('(1) a cause round 1 opened and round 2 re-proved is recorded closed, not dropped from the state', async () => {
+        const { agent } = await repairJourney(failing(), proven1);
+        const sync = labelsOf(agent, 'state-sync');
+        expect(sync).toHaveLength(1);
+        const state = JSON.parse(sync[0].prompt.match(/exactly as given, to [^\n]*:\n(\{.*\})\n/)[1]);
+        expect(state.causes).toContainEqual(expect.objectContaining({ key: 'regressed', status: 'closed', closedAt: 2, members: ['FS-1'] }));
       });
 
       it('(1) O5: a round-2 failure dispatches no further Debug, Exercise or Judge', async () => {

@@ -1342,10 +1342,20 @@ function renderReport(input) {
   // Ids a round caught. No iteration number is shown for them: an open not_met entry carries
   // no provenAt, and a carried one belongs to an earlier invocation (D14).
   const caughtIds = new Set(regressionRounds.flatMap((r) => listOf(r.caught)).map(String));
-  const caughtMark = (c) =>
-    regression && c.status === 'not_met' && caughtIds.has(String(c.id))
-      ? ' — caught by the regression pass (was met earlier in the run)'
-      : '';
+  // A `cause-member` was never met: it was open, waiting on a cause the run fixed, so the
+  // "was met earlier" wording would misstate its history.
+  const causeMemberIds = new Set(
+    regressionRounds
+      .flatMap((r) => listOf(r.scope))
+      .filter((e) => e && typeof e === 'object' && e.reason === 'cause-member')
+      .map((e) => String(e.id))
+  );
+  const caughtMark = (c) => {
+    if (!regression || c.status !== 'not_met' || !caughtIds.has(String(c.id))) return '';
+    return causeMemberIds.has(String(c.id))
+      ? ' — still failing in the regression pass (its cause was fixed while it was not re-checked)'
+      : ' — caught by the regression pass (was met earlier in the run)';
+  };
   const provenAtCell = (c) => {
     const hasIteration = c.provenAt !== undefined && c.provenAt !== null;
     if (regression && (c.regression === 1 || c.regression === 2)) {

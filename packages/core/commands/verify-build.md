@@ -327,7 +327,7 @@ Workflow({ name: "verify-functional", args: {
   coverageFloor,                                                 // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §5a as a fraction, or null when none is declared
   setupTargets,                                                  // resolved per implement-trd.md §8.1a step 7 (step 3c here) -- the environments the setup check looks at; [] when none (no setup check runs)
   liveEvidence,                                                  // `node .claude/lib/live-evidence.js read --state-dir .trd-state/<feature>` -- what [LIVE] tasks recorded; [] when none
-  criterionCovers,                                               // `node .claude/lib/live-evidence.js derive-criteria` (see below) -- { "<id>": ["<path>", ...] } the files each criterion covers; {} for a sweep file or when the derive fails
+  criterionCovers,                                               // `node .claude/lib/live-evidence.js derive-criteria` (see above) -- { "<id>": ["<path>", ...] } the files each criterion covers; {} for a sweep file or when the derive fails
   checks,                                                        // resolved per implement-trd.md §8.1b (step 3b here) -- { "<skill>": "<SKILL.md text>" }; {} when none
   checkComments,                                                 // resolved per implement-trd.md §8.1b (step 3b here) -- open threads on each check's published page; [] when none
   pagesDir,                                                       // resolved per implement-trd.md §8.1b (step 3b here) -- ".trd-state/<feature>/verification-artifacts"; always set

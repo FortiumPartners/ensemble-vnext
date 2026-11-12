@@ -1969,7 +1969,7 @@ Workflow({ name: "verify-functional", args: {
   coverageFloor,                                                 // §8.1a -- verification.md §5a as a fraction, or null when none is declared
   setupTargets,                                                  // §8.1a step 7 -- the environments the setup check looks at; [] when none (no setup check runs)
   liveEvidence,                                                  // `node .claude/lib/live-evidence.js read --state-dir .trd-state/<feature>` -- what [LIVE] tasks recorded; [] when none
-  criterionCovers,                                               // `node .claude/lib/live-evidence.js derive-criteria` (see below) -- { "<id>": ["<path>", ...] } the files each criterion covers; {} for a sweep file or when the derive fails
+  criterionCovers,                                               // `node .claude/lib/live-evidence.js derive-criteria` (see above) -- { "<id>": ["<path>", ...] } the files each criterion covers; {} for a sweep file or when the derive fails
   checks,                                                        // §8.1b -- { "<skill>": "<SKILL.md text>" } for each selected check; {} when none
   checkComments,                                                 // §8.1b -- open threads on each check's published page (D18); [] when none
   pagesDir,                                                       // §8.1b -- ".trd-state/<feature>/verification-artifacts"; always set, even with no checks selected

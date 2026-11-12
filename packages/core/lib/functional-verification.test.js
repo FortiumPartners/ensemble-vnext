@@ -3241,6 +3241,13 @@ describe('renderReport: the must-pass line and outcome (D13)', () => {
       expect(out).toContain('broke — caught by the regression pass (was met earlier in the run)');
     });
 
+    test('a caught cause-member is not described as met earlier', () => {
+      const rec = { ...record, rounds: [{ ...record.rounds[0], scope: [{ id: 'FS-1', reason: 'cause-member' }], caught: ['FS-1'] }] };
+      const out = renderReport(input({ outcome: 'stuck', criteria: crits(), regression: rec }));
+      expect(out).not.toContain('was met earlier in the run');
+      expect(out).toContain('broke — still failing in the regression pass (its cause was fixed while it was not re-checked)');
+    });
+
     test('an input with no regression key renders byte-identically', () => {
       const base = input({ outcome: 'stuck', criteria: crits() });
       const plain = renderReport(base);
