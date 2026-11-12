@@ -82,10 +82,20 @@
       "last_advanced": "2026-11-11T23:18:07.232Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "bbecfdc2d91ae5b9ea7063e06136dc7e0890e5f7",
+      "review": {
+        "findings": 0,
+        "applied": 0
+      },
+      "timestamp": "2026-11-12T00:31:11.300Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "48e2c1c",
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "bbecfdc2d91ae5b9ea7063e06136dc7e0890e5f7",
+    "last_checkpoint_timestamp": "2026-11-12T00:31:11.300Z",
     "interrupted": false,
     "interrupt_reason": null
   },
