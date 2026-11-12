@@ -115,6 +115,46 @@ describe('packages/skills/verification-setup/SKILL.md', () => {
     }
   });
 
+  describe('§5c Blocking policy topic', () => {
+    const section = () => {
+      const m = parsed.body.match(/^## Blocking policy\s*$([\s\S]*?)(?=^## )/m);
+      return m ? m[1] : '';
+    };
+
+    test('the Topics list names §5c, after §5b and before §6', () => {
+      const topics = parsed.body.slice(parsed.body.indexOf('## Topics'), parsed.body.indexOf('## Coverage floor'));
+      const i5b = topics.indexOf('§5b');
+      const i5c = topics.indexOf('§5c');
+      const i6 = topics.indexOf('§6');
+      expect(i5c).toBeGreaterThan(i5b);
+      expect(i6).toBeGreaterThan(i5c);
+      expect(topics).toMatch(/10\. \*\*§6 Multi-repo/);
+    });
+
+    test('the section offers all criteria first, as the default', () => {
+      const s = section();
+      expect(s).toMatch(/all criteria[^.]*default/i);
+      expect(s.indexOf('all criteria')).toBeLessThan(s.indexOf('must-pass only'));
+    });
+
+    test('the section names both written forms', () => {
+      const s = section();
+      expect(s).toContain('Blocking: all criteria');
+      expect(s).toContain('Blocking: must-pass only');
+    });
+
+    test('the section says it has no effect without a must-pass criterion and that check rows never block', () => {
+      const s = section();
+      expect(s).toMatch(/no effect/i);
+      expect(s).toMatch(/verification-check/);
+    });
+
+    test('the Writing section re-runs read-blocking-policy and treats invalid as the skill\'s defect', () => {
+      const w = parsed.body.slice(parsed.body.indexOf('## Writing'), parsed.body.indexOf('## Never\n'));
+      expect(w).toContain('read-blocking-policy');
+    });
+  });
+
   describe('CLI subcommands the skill tells the model to run', () => {
     // A renamed or removed subcommand would leave the skill instructing a call that fails.
     const CLI_PATH = path.join(SKILL_DIR, '..', '..', 'core', 'lib', 'functional-verification.js');
@@ -124,7 +164,8 @@ describe('packages/skills/verification-setup/SKILL.md', () => {
       'check-verification-unfilled',
       'read-coverage-floor',
       'recommend-coverage-floor',
-      'read-never-unattended'
+      'read-never-unattended',
+      'read-blocking-policy'
     ])(
       '%s is named by the skill and dispatched by functional-verification.js',
       (name) => {

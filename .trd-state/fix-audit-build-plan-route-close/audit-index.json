@@ -1,1 +1,0 @@
-{"requirements":[{"id":"O1","served_by":["FIX-001","FIX-002"]},{"id":"O2","served_by":["FIX-002"]},{"id":"O3","served_by":["FIX-002"]},{"id":"O4","served_by":["FIX-002"]},{"id":"O5","served_by":["FIX-001"]},{"id":"AC-FIX-001","served_by":["FIX-001"]},{"id":"AC-FIX-002","served_by":["FIX-002"]}],"tasks":[{"id":"FIX-001"},{"id":"FIX-002"}]}

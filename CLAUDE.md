@@ -254,7 +254,7 @@ test/
     rubrics/     # Evaluation rubrics (code-quality.md, test-quality.md, error-handling.md)
     results/     # Eval output (gitignored)
 
-.trd-state/      # Implementation tracking (git-tracked)
+.trd-state/      # Implementation tracking (on git refs)
 ```
 
 ---
