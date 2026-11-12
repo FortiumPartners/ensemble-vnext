@@ -312,6 +312,8 @@ function formatCoveragePercent(fraction) {
  *   met: string[],              // NEW (D8) — settled-met membership; the reason can name the ratio
  *   mustPass: string[],         // NEW (D10) — ids of the must-pass criteria; required, `[]` when none
  *   mustPassUncovered: string[],// NEW (D10) — ids of must-pass objectives no criterion covers; required
+ *   settledEvidenceGaps: string[], // NEW (triage D6) — ids settled as evidence gaps; removed from `gaps` and
+ *                               //     `previousGaps` before closed/stall/cap; required, `[]` when none
  *   refreshFailed: boolean,     // NEW (preflight D16) — the last Debug pass's refresh ran and exited
  *                               //     non-zero, and no Setup check consumed that fact; required
  *   total?: number,             // NEW (D8) — the definition's whole criterion count
@@ -323,7 +325,8 @@ function formatCoveragePercent(fraction) {
  *   reason: string, closed: string[]}}
  */
 function decideNext(input) {
-  const { iteration, gaps, unbuilt, previousGaps, met, total } = input;
+  const { iteration, gaps: inputGaps, unbuilt, previousGaps: inputPreviousGaps, met, total } = input;
+  const gaps = inputGaps; // raw list; only `openGaps` drives the decision
 
   // Validate rather than default. Found twice independently by the phase review and the
   // end-of-run review on the 2026-08-19 live smoke run, where an omitted key died with a bare
@@ -362,12 +365,24 @@ function decideNext(input) {
   if (typeof refreshFailed !== 'boolean') {
     throw new TypeError('decideNext: input.refreshFailed is required and must be a boolean (an absent value would read as "the last Debug refresh succeeded" and blame the code for a stale build — D16)');
   }
+  // Required, never defaulted (triage D6): an absent list would silently read as "none settled",
+  // so a settled evidence gap would hold the run to the cap. Checked after `refreshFailed` so
+  // callers that omit several fields still see the earlier field's message.
+  const { settledEvidenceGaps } = input;
+  if (!Array.isArray(settledEvidenceGaps)) {
+    throw new TypeError('decideNext: input.settledEvidenceGaps is required and must be an array (an absent value would read as "no evidence gap is settled" and hold the run to the iteration cap — D6)');
+  }
   const cap = input.cap ?? DEFAULT_CAP;
   const coverageFloor = input.coverageFloor ?? COVERAGE_FLOOR;
 
-  // `closed` is previousGaps \ gaps — computed unconditionally so it is always accurate on
+  // A settled evidence gap is neither a closure (it must not fake progress past the stall rule)
+  // nor an open gap (it must not hold the run to the cap): drop it from both lists up front.
+  const openGaps = gaps.filter((id) => !settledEvidenceGaps.includes(id));
+  const previousGaps = inputPreviousGaps == null ? inputPreviousGaps : inputPreviousGaps.filter((id) => !settledEvidenceGaps.includes(id));
+
+  // `closed` is previousGaps \ openGaps — computed unconditionally so it is always accurate on
   // the returned object, regardless of which branch below fires.
-  const closed = previousGaps == null ? [] : previousGaps.filter((id) => !gaps.includes(id));
+  const closed = previousGaps == null ? [] : previousGaps.filter((id) => !openGaps.includes(id));
 
   // Evaluation order is the specification (D14; preflight D16): unbuilt, satisfied, setup-failure,
   // stalled, stuck, remediate. Unbuilt wins even over a clean gap set,
@@ -382,10 +397,10 @@ function decideNext(input) {
       reason: `${unbuilt.length} criterion/criteria absent (unbuilt), not misbehaving — loop stops rather than debugging missing code`,
       closed,
     };
-  } else if (gaps.length === 0) {
+  } else if (openGaps.length === 0) {
     result = {
       action: 'exit-satisfied',
-      reason: 'no gaps remain — every criterion is met or not verifiable here',
+      reason: 'no gaps remain — every criterion is met, not verifiable here, or settled as an evidence gap',
       closed,
     };
   } else if (refreshFailed) {
@@ -414,13 +429,13 @@ function decideNext(input) {
   } else if (iteration >= cap) {
     result = {
       action: 'exit-stuck',
-      reason: `iteration cap (${cap}) reached with ${gaps.length} gap(s) still open`,
+      reason: `iteration cap (${cap}) reached with ${openGaps.length} gap(s) still open`,
       closed,
     };
   } else {
     result = {
       action: 'remediate',
-      reason: `${gaps.length} gap(s) open — dispatching debug stage`,
+      reason: `${openGaps.length} gap(s) open — dispatching debug stage`,
       closed,
     };
   }
@@ -1058,6 +1073,31 @@ const CAUSES = [
   'environment-unreachable',
   'capability-absent',
 ];
+
+// The three kinds a not-met result falls into (triage D1). Kind is a function of cause: the
+// workflow's own copy of this map is pinned equal to this export by a test, because the script
+// cannot `require` this file. Keys are in `CAUSES` order (a test pins that too).
+const KINDS = ['build-defect', 'evidence-gap', 'not-checkable-here'];
+const KIND_BY_CAUSE = {
+  'evidence-missing': 'evidence-gap',
+  'evidence-stale': 'evidence-gap',
+  'locator-not-found': 'evidence-gap',
+  'never-exercised': 'evidence-gap',
+  'judged-failed': 'build-defect',
+  'not-built': 'build-defect',
+  'environment-unreachable': 'not-checkable-here',
+  'capability-absent': 'not-checkable-here',
+};
+const KIND_LABEL = {
+  'build-defect': 'build defect',
+  'evidence-gap': 'evidence gap',
+  'not-checkable-here': 'not checkable here',
+};
+
+/** @returns {string|null} the kind for a cause, or null when the cause is null or unknown. */
+function kindOf(cause) {
+  return Object.prototype.hasOwnProperty.call(KIND_BY_CAUSE, cause) ? KIND_BY_CAUSE[cause] : null;
+}
 
 // Words a Diagnosis line and the Fix run table render instead of the enum spelling (§3.1:
 // "environment not reachable", not `environment-unreachable`) -- the same fixed small-
@@ -2044,6 +2084,10 @@ module.exports = {
   BUILD_TOKEN,
   VERIFICATION_SECTION_LABELS,
   CAUSES,
+  KINDS,
+  KIND_BY_CAUSE,
+  KIND_LABEL,
+  kindOf,
   DEFAULT_CAP,
   COVERAGE_FLOOR,
   LOCATOR_SCAN_BYTES,
@@ -2110,6 +2154,7 @@ if (require.main === module) {
         '  node functional-verification.js report-publish-plan --report <path> [--published-file <path>]\n' +
         '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
+        '  node functional-verification.js verification-digest <verificationPath>\n' +
         '  node functional-verification.js reproof-retry-set <statePath>\n' +
         '  node functional-verification.js merge-reproof-retry --first <path> --second <path>\n' +
         '  node functional-verification.js recommend-coverage-floor <trdStateDir>\n' +
@@ -2319,6 +2364,17 @@ if (require.main === module) {
           );
         }
       }
+    }
+  } else if (subcommand === 'verification-digest') {
+    // Triage D9: sha256 of the normalised file; "" for an absent file, which never matches.
+    const [digestPath] = rest;
+    if (!digestPath) {
+      usage();
+    } else if (!fs.existsSync(digestPath)) {
+      console.log(JSON.stringify({ digest: '' }));
+    } else {
+      const normalized = normalizeVerificationContent(fs.readFileSync(digestPath, 'utf8'));
+      console.log(JSON.stringify({ digest: crypto.createHash('sha256').update(normalized).digest('hex') }));
     }
   } else if (subcommand === 'read-coverage-floor') {
     const [projectPath] = rest;

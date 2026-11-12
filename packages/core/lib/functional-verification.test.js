@@ -22,6 +22,10 @@ const {
   isEmbeddableImagePath,
   reportPublishPlan,
   CAUSES,
+  KINDS,
+  KIND_BY_CAUSE,
+  KIND_LABEL,
+  kindOf,
   DEFAULT_CAP,
   COVERAGE_FLOOR,
   LOCATOR_SCAN_BYTES,
@@ -409,6 +413,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -425,6 +430,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -439,6 +445,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: ['FS-1'],
     });
@@ -453,6 +460,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -470,6 +478,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -490,6 +499,7 @@ describe('decideNext', () => {
       previousGaps: [],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       cap: 3,
@@ -505,6 +515,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       cap: 3,
@@ -522,6 +533,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       cap: 3,
@@ -539,6 +551,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       cap: 1,
@@ -555,6 +568,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -567,6 +581,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -575,11 +590,11 @@ describe('decideNext', () => {
 
   test('every result includes a non-empty reason string', () => {
     for (const input of [
-      { iteration: 1, gaps: [], unbuilt: ['FS-1'], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
-      { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
-      { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
-      { iteration: 3, gaps: ['FS-1'], unbuilt: [], previousGaps: [], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
-      { iteration: 1, gaps: ['FS-1'], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
+      { iteration: 1, gaps: [], unbuilt: ['FS-1'], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] },
+      { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] },
+      { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] },
+      { iteration: 3, gaps: ['FS-1'], unbuilt: [], previousGaps: [], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] },
+      { iteration: 1, gaps: ['FS-1'], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] },
     ]) {
       const result = decideNext(input);
       expect(typeof result.reason).toBe('string');
@@ -604,6 +619,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: ['FS-1'],
       total: 10,
@@ -624,6 +640,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: ['FS-3'],
       total: 10,
@@ -640,6 +657,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: ['FS-3'],
       total: 10,
@@ -657,6 +675,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       total: 10,
@@ -673,6 +692,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       total: 10,
@@ -689,6 +709,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: ['FS-1'],
       total: 62, // the PRD's own 18% (11 of 62) shape, exaggerated further to 1/62
@@ -705,6 +726,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       total: 10,
@@ -721,6 +743,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: ['FS-1', 'FS-2', 'FS-3', 'FS-4', 'FS-5'],
       total: 10,
@@ -737,6 +760,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       coverageFloor: 0.5,
@@ -753,6 +777,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
       total: 0,
@@ -1169,6 +1194,7 @@ describe('CLI', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
+      settledEvidenceGaps: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -1300,7 +1326,7 @@ describe('CLI', () => {
     const inputFile = path.join(tmpDir, 'decide.json');
     fs.writeFileSync(
       inputFile,
-      JSON.stringify({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false })
+      JSON.stringify({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] })
     );
 
     const stdout = execFileSync('node', [MODULE_PATH, 'decide-next', '--file', inputFile]).toString();
@@ -2960,7 +2986,7 @@ describe('CLI: decide-fix-round and render-fix-summary', () => {
 describe('the existing functional-verification.test.js cases still pass', () => {
   test('sanity: decideNext and renderReport basics are untouched by the VFIX-B001 changes', () => {
     expect(
-      decideNext({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false })
+      decideNext({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] })
     ).toMatchObject({ action: 'exit-satisfied' });
     expect(renderReport({
       feature: 'demo',
@@ -2980,7 +3006,7 @@ describe('the existing functional-verification.test.js cases still pass', () => 
 // ---------------------------------------------------------------------------
 
 describe('decideNext: the must-pass step (D8, D9, D10)', () => {
-  const clean = { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: ['FS-1'], total: 2, refreshFailed: false };
+  const clean = { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: ['FS-1'], total: 2, refreshFailed: false, settledEvidenceGaps: [] };
 
   test('a base exit-satisfied with an unproven must-pass criterion becomes exit-must-pass-unproven', () => {
     const r = decideNext({ ...clean, mustPass: ['FS-2'], mustPassUncovered: [] });
@@ -3003,14 +3029,14 @@ describe('decideNext: the must-pass step (D8, D9, D10)', () => {
   });
 
   test('a must-pass criterion in gaps still remediates / stalls / sticks', () => {
-    const base = { iteration: 1, gaps: ['FS-2'], unbuilt: [], previousGaps: null, met: ['FS-1'], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false };
+    const base = { iteration: 1, gaps: ['FS-2'], unbuilt: [], previousGaps: null, met: ['FS-1'], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] };
     expect(decideNext(base).action).toBe('remediate');
     expect(decideNext({ ...base, iteration: 2, previousGaps: ['FS-2'] }).action).toBe('exit-stalled');
     expect(decideNext({ ...base, iteration: 3 }).action).toBe('exit-stuck');
   });
 
   test('a must-pass criterion in unbuilt still exits unbuilt', () => {
-    const r = decideNext({ iteration: 1, gaps: [], unbuilt: ['FS-2'], previousGaps: null, met: [], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false });
+    const r = decideNext({ iteration: 1, gaps: [], unbuilt: ['FS-2'], previousGaps: null, met: [], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [] });
     expect(r.action).toBe('exit-unbuilt');
   });
 
@@ -3968,7 +3994,7 @@ describe('CLI: decide-setup (§3.1)', () => {
 });
 
 describe('decideNext: the failed-refresh guard (D16, §3.1a)', () => {
-  const open = { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [] };
+  const open = { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [], settledEvidenceGaps: [] };
 
   test('refreshFailed with open gaps and nothing closed returns exit-setup-failure, not exit-stalled', () => {
     const r = decideNext({ ...open, refreshFailed: true });
@@ -4251,5 +4277,89 @@ describe('re-proof retry', () => {
       expect(bad.status).not.toBe(0);
       expect(bad.stderr).toMatch(/--first/);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Triage by kind (TRIAGE-B001): KIND_BY_CAUSE, settledEvidenceGaps, verification-digest
+// ---------------------------------------------------------------------------
+
+describe('KIND_BY_CAUSE (triage D1)', () => {
+  test('its keys equal CAUSES in order and its values are all in KINDS', () => {
+    expect(Object.keys(KIND_BY_CAUSE)).toEqual(CAUSES);
+    for (const kind of Object.values(KIND_BY_CAUSE)) expect(KINDS).toContain(kind);
+  });
+
+  test('every kind has a label, and kindOf maps causes and returns null otherwise', () => {
+    expect(Object.keys(KIND_LABEL).sort()).toEqual([...KINDS].sort());
+    expect(kindOf('judged-failed')).toBe('build-defect');
+    expect(kindOf('never-exercised')).toBe('evidence-gap');
+    expect(kindOf('capability-absent')).toBe('not-checkable-here');
+    expect(kindOf(null)).toBeNull();
+    expect(kindOf('toString')).toBeNull();
+    expect(kindOf('nonsense')).toBeNull();
+  });
+});
+
+describe('decideNext: settledEvidenceGaps (triage D6)', () => {
+  const base = { iteration: 2, unbuilt: [], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false };
+
+  test('throws a TypeError naming the field when absent or not an array', () => {
+    const input = { ...base, gaps: [], previousGaps: null };
+    expect(() => decideNext(input)).toThrow(TypeError);
+    expect(() => decideNext(input)).toThrow(/input\.settledEvidenceGaps is required/);
+    expect(() => decideNext({ ...input, settledEvidenceGaps: 'X' })).toThrow(/settledEvidenceGaps/);
+  });
+
+  test('a settled id is not a closure: [X,B] after [X,B] with X settled still stalls', () => {
+    const r = decideNext({ ...base, gaps: ['X', 'B'], previousGaps: ['X', 'B'], settledEvidenceGaps: ['X'] });
+    expect(r.action).toBe('exit-stalled');
+    expect(r.closed).toEqual([]);
+  });
+
+  test('gaps [X] with X settled exits satisfied', () => {
+    const r = decideNext({ ...base, gaps: ['X'], previousGaps: ['X'], settledEvidenceGaps: ['X'] });
+    expect(r.action).toBe('exit-satisfied');
+  });
+
+  test('the same with X must-pass exits must-pass-unproven', () => {
+    const r = decideNext({ ...base, gaps: ['X'], previousGaps: ['X'], settledEvidenceGaps: ['X'], mustPass: ['X'] });
+    expect(r.action).toBe('exit-must-pass-unproven');
+  });
+
+  test('a settled id does not hold the run to the cap', () => {
+    const r = decideNext({ ...base, iteration: 3, gaps: ['X'], previousGaps: null, settledEvidenceGaps: ['X'] });
+    expect(r.action).toBe('exit-satisfied');
+  });
+});
+
+describe('verification-digest CLI (triage D9)', () => {
+  const digestOf = (p) => JSON.parse(execFileSync('node', [MODULE_PATH, 'verification-digest', p]).toString()).digest;
+  let dir;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vdigest-')); });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+
+  test('is stable across CRLF/LF and surrounding whitespace', () => {
+    const a = path.join(dir, 'a.md');
+    const b = path.join(dir, 'b.md');
+    fs.writeFileSync(a, '# V\nline two\n');
+    fs.writeFileSync(b, '\n# V\r\nline two\r\n\n');
+    expect(digestOf(a)).toMatch(/^[0-9a-f]{64}$/);
+    expect(digestOf(a)).toBe(digestOf(b));
+  });
+
+  test('differs when content changes', () => {
+    const a = path.join(dir, 'a.md');
+    const b = path.join(dir, 'b.md');
+    fs.writeFileSync(a, 'one');
+    fs.writeFileSync(b, 'two');
+    expect(digestOf(a)).not.toBe(digestOf(b));
+  });
+
+  test('is "" for an absent file, and a missing path argument prints usage and fails', () => {
+    expect(digestOf(path.join(dir, 'nope.md'))).toBe('');
+    const bad = spawnSync('node', [MODULE_PATH, 'verification-digest']);
+    expect(bad.status).not.toBe(0);
+    expect(bad.stderr.toString()).toMatch(/verification-digest/);
   });
 });

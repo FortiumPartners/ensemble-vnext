@@ -358,7 +358,7 @@ The judge assigns exactly one of four statuses to each criterion:
 | Status | Means | Ever a gap? |
 |---|---|---|
 | `met` | The evidence, having passed the deterministic gate, actually shows the criterion is satisfied | No |
-| `not_met` | The capability exists and was exercised, but the evidence shows it does not do what the criterion requires | **Yes** — handed to the debugger |
+| `not_met` | The capability exists and was exercised, but the evidence shows it does not do what the criterion requires | **Only when its kind is `build-defect`** — only `build-defect` gaps are handed to the debugger (see the cause vocabulary below) |
 | `not_verifiable` | The project has no way to exercise this criterion — no harness matches its stack, or nothing in the project's own docs authorizes a target | No — this is not a gap and is never handed to the debugger |
 | `unbuilt` | The capability the criterion names is **absent**, not misbehaving — there is nothing here to debug, only something to build | No — this is not a gap in the debugger's sense; it ends the loop |
 
@@ -392,16 +392,16 @@ gap is worth building against or is just the capture step misbehaving. So alongs
 status, the judge assigns every criterion that is not `met` exactly one **cause**, from this
 fixed set (never invented, never a free-text substitute):
 
-| Cause | Assigned when | Buildable |
-|---|---|---|
-| `evidence-missing` | Tier 1 failed with `missing`, `empty`, `not-a-file` or `no-artifact`, and nothing seen shows the build misbehaving | No |
-| `evidence-stale` | Tier 1 failed with `stale`, including a reuse rejected because a covered file changed | No |
-| `locator-not-found` | Tier 1 failed with `no-locator` or `locator-not-found` | No |
-| `never-exercised` | No claim reached the judge for this criterion | No |
-| `judged-failed` | The build was reached and did the wrong thing, **including crashing or erroring during capture**; also a check row the judge ruled `deviates` | Yes |
-| `not-built` | Status is `unbuilt`, or a check row is `not_met` with reason `not built` | Yes |
-| `environment-unreachable` | `not_verifiable` because the needed environment is undeclared, unusable, or "must not be touched" (`verification.md` §1) | No — never promoted |
-| `capability-absent` | `not_verifiable` because tooling or a capability the criterion needs is absent (`verification.md` §4/§5) | No — never promoted |
+| Cause | Kind | Assigned when | Buildable |
+|---|---|---|---|
+| `evidence-missing` | `evidence-gap` | Tier 1 failed with `missing`, `empty`, `not-a-file` or `no-artifact`, and nothing seen shows the build misbehaving | No |
+| `evidence-stale` | `evidence-gap` | Tier 1 failed with `stale`, including a reuse rejected because a covered file changed | No |
+| `locator-not-found` | `evidence-gap` | Tier 1 failed with `no-locator` or `locator-not-found` | No |
+| `never-exercised` | `evidence-gap` | No claim reached the judge for this criterion | No |
+| `judged-failed` | `build-defect` | The build was reached and did the wrong thing, **including crashing or erroring during capture**; also a check row the judge ruled `deviates` | Yes |
+| `not-built` | `build-defect` | Status is `unbuilt`, or a check row is `not_met` with reason `not built` | Yes |
+| `environment-unreachable` | `not-checkable-here` | `not_verifiable` because the needed environment is undeclared, unusable, or "must not be touched" (`verification.md` §1) | No — never promoted |
+| `capability-absent` | `not-checkable-here` | `not_verifiable` because tooling or a capability the criterion needs is absent (`verification.md` §4/§5) | No — never promoted |
 
 `met` criteria always carry `cause: null`. A report input carrying no `cause` for a non-`met`
 criterion (an older input, from before this vocabulary existed) is counted as `unrecorded`,
@@ -419,16 +419,30 @@ next round"; the debugger would never see it. Only assign a mechanics cause
 observed suggests the build did anything wrong — the capture apparatus is what fell short,
 not the system under test.
 
-**Buildable is a property of the cause, not a judgment call made per criterion.** `judged-failed`
-and `not-built` are the two causes a later `--fix` round may turn into a task; the other six
+**Kind and Buildable are the same partition, and kind is the one that routes.** Kind is a
+function of the cause, as the table gives it, and `Buildable` is `Yes` exactly for kind
+`build-defect`. The kinds mean: `build-defect` is code to fix; `evidence-gap` is a capture
+that did not produce usable evidence, not a defect in the build; `not-checkable-here` is a
+criterion this environment cannot check at all. Alongside `cause` the judge returns `kind`,
+and the script uses the cause-derived kind when the two disagree. `judged-failed` and
+`not-built` are the two causes a later `--fix` round may turn into a task; the other six
 are re-verified next round (or, for the two `not_verifiable` causes, never promoted at all) —
 see D4 for why a mechanics failure never mints a task no implementer could act on.
+
+**One re-capture, then settled.** An `evidence-gap` criterion is re-captured exactly once per
+invocation: the next Exercise pass is told to capture it again. If the judge still rules it an
+`evidence-gap` after that re-capture, the criterion is settled as `not_met` with
+`settled: 'definition-problem'`. It means the criterion asks for evidence this build does not
+produce, so the fix is to change the criterion or the build's outputs, not to debug. A settled
+definition problem is never handed to the debugger and is not walked again in that invocation.
+A re-capture that did not actually happen (Exercise skipped, a dead slice, a claim the script
+synthesised) does not count and is not settled as one.
 
 ---
 
 ## The debugger's brief
 
-**Given:** every `not_met` gap — its criterion id, functional statement, the judge's stated
+**Given:** every `not_met` gap of kind `build-defect` (only `build-defect` gaps are handed to the debugger) — its criterion id, functional statement, the judge's stated
 reason, the evidence artifact path, and the implicated source files — plus the verifier's
 notes and the stack hints.
 

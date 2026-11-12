@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { KIND_BY_CAUSE } = require('../lib/functional-verification');
 
 const CORE_PATH = path.join(__dirname, 'functional-verification.md');
 const MIRROR_PATH = path.join(__dirname, '..', '..', '..', '.claude', 'contracts', 'functional-verification.md');
@@ -69,6 +70,22 @@ describe('functional-verification contract', () => {
     expect(coreText).toMatch(/`met` criteria always carry `cause: null`/);
     expect(coreText).toMatch(/A crash or error seen during capture is `judged-failed`, not `evidence-missing`/);
     expect(coreText).toMatch(/including crashing or erroring during capture/);
+  });
+
+  test('the cause table has a Kind column and every cause row names the kind KIND_BY_CAUSE gives it (D17)', () => {
+    const section = coreText.split('## The cause vocabulary (D3, §3.1)')[1].split('\n---\n')[0];
+    expect(section).toMatch(/\| Cause \| Kind \|/);
+    for (const [cause, kind] of Object.entries(KIND_BY_CAUSE)) {
+      const row = section.split('\n').find((l) => l.startsWith(`| \`${cause}\` |`));
+      expect(row).toBeDefined();
+      expect(row.split('|')[2].trim()).toBe(`\`${kind}\``);
+    }
+  });
+
+  test('states the one-re-capture rule and what settled: definition-problem means (D17)', () => {
+    expect(coreText).toMatch(/re-captured exactly once/);
+    expect(coreText).toMatch(/`settled: 'definition-problem'`/);
+    expect(coreText).toMatch(/only `build-defect` gaps are handed to the debugger/);
   });
 
   test("states the debugger's brief: fix in place, do not re-verify, do not implement absent capability", () => {

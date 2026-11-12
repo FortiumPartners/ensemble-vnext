@@ -883,7 +883,7 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   Reader: `node .claude/lib/spec-scope.js objectives --trd <trd>`.
 - [ran] No server is needed. `node .claude/lib/functional-verification.js` subcommands `decide-next`,
   `render-report` and `must-pass-coverage --trd <trd> --definition <def>` exercise every criterion;
-  `decide-next` requires `mustPass` and `mustPassUncovered` arrays and `coverageFloor` as a fraction (0.6).
+  `decide-next` requires `mustPass`, `mustPassUncovered` and `settledEvidenceGaps` arrays and `coverageFloor` as a fraction (0.6).
 
 ## Exercising docs-audit-assemble skip logic (audit-docs-moved-trd-skip, 2026-10-06, iteration 1)
 

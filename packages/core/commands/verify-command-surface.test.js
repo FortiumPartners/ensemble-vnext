@@ -954,7 +954,7 @@ describe('[LIVE] tasks feed the verification loop (verification-reuses-evidence)
   test('the contract names the reuse path in the freshness bullet and the evidence-stale row', () => {
     const c = flat(read(CORE_CONTRACT));
     expect(c).toMatch(/unless it qualifies for reuse/);
-    expect(c).toMatch(/\| `evidence-stale` \|[^|]*reuse[^|]*\|/);
+    expect(c).toMatch(/\| `evidence-stale` \| `evidence-gap` \|[^|]*reuse[^|]*\|/);
   });
 
   test.each([
