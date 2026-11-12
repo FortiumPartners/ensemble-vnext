@@ -387,6 +387,12 @@ that column for those and leave it blank for the rest. Mark sparingly: a plan th
 everything marks nothing. A TRD with none marked is valid, and verification then behaves as it
 does today.
 
+Mark an objective `yes` when its failure would break a main user flow, leave data lost or
+corrupted, expose private data, or charge money or AI spend wrongly. The mark is what decides
+blocking when the owner sets `Blocking: must-pass only` in `verification.md`: a failing
+criterion that proves a marked objective blocks, and any other failure is listed and filed as
+a follow-up.
+
 ## Reproduction | ## Intended Change | ## Behaviour Preserved
 <whichever the kind calls for — Step 2's findings, not a summary of them>
 
@@ -575,6 +581,12 @@ parse with `trd-parser.js` and run through `/implement-trd` unmodified.
 that column for those and leave it blank for the rest. Mark sparingly: a plan that marks
 everything marks nothing. A TRD with none marked is valid, and verification then behaves as it
 does today.
+
+Mark an objective `yes` when its failure would break a main user flow, leave data lost or
+corrupted, expose private data, or charge money or AI spend wrongly. The mark is what decides
+blocking when the owner sets `Blocking: must-pass only` in `verification.md`: a failing
+criterion that proves a marked objective blocks, and any other failure is listed and filed as
+a follow-up.
 
 **State the objective the DEFECT implies, not the one the fix happens to satisfy.** Live run:
 the reproduction correctly said the failure was *"silent in effect — the nudge never reaches
@@ -825,6 +837,12 @@ The same §3.4 format as the `route:'prd'` record above, with `**Weight**: mediu
 that column for those and leave it blank for the rest. Mark sparingly: a plan that marks
 everything marks nothing. A TRD with none marked is valid, and verification then behaves as it
 does today.
+
+Mark an objective `yes` when its failure would break a main user flow, leave data lost or
+corrupted, expose private data, or charge money or AI spend wrongly. The mark is what decides
+blocking when the owner sets `Blocking: must-pass only` in `verification.md`: a failing
+criterion that proves a marked objective blocks, and any other failure is listed and filed as
+a follow-up.
 
 ## Reproduction | ## Intended Change | ## Behaviour Preserved
 <whichever the kind calls for>

@@ -260,14 +260,14 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 30 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
-  test('implement-trd.md §8.3 lists 30 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered/verificationDigest/preclassified/offHostProofs, with setupTargets after coverageFloor', () => {
+describe('both dispatch blocks carry the same 31 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
+  test('implement-trd.md §8.3 lists 31 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered/verificationDigest/preclassified/offHostProofs/blocking, with setupTargets after coverageFloor', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(30);
+    expect(fields).toHaveLength(31);
     expect(fields.indexOf('criterionCovers')).toBe(fields.indexOf('liveEvidence') + 1);
     expect(fields.indexOf('setupTargets')).toBe(fields.indexOf('coverageFloor') + 1);
-    expect(fields.slice(-8)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered', 'verificationDigest', 'preclassified', 'offHostProofs']);
+    expect(fields.slice(-9)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered', 'verificationDigest', 'preclassified', 'offHostProofs', 'blocking']);
   });
 
   test('implement-trd.md §8.3 names the derive-criteria command, the sweep-file {} and the failure fallback (REGR-B006)', () => {
@@ -299,14 +299,15 @@ describe('both dispatch blocks carry the same 30 fields in the same order (VSET-
     expect(t).toMatch(/`offHostProofs` is recomputed with `--ids <retry set>`/);
   });
 
-  test('verify-build.md §4 lists the identical 30 fields in the identical order', () => {
+  test('verify-build.md §4 lists the identical 31 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 30 fields, not 29, 28, 26, 25, 23, 22, 21 or 18', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 30 fields/);
+  test('verify-build.md §4 intro says 31 fields, not 30, 29, 28, 26, 25, 23, 22, 21 or 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 31 fields/);
+    expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 30 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 29 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 28 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 26 fields/);
@@ -403,7 +404,7 @@ describe('implement-trd.md §8.1b appends check criteria in the right place, doi
   });
 
   test('§8.4 carries `pages` from the workflow return', () => {
-    expect(src()).toMatch(/pages(, setup)?\s*\}/);
+    expect(src()).toMatch(/pages(, setup)?(, nonBlocking)?\s*\}/);
     expect(flat(src())).toMatch(/Carry `pages`/);
   });
 
@@ -1084,6 +1085,36 @@ describe('Must pass column on the TRD authoring surfaces (verification-must-pass
     expect(plan.split(HEADER).length - 1).toBe(3);
     expect(plan).not.toMatch(/\| ID \| Objective \| Source \|\n/);
     expect(flat(plan).split('without which the feature does not exist').length - 1).toBe(3);
+  });
+
+  test('every authoring surface carries the test for marking must-pass (block-only-on-material-failures FIX-007)', () => {
+    const surfaces = {
+      contract: contract.split('### Section 1a: Objectives')[1].split('### Section 2:')[0],
+      createTrd: read(path.join(REPO, 'packages/core/commands/create-trd.md')),
+    };
+    const planMarks = plan.split('**Must pass** marks the objectives');
+    expect(planMarks.length - 1).toBe(3);
+    planMarks.slice(1).forEach((chunk, i) => {
+      surfaces[`plan template ${i + 1}`] = chunk.split('\n\n')[0] + '\n\n' + chunk.split('\n\n')[1];
+    });
+    for (const text of Object.values(surfaces)) {
+      const t = flat(text);
+      expect(t).toContain('main user flow');
+      expect(t).toContain('lost or corrupted');
+      expect(t).toContain('private data');
+      expect(t).toContain('AI spend');
+      expect(t).toContain('Blocking: must-pass only');
+    }
+  });
+
+  test('the contract Must pass section states the test and that no stage applies it to a failure', () => {
+    const fv = read(path.join(REPO, 'packages/core/contracts/functional-verification.md'));
+    const section = flat(fv.split('## Must pass')[1].split('\n---\n')[0]);
+    for (const part of ['main user flow', 'lost or corrupted', 'private data', 'AI spend']) {
+      expect(section).toContain(part);
+    }
+    expect(section).toMatch(/[Nn]either the Judge nor the exerciser applies/);
+    expect(flat(fv)).toMatch(/non-blocking failures/);
   });
 
   test('Step 6a says render-objectives keeps existing marks', () => {
@@ -2105,7 +2136,7 @@ describe('implement-trd.md verification-preflight surface (VPRE-B005)', () => {
   test('§8.3 passes setupTargets and §8.4 carries setup', () => {
     expect(src()).toMatch(/\n\s+setupTargets,\s+\/\/ §8\.1a step 7/);
     const s84 = src().split('### 8.4 Render the outcome')[1].split('### 8.5')[0];
-    expect(s84).toMatch(/pages, setup \}/);
+    expect(s84).toMatch(/pages, setup, nonBlocking \}/);
     expect(flat(s84)).toMatch(/\*\*Carry `setup`\*\*/);
   });
 
@@ -2544,5 +2575,73 @@ describe('trd-authoring.md documents the Off-host proof column (OHP-B003, D1, D6
     expect(t()).toMatch(/on must-pass objectives only/);
     expect(t()).toMatch(/every\*\* must-pass objective its `Must pass` cell names carries the same job/);
     expect(t()).toMatch(/Only the TRD's author, or the owner through `\/refine-verification`, writes it/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Blocking policy (block-only-on-material-failures FIX-005): both commands read the owner's
+// policy, stop on an invalid line, pass `blocking` last, and write the follow-up rows.
+// ---------------------------------------------------------------------------
+
+describe('blocking policy wiring in implement-trd.md and verify-build.md', () => {
+  const impl = () => flat(read(CORE_IMPLEMENT));
+  const vb = () => flat(read(CORE_VERIFY_BUILD));
+  const POLICY_CMD = 'node .claude/lib/functional-verification.js read-blocking-policy "$(node .claude/lib/owner-rules.js path verification.md)"';
+
+  test('both commands run read-blocking-policy through owner-rules.js path verification.md', () => {
+    expect(impl()).toContain(POLICY_CMD);
+    expect(vb()).toContain('read-blocking-policy');
+    expect(vb()).toContain('owner-rules.js path verification.md');
+  });
+
+  test('implement-trd.md §8.1a stops dispatch on an invalid policy, naming the raw line and /verification-setup', () => {
+    const t = impl();
+    expect(t).toMatch(/status: 'invalid'[^.]*workflow is not dispatched/);
+    expect(t).toContain('verification.md\'s blocking policy does not parse');
+    expect(t).toMatch(/fix it with `\/verification-setup`/);
+  });
+
+  test('verify-build.md 3c stops with COMMAND STUCK on an invalid policy, naming the raw line, Next /verification-setup', () => {
+    const t = vb();
+    expect(t).toMatch(/`status: 'invalid'` the run ends `═══ COMMAND STUCK: \/verify-build ═══`/);
+    expect(t).toMatch(/`Reason:` naming the raw line/);
+    expect(t).toMatch(/`Next:` `\/verification-setup`/);
+  });
+
+  test('both args blocks end offHostProofs, blocking', () => {
+    for (const p of [CORE_IMPLEMENT, CORE_VERIFY_BUILD]) {
+      const f = extractDispatchFields(read(p));
+      expect(f.slice(-2)).toEqual(['offHostProofs', 'blocking']);
+    }
+  });
+
+  test('the field-count prose says 31 in verify-build.md', () => {
+    const t = vb();
+    expect(t).toMatch(/the list is the 31 fields, `blocking` last/);
+    expect(t).toMatch(/with the same 31 fields except/);
+    expect(t).not.toMatch(/the 30 fields|same 30 fields/);
+  });
+
+  test('both commands run record-nonblocking beside record-criteria', () => {
+    for (const t of [impl(), vb()]) {
+      expect(t).toContain('functional-verification.js record-nonblocking --state-dir <state-dir> --file');
+      expect(t).toMatch(/`nonBlocking`/);
+    }
+    expect(vb()).toMatch(/after each workflow return/);
+  });
+
+  test('both readouts name nonBlocking', () => {
+    expect(impl().split('{if `nonBlocking` is non-empty: "Not blocking')[1]).toBeDefined();
+    expect(vb().split('## Readout')[1]).toMatch(/nonBlocking/);
+  });
+
+  test('verify-build.md fix-round step 2 never records nor counts a nonBlocking id', () => {
+    const t = vb();
+    expect(t).toMatch(/every id in the latest state's `nonBlocking`[^.]*never recorded as a failing row[^.]*nor counted[^.]*`buildableOpen`/);
+  });
+
+  test('.claude copies stay identical', () => {
+    expect(read(CLAUDE_IMPLEMENT)).toBe(read(CORE_IMPLEMENT));
+    expect(read(CLAUDE_VERIFY_BUILD)).toBe(read(CORE_VERIFY_BUILD));
   });
 });

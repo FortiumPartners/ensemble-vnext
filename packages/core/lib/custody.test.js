@@ -1294,6 +1294,29 @@ describe('reconcile: base, head and set-only', () => {
     expect(r).toMatchObject({ action: 'reverify', ids: ['FS-1'], reused: ['FS-2'] });
   });
 
+  test('a non-must-pass criterion recorded not_met (a non-blocking follow-up) never enters reverify ids', () => {
+    const s = anchored();
+    // O2 is not marked must-pass, so FS-2 (which names it) is outside the custody set.
+    fs.writeFileSync(path.join(s.repo, TRD), TRD_TEXT.replace('| O1 | first | yes |', '| O1 | first | yes |\n| O2 | second | no |'));
+    git(s.repo, 'add', '-A');
+    git(s.repo, 'commit', '-m', 'trd');
+    fs.writeFileSync(path.join(s.stateDir, 'success-definition.md'), DEFINITION.replace(/\n$/, '\n| FS-2 | b | c | e | [read] | locator | | O2 |\n'));
+    fs.mkdirSync(path.join(s.stateDir, 'evidence'), { recursive: true });
+    const proof = path.join(s.stateDir, 'evidence', 'FS-1.txt');
+    fs.writeFileSync(proof, 'proof');
+    liveEvidence.record(s.stateDir, { task: 'T', artifact: proof, covers: [path.join(s.repo, 'src/a.js')] });
+    fs.writeFileSync(
+      path.join(s.stateDir, 'verification-state.json'),
+      JSON.stringify({ outcome: 'satisfied', criteria: [{ id: 'FS-1', status: 'met', artifact: proof }, { id: 'FS-2', status: 'not_met', artifact: null }] })
+    );
+    landOnBase(s, { 'src/a.js': 'a-base' });
+    mergeBase(s);
+    const r = reconcile(s.args({ base: 'origin/main' }));
+    expect(r).toMatchObject({ action: 'reverify', ids: ['FS-1'] });
+    expect(r.ids).not.toContain('FS-2');
+    expect(r.reused).not.toContain('FS-2');
+  });
+
   test('a feature-side shipped change still re-verifies a no-covers criterion (OQ-2 unchanged)', () => {
     const s = anchored();
     withDefinition(s, null);

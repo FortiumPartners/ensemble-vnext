@@ -63,7 +63,8 @@ way the file does rather than jumping around:
    limit rather than a silent pass.
 7. **§5a Coverage floor** — see Coverage floor, below.
 8. **§5b Never unattended** — see Never unattended, below.
-9. **§6 Multi-repo** — only when the system spans more than one repository.
+9. **§5c Blocking policy** — see Blocking policy, below.
+10. **§6 Multi-repo** — only when the system spans more than one repository.
 
 Each call offers, in this order: the detected value (marked as detected, with its source),
 then the file's current value where it differs from the detection, then "keep". An answer of
@@ -119,6 +120,23 @@ two forms `readNeverUnattended` parses: one `- <fragment>` bullet per path, or a
 `Paths: none` line — never both in the same file, and never a bullet or a `Paths:` value left
 empty.
 
+## Blocking policy
+
+§5c says which open failures stop a verification run from reporting satisfied.
+
+The question itself states, in one sentence before asking: "Blocking policy decides which
+failed criteria stop a run from reporting satisfied: `all criteria` means any failure blocks,
+and `must-pass only` means only a failure on a criterion marked must-pass blocks, while any
+other failure is recorded as a follow-up; it has no effect on work with no must-pass
+criterion, and verification-check rows never carry a must-pass mark, so they never block
+under must-pass only." It is asked in one `AskUserQuestion` call that offers `all criteria`
+first, as the default (and the value an absent section means), then `must-pass only`, then
+"keep".
+
+Any answer is accepted, but it is written as exactly one line in one of the two forms
+`read-blocking-policy` parses: `Blocking: all criteria` or `Blocking: must-pass only` —
+never both, and never any other wording.
+
 ## Writing
 
 Once every topic has an answer (an explicit value, "keep", or an owner-only default), the
@@ -126,9 +144,10 @@ whole file is written at once, in the current shape. There is no preview step an
 confirmation — invoking this skill was the approval. A section the interview did not change
 keeps its owner-authored content verbatim.
 
-After writing, the skill re-runs `check-verification-unfilled`, `read-coverage-floor`, and
-`read-never-unattended` against the file it just wrote. A non-empty `missingSections`, a
-floor that reads `invalid`, or a never-unattended list that reads `invalid`, is the skill's
+After writing, the skill re-runs `check-verification-unfilled`, `read-coverage-floor`,
+`read-never-unattended`, and `read-blocking-policy` against the file it just wrote. A
+non-empty `missingSections`, a floor that reads `invalid`, a never-unattended list that
+reads `invalid`, or a blocking policy that reads `invalid`, is the skill's
 own defect — report it in ISSUES rather than silently shipping a file the next check would
 flag.
 

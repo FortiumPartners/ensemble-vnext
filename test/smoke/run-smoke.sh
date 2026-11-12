@@ -141,6 +141,11 @@ declare -A SCENARIO_TIMEOUT=(
     # scenario is 1800s; this cap covers that plus one scaffold and the derive check. Raise both
     # together (REGR-T001).
     [verify-regression-pass]=2400
+    # verify-blocking-policy runs ONE live `/verify-build` on a pre-seeded two-criterion
+    # definition (no derive agent) under `Blocking: must-pass only`: up to 3 iterations with
+    # Debug plus the closing steps. TIMEOUT_RUN in the scenario is 1500s; this cap covers that
+    # plus one scaffold. Raise both together.
+    [verify-blocking-policy]=1800
     # close-feature: five model calls -- three `/close-feature`, one
     # `/implement-trd --resume` and one `/amend`, the last two stopping at the
     # closed-feature guard -- across two throwaway projects. The command only
@@ -194,7 +199,7 @@ ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts)
 # appeared") — output QUALITY is test/evals/'s job, deliberately deferred (see
 # test/smoke/README.md). Run explicitly by name, or pass --with-llm to add
 # the whole set to whatever's already selected.
-LLM_OPT_IN_SCENARIOS=(implement-one-task prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker plan-light-fix plan-decoy-root-cause plan-medium-weight verification-artifacts verify-fix verification-md-setup verify-triage-kinds verify-inner-loop-causes verify-regression-pass close-feature)
+LLM_OPT_IN_SCENARIOS=(implement-one-task prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker plan-light-fix plan-decoy-root-cause plan-medium-weight verification-artifacts verify-fix verification-md-setup verify-triage-kinds verify-inner-loop-causes verify-regression-pass verify-blocking-policy close-feature)
 
 WITH_LLM=false
 EXPLICIT_NAMES=()

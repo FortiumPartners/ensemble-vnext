@@ -146,6 +146,12 @@ that column for those and leave it blank for the rest. Mark sparingly: a plan th
 everything marks nothing. A TRD with none marked is valid, and verification then behaves as it
 does today.
 
+Mark an objective `yes` when its failure would break a main user flow, leave data lost or
+corrupted, expose private data, or charge money or AI spend wrongly. The mark is what decides
+blocking when the owner sets `Blocking: must-pass only` in `verification.md`: a failing
+criterion that proves a marked objective blocks, and any other failure is listed and filed as
+a follow-up.
+
 **Off-host proof** is an optional fifth column, found by header name at any position (hyphens and
 underscores read as spaces). It is only for a must-pass objective whose proof lives in CI rather
 than on the verifying host. A cell names one CI job as `<workflow file>#<job name>`, for example

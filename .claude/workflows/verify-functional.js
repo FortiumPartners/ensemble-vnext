@@ -83,6 +83,16 @@ const FLOOR = a.coverageFloor === undefined ? null : a.coverageFloor
 if (FLOOR !== null && !(typeof FLOOR === 'number' && Number.isFinite(FLOOR) && FLOOR >= 0 && FLOOR <= 1)) {
   throw new Error('verify-functional: args.coverageFloor must be null or a number in [0, 1] (a fraction, not a percentage)')
 }
+// NEW (block-only-on-material-failures). The owner's blocking policy from verification.md, handed in
+// by the command: 'all' (the default, today's behaviour) or 'must-pass' (only a failing must-pass
+// criterion blocks; the rest are returned as `nonBlocking` follow-ups). Unlike FLOOR, an invalid value
+// stops the run rather than defaulting: either default would silently misread a policy the owner set.
+// It is applied only by applyBlockingPolicy below -- never put in the Judge's decide-next payload, so a
+// model cannot reach `satisfied` with gaps open by misapplying a lenient policy.
+const BLOCKING = a.blocking === undefined || a.blocking === null ? 'all' : a.blocking
+if (BLOCKING !== 'all' && BLOCKING !== 'must-pass') {
+  throw new Error(`verify-functional: args.blocking must be 'all' or 'must-pass' when supplied, got ${JSON.stringify(a.blocking)}`)
+}
 // NEW (verification-reuses-evidence). Evidence a `[LIVE]` task captured earlier in the build and
 // recorded in live-manifest.jsonl, handed in by the command (`live-evidence.js read`). It is the
 // ONLY source of a claim's `covers`: reconcileClaims attaches them by artifact path, so the
@@ -140,6 +150,10 @@ const MUST_PASS_IDS = (() => {
   }
   return raw
 })()
+// NEW (block-only-on-material-failures). 'must-pass' bites only when something marks a failure
+// material: with no must-pass criterion the policy is inert (a sweep file, or a feature with none marked,
+// behaves as it always did).
+const BLOCKING_ACTIVE = BLOCKING === 'must-pass' && MUST_PASS_IDS.length > 0
 const MUST_PASS_UNCOVERED = (() => {
   const raw = a.mustPassUncovered
   if (raw === undefined || raw === null) return []
@@ -1699,6 +1713,7 @@ function buildFinalResult(judgeResult, iterations, debugAttempts, exercisedLabel
     finalRun: computeFinalRun(judgeResult), // NEW (D14)
     pages: pages || [], // NEW (D8; §3.6) -- the last Render per check skill; [] when no check criteria
     mustPass: mustPassSummary(criteria, mustPassOverridden), // NEW (verification-must-pass D11)
+    nonBlocking: nonBlockingOf(judgeResult, settled), // NEW (block-only-on-material-failures) -- [] unless a 'must-pass' policy let failures through
     regression: regressionRecord, // NEW (regression pass D13) -- null when no pass ran
     // NEW (preflight D10). A Judge exit on a failed refresh carries its one problem here; every
     // other exit carries whatever the Setup check accumulated (problems only on a setup failure).
@@ -1735,6 +1750,12 @@ function mustPassSummary(criteria, overridden) {
   }
 }
 
+// An open failure: `not_met` and not a settled definition problem or an unchecked regression capture
+// (both are `not_met` by status but are not open gaps). Shared by mustPassCheckState and openFailuresOf.
+function isOpenNotMet(c) {
+  return c.status === 'not_met' && c.settled !== 'definition-problem' && c.settled !== 'regression-unchecked'
+}
+
 // NEW (off-host proof D8). The checks applyMustPassRecheck makes, over the criteria as they now stand
 // (settled entries, this iteration's returns and the carried open ones), in one place so the off-host
 // upgrade below repeats exactly the same ones and the two cannot drift. `blocked` is a `not_met` that is
@@ -1744,12 +1765,79 @@ function mustPassCheckState(judgeResult, settled) {
   // A settled evidence gap (D5), or a capture the regression pass could not make (regression pass
   // D10), is `not_met` by status but is not an open gap: it is treated like `not_verifiable`, so a
   // must-pass one falls through to the unproven check (D7).
-  const blocked = criteria.some((c) => (c.status === 'not_met' && c.settled !== 'definition-problem' && c.settled !== 'regression-unchecked') || c.status === 'unbuilt')
+  // Under an active 'must-pass' policy (block-only-on-material-failures) a failure outside the must-pass
+  // set does not block; under 'all' the extra clause is always true, so this is today's expression.
+  const blocked = criteria.some((c) => (isOpenNotMet(c) && (!BLOCKING_ACTIVE || MUST_PASS_IDS.includes(c.id))) || c.status === 'unbuilt')
   const unproven = mustPassSummary(criteria, false).unproven.map((u) => u.id)
   const uncoveredIds = MUST_PASS_UNCOVERED.map((o) => o.id)
   const coverage = coverageOf(criteria)
   const floorMissed = FLOOR !== null && N > 0 && coverage.proven / N < FLOOR
   return { criteria, blocked, unproven, uncoveredIds, coverage, floorMissed }
+}
+
+// Same wording as decideNext's re-label (D19): the floor as a percentage, never a bare fraction.
+function belowFloorText(coverage) {
+  const pct = ((coverage.proven / N) * 100).toFixed(1)
+  const floorPct = `${Number((FLOOR * 100).toFixed(2))}%`
+  return `proven ratio ${coverage.proven}/${N} (${pct}%) is below the coverage floor ${floorPct} — ${N - coverage.proven} criterion/criteria uncovered`
+}
+
+// NEW (block-only-on-material-failures). The open failures of an exit's criteria, split as the blocking
+// policy needs them: `open` are the open `not_met` ids (a settled definition problem or an unchecked
+// regression capture is not a gap), `unbuilt` the never-built ones.
+function openFailuresOf(judgeResult, settled) {
+  const { criteria } = mustPassCheckState(judgeResult, settled)
+  const open = criteria.filter(isOpenNotMet).map((c) => c.id)
+  for (const id of judgeResult.gaps || []) if (!settled.has(id) && !open.includes(id)) open.push(id)
+  const unbuilt = [...new Set([...criteria.filter((c) => c.status === 'unbuilt').map((c) => c.id), ...(judgeResult.unbuilt || [])])]
+  return { criteria, open, unbuilt }
+}
+
+// NEW (block-only-on-material-failures). The script's own, deterministic application of the blocking
+// policy, once the inner loop and the regression pass are done (the library's decideNext holds the same
+// rule as its specification; the Judge is never handed the policy). Two moves:
+//   (a) under EITHER policy, a `satisfied` exit that carries an open failing must-pass criterion, or any
+//       unbuilt one, becomes `exit-stuck` naming them: applyMustPassRecheck trusts decide-next could not
+//       have said satisfied there, and this is the backstop. It only blocks. An `insufficient-coverage`
+//       exit is left alone: decide-next legitimately re-labels a stalled or stuck base (open gaps,
+//       must-pass ones included) to it when the floor is missed, it is already a blocking outcome, and
+//       the floor's precedence (D9) says a run below the floor reports it.
+//   (b) under an active 'must-pass' policy, a `stalled` / `stuck` exit whose open failures are all outside
+//       the must-pass set (and none unbuilt: missing work is `/implement-trd --reconcile`'s, not a
+//       follow-up) becomes `satisfied`, or `insufficient-coverage` when the floor is missed. `remediate` is
+//       never converted. The must-pass recheck then runs as usual (recheckAndReconcile).
+// Returns the same object when nothing changes.
+function applyBlockingPolicy(judgeResult, settled) {
+  const action = judgeResult.action
+  const { criteria, open, unbuilt } = openFailuresOf(judgeResult, settled)
+  if (action === 'exit-satisfied') {
+    const openMust = open.filter((id) => MUST_PASS_IDS.includes(id))
+    if (openMust.length === 0 && unbuilt.length === 0) return judgeResult
+    const named = [openMust.length > 0 ? `must-pass criteria failing: ${openMust.join(', ')}` : null, unbuilt.length > 0 ? `criteria unbuilt: ${unbuilt.join(', ')}` : null]
+      .filter(Boolean)
+      .join('; ')
+    return { ...judgeResult, action: 'exit-stuck', reason: `${named} — the exit cannot stand as ${OUTCOME_BY_ACTION[action]}; base cause: ${judgeResult.reason || 'none given'}` }
+  }
+  if (!BLOCKING_ACTIVE || (action !== 'exit-stalled' && action !== 'exit-stuck')) return judgeResult
+  if (open.length === 0 || unbuilt.length > 0 || open.some((id) => MUST_PASS_IDS.includes(id))) return judgeResult
+  const base = `no must-pass criterion is failing; ${open.length} non-blocking gap(s) left open as follow-ups under the must-pass-only policy: ${open.join(', ')}; base cause: ${judgeResult.reason || 'none given'}`
+  const coverage = coverageOf(criteria)
+  if (FLOOR !== null && N > 0 && coverage.proven / N < FLOOR) {
+    return { ...judgeResult, action: 'exit-insufficient-coverage', reason: `${belowFloorText(coverage)}; ${base}` }
+  }
+  return { ...judgeResult, action: 'exit-satisfied', reason: base }
+}
+
+// NEW (block-only-on-material-failures). What a `satisfied` exit let through under an active 'must-pass'
+// policy, `[{ id, reason }]`; `[]` under 'all', on any other action, and when the must-pass recheck would
+// still turn the exit into something else (a follow-up is filed only on a satisfied exit). Called with the
+// final result, and by the state sync with the result before the recheck: the same answer both times.
+function nonBlockingOf(judgeResult, settled) {
+  if (!BLOCKING_ACTIVE || judgeResult.action !== 'exit-satisfied') return []
+  if (applyMustPassRecheck(judgeResult, settled).judgeResult.action !== 'exit-satisfied') return []
+  const { criteria, open } = openFailuresOf(judgeResult, settled)
+  const reasonOf = new Map(criteria.map((c) => [c.id, c.reason]))
+  return open.filter((id) => !MUST_PASS_IDS.includes(id)).map((id) => ({ id, reason: reasonOf.get(id) || 'failing criterion left open under the must-pass-only blocking policy' }))
 }
 
 // NEW (verification-must-pass D11). The deterministic backstop for the Judge's decide-next call,
@@ -1781,16 +1869,11 @@ function applyMustPassRecheck(judgeResult, settled) {
     // A floor really missed: the Judge's own insufficient-coverage stands, and a satisfied exit
     // becomes one, because a run below the floor reports that outcome (D9).
     if (judgeResult.action === 'exit-insufficient-coverage') return unchanged
-    // Same wording as decideNext's re-label (D19): the floor as a percentage, never a bare fraction.
-    const pct = ((coverage.proven / N) * 100).toFixed(1)
-    const floorPct = `${Number((FLOOR * 100).toFixed(2))}%`
     return {
       judgeResult: {
         ...judgeResult,
         action: 'exit-insufficient-coverage',
-        reason:
-          `proven ratio ${coverage.proven}/${N} (${pct}%) is below the coverage floor ${floorPct} — ` +
-          `${N - coverage.proven} criterion/criteria uncovered; base cause: ${judgeResult.reason || 'no gaps remain'}; ${named}`,
+        reason: `${belowFloorText(coverage)}; base cause: ${judgeResult.reason || 'no gaps remain'}; ${named}`,
       },
       overridden: true,
     }
@@ -2104,7 +2187,7 @@ const STATE_SYNC_SCHEMA = {
 // sanctioned writer and, on an exit iteration, brings the Judge-written report input in step by id
 // and re-renders the report. Runs BEFORE recheckAndReconcile, which reads both files back and so
 // composes with it.
-function buildStateSyncPrompt(iteration, stateJson, patches, causesJson, reportFix = null, regression = null) {
+function buildStateSyncPrompt(iteration, stateJson, patches, causesJson, reportFix = null, regression = null, nonBlocking = []) {
   const stateFile = `${STATE_DIR}/sync-state-${iteration}.json`
   const reportInputFile = reportInputFileFor(iteration)
   const reportSteps = patches
@@ -2119,6 +2202,10 @@ function buildStateSyncPrompt(iteration, stateJson, patches, causesJson, reportF
       `"causes" to this array:\n${causesJson}\n` +
       (regression
         ? `Set the file's top-level "regression" to this object (the regression pass's record):\n${JSON.stringify(regression)}\n`
+        : '') +
+      (nonBlocking.length > 0
+        ? `Set the file's top-level "blocking" to ${JSON.stringify(BLOCKING)} and its top-level "nonBlocking" to ${JSON.stringify(nonBlocking)}: failures the ` +
+          `must-pass-only policy let the satisfied outcome stand over.\n`
         : '') +
       (reportFix
         ? `Set the file's top-level "outcome" to ${JSON.stringify(reportFix.outcome)} and its top-level "reason" to ` +
@@ -2174,6 +2261,7 @@ async function syncState(judgeResult, iteration, exiting, reportFix = null, regr
   }
   const entries = CRITERIA.map(entryOf)
   const causes = causeRecords()
+  const nonBlocking = exiting ? nonBlockingOf(judgeResult, settled) : []
   const stateJson = JSON.stringify({
     iteration,
     criteria: entries,
@@ -2183,6 +2271,8 @@ async function syncState(judgeResult, iteration, exiting, reportFix = null, regr
     exercised: exercisedHistory,
     // NEW (regression pass D13). Only when a pass ran, so a run without one writes the bytes it always did.
     ...(regression ? { regression } : {}),
+    // NEW (block-only-on-material-failures). Only when a policy let failures through, same idiom.
+    ...(nonBlocking.length > 0 ? { blocking: BLOCKING, nonBlocking } : {}),
   })
   const patches = exiting
     ? entries.map((e) => {
@@ -2200,7 +2290,7 @@ async function syncState(judgeResult, iteration, exiting, reportFix = null, regr
         return p
       })
     : null
-  const result = await agent(buildStateSyncPrompt(iteration, stateJson, patches, JSON.stringify(causes), exiting ? reportFix : null, exiting ? regression : null), {
+  const result = await agent(buildStateSyncPrompt(iteration, stateJson, patches, JSON.stringify(causes), exiting ? reportFix : null, exiting ? regression : null, nonBlocking), {
     label: 'state-sync',
     phase: 'Judge',
     model: 'sonnet',
@@ -2212,6 +2302,10 @@ async function syncState(judgeResult, iteration, exiting, reportFix = null, regr
   const outcomeNote = exiting && debugChanges.length > 0 ? ', and the state file may still read outcome null (a later --resume would re-enter this finished run)' : ''
   if (!result) log(`iteration ${iteration}: the state-sync agent returned nothing -- the state${exiting ? ' and report files' : ' file'} still show the Judge's kinds${outcomeNote}`)
   else if (!result.synced) log(`iteration ${iteration}: the state-sync agent could not write the corrected state${result.reason ? `: ${result.reason}` : ''}${outcomeNote}`)
+  // A reason suffix for a caller that replaced the exit's outcome, as reconcileOutcome gives one.
+  if (!result) return " (state and report files still show the Judge's outcome — the state-sync agent returned nothing)"
+  if (!result.synced) return " (state and report files still show the Judge's outcome — the state-sync agent reported it could not update them)"
+  return ''
 }
 
 const RECONCILE_SCHEMA = {
@@ -2330,6 +2424,7 @@ async function endOnSetupFailure(problems, iteration, openCriteria, settled, deb
     pages: pagesList(),
     mustPass: mustPassSummary(criteria, false),
     setup: setupSummary(problems),
+    nonBlocking: [], // NEW (block-only-on-material-failures) -- no exit was judged
     regression: null, // NEW (regression pass D13) -- the setup check ends the run before any exit, so no pass ran
   }
 }
@@ -2672,6 +2767,7 @@ if (iteration > CAP) {
     pages: [], // NEW (D8) -- no iteration ran this invocation, so no Render agent was ever dispatched
     mustPass: mustPassSummary(capCriteria, false), // NEW (verification-must-pass D11) -- no Judge exit, so nothing to override
     setup: setupSummary(), // NEW (preflight D10) -- nothing was checked this invocation
+    nonBlocking: [], // NEW (block-only-on-material-failures) -- no exit was judged
     regression: null, // NEW (regression pass D13) -- nothing ran this invocation
   }
 }
@@ -3459,7 +3555,20 @@ async function runRegressionPass(exitResult, iteration, exitPreviousCauses, exit
       }
     }
   }
-  if (record || outcomePending) await syncState(result, iteration, true, reportFixed ? reportFixOf(result) : null, record)
+  // NEW (block-only-on-material-failures). After the rounds, which can change the exit, and before the
+  // one sync, so the state file is written once with the final action -- on every path, including an exit
+  // that never entered a regression round.
+  const governed = applyBlockingPolicy(result, settled)
+  const blockingChanged = governed !== result
+  if (blockingChanged) {
+    log(`iteration ${iteration}: the blocking policy (${BLOCKING}) changes the exit from ${result.action} to ${governed.action}`)
+    result = governed
+    reportFixed = true
+  }
+  if (record || outcomePending || blockingChanged) {
+    const suffix = await syncState(result, iteration, true, reportFixed ? reportFixOf(result) : null, record)
+    if (blockingChanged && suffix) result = { ...result, reason: result.reason + suffix }
+  }
   return result
 }
 
@@ -3582,7 +3691,10 @@ for (; iteration <= CAP; iteration++) {
   // files stand.
   // NEW (regression pass D18b). On an exit after a Debug pass the regression pass owns the state write
   // (the exit Judge was told to write `outcome: null`), so the loop does not sync that exit itself.
-  const exitSyncDeferred = judgeResult.action !== 'remediate' && debugChanges.length > 0
+  // NEW (block-only-on-material-failures). Likewise when the blocking policy will change this exit:
+  // runRegressionPass then always syncs, with the final action, so a sync here would be a second
+  // state-sync agent writing an outcome that is replaced moments later.
+  const exitSyncDeferred = judgeResult.action !== 'remediate' && (debugChanges.length > 0 || applyBlockingPolicy(judgeResult, settled) !== judgeResult)
   if ((reconciledKinds.changed || closure.changed || replaced || (judgeResult.action !== 'remediate' && hasOffHostProof())) && !exitSyncDeferred) {
     await syncState(judgeResult, iteration, judgeResult.action !== 'remediate', replaced && judgeResult.action !== 'remediate' ? reportFixOf(judgeResult) : null)
   }
@@ -3759,5 +3871,6 @@ return {
   pages: pagesList(), // NEW (D8) -- a remediate iteration may still have dispatched renders before the cap was hit
   mustPass: mustPassSummary([...settledList(settled), ...carriedCriteria([], settled)], false), // NEW (verification-must-pass D11) -- no Judge exit, so nothing to override
   setup: setupSummary(), // NEW (preflight D10)
+  nonBlocking: [], // NEW (block-only-on-material-failures) -- no Judge exit
   regression: null, // NEW (regression pass D13) -- no Judge exit, so no pass ran
 }

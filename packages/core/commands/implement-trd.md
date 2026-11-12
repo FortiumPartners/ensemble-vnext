@@ -1857,6 +1857,23 @@ no environment; every "exercisable" criterion resolves to exactly one.
    — `coverageFloor` stays `null` (no floor is applied), and Step 9's ISSUES names the raw
    text and says to fix it with `/verification-setup`. This never makes the run STUCK: an
    unreadable floor is a gap to report, not a reason to stop verifying (D9).
+   **Read the owner's blocking policy (block-only-on-material-failures):**
+
+   ```bash
+   node .claude/lib/functional-verification.js read-blocking-policy "$(node .claude/lib/owner-rules.js path verification.md)"
+   ```
+
+   Set `blocking` from the result's `policy` (`'all'` or `'must-pass'`; an absent section is
+   `'all'`, today's behaviour). On `status: 'invalid'` — the `Blocking:` line under the
+   blocking-policy section does not parse — the workflow is not dispatched and verification
+   reports `not run: verification.md's blocking policy does not parse ("<raw>")` with `<raw>`
+   the result's `raw`, rendered through `render-report` exactly as §8.1's two `not run` exits
+   are (`outcome: "not-run"`, that text after `not run: ` as `reason`, `criteria: []`) so no
+   earlier run's `verification-report.md` is left standing as this run's; record the outcome as
+   `not-run-blocking-policy` for Step 9's banner. Step 9's ISSUES says to fix it with
+   `/verification-setup`. Unlike the
+   coverage floor this is never defaulted: defaulting would silently ignore a policy the owner
+   meant to set, or let failures through on a typo.
 7. **Resolve `setupTargets` (preflight D7, D8, D9)** — the environments the loop's setup check
    looks at before each Exercise pass. One entry per environment at least one exercisable
    criterion resolved to in step 2 above, read from `verification.md` §1/§2, then
@@ -2024,6 +2041,7 @@ Workflow({ name: "verify-functional", args: {
   verificationDigest,                                            // §8.1a step 8 -- verification-digest's `digest` (sha256 hex of verification.md); "" when the file is absent (nothing persists)
   preclassified,                                                 // §8.1a step 8 -- preclassify's output (entries already settled not-checkable-here, never exercised); [] when none
   offHostProofs,                                                 // `node .claude/lib/functional-verification.js off-host-proofs` (see above) -- its `proofs`, fresh before this dispatch; [] when none is declared or the call fails
+  blocking,                                                      // §8.1a -- the blocking policy from verification.md: 'all' (default, when none is declared) or 'must-pass'
 } })
 ```
 
@@ -2040,7 +2058,7 @@ the two `not run` short-circuits in §8.1, which never reach the workflow at all
 ### 8.4 Render the outcome
 
 The `Workflow` call returns `{ outcome, reason, iterations, reportPath, criteria, gaps,
-unbuilt, exercised, debugAttempts, notesUpdated, coverage, finalRun, mustPass, pages, setup }` (§3.3). Carry
+unbuilt, exercised, debugAttempts, notesUpdated, coverage, finalRun, mustPass, pages, setup, nonBlocking }` (§3.3). Carry
 `outcome` and `reportPath` into Step 9's FUNCTIONAL VERIFICATION block, along with `criteria` —
 the banner's met/not-met/not-verifiable/unbuilt counts are a tally of that array's `status`
 values, so dropping it here leaves those four counts with nothing to come from.
@@ -2082,6 +2100,22 @@ It reads `<state-dir>/verification-state.json`, writes
 `<state-dir>/evidence/criterion-covers.json` and prints `{"recorded":[...],"none":[...]}`; a
 criterion with no record falls back to custody's conservative path. A failure is one ISSUES line,
 never STUCK: the verification outcome stands without it.
+
+**Carry `nonBlocking`** (`Array<{ id, reason }>`; present only when the blocking policy converted
+a stall into `satisfied`, else absent or `[]`) into Step 9's block, and when it is non-empty
+record each entry as a follow-up beside `record-criteria`, once, after the workflow returns:
+
+Write the `nonBlocking` array as JSON to `/tmp/fv-nonblocking-<feature>.json` first (a file, not
+an inline `--payload`: the reasons are Judge-written text whose quotes would break the shell line):
+
+```bash
+node .claude/lib/functional-verification.js record-nonblocking --state-dir <state-dir> --file /tmp/fv-nonblocking-<feature>.json
+```
+
+It writes one non-blocking discovery row per entry (skipping one already recorded, so a resume
+writes no duplicate) and never promotes it to a task. Written only when `outcome` is
+`satisfied`. A failure (the command exits non-zero, or its printed `failed` list is non-empty) is
+one ISSUES line naming the ids, never STUCK.
 
 ---
 
@@ -2180,6 +2214,9 @@ STATE
    does not parse" when `read-coverage-floor` returned `status: 'invalid'`; else
    "Coverage floor: none declared" (D19). Never "none declared" for an invalid line — the
    owner did declare one.}
+  {if `nonBlocking` is non-empty: "Not blocking: {n} criteria failed but are not must-pass, so
+   verification passed under verification.md's blocking policy — {each in plain words, with
+   its reason}; each is recorded as a follow-up." Otherwise omit the line.}
   {for each selected check, from `criteria` and `pages`: one line naming the check in plain
    words and its verdict counts, with its page link when rendered — e.g. "Screens against
    their designs: 32 compared — 28 match, 2 minor, 2 deviate and are still open — <link>".}
@@ -2230,6 +2267,9 @@ ISSUES
   {if §8.1a's `read-coverage-floor` returned `status: 'invalid'`: "verification.md's coverage
     floor reads `{raw}`, which is not a percentage or `none`, so no floor was applied — fix it
     with `/verification-setup`." (D9)}
+  {if §8.1a's `read-blocking-policy` returned `status: 'invalid'`: "verification.md's blocking
+    policy does not parse (`{raw}`), so verification was not run — fix it with
+    `/verification-setup`."}
   {blocking discoveries this run found and did not do — promoted or not, and which}
   {if the run was given `--sweep-flag "<text>"`: the text, verbatim, with you as the one who
    acts — it says a sweep file's fixes were committed without being verified.}
