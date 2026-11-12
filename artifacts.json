@@ -5,5 +5,17 @@
     "url": "https://claude.ai/artifact/W85sZHrmTT39s9DHzoQ1NT",
     "updated_at": "2026-11-12T18:23:22.150Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/custody-test-all-digit-hash-flake/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-12T18:37:17.729Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/custody-test-all-digit-hash-flake/verification-report.md",
+    "url": "https://claude.ai/artifact/BDrH1eR2bSB9FmR9TDVChp",
+    "updated_at": "2026-11-12T18:45:01.723Z",
+    "command": "/implement-trd"
   }
 }
