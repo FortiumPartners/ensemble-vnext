@@ -163,6 +163,36 @@
       "started_at": "2026-11-12T16:15:18.649Z",
       "completed_at": "2026-11-12T16:51:47.929Z",
       "last_advanced": "2026-11-12T16:17:42.255Z"
+    },
+    "AMEND-001": {
+      "description": "read-blocking-policy must default to all on an unreadable verification.md (EISDIR/EACCES), with a test",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js",
+        ".claude/lib/functional-verification.js"
+      ],
+      "commit": "59319671ad9af40373e0282445c3cef8f54963cb",
+      "started_at": "2026-11-12T17:09:25.282Z",
+      "completed_at": "2026-11-12T17:10:45.841Z",
+      "last_advanced": "2026-11-12T17:10:26.088Z"
+    },
+    "AMEND-002": {
+      "description": "Run the live verify-blocking-policy fixture scenario and keep its evidence",
+      "phase": 1,
+      "status": "in_progress",
+      "cycle_position": "debug",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-11-12T17:09:25.282Z",
+      "completed_at": null,
+      "last_advanced": "2026-11-12T17:10:26.089Z"
     }
   },
   "checkpoints": [
@@ -173,13 +203,21 @@
         "findings": 0
       },
       "timestamp": "2026-11-12T16:51:48.148Z"
+    },
+    {
+      "phase": 1,
+      "commit": "59319671ad9af40373e0282445c3cef8f54963cb",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T17:10:45.842Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "afbcc8c4e33e24160f64be4dd58f1cb69e721730",
+    "last_healthy_checkpoint": "59319671ad9af40373e0282445c3cef8f54963cb",
     "interrupted": false,
     "interrupt_reason": null,
-    "last_checkpoint_timestamp": "2026-11-12T16:51:48.148Z"
+    "last_checkpoint_timestamp": "2026-11-12T17:10:45.842Z"
   },
   "functional_verification": {
     "prd_resolved": true,
