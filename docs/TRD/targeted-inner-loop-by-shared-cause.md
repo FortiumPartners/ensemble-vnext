@@ -360,6 +360,7 @@ own.
 | Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
 |---------|-------------|--------|--------|--------------|---------------------|
 | CAUSE-T001 [LIVE] | Add `test/smoke/scenarios/verify-inner-loop-causes.sh` (D23); register it in `test/smoke/run-smoke.sh` (the `LLM_OPT_IN_SCENARIOS` line and a `SCENARIO_TIMEOUT` entry) and in `test/smoke/README.md` (the scenario table row and the `scenarios/` tree line); `test/integration/tests/smoke-registration.test.sh` needs no edit. Run it once in a `fixtures` slot. Record the report, the state file and the transcript under `.trd-state/targeted-inner-loop-by-shared-cause/evidence/live/CAUSE-T001/` and in `live-manifest.jsonl`. | O9, D23 | | CAUSE-B005, CAUSE-D001 | (1) `bats test/integration/tests/smoke-registration.test.sh` passes, unedited. (2) In the recorded `verification-state.json`, `causes` holds two causes over the six criteria, and the `exercised` entry for iteration 2 (not a confirmation entry) lists the fixed cause's representative alone (plus any evidence re-capture id, each named in the scenario output). (3) If the live Judge groups the criteria differently from the seed, the scenario reports a named INCONCLUSIVE rather than a pass. |
+| AMEND-001 | [test-gap] The resumed-run half of FS-4 (a resume's first iteration exercises the whole open set) has no test that asserts the ids sent to Exercise; add an exercisedIdsOf assertion on a resume with several open criteria and prior cause state (task CAUSE-B002) — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/workflows/verify-functional.test.js ~:651-677 asserts only /iteration 3/ and the Judge prompt; the D18 test ~:4178 uses one criterion; behaviour in verify-functional.js exerciseSetOf (addressedCauses null until a Debug pass)) | amendment — no objective recorded |  | None | [test-gap] The resumed-run half of FS-4 (a resume's first iteration exercises the whole open set) has no test that asserts the ids sent to Exercise; add an exercisedIdsOf assertion on a resume with several open criteria and prior cause state (task CAUSE-B002) no longer holds |
 
 ## 5. Execution Plan
 
@@ -560,7 +561,7 @@ an API or store: it changes the verification loop's own library, workflow and co
 
 ### CAUSE-D001
 - **Touches:** `packages/core/contracts/functional-verification.md`, `.claude/contracts/functional-verification.md` (mirror), `packages/core/contracts/functional-verification.test.js`, `docs/TRD/functional-verification.md` (§3.3 `resume` shape and its "`resume` is not the state file" paragraph with "FOUR top-level keys" ~`:740`, §3.3a ~`:870`, §3.4 ~`:930`, §3.5 ~`:1022`, §3.6 ~`:1063`, the D8 row ~`:110`, + changelog + header), `docs/TRD/verification-fix-loop.md` (D4 row + changelog + header), `docs/reference/verification.md`, `docs/reference/implement-trd.md` (row `| §8.2 |` at ~`:289` restates `resume: {iteration, criteria, gapsClosed}`), `.claude/verification-notes.md`. [read]
-- **Reuse:** the amendment idiom already in these files: a decision cell headed "— **AMENDED 2026-11-11 by `docs/TRD/<feature>.md` Dn**" plus an italic "*Amended: ... The text below is the original wording.*" lead sentence, original text left intact. [read] `verification-fix-loop.md` D4 (`| D4 | Which failures become build tasks — **AMENDED 2026-11-11 by \`docs/TRD/triage-unmet-results-by-kind.md\` D14**`) carries a triage marker already; it needs a SECOND marker naming this TRD's D21, not a replacement of the triage one. For the `functional-verification.md` §3.x passages, which are prose sections rather than table rows, put the marker and the italic lead sentence at the head of the passage that changes. [read] The contract's "Cause keys" section goes immediately after `## The cause vocabulary (D3, §3.1)` (~`:387`), whose last paragraph (`**One re-capture, then settled.**`) ends before a `---` at ~`:441`, ahead of `## The debugger's brief` (~`:443`). [read]
+- **Reuse:** the amendment idiom already in these files: a decision cell headed "— **AMENDED 2026-11-11 by `docs/TRD/<feature>.md` Dn**" plus an italic "*Amended: ... The text below is the original wording.*" lead sentence, original text left intact. [read] `verification-fix-loop.md` D4 (`| D4 | Which failures become build tasks — **AMENDED 2026-11-11 by \`docs/TRD/triage-unmet-results-by-kind.md\` D14**`) carries a triage marker already; it needs a SECOND marker naming this TRD's D21, not a replacement of the triage one. For the `functional-verification.md` §3.3, §3.3a, §3.4, §3.5 and §3.6 passages, which are prose sections rather than table rows, put the marker and the italic lead sentence at the head of the passage that changes. [read] The contract's "Cause keys" section goes immediately after `## The cause vocabulary (D3, §3.1)` (~`:387`), whose last paragraph (`**One re-capture, then settled.**`) ends before a `---` at ~`:441`, ahead of `## The debugger's brief` (~`:443`). [read]
 - **Replaces:** statements that become false and must be rewritten, not just marked: `docs/reference/verification.md` ~`:454` "has exactly four keys" (required by AC 3); the Debug row ~`:275` ("`app-debugger`, one ... then runs `refreshCommand` once": one agent and the refresh stay true, the per-gap fix becomes per cause, and the pre-checks after the refresh are added); the decide order table ~`:381-385` and the sequence diagram line ~`:242` (`decide-next with gaps, unbuilt, met, total, cap, floor`); Exercise row ~`:267` ("walks every criterion in it") and the "Settled criteria are not re-walked" paragraph ~`:307`; `functional-verification.md` ~`:740` "The state file ... has FOUR top-level keys ... Only the first three keys reach the workflow"; `docs/reference/implement-trd.md` ~`:289` (`resume: {iteration, criteria, gapsClosed}` gains `exercised`); `.claude/verification-notes.md` `:886` and `:1350` (both read "[ran] ... `decide-next` requires `mustPass`, `mustPassUncovered` and `settledEvidenceGaps`" and "`decideNext` needs `refreshFailed`, `mustPass`, `mustPassUncovered` and `settledEvidenceGaps` all present"): add `causes`, `previousCauses`, `awaitingRegression`. The contract's debugger brief: "fixes the code in place, one gap at a time" (~`:449`) and "Returns, per gap" become per cause. [read]
 - **Follow:** header discipline from `TRIAGE-D001`: `verify-functional-trd-sync.test.js` (`describe('the header states the newest changelog row'`) fails unless `functional-verification.md`'s `**Version**` equals its highest changelog version and `**Last Updated**` equals that row's date. Today `**Version**: 2.11.0` / `2026-11-11`; add row `2.12.0 | 2026-11-11` and move both header lines together. `verification-fix-loop.md` is at `1.0.4`; no test covers it, but follow the same rule (`1.0.5`). [read] The contract test file's pattern: one `test('states ...')` per added rule, plus the existing mirror byte-identity test (`the two copies are byte-identical`). The cause-key pattern parity test (AC 1) reads the workflow source as text, as `verify-functional.test.js` reads `SOURCE`, extracts the key pattern and asserts the contract quotes it verbatim. [read] [inferred for the test's shape]
 - **Careful:**
@@ -585,6 +586,10 @@ an API or store: it changes the verification loop's own library, workflow and co
   - **The run measures whatever the scaffold copied.** `packages/full` symlinks `contracts`, `lib` and the rest into `packages/core`, so the scenario proves nothing until CAUSE-B001 to B004 and D001 are on disk. The default cap of 3 is enough: iteration 1 groups, Debug fixes cause A, iteration 2 exercises A's representative. [read]
   - **Collisions:** touches no file another task touches; `run-smoke.sh` and `README.md` are edited by no other task here. [read]
 
+### AMEND-001
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
 ## Open Questions
 
 | ID | Question | What I assumed | Why it matters | If I'm wrong |
@@ -600,18 +605,17 @@ an API or store: it changes the verification loop's own library, workflow and co
 
 ## Could Not Verify
 
-State after the audit of 2026-11-11 (5 of 5 verifiers reported; source checked:
-`docs/plan/targeted-inner-loop-by-shared-cause.investigation.md`). Three earlier rows were
-confirmed and removed: the resume readers ignoring new top-level keys (verified in the
-design review); `verify-functional-trd-sync.test.js` reading only two-space
-`VerifyFunctionalArgs` members and `a.*` reads (`interfaceFields`, ~:42-52, ~:66-73), so
-`exercised` nested in `resume` and read as `RESUME.exercised` needs no count change; and the
-`.claude/verification-notes.md` decide-next lines, which are at :886 and :1350 today. The
-rows below were not checked by this audit: no finding touched them, and two need code that
-does not exist yet.
+State after the build audit of 2026-11-12 (5 of 5 verifiers reported; source checked:
+`docs/plan/targeted-inner-loop-by-shared-cause.investigation.md`; 20 requirements and 7 tasks
+indexed). Two rows from the 2026-11-11 audit were checked against the delivered code and
+removed: the `awaiting` reader changes did land in `/refine-verification` step 2
+(`refine-verification.md` ~`:88-90`) and in `verify-build.md`'s fix loop steps 2, 5 and 6
+(~`:608`, ~`:659-660`, ~`:671-672`); and `endOnSetupFailure` (`verify-functional.js` ~`:1975`)
+does not thread carried entries, as that row predicted: a Setup-check failure rewrites every
+open criterion, awaiting members included, as `not_verifiable` / `never-exercised` with
+`causes: []`, so the marker survives only a Judge-ruled `exit-setup-failure` (D21's case). The
+members are still re-walked on the next round, so no objective is affected.
 
-| Claim | How I'd check it |
-|-------|------------------|
-| `/refine-verification` step 2 and `verify-build.md` fix loop step 6 are where the `awaiting` reader changes belong (located by grep, not read in full) | Read both steps in full |
-| An `app-debugger` agent can run a Playwright spec as a pre-check in a project that has one installed | Read `.claude/agents/app-debugger.md`'s tooling and a project with Playwright configured |
-| A setup failure found by the Setup check (`endOnSetupFailure`) rewrites every open criterion, awaiting members included, as `not_verifiable`, so the marker survives there only if D6's carried entries are threaded through it. A Judge `exit-setup-failure` (failed refresh) keeps it, as D21 says | Read `endOnSetupFailure`'s entry construction (~`:1604`) against carried entries once D6 lands |
+| Claim | Why this audit did not check it | How I'd check it |
+|-------|-------------------------------|------------------|
+| An `app-debugger` agent can run a Playwright spec as a pre-check (O7) in a project that has one installed | Needs a project with Playwright configured; `verification.md` §4 lists none here, and `.claude/agents/app-debugger.md` names only the `writing-playwright-tests` skill row, no tooling | Run a fixture project with Playwright installed and a failing representative whose pre-check is a spec |

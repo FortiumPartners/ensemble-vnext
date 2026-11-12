@@ -675,6 +675,8 @@ describe('verify-functional: resume', () => {
     const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ resume }) });
 
     expect(capturedExercisePrompt).toMatch(/iteration 3/);
+    // the first resumed pass walks every criterion the snapshot does not hold as met
+    expect(JSON.parse(capturedExercisePrompt.match(/\nCriteria:\n(\[.*\])\n/)[1]).map((c) => c.id)).toEqual(['FS-1']);
     expect(capturedJudgePrompt).toMatch(/"FS-1"/); // previousGaps JSON includes the seeded gap
     expect(result.iterations).toBe(3);
   });
@@ -1239,8 +1241,12 @@ describe('verify-functional: settled/open partition across iterations', () => {
 
   it('reloads only met resume entries as settled -- a not_verifiable entry goes back into the open set (D2)', async () => {
     let capturedJudgePrompt = null;
+    let capturedExercisePrompt = null;
     const agent = makeAgentStub((prompt, opts) => {
-      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-2', artifact: 'b.txt' }, { criterion: 'FS-3', artifact: null, reason: 'env unreachable' }]);
+      if (opts.label === 'exercise') {
+        capturedExercisePrompt = prompt;
+        return exercisePlanClaims([{ criterion: 'FS-2', artifact: 'b.txt' }, { criterion: 'FS-3', artifact: null, reason: 'env unreachable' }]);
+      }
       if (opts.label === 'judge') {
         capturedJudgePrompt = prompt;
         return satisfiedJudge({ criteria: [
@@ -1269,6 +1275,7 @@ describe('verify-functional: settled/open partition across iterations', () => {
     // FS-1 (met) is the only one seeded as settled -- FS-3 (not_verifiable in a PRIOR
     // invocation) is back in the open set for this one, alongside FS-2 (never settled).
     expect(openIdsFrom(capturedJudgePrompt)).toEqual(['FS-2', 'FS-3']);
+    expect(JSON.parse(capturedExercisePrompt.match(/\nCriteria:\n(\[.*\])\n/)[1]).map((c) => c.id)).toEqual(['FS-2', 'FS-3']);
     const settled = settledFrom(capturedJudgePrompt);
     expect(settled).toEqual([{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, cause: null, provenAt: 1, statement: 'statement for FS-1', cites: 'FR-1' }]);
     expect(result.criteria).toContainEqual(expect.objectContaining({ id: 'FS-1', status: 'met' }));
@@ -4192,6 +4199,23 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
       const written = JSON.parse(sync[0].prompt.match(/exactly as given, to [^\n]*:\n(\{.*\})\n/)[1]);
       expect(written.exercised).toEqual([...seeded, { iteration: 2, ids: ['FS-1'] }]);
     });
+  });
+
+  it('FS-4 (resume): the first Exercise pass of a resumed invocation receives the whole open set, whatever cause state the snapshot carries', async () => {
+    const open = (id, causeKey) => ({ id, status: 'not_met', tier1: 'fail', artifact: null, reason: `r-${id}`, cause: 'build-defect', kind: 'build-defect', causeKey, files: [] });
+    const resume = {
+      iteration: 1,
+      criteria: [open('FS-1', 'cache-bug'), open('FS-2', 'cache-bug'), open('FS-3', 'auth-bug'), open('FS-4', 'auth-bug')],
+      gapsClosed: [0],
+      exercised: [{ iteration: 1, ids: ['FS-1', 'FS-2', 'FS-3', 'FS-4'] }],
+    };
+    const { agent } = await run([exitWith('exit-stuck', [bd('FS-1', 'cache-bug'), bd('FS-2', 'cache-bug'), bd('FS-3', 'auth-bug'), bd('FS-4', 'auth-bug')])], {
+      args: { ...four, resume },
+    });
+    const exercises = labelsOf(agent, 'exercise');
+    expect(labelsOf(agent, 'debug')).toHaveLength(0);
+    // A targeted set would be the representatives only (FS-1, FS-3); the first resumed pass walks all four.
+    expect(exercises.map(exercisedIdsOf)[0]).toEqual(['FS-1', 'FS-2', 'FS-3', 'FS-4']);
   });
 
   it('AC 7: the zero-criteria branch hands decide-next causes: [], previousCauses: null and awaitingRegression: []', async () => {
