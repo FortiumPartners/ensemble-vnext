@@ -266,7 +266,9 @@ const CRITERION_BY_ID = new Map(CRITERIA.map((c) => [c.id, c]))
 // present: an entry from a state file written before they existed stays without them.
 function imageKeys(c) {
   const out = {}
-  for (const k of ['image', 'ui', 'imageExcluded']) if (c[k] !== undefined) out[k] = c[k]
+  // `kind` and `settled` (triage D1, D5) travel the same carry-only-when-present way, so an
+  // entry from before they existed -- and every `met` entry -- gains no key.
+  for (const k of ['image', 'ui', 'imageExcluded', 'kind', 'settled']) if (c[k] !== undefined) out[k] = c[k]
   return out
 }
 // KS-1 and KS-2 (D13): the Judge never sees the contract, so the two sentences are written
@@ -427,11 +429,23 @@ function buildCheckBlockForSlice(criteria) {
   return out
 }
 
-// Causes that mean "the capture was bad", not "the build is wrong". Debug edits source, so
-// sending it these gaps invites a code change for what a fresh capture would fix. They go back
-// to the next Exercise pass with the failure stated instead. Duplicated from the lib's
-// CAUSES (this script has no `require`); the cause-vocabulary test pins the full list.
-const EVIDENCE_CAUSES = ['evidence-missing', 'evidence-stale', 'locator-not-found']
+// Kind is a function of cause (triage D1). A `build-defect` is the only kind Debug receives;
+// an `evidence-gap` ("the capture was bad") goes back to the next Exercise pass ONCE with the
+// failure stated, and is settled as a definition problem if it is still an evidence gap after
+// that; a `not-checkable-here` result is settled as not verifiable. Duplicated from the lib's
+// KIND_BY_CAUSE (this script has no `require`); a test pins this literal equal to the export.
+const KIND_BY_CAUSE = {
+  'evidence-missing': 'evidence-gap',
+  'evidence-stale': 'evidence-gap',
+  'locator-not-found': 'evidence-gap',
+  'never-exercised': 'evidence-gap',
+  'judged-failed': 'build-defect',
+  'not-built': 'build-defect',
+  'environment-unreachable': 'not-checkable-here',
+  'capability-absent': 'not-checkable-here',
+}
+const KINDS = ['build-defect', 'evidence-gap', 'not-checkable-here']
+const kindOf = (cause) => (Object.prototype.hasOwnProperty.call(KIND_BY_CAUSE, cause) ? KIND_BY_CAUSE[cause] : null)
 
 function buildExercisePrompt(iteration, slice, concurrentSlices = 1) {
   const { lane, criteria } = slice
@@ -517,7 +531,10 @@ function buildExercisePrompt(iteration, slice, concurrentSlices = 1) {
   )
 }
 
-function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, previousGaps, forcedUnbuilt, exerciseNotesUpdated }) {
+// `recaptureIds` (D5, D6, D22): the ids whose one re-capture ran in THIS iteration's Exercise pass.
+// A parameter with a safe default, not a module-level read, because the zero-criteria branch calls
+// this before the loop's own state is declared.
+function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, previousGaps, forcedUnbuilt, exerciseNotesUpdated, recaptureIds = [] }) {
   const claimsJson = JSON.stringify(claims)
   const prevGapsJson = JSON.stringify(previousGaps)
   const openCriteriaJson = JSON.stringify(openCriteria)
@@ -528,6 +545,8 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     })
   )
   const settledMetIds = settledEntries.filter((e) => e.status === 'met').map((e) => e.id)
+  // D6: the evidence gaps already settled as definition problems, handed back verbatim.
+  const settledEvidenceIds = settledEntries.filter((e) => e.settled === 'definition-problem').map((e) => e.id)
   const claimsFile = `${STATE_DIR}/judge-claims-${iteration}.json`
   const decideFile = `${STATE_DIR}/judge-decide-${iteration}.json`
   const reportInputFile = `${STATE_DIR}/judge-report-input-${iteration}.json`
@@ -624,6 +643,20 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `  "capability-absent" -- "not_verifiable" because tooling or a capability the criterion ` +
     `needs is absent\n` +
     `Pick exactly one; never invent a cause outside this set.\n\n` +
+    `For every criterion whose status is not "met", also return its "kind" (D1), which is a ` +
+    `function of the cause: "build-defect" for judged-failed and not-built; "evidence-gap" for ` +
+    `evidence-missing, evidence-stale, locator-not-found and never-exercised; ` +
+    `"not-checkable-here" for environment-unreachable and capability-absent. The workflow checks ` +
+    `your kind against the cause and uses the cause's kind when they disagree. A "met" criterion ` +
+    `carries kind: null. Return "settled": null for every criterion -- the workflow alone marks a ` +
+    `criterion settled.\n` +
+    (recaptureIds.length > 0
+      ? `These criteria were re-captured once, in this iteration's Exercise pass, because their ` +
+        `evidence was a gap last time: ${JSON.stringify(recaptureIds)}. Judge each on the fresh ` +
+        `evidence as usual. If you still rule one of them "evidence-gap", the criterion asks for ` +
+        `evidence the build does not produce: it is NOT sent to Debug and NOT captured again.\n`
+      : '') +
+    `\n` +
     `For every criterion you rule this iteration, also record its image, once, now (settled ` +
     `criteria are never re-picked). Cite at most one image: the criterion's artifact when it is ` +
     `itself a .png, .jpg or .jpeg, otherwise the claim's "screenshot"; never a video. Write it ` +
@@ -640,8 +673,12 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `the ${settledMetIds.length} settled met id(s) carried below (${JSON.stringify(settledMetIds)}), ` +
     `unchanged, plus any id you judge "met" in STEP 2 this iteration. "total" is the whole ` +
     `definition's count, ${N}, not just this iteration's open-set size. Write ` +
-    `{"iteration":${iteration},"gaps":<not_met ids>,"unbuilt":<unbuilt ids>,` +
+    `{"iteration":${iteration},"gaps":<not_met ids, leaving out every id in settledEvidenceGaps>,` +
+    `"unbuilt":<unbuilt ids>,` +
     `"previousGaps":${prevGapsJson},"cap":${CAP},"coverageFloor":${JSON.stringify(FLOOR)},` +
+    `"settledEvidenceGaps":<${JSON.stringify(settledEvidenceIds)}, already settled as definition ` +
+    `problems, plus every id in ${JSON.stringify(recaptureIds)} that you rule "evidence-gap" ` +
+    `again (D6)>,` +
     `"refreshFailed":${refreshFailed()},` +
     `"met":<the met ids, as described above>,` +
     `"total":${N},"mustPass":${JSON.stringify(MUST_PASS_IDS)},` +
@@ -670,11 +707,13 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `DEFINITION -- both the already-settled ones (copy them EXACTLY as given below, including ` +
     `their "provenAt" and "cause"; do not re-derive, re-date or otherwise change them) and the ` +
     `ones you judged this iteration: "id", "status", "tier1", "artifact", "reason", "cause", ` +
-    `"provenAt", "image", "ui", "imageExcluded" (the last three carried unchanged for a settled ` +
-    `one, as given below) -- "provenAt" is the iteration number a "met"/"not_verifiable"/"unbuilt" verdict ` +
-    `was proven at (this iteration's number, ${iteration}, for one you just judged; carried ` +
-    `unchanged for a settled one) and is absent/null for a "not_met" criterion, which stays ` +
-    `open. "reason" MUST be populated (non-null, non-empty) for every criterion whose status is ` +
+    `"provenAt", "image", "ui", "imageExcluded", "kind", "settled" (the image keys, "kind" and ` +
+    `"settled" carried unchanged for a settled one, as given below) -- "provenAt" is the iteration ` +
+    `number a "met"/"not_verifiable"/"unbuilt" verdict was proven at, or a "not_met" evidence gap ` +
+    `was settled at (this iteration's number, ${iteration}, for one you just judged; carried ` +
+    `unchanged for a settled one) and is absent/null for any other "not_met" criterion, which stays ` +
+    `open. "kind" is null for a "met" criterion; "settled" is "definition-problem" only on an ` +
+    `entry given to you as settled that way, otherwise null. "reason" MUST be populated (non-null, non-empty) for every criterion whose status is ` +
     `not "met"; it is the only structured record of why a not_verifiable/not_met/unbuilt ` +
     `verdict was reached, and it is what tells a later run which blockers are worth ` +
     `re-checking. "cause" MUST likewise be populated, from the fixed set named in STEP 2, for ` +
@@ -706,7 +745,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `${JSON.stringify(MUST_PASS_UNCOVERED)} copied verbatim (empty lists included) -- "criteria" is one entry per criterion IN THE WHOLE DEFINITION, same ` +
     `completeness rule as STEP 4's state file (the already-settled ones carried verbatim with ` +
     `their "provenAt", "cause" and image keys, plus the ones you judged this iteration): id, statement, ` +
-    `cites, status, artifact, reason, cause, provenAt, attempts, blocker, image, ui, imageExcluded), then run:\n` +
+    `cites, status, artifact, reason, cause, provenAt, attempts, blocker, image, ui, imageExcluded, kind, settled), then run:\n` +
     `  node ${CHECKER} render-report --file ${reportInputFile}\n` +
     `and write the output to ${REPORT_PATH}.\n` +
     `On "exit-setup-failure" the report input also carries "setup": {"problems": [ {"environment": ` +
@@ -714,7 +753,8 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `and "finalEnvironmentRun": null; the criteria keep the verdicts you gave them.\n\n` +
     `STEP 6: on "remediate", do not render a report and do not touch anything besides the state ` +
     `file already written in STEP 4 -- just return the gap set.\n\n` +
-    `Already-settled criteria from a prior iteration (status met/not_verifiable/unbuilt) -- do ` +
+    `Already-settled criteria from a prior iteration (status met/not_verifiable/unbuilt, or a ` +
+    `not_met evidence gap with "settled":"definition-problem") -- do ` +
     `NOT re-judge these. Copy them, unchanged, into the state file and the report input above; ` +
     `they do not belong in your "criteria" return below, which is for this iteration's ` +
     `judgements only:\n${settledJson}\n\n` +
@@ -727,7 +767,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `write the notes file yourself, so do not re-derive this.\n\n` +
     `Return { "action": "exit-satisfied"|"exit-unbuilt"|"exit-stalled"|"exit-stuck"|` +
     `"exit-insufficient-coverage"|"exit-must-pass-unproven"|"exit-setup-failure"|"remediate", ` +
-    `"reason": "<string>", "criteria": [ { "id","status","tier1","artifact","reason","cause","files","image","ui","imageExcluded" }, ` +
+    `"reason": "<string>", "criteria": [ { "id","status","tier1","artifact","reason","cause","files","image","ui","imageExcluded","kind","settled" }, ` +
     `... one entry per criterion you judged THIS iteration -- the open set above, not the ` +
     `already-settled ones ], "gaps": [<not_met ids>], "unbuilt": ` +
     `[<unbuilt ids>], "closed": [<ids decide-next reported closed>], "notesUpdated": <boolean>, ` +
@@ -966,6 +1006,10 @@ const JUDGE_CRITERION_SCHEMA = {
     image: { type: ['string', 'null'] },
     ui: { type: 'boolean' },
     imageExcluded: { type: ['string', 'null'] },
+    // NEW (triage D1, D5). `kind` beside `cause`; the script reconciles it against
+    // KIND_BY_CAUSE and is the authority. `settled` is the script's marker; the Judge may echo it.
+    kind: { type: ['string', 'null'], enum: ['build-defect', 'evidence-gap', 'not-checkable-here', null] },
+    settled: { type: ['string', 'null'], enum: ['definition-problem', null] },
   },
 }
 
@@ -1156,7 +1200,10 @@ function reconcileClaims(returned, openCriteria) {
   })
   const walked = openCriteria.filter((c) => byId.has(c.id)).length
   const unknown = [...byId.keys()].filter((id) => !CRITERION_BY_ID.has(id))
-  return { claims, walked, unknown, duplicates }
+  // D22: the ids the exerciser really returned a claim for, as distinct from the ones a stand-in
+  // claim was synthesized for above. A re-capture counts as done only for the former.
+  const returnedIds = openCriteria.filter((c) => byId.has(c.id)).map((c) => c.id)
+  return { claims, walked, unknown, duplicates, returnedIds }
 }
 
 // --------------------------------------------------------------------------- result assembly
@@ -1261,7 +1308,9 @@ function applyMustPassRecheck(judgeResult, settled) {
   if (MUST_PASS_IDS.length === 0 && MUST_PASS_UNCOVERED.length === 0) return unchanged
   if (judgeResult.action !== 'exit-satisfied' && judgeResult.action !== 'exit-insufficient-coverage') return unchanged
   const criteria = [...settledList(settled), ...(judgeResult.criteria || []).filter((c) => !settled.has(c.id))]
-  if (criteria.some((c) => c.status === 'not_met' || c.status === 'unbuilt')) return unchanged
+  // A settled evidence gap (D5) is `not_met` by status but is not an open gap: it is treated like
+  // `not_verifiable`, so a must-pass one falls through to the unproven check below (D7).
+  if (criteria.some((c) => (c.status === 'not_met' && c.settled !== 'definition-problem') || c.status === 'unbuilt')) return unchanged
   const unproven = mustPassSummary(criteria, false).unproven.map((u) => u.id)
   const uncoveredIds = MUST_PASS_UNCOVERED.map((o) => o.id)
   if (unproven.length === 0 && uncoveredIds.length === 0) return unchanged
@@ -1296,6 +1345,135 @@ function applyMustPassRecheck(judgeResult, settled) {
     judgeResult: { ...judgeResult, action: 'exit-must-pass-unproven', reason: `${named} — the core was not shown to work` },
     overridden: true,
   }
+}
+
+// NEW (triage D1, D5, D20, D21). Reconcile each criterion the Judge ruled this iteration against
+// the cause-derived kind, and settle the ones the script (not the Judge) decides are done:
+//   - kind is KIND_BY_CAUSE[cause]; a returned kind that disagrees is overridden and logged.
+//   - a cause that yields no kind: a valid returned kind stands, else a `not_met` entry is a
+//     `build-defect` (D21) so it still reaches Debug rather than being stranded.
+//   - a `not_met` entry of kind `not-checkable-here` is re-statused `not_verifiable` (D21).
+//   - a `not_met` entry of kind `evidence-gap` whose one re-capture has run is settled as a
+//     definition problem (D5); `settled` is only ever set here, never trusted from the Judge.
+// `changed` is true when the Judge's own STEP 4/5 copy of the state would now be wrong (a kind it
+// returned was overridden, a status was re-statused, a definition problem was settled): that is
+// what makes the script write the state and report itself (D20). A kind the Judge simply left out
+// does not count -- readers derive kind from cause when it is absent.
+// Returns the result with `criteria`, `gaps` and `debugGaps` brought in line.
+function reconcileJudgeKinds(judgeResult, iteration) {
+  let changed = false
+  const closed = new Set()
+  const criteria = (judgeResult.criteria || []).map((c) => {
+    if (settled.has(c.id)) return c // ignored by the fold: the carried-forward entry wins
+    const { kind: returned, settled: _echoed, ...rest } = c
+    if (c.status === 'met') return rest // a met entry carries no kind
+    const derived = kindOf(c.cause)
+    let kind = derived
+    if (derived !== null) {
+      if (returned != null && returned !== derived) {
+        changed = true
+        log(`iteration ${iteration}: the Judge returned kind ${JSON.stringify(returned)} for ${c.id} but its cause ${JSON.stringify(c.cause)} gives ${derived} -- using ${derived}`)
+      }
+    } else if (KINDS.includes(returned)) {
+      kind = returned
+    } else if (c.status === 'not_met') {
+      kind = 'build-defect'
+      log(`iteration ${iteration}: ${c.id} is not_met with no usable cause -- treating it as a build defect (it goes to Debug)`)
+    }
+    const out = { ...rest }
+    if (kind !== null) out.kind = kind
+    if (c.status === 'not_met' && kind === 'not-checkable-here') {
+      out.status = 'not_verifiable'
+      changed = true
+      closed.add(c.id)
+      log(`iteration ${iteration}: ${c.id} is not_met with cause ${c.cause} -- settling it as not verifiable here`)
+    } else if (c.status === 'not_met' && kind === 'evidence-gap' && recaptured.has(c.id)) {
+      out.settled = 'definition-problem'
+      changed = true
+      closed.add(c.id)
+      log(`iteration ${iteration}: ${c.id} is still an evidence gap after its one re-capture -- settling it as a definition problem`)
+    }
+    return out
+  })
+  const open = (id) => !closed.has(id)
+  const out = { ...judgeResult, criteria, gaps: (judgeResult.gaps || []).filter(open) }
+  if (judgeResult.debugGaps) out.debugGaps = judgeResult.debugGaps.filter((g) => open(g.id))
+  return { judgeResult: out, changed }
+}
+
+const STATE_SYNC_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['synced'],
+  properties: { synced: { type: 'boolean' }, reason: { type: 'string' } },
+}
+
+// NEW (triage D20). The Judge wrote the state file (and, on an exit, the report input) before the
+// script corrected a kind or settled an entry, and this script has no filesystem. One small writer
+// agent saves the script's state through the sanctioned writer and, on an exit iteration, brings the
+// Judge-written report input in step by id and re-renders the report. Runs BEFORE
+// recheckAndReconcile, which reads both files back and so composes with it.
+function buildStateSyncPrompt(iteration, stateJson, patches) {
+  const stateFile = `${STATE_DIR}/sync-state-${iteration}.json`
+  const reportInputFile = `${STATE_DIR}/judge-report-input-${iteration}.json`
+  const reportSteps = patches
+    ? `2. Read ${reportInputFile} (JSON). For each of these entries, find the criterion in its ` +
+      `"criteria" array by "id" and set its "status" and "reason" to the values given; set its "kind" ` +
+      `and "settled" to the values given, or delete those keys from the criterion when the entry has ` +
+      `none:\n${JSON.stringify(patches)}\nLeave every other key of every criterion, and of the file, ` +
+      `exactly as it is. Write it back to ${reportInputFile}.\n` +
+      `3. Run  node ${CHECKER} render-report --file ${reportInputFile}  and write its output to ${REPORT_PATH}.\n\n`
+    : '\n'
+  return (
+    `Functional verification -- state sync stage, iteration ${iteration}.\n${SCOPE}\n` +
+    `The workflow corrected or settled some criteria after the Judge wrote its files. Bring the files ` +
+    `in step, doing only the following:\n\n` +
+    `1. Write this JSON, exactly as given, to ${stateFile}:\n${stateJson}\n` +
+    `Then shell into node, load ${STATE_WRITER} and call save(${STATE_PATH}, <the parsed contents of ` +
+    `${stateFile}>). Do not write ${STATE_PATH} any other way: save() is the repository's only ` +
+    `sanctioned writer for a .trd-state JSON file.\n` +
+    reportSteps +
+    `Change nothing else and read no evidence. Return { "synced": <true when every step completed>, ` +
+    `"reason": "<string, present when synced is false>" }.`
+  )
+}
+
+const STATE_KEYS = ['tier1', 'artifact', 'reason', 'cause', 'image', 'ui', 'imageExcluded', 'kind', 'settled']
+
+async function syncKindState(judgeResult, iteration, exiting) {
+  const byId = new Map((judgeResult.criteria || []).map((c) => [c.id, c]))
+  const entryOf = (c) => {
+    if (settled.has(c.id)) return { id: c.id, ...settled.get(c.id) }
+    const j = byId.get(c.id)
+    if (!j) return { id: c.id, status: 'not_met', tier1: null, artifact: null, reason: null, cause: null, provenAt: null }
+    const e = { id: c.id, status: j.status }
+    for (const k of STATE_KEYS) if (j[k] !== undefined) e[k] = j[k]
+    e.provenAt = null
+    return e
+  }
+  const entries = CRITERIA.map(entryOf)
+  const stateJson = JSON.stringify({
+    iteration,
+    criteria: entries,
+    gapsClosed: gapsClosedHistory,
+    outcome: exiting ? OUTCOME_BY_ACTION[judgeResult.action] || null : null,
+  })
+  const patches = exiting
+    ? entries.map((e) => {
+        const p = { id: e.id, status: e.status, reason: e.reason ?? null }
+        if (e.kind !== undefined) p.kind = e.kind
+        if (e.settled !== undefined) p.settled = e.settled
+        return p
+      })
+    : null
+  const result = await agent(buildStateSyncPrompt(iteration, stateJson, patches), {
+    label: 'state-sync',
+    phase: 'Judge',
+    model: 'sonnet',
+    schema: STATE_SYNC_SCHEMA,
+  })
+  if (!result) log(`iteration ${iteration}: the state-sync agent returned nothing -- the state${exiting ? ' and report files' : ' file'} still show the Judge's kinds`)
+  else if (!result.synced) log(`iteration ${iteration}: the state-sync agent could not write the corrected state${result.reason ? `: ${result.reason}` : ''}`)
 }
 
 const RECONCILE_SCHEMA = {
@@ -1367,7 +1545,7 @@ async function endOnSetupFailure(problems, iteration, openCriteria, settled, deb
   const criteria = CRITERIA.map((c) =>
     settled.has(c.id)
       ? { id: c.id, ...settled.get(c.id) }
-      : { id: c.id, status: 'not_verifiable', tier1: null, artifact: null, reason: openReason, cause: 'never-exercised', provenAt: null }
+      : { id: c.id, status: 'not_verifiable', tier1: null, artifact: null, reason: openReason, cause: 'never-exercised', kind: 'evidence-gap', provenAt: null }
   )
   const stateJson = JSON.stringify({ iteration: iteration - 1, criteria, gapsClosed: gapsClosedHistory, outcome: 'setup-failure' })
   const reportInputJson = JSON.stringify({
@@ -1647,7 +1825,12 @@ let exercisedLabel = `0/${N}`
 let debugHasRun = false // read by buildExercisePrompt: live evidence is offered only before the first Debug
 let skipExercise = false
 let forcedUnbuilt = null
-let evidenceRetries = [] // capture failures from the last Judge, shown to the next Exercise pass only
+// Evidence gaps the last Judge reported for the FIRST time, shown to the next Exercise pass (the
+// one re-capture, D5). Reset after each Judge; rebuilt from that Judge's routing.
+let evidenceRetries = []
+// Ids whose one re-capture has run in this invocation (D5, D22). An evidence gap the Judge rules
+// again for an id in this set is settled as a definition problem instead of being re-captured.
+const recaptured = new Set()
 
 for (; iteration <= CAP; iteration++) {
   // Recomputed every iteration: a criterion the previous iteration's Judge settled is not
@@ -1658,6 +1841,7 @@ for (; iteration <= CAP; iteration++) {
 
   let claims
   let exerciseNotesUpdated = false
+  let recaptureIds = [] // ids whose one re-capture ran in THIS iteration's Exercise pass (D22)
 
   if (skipExercise) {
     // The previous iteration's Debug stage reported one or more gaps as unbuilt -- re-walking
@@ -1738,6 +1922,7 @@ for (; iteration <= CAP; iteration++) {
             judgeOnly: isJudgeOnly(c),
           })),
           walked: 0,
+          returnedIds: [],
           unknown: [],
           duplicates: 0,
           notesUpdated: false,
@@ -1749,6 +1934,7 @@ for (; iteration <= CAP; iteration++) {
         dead: false,
         claims: reconciled.claims,
         walked: reconciled.walked,
+        returnedIds: reconciled.returnedIds,
         unknown: reconciled.unknown,
         duplicates: reconciled.duplicates,
         notesUpdated: Boolean(exerciseResult.notesUpdated),
@@ -1796,6 +1982,21 @@ for (; iteration <= CAP; iteration++) {
       log(`iteration ${iteration}: the exerciser returned no claim for ${laneCriteriaCount - walked} open criterion/criteria -- recording each as an unbacked claim for the Judge`)
     }
 
+    // D22: a re-capture counts as done only for an id whose slice was alive and whose claim came
+    // from the exerciser. A dead slice or a synthesized stand-in claim leaves the id's one
+    // re-capture for the next iteration, so it can never be settled as "the build does not
+    // produce this evidence" on the strength of an exerciser that never ran.
+    const retryIds = new Set(evidenceRetries.map((r) => r.id))
+    for (const r of sliceResults) {
+      if (r.dead) continue
+      for (const id of r.returnedIds) {
+        if (retryIds.has(id) && !recaptured.has(id)) {
+          recaptured.add(id)
+          recaptureIds.push(id)
+        }
+      }
+    }
+
     claims = [...slicedClaims, ...noLaneClaims]
     // `exercised` reports over the open set (§3.4) -- criteria in no lane were never walked and
     // do not count as exercised, same as a dead slice's criteria don't.
@@ -1804,15 +2005,18 @@ for (; iteration <= CAP; iteration++) {
   }
 
   phase('Judge')
-  const judgeResult = required(
+  const judgeRaw = required(
     await agent(
-      buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, previousGaps, forcedUnbuilt, exerciseNotesUpdated }),
+      buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, previousGaps, forcedUnbuilt, exerciseNotesUpdated, recaptureIds }),
       // Opus: this call rules met/not-met on evidence, which decides the run's outcome --
       // cheap insurance against a wrong verdict.
       { label: 'judge', phase: 'Judge', model: 'opus', schema: JUDGE_SCHEMA }
     ),
     'Judge'
   )
+  // Kind is reconciled here, before anything below reads the Judge's criteria (triage D1, D21).
+  const reconciledKinds = reconcileJudgeKinds(judgeRaw, iteration)
+  const judgeResult = reconciledKinds.judgeResult
   skipExercise = false
   forcedUnbuilt = null
   evidenceRetries = []
@@ -1829,7 +2033,7 @@ for (; iteration <= CAP; iteration++) {
       log(`iteration ${iteration}: Judge returned an entry for already-settled criterion ${c.id} -- ignoring it (the carried-forward entry wins)`)
       continue
     }
-    if (c.status === 'met' || c.status === 'not_verifiable' || c.status === 'unbuilt') {
+    if (c.status === 'met' || c.status === 'not_verifiable' || c.status === 'unbuilt' || c.settled === 'definition-problem') {
       settled.set(c.id, {
         status: c.status,
         tier1: c.tier1 ?? null,
@@ -1840,8 +2044,14 @@ for (; iteration <= CAP; iteration++) {
         ...imageKeys(c),
       })
     }
-    // A `not_met` verdict stays out of the map and remains open (§3.4).
+    // A `not_met` verdict stays out of the map and remains open (§3.4), unless the script settled
+    // it as a definition problem above (D5).
   }
+
+  // D20: when the script corrected or settled something the Judge had already written, write the
+  // state itself (and, on an exit, the report input and the rendered report) before anything reads
+  // those files back.
+  if (reconciledKinds.changed) await syncKindState(judgeResult, iteration, judgeResult.action !== 'remediate')
 
   if (judgeResult.action !== 'remediate') {
     // NEW (verification-must-pass D11, D12). Re-check the exit against the must-pass set BEFORE
@@ -1857,26 +2067,32 @@ for (; iteration <= CAP; iteration++) {
     return buildFinalResult(checked.judgeResult, iteration, debugAttempts, exercisedLabel, settled, pagesList(), checked.overridden)
   }
 
-  previousGaps = judgeResult.gaps || []
-
-  // Split the gaps by the Judge's own cause: a bad capture goes back to Exercise with the
-  // failure stated; only gaps about the build reach Debug.
-  const causeById = new Map((judgeResult.criteria || []).map((c) => [c.id, c]))
-  const allDebugGaps = judgeResult.debugGaps || []
-  const isEvidenceGap = (g) => EVIDENCE_CAUSES.includes(causeById.get(g.id)?.cause)
-  const buildGaps = allDebugGaps.filter((g) => !isEvidenceGap(g))
-  evidenceRetries = allDebugGaps.filter(isEvidenceGap).map((g) => ({
-    id: g.id,
-    cause: causeById.get(g.id).cause,
-    failure: g.reason ?? causeById.get(g.id).reason ?? null,
-  }))
-  if (evidenceRetries.length > 0) {
-    log(`iteration ${iteration}: ${evidenceRetries.length} evidence-capture gap(s) go back to Exercise, not Debug: ${evidenceRetries.map((r) => `${r.id} (${r.cause})`).join(', ')}`)
+  // Route each gap by kind (D4, D21). Only a build defect reaches Debug. An evidence gap seen for
+  // the first time goes back to the next Exercise pass (the one re-capture, D5); one whose
+  // re-capture already ran was settled above. A gap with no entry among the Judge's criteria has no
+  // derivable kind and is treated as a build defect so it is never stranded.
+  const entryById = new Map((judgeResult.criteria || []).map((c) => [c.id, c]))
+  const buildGaps = []
+  const retries = []
+  for (const g of judgeResult.debugGaps || []) {
+    const entry = entryById.get(g.id)
+    const kind = entry ? entry.kind ?? 'build-defect' : 'build-defect'
+    if (kind === 'build-defect') buildGaps.push(g)
+    else if (kind === 'evidence-gap') retries.push({ id: g.id, cause: entry.cause ?? null, failure: g.reason ?? entry.reason ?? null })
+    else log(`iteration ${iteration}: ${g.id} is ${kind} -- not sent to Debug or Exercise`)
   }
+  evidenceRetries = retries
+  if (evidenceRetries.length > 0) {
+    log(`iteration ${iteration}: ${evidenceRetries.length} evidence gap(s) go back to Exercise once, not Debug: ${evidenceRetries.map((r) => `${r.id} (${r.cause})`).join(', ')}`)
+  }
+  // D23: no fix was attempted for a re-capture id, so "closed nothing" is not evidence of
+  // non-convergence; keep it out of the gaps the next Judge's stall rule compares against.
+  const retryIdSet = new Set(evidenceRetries.map((r) => r.id))
+  previousGaps = (judgeResult.gaps || []).filter((id) => !retryIdSet.has(id))
 
-  // Nothing but capture problems: no Debug agent (it would have no build gap to fix and would
-  // edit source for a bad capture). Renders still run -- a remediate iteration owes the pages.
-  if (buildGaps.length === 0 && evidenceRetries.length > 0) {
+  // No build defect: no Debug agent (it would have nothing in the code to fix). Renders still
+  // run -- a remediate iteration owes the pages.
+  if (buildGaps.length === 0) {
     if (RENDER_SKILLS.length > 0) {
       phase('Render')
       const renderResults = await parallel(RENDER_SKILLS.map((skill) => dispatchRender(skill, iteration, judgeResult)))
@@ -1888,7 +2104,7 @@ for (; iteration <= CAP; iteration++) {
   phase('Debug')
   debugHasRun = true
   const debugThunk = () =>
-    agent(buildDebugPrompt(enrichDebugGaps(buildGaps.length > 0 ? buildGaps : allDebugGaps)), {
+    agent(buildDebugPrompt(enrichDebugGaps(buildGaps)), {
       label: 'debug',
       phase: 'Debug',
       agentType: 'app-debugger',

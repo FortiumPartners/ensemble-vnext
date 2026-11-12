@@ -30,6 +30,8 @@ const {
   COVERAGE_FLOOR,
   LOCATOR_SCAN_BYTES,
   readFullDeploy,
+  readMinifiedEnvironments,
+  preclassifyNotCheckable,
   BUILD_TOKEN,
   reproofRetrySet,
   mergeReproofRetry,
@@ -4361,5 +4363,125 @@ describe('verification-digest CLI (triage D9)', () => {
     const bad = spawnSync('node', [MODULE_PATH, 'verification-digest']);
     expect(bad.status).not.toBe(0);
     expect(bad.stderr.toString()).toMatch(/verification-digest/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// preclassify (TRIAGE-B003)
+// ---------------------------------------------------------------------------
+
+describe('readMinifiedEnvironments', () => {
+  const table = (rows) =>
+    ['## 1. Environments', '', '| Name | URL / how to reach it | What it is for |', '|---|---|---|', ...rows].join('\n');
+
+  test('names production and rows whose text says minified or production build', () => {
+    const text = table([
+      '| local | http://localhost:3000 | dev |',
+      '| production | https://x.example | live |',
+      '| staging | https://s.example | Production Build, minified bundle |',
+      '| qa | https://q.example | MINIFIED output |',
+    ]);
+    expect(readMinifiedEnvironments(text).sort()).toEqual(['production', 'qa', 'staging']);
+  });
+
+  test('older file without the write column is still read; no table gives none', () => {
+    expect(readMinifiedEnvironments(table(['| preview | u | prod build |']))).toEqual(['preview']);
+    expect(readMinifiedEnvironments('# nothing here')).toEqual([]);
+  });
+
+  test('rejects a non-string', () => {
+    expect(() => readMinifiedEnvironments(null)).toThrow(TypeError);
+  });
+});
+
+describe('preclassifyNotCheckable', () => {
+  const crit = (id, derivation, extra = {}) => ({ id, derivation, skill: 'verify-design-structure', ...extra });
+  const boards = [
+    { id: '01-home', components: ['Header'] },
+    { id: '02-parts', components: [] },
+  ];
+
+  test('parts board row is classified with the parts-board reason', () => {
+    const out = preclassifyNotCheckable({
+      criteria: [crit('ST-02-parts', 'check:verify-design-structure')],
+      boards, environmentByCriterion: {}, minifiedEnvironments: [],
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      id: 'ST-02-parts', status: 'not_verifiable', kind: 'not-checkable-here',
+      cause: 'capability-absent', preclassified: true,
+    });
+    expect(out[0].reason).toMatch(/parts board/);
+  });
+
+  test('real board on a minified environment is classified with the minified reason', () => {
+    const out = preclassifyNotCheckable({
+      criteria: [crit('ST-01-home', 'check:verify-design-structure')],
+      boards, environmentByCriterion: { 'ST-01-home': 'Production' }, minifiedEnvironments: ['production'],
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].reason).toMatch(/minified/);
+  });
+
+  test('environment row saying minified classifies; real board elsewhere does not', () => {
+    const args = (env) => ({
+      criteria: [crit('ST-01-home', 'check:verify-design-structure')],
+      boards, environmentByCriterion: { 'ST-01-home': env }, minifiedEnvironments: ['staging'],
+    });
+    expect(preclassifyNotCheckable(args('staging'))).toHaveLength(1);
+    expect(preclassifyNotCheckable(args('local'))).toEqual([]);
+  });
+
+  test('unknown board id and non-structure rows are left alone', () => {
+    const out = preclassifyNotCheckable({
+      criteria: [
+        crit('ST-99-ghost', 'check:verify-design-structure'),
+        crit('ST-02-parts', 'check:verify-flow-as-built'),
+        { id: 'C1', derivation: 'prd', skill: null },
+      ],
+      boards, environmentByCriterion: { 'ST-99-ghost': 'production', C1: 'production' }, minifiedEnvironments: ['production'],
+    });
+    expect(out).toEqual([]);
+  });
+
+  test('throws on bad input', () => {
+    expect(() => preclassifyNotCheckable(null)).toThrow(TypeError);
+  });
+});
+
+describe('CLI: preclassify', () => {
+  let dir;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'preclassify-cli-')); });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+  const run = (args) => spawnSync('node', [MODULE_PATH, 'preclassify', ...args], { encoding: 'utf8' });
+  const write = (name, obj) => {
+    const f = path.join(dir, name);
+    fs.writeFileSync(f, typeof obj === 'string' ? obj : JSON.stringify(obj));
+    return f;
+  };
+
+  test('reads payload, verification and every --design-map; skips an unparseable one with stderr', () => {
+    const payload = write('p.json', {
+      criteria: [
+        { id: 'ST-01-a', derivation: 'check:verify-design-structure' },
+        { id: 'ST-02-b', derivation: 'check:verify-design-structure' },
+      ],
+      environmentByCriterion: {},
+    });
+    const ver = write('verification.md', '| Name | URL |\n|---|---|\n| local | x |\n');
+    const m1 = write('m1.json', { boards: [{ id: '01-a', components: [] }] });
+    const m2 = write('m2.json', { boards: [{ id: '02-b', components: [] }] });
+    const bad = write('bad.json', '{nope');
+    const r = run(['--file', payload, '--verification', ver, '--design-map', m1, '--design-map', bad, '--design-map', m2]);
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout).map((e) => e.id).sort()).toEqual(['ST-01-a', 'ST-02-b']);
+    expect(r.stderr).toMatch(/bad\.json/);
+  });
+
+  test('missing --verification is a usage exit', () => {
+    const payload = write('p.json', { criteria: [], environmentByCriterion: {} });
+    const r = run(['--file', payload]);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/Usage/);
   });
 });

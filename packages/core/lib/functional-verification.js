@@ -2060,6 +2060,81 @@ function mergeReproofRetry(first, second) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// readMinifiedEnvironments / preclassifyNotCheckable -- TRIAGE D10
+// ---------------------------------------------------------------------------
+
+/**
+ * Names of the environments in `verification.md` section 1 that serve minified component names
+ * (so the design-structure walk cannot match them): one named `production`, or whose row text
+ * contains `production build`, `prod build` or `minified` (case-insensitive). The table is the
+ * one whose first header cell is `Name`; the "Loop may WRITE data?" column is not keyed on, so an
+ * older file still reads. No such table returns `[]`; it never throws on content.
+ *
+ * @param {string} verificationText - the full contents of a `verification.md`
+ * @returns {string[]} environment names, as written (backticks and bold stripped)
+ * @example
+ *   readMinifiedEnvironments('| Name | URL |\n|---|---|\n| production | https://x |') // ['production']
+ */
+function readMinifiedEnvironments(verificationText) {
+  if (typeof verificationText !== 'string') {
+    throw new TypeError('readMinifiedEnvironments: verificationText must be a string');
+  }
+  const clean = (h) => String(h ?? '').replace(/\*\*|`/g, '').replace(/\s+/g, ' ').trim();
+  const lines = maskFencedLines(verificationText.replace(/\r\n?/g, '\n').split('\n'));
+  const table = findTables(lines, 0, lines.length).find((t) => clean(t.headerCells[0]).toLowerCase() === 'name');
+  if (!table) return [];
+  const names = [];
+  for (const r of table.dataRows) {
+    const name = clean(r.cells[0]);
+    if (!name) continue;
+    const text = r.cells.join(' ').toLowerCase();
+    if (name.toLowerCase() === 'production' || /production build|prod build|minified/.test(text)) names.push(name);
+  }
+  return names;
+}
+
+/**
+ * Classifies, before Exercise, the design-structure criteria that cannot be checked: a row for a
+ * parts board (empty `components`: the structure check does not run) or one resolved to a minified
+ * environment. A row is a design-structure row when its derivation is `check:verify-design-structure`;
+ * its board is the id after exactly one leading `ST-`, compared whole to `boards[].id`. An unknown
+ * board is left alone.
+ *
+ * @param {{criteria: Array<{id: string, derivation?: string}>, boards: Array<{id: string, components?: string[]}>,
+ *   environmentByCriterion: Object<string,string>, minifiedEnvironments: string[]}} input
+ * @returns {Array<{id: string, status: 'not_verifiable', kind: 'not-checkable-here', cause: 'capability-absent',
+ *   reason: string, preclassified: true}>}
+ */
+function preclassifyNotCheckable(input) {
+  if (!input || typeof input !== 'object' || !Array.isArray(input.criteria)) {
+    throw new TypeError('preclassifyNotCheckable: input.criteria must be an array');
+  }
+  const boards = Array.isArray(input.boards) ? input.boards : [];
+  const envs = input.environmentByCriterion && typeof input.environmentByCriterion === 'object' ? input.environmentByCriterion : {};
+  const minified = new Set((Array.isArray(input.minifiedEnvironments) ? input.minifiedEnvironments : []).map((e) => String(e).toLowerCase()));
+  const out = [];
+  for (const c of input.criteria) {
+    const m = /^check:([\w-]+)/.exec(String((c && c.derivation) || ''));
+    if (!m || m[1] !== 'verify-design-structure' || typeof c.id !== 'string') continue;
+    const boardId = c.id.replace(/^ST-/, '');
+    const board = boards.find((b) => b && b.id === boardId);
+    if (!board) continue;
+    const entry = (reason) => ({
+      id: c.id, status: 'not_verifiable', kind: 'not-checkable-here', cause: 'capability-absent', reason, preclassified: true,
+    });
+    if (!Array.isArray(board.components) || board.components.length === 0) {
+      out.push(entry(`parts board ${board.id}: the structure check does not run`));
+      continue;
+    }
+    const env = envs[c.id];
+    if (typeof env === 'string' && minified.has(env.toLowerCase())) {
+      out.push(entry(`environment ${env} serves minified component names, so the structure walk cannot match board ${board.id}`));
+    }
+  }
+  return out;
+}
+
 module.exports = {
   checkEvidence,
   decideNext,
@@ -2077,6 +2152,8 @@ module.exports = {
   recommendCoverageFloor,
   readNeverUnattended,
   readFullDeploy,
+  readMinifiedEnvironments,
+  preclassifyNotCheckable,
   reproofRetrySet,
   mergeReproofRetry,
   // Exported for custody.js's deploy link. Global flag: use String.prototype.match only,
@@ -2134,6 +2211,9 @@ module.exports = {
 //        returned; prints {batches, remove, rejected})
 //   node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>
 //       (reads both files itself — not a JSON payload; prints {criteria, uncovered, unknown})
+//   node functional-verification.js preclassify --file <payload> --verification <path> [--design-map <path> ...]
+//       (payload {criteria, environmentByCriterion}; prints the preclassified entries; an unparseable
+//        --design-map is skipped with a stderr line)
 //   node functional-verification.js reproof-retry-set <statePath>
 //       (prints {retry: [ids not met]}; {retry: []} when the file is missing or unparseable)
 //   node functional-verification.js merge-reproof-retry --first <path> --second <path>
@@ -2155,6 +2235,7 @@ if (require.main === module) {
         '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
         '  node functional-verification.js verification-digest <verificationPath>\n' +
+        '  node functional-verification.js preclassify --file <payload> --verification <path> [--design-map <path> ...]\n' +
         '  node functional-verification.js reproof-retry-set <statePath>\n' +
         '  node functional-verification.js merge-reproof-retry --first <path> --second <path>\n' +
         '  node functional-verification.js recommend-coverage-floor <trdStateDir>\n' +
@@ -2281,6 +2362,41 @@ if (require.main === module) {
       usage();
     } else {
       console.log(JSON.stringify(mustPassCoverageFromFiles(trdPath, definitionPath)));
+    }
+  } else if (subcommand === 'preclassify') {
+    // Files read here, in code, as with must-pass-coverage. --design-map repeats, so collect
+    // every occurrence (flag() returns only the first); each names a FILE.
+    const payloadPath = flag('--file');
+    const verificationPath = flag('--verification');
+    if (!payloadPath || !verificationPath) {
+      usage();
+    } else {
+      const payload = readJsonOrNull(payloadPath);
+      if (!payload || !Array.isArray(payload.criteria)) {
+        console.error(`preclassify: cannot read a payload with criteria from ${payloadPath}`);
+        process.exit(1);
+      }
+      const boards = [];
+      rest.forEach((arg, i) => {
+        const p = arg === '--design-map' ? rest[i + 1] : undefined;
+        if (!p || p.startsWith('--')) return;
+        const map = readJsonOrNull(p);
+        if (map && Array.isArray(map.boards)) boards.push(...map.boards);
+        else console.error(`preclassify: skipping unparseable --design-map ${p}`);
+      });
+      let verificationText = '';
+      try {
+        verificationText = fs.readFileSync(verificationPath, 'utf8');
+      } catch (err) {
+        console.error(`preclassify: cannot read ${verificationPath}: ${err.message}`);
+        process.exit(1);
+      }
+      console.log(JSON.stringify(preclassifyNotCheckable({
+        criteria: payload.criteria,
+        boards,
+        environmentByCriterion: payload.environmentByCriterion || {},
+        minifiedEnvironments: readMinifiedEnvironments(verificationText),
+      })));
     }
   } else if (subcommand === 'report-publish-plan') {
     const reportPath = flag('--report');

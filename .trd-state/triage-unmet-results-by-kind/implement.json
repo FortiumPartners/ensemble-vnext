@@ -44,38 +44,53 @@
     "TRIAGE-B003": {
       "description": "In functional-verification.js, add readMinifiedEnvironments, preclassifyNotCheckable and the preclassify CLI (§3.3). This is the same file as B001 and B006; it is split out for verifiability: O5's acc",
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        ".claude/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js"
+      ],
       "commit": null,
       "started_at": "2026-11-12T04:45:57.909Z",
-      "completed_at": null
+      "completed_at": "2026-11-12T04:54:43.384Z",
+      "last_advanced": "2026-11-12T04:51:36.026Z"
     },
     "TRIAGE-B004": {
       "description": "In verify-functional.js, implement the kind routing: replace EVIDENCE_CAUSES with a pinned KIND_BY_CAUSE copy (D3); add kind/settled to JUDGE_CRITERION_SCHEMA and to the Judge prompt's STEP 2–5 key li",
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js"
+      ],
       "commit": null,
       "started_at": "2026-11-12T04:45:57.909Z",
-      "completed_at": null
+      "completed_at": "2026-11-12T04:54:43.385Z",
+      "last_advanced": "2026-11-12T04:51:36.027Z"
     },
     "TRIAGE-B005": {
       "description": "/refine-verification step 2 routing (D15), using cause when kind is absent, and D20's reader rule (a non-null kindOf(cause) wins over a disagreeing stored kind; a stored kind stands where kindOf(cause",
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/refine-verification.md",
+        ".claude/commands/refine-verification.md",
+        "packages/core/lib/refine-verification-must-pass.test.js"
+      ],
       "commit": null,
       "started_at": "2026-11-12T04:45:57.909Z",
-      "completed_at": null
+      "completed_at": "2026-11-12T04:54:43.385Z",
+      "last_advanced": "2026-11-12T04:51:36.027Z"
     },
     "TRIAGE-B006": {
       "description": "Add kind rendering to renderReport (D16): a kind on each row, kind counts leading the Diagnosis line, the ## Evidence gaps (definition problems) section, preclassified marks, the satisfied suffix, and",
