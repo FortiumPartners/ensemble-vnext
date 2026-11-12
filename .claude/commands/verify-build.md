@@ -490,6 +490,10 @@ flag is ignored and none of this section applies. Under it:
   `stuck`, `insufficient-coverage`, `must-pass-unproven`, `setup-failure`, or a `not run` case), so the caller can test for exactly
   `satisfied`. For a setup failure the line is `RETURN → setup-failure, <met> of <total> met`;
   `/plan`'s sweep chain reads that exact string. This line is a sibling of `/implement-trd`'s `RETURN → chained by …` line.
+- **Writes the records first.** After the report is on disk and immediately before the RETURN
+  line, one `node .claude/lib/record-ref.js write --state-dir .trd-state/<feature> --command /verify-build --step "chained verification run"`
+  (records-ref rule in `command-status.md`); the run ends on another command's banner, so the
+  records must be on the ref by then.
 - **No banner, no `notify-complete.sh`, no `PushNotification`.** The caller owns the run's
   only terminator; `notify-complete.sh` would mark the run finished and switch off the
   autonomy judge for the rest of the chain.
@@ -736,6 +740,11 @@ adding `--url <returned URL>` only when a publish returned one. No command write
 
 Emit the link ABOVE the banner. A failed publish — the report's or any check page's — is one
 line of prose and nothing more; it never blocks the banner.
+
+**Then write the records to the ref, once**, after the last `artifacts.js record` and immediately
+before the banner (`command-status.md`, "Run records go to the records ref"):
+`node .claude/lib/record-ref.js write --state-dir .trd-state/<feature> --command /verify-build --step "verification run"`.
+Report a non-silent outcome as one ISSUES line.
 
 **The banner is the LAST line of the turn. Nothing after it — not a caveat, not a finding, not
 a recommendation.** Anything worth saying goes above it.

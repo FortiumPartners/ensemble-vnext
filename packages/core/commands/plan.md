@@ -1183,7 +1183,9 @@ node -e '
    (`check-never-unattended docs/TRD/<slug>.md .claude/rules/verification.md`, passed as
    `coreNeverUnattendedHit` and `coreNeverUnattendedStatus`). Pass the sweep ids still in the
    sweep file as `sweepIdsLeft`. A failing `check` is `COMMAND STUCK: /plan`, as in Step 6a.
-5. **`commit`.** The list is the changed paths, the sweep file and `.trd-state/<slug>-sweep/`.
+5. **`commit`.** The list is the changed paths and the sweep file. The sweep's records folder
+   is not committed: write it to its records ref once, after the commit step
+   (`node .claude/lib/record-ref.js write --state-dir .trd-state/<slug>-sweep --command /plan --step "sweep fixes"`).
    **Before `git add`, run the brake over that whole list**, not just the changed paths:
    `node .claude/lib/functional-verification.js check-never-unattended --files "<changed,paths>,<sweep file>,.trd-state/<slug>-sweep/" .claude/rules/verification.md`.
    When `hits` is non-empty or `status` is `invalid`, do not stage or commit: leave the fixes
@@ -1246,6 +1248,12 @@ banner. A failed publish is one line of prose and nothing more; it never blocks 
 **Then ALWAYS record the document, whether or not publishing is on** (this sits outside the
 publish switch): `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind trd --path docs/TRD/<slug>.md --command /plan`,
 adding `--url <returned URL>` only when a publish returned one. No command writes `artifacts.json` by hand.
+
+**Write the records to the ref before any banner this command emits itself**
+(`command-status.md`, "Run records go to the records ref"), once, after the last
+`artifacts.js record`: `node .claude/lib/record-ref.js write --state-dir .trd-state/<feature> --command /plan --step "plan written"`.
+A `banner: null` hand-off writes nothing: the chained command writes. A run that wrote nothing
+under `.trd-state/` (the pre-triage exit) skips it.
 
 The banner is the LAST line of the final turn, nothing after it. **Step 7's plan decides
 whether you emit one at all** — `banner: null` means emit nothing. On unrecoverable failure use

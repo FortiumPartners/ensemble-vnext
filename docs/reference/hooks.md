@@ -59,7 +59,7 @@ survives. What it does is in §6.4.
 | `notify.sh` | Stop (4) | command | 60 s (your command: 30 s) | no | `$NOTIFY_ON_STOP`, the payload | whatever your command does | nothing |
 | `session-context.js` | SessionStart (1) | command | 5 s | no | `current.json`, the state file it names, `<feature>/closed.json` | `export CLAUDE_SESSION_ID=…` into `$CLAUDE_ENV_FILE` | the in-flight feature brief |
 | `runtime-refresh.sh` | SessionStart (2) | command | 10 s | no | `~/.claude/plugins/installed_plugins.json`, `ensemble.version` in `.claude/settings.json`, every `implement.json` | the vendored `.claude/` components, through `scaffold-project.sh --refresh` | one line: refreshed, deferred, or failed |
-| `precompact.js` | PreCompact (1) | command | 5 s | no | `current.json`, `implement.json` | appends a checkpoint to `.trd-state/<feature>/session-log.md` | nothing (PreCompact accepts no context) |
+| `precompact.js` | PreCompact (1) | command | 5 s | no | `current.json`, `implement.json` | appends a checkpoint to `.trd-state/<feature>/session-log.md`; a `_session-log.md` is also written, locally only, to `refs/ensemble/records/_shared` | nothing (PreCompact accepts no context) |
 | `notify-complete.sh` | none: a command runs it | script | none | no | `$CLAUDE_SESSION_ID`, `current.json`, git, tmux | `_command-runs/<session>.json` = `none`; then runs `$NOTIFY_ON_COMPLETE` | nothing |
 
 The order numbers have gaps (Stop has 1 and 4) because retired hooks left them. **Order is the
@@ -453,7 +453,9 @@ feature's records from the local ref `refs/ensemble/records/<slug>` when the wor
 reads as "no record". The ref is used only when its `record.json` identity matches the session
 (same `FORGE_FEATURE_ID`, or same branch). `precompact.js` restores the folder first, and when it
 cannot, appends to `.trd-state/_session-log.md` rather than create a one-file folder. `status.js`
-neither restores nor creates the folder. Design: `docs/TRD/readers-fall-back-to-the-ref.md`.
+neither restores nor creates the folder. After appending to `.trd-state/_session-log.md`,
+`precompact.js` also writes it to the shared ref (`write --shared`, `push: false`, `fallback: false`):
+no network, no branch commit, every failure swallowed. Design: `docs/TRD/readers-fall-back-to-the-ref.md`.
 
 ---
 

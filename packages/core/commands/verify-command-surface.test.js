@@ -754,13 +754,13 @@ describe('the cycle-ending commands open the pull request', () => {
   // WHEN the PR opens: each condition below is a regex over the shipped command text, so
   // removing the wording from the command file fails the matching assertion.
   test('close-feature.md opens the PR only after a successful close commit, never on the already-closed path', () => {
-    expect(closeFeature).toMatch(/\*\*Open the pull request\*\* after a successful close commit/);
+    expect(closeFeature).toMatch(/\*\*Open the pull request\*\* when the close record parsed/);
     expect(closeFeature).toMatch(/The "already closed" path opens nothing\./);
   });
 
-  test('audit-build.md opens the PR only when the audit commit succeeded', () => {
-    expect(auditBuild).toMatch(/Open the pull request\.\*\* Only when [^.]*the audit commit above succeeded/);
-    expect(auditBuild).toMatch(/No audit commit, no PR\./);
+  test('audit-build.md opens the PR only when the TRD commit succeeded when needed', () => {
+    expect(auditBuild).toMatch(/Open the pull request\.\*\* Only when [^.]*the TRD commit above succeeded when one was needed/);
+    expect(auditBuild).toMatch(/No close, no PR\./);
   });
 
   test('NEXT says to merge the PR in words, with no gh or git command in its paragraph', () => {
@@ -870,8 +870,11 @@ describe('audit-build owns the fix run and the round decision', () => {
   });
 
   test('the audit commit names the TRD so in-place fixes travel with the branch', () => {
-    expect(auditBuild).toMatch(/git add <trd-path> \.trd-state/);
-    expect(auditBuild).toMatch(/-- <trd-path> \.trd-state/);
+    expect(auditBuild).toMatch(/git add <trd-path>\s/);
+    expect(auditBuild).toMatch(/-- <trd-path>\s/);
+    expect(auditBuild).not.toMatch(/git (add|commit) [^`]*\.trd-state\/<feature>\/(audit-build-report|closed|artifacts)/);
+    expect(auditBuild).toMatch(/record-ref\.js ensure/);
+    expect(auditBuild).toMatch(/record-ref\.js write/);
   });
 
   test('any wake-up this command schedules carries the run id and re-entry checks stale-wake by run id', () => {
@@ -1878,8 +1881,8 @@ describe('prd/trd/audit-build commands record through artifacts.js', () => {
     const text = flat(read(path.join(REPO, 'packages/core/commands/audit-build.md')));
     expect(text).not.toMatch(/audit-build-report` key|under\s+`audit-build-report`/);
     expect(text).not.toMatch(/When "Publish it" just changed `artifacts\.json`/);
-    expect(text).toMatch(/Commit the manifest right after recording, on every run that records/);
-    expect(text).toMatch(/git add \.trd-state\/<feature>\/artifacts\.json && git commit/);
+    expect(text).toMatch(/The manifest is a record too: it is not committed/);
+    expect(text).not.toMatch(/git add \.trd-state\/<feature>\/artifacts\.json/);
   });
 });
 

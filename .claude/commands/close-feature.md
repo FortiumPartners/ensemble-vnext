@@ -47,6 +47,11 @@ Reason: no TRD named and .trd-state/current.json names none
 Next:   /close-feature docs/TRD/<feature>.md
 ```
 
+Before reading `closed.json`, restore the feature's records if this worktree lacks them:
+`node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>`. Any outcome but
+`present` or `restored` means no record: carry on. A `failed` outcome is one ISSUES line,
+"records ref could not be fetched".
+
 **Already closed** (`.trd-state/<feature>/closed.json` exists): change nothing, say when it was
 closed and by whom, and end `COMMAND COMPLETE`. To reopen a feature, delete that file.
 
@@ -74,19 +79,11 @@ and the audit fields differ.
    four keys (`prd`, `trd`, `status`, `branch`) to `null` and keep the file —
    `validate-init.sh` needs it to exist. When it names another feature, leave it alone.
 3. **Remove the run lock**, `.trd-state/<feature>/implement.lock`, if it exists.
-4. **Commit the record** when you are on any branch other than the default one (resolved from
-   `git symbolic-ref --quiet refs/remotes/origin/HEAD`, prefix stripped, falling back to
-   `main`), so it travels with that branch's PR:
-
-   ```bash
-   git add .trd-state/<feature>/closed.json
-   git commit -m "chore(<feature>): close feature" -- .trd-state/<feature>/closed.json
-   ```
-
-   The pathspec keeps the commit to that one file. **On the default branch, don't commit**:
-   what lands there is yours to decide, so NEXT tells you to commit it. A failed commit is one
-   line in ISSUES, never STUCK.
-5. **Open the pull request** after a successful close commit on a feature branch. Write a
+4. **Write the record to the records ref**, never a commit. Run
+   `node .claude/lib/record-ref.js write --state-dir .trd-state/<feature> --command /close-feature --step "closed by owner"`.
+   Its outcome is one line in STATE; a failed write is one line in ISSUES, never STUCK, and never
+   a gate on the PR.
+5. **Open the pull request** when the close record parsed and you are on a feature branch. Write a
    short PR body (the feature, closed by you, the note) to a temp file, then run
    `node .claude/lib/pull-request.js ensure --title "<feature>: <one line>" --body-file <tmp> --expect-branch "<branch from .trd-state/<feature>/implement.json>"`.
    The flag makes it skip, with a reason, when the checked-out branch is not the one the feature
@@ -102,13 +99,13 @@ of the feature, and closing it does not rewrite history.
 
 The four-section readout from `.claude/rules/command-status.md`, one screen:
 
-- **STATE** — the record's path and what it says (closed by you, the note), whether it was
-  committed and on which branch, and whether `current.json` was cleared.
+- **STATE** — the record's path and what it says (closed by you, the note), the records
+  write's outcome and the branch, and whether `current.json` was cleared.
 - **DECISIONS** — none.
-- **ISSUES** — a record that would not parse, or a commit that failed. Otherwise none.
+- **ISSUES** — a record that would not parse, or a records write that failed. Otherwise none.
 - **NEXT** — on a feature branch with a PR open: a line saying to merge the PR once you
   have reviewed it, naming it by number and URL, in words, no command. On a feature branch with no PR: a line saying to open
-  a PR for the branch. On the default branch: a line saying to commit the close record.
+  a PR for the branch.
   **Unsynced boards.** After `closed.json` is written, run `node .claude/lib/design-map.js unsynced --all --trd <trd-path>` (JSON `[{ design, id, trd }]`). For each design it lists, add one numbered step per design. Where `.claude/rules/ship.md` lists `sync-design`, that step is a line naming that design's boards and saying they sync after the merge, naming no `/sync-design` and carrying no fenced block. Otherwise it is a line naming that design's boards and saying to check them against the build with `/sync-design` now, or once the PR has merged, then `/sync-design <slug> --trd <trd-path>` alone in its fenced block. With none, say nothing about syncing. A failing check is one ISSUES line, never STUCK. It is named, never chained: this command never runs `/sync-design` (a separate command, the owner's call).
 
 Then the banner, as the last line:

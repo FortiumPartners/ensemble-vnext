@@ -265,6 +265,23 @@ function main() {
     ensureDirFor(logPath);
     fs.appendFileSync(logPath, entry, 'utf-8');
     debug(`appended checkpoint to ${logPath}`);
+    // A log that belongs to no feature travels on the shared records ref, not the branch. Local
+    // only: no push, no branch-commit fallback — a hook never touches the network or commits.
+    if (recordRef && path.basename(logPath) === '_session-log.md') {
+      try {
+        const r = recordRef.write({
+          shared: true,
+          command: 'precompact',
+          step: 'compaction checkpoint',
+          push: false,
+          fallback: false,
+          cwd: projectRoot,
+        });
+        debug(`shared write: ${r && r.outcome}`);
+      } catch (err) {
+        debug(`shared write failed: ${err.message}`);
+      }
+    }
   } catch (err) {
     debug(`append failed: ${err.message}`);
     // Fall through — the hook must never block compaction.

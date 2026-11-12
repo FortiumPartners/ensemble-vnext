@@ -160,6 +160,21 @@ notice (12)" means something.
 **Nothing is committed.** Say so, and leave the commit to the owner: a batch of unrelated
 fixes is theirs to split into commits as they see fit.
 
+**Records go to the ref, not the branch.** After the last record is on disk and before the
+banner (before the RETURN line under `--chained`), write the sweep's run records once, per
+`.claude/rules/command-status.md` "Run records go to the records ref". Both writes are
+non-commits on the branch, so "nothing is committed" stays true:
+
+```bash
+node .claude/lib/record-ref.js write --shared --command /sweep --step "sweep discovered findings"
+node .claude/lib/record-ref.js write --state-dir .trd-state/<slug>-sweep --command /sweep --step "sweep result" --no-fallback
+```
+
+The first writes `_sweep/discovered.jsonl` (skip it when step 4 recorded nothing); the second
+writes the `.trd-state/<slug>-sweep/` folder (skip it when no sweep file named a `<slug>`);
+`--no-fallback` keeps a lost push from becoming a branch commit (`--shared` never commits).
+Report a non-silent outcome as one ISSUES line; it never makes the sweep STUCK.
+
 ## Completion signal
 
 **Under `--chained`** there is no banner and no `notify-complete.sh`: the caller's run is not

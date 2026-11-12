@@ -59,8 +59,9 @@ row stops the step rather than becoming a model edit), `work`, `context`.
    every path the agent changed to `HEAD` and delete the files it created, all of the row's edits
    and never some; the row then takes the reconcile path. A pass: commit only those paths by
    pathspec (`git add -- <paths>`, `git commit -m "fix: <row> (direct)" -- <paths>`, never
-   `git add -A`), then `discovered.resolve(<work.stateDir>, row, "fixed directly at <sha>")`,
-   before the reconcile path runs. No custody call: the custody gate before the merge judges the
+   `git add -A`), then resolve the row with
+   `discovered.resolve(<work.stateDir>, row, "fixed directly at <sha>")`, before the reconcile
+   path runs. No custody call: the custody gate before the merge judges the
    commit.
 
    **Reconcile path.** Run only when reconcile rows remain (including rows the direct path handed

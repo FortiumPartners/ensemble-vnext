@@ -338,3 +338,55 @@ describe('precompact.js and the records ref', () => {
     expect(r.stdout.trim()).toBe('{}');
   });
 });
+
+describe('precompact.js writes _session-log.md to the shared records ref', () => {
+  const { execFileSync } = require('child_process');
+  const git = (cwd, ...args) =>
+    execFileSync('git', args, { cwd, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+
+  // A real repo: mock-fs breaks real git (why status has its own test file).
+  function initRepoWithNoFeature(cwd) {
+    git(cwd, 'init', '-q', '-b', 'topic');
+    git(cwd, 'config', 'user.email', 't@example.com');
+    git(cwd, 'config', 'user.name', 't');
+    fs.writeFileSync(path.join(cwd, 'README.md'), 'x\n');
+    git(cwd, 'add', 'README.md');
+    git(cwd, 'commit', '-q', '-m', 'init');
+    fs.mkdirSync(path.join(cwd, '.trd-state'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, '.trd-state', 'current.json'), JSON.stringify({}));
+  }
+
+  test('with no feature in flight, the log lands on refs/ensemble/records/_shared without a branch commit', () => {
+    initRepoWithNoFeature(tmpDir);
+    const before = git(tmpDir, 'rev-parse', 'HEAD');
+    const result = runHook({ cwd: tmpDir, payload: {} });
+    expect(result.status).toBe(0);
+    expect(git(tmpDir, 'rev-parse', 'HEAD')).toBe(before);
+    expect(git(tmpDir, 'log', '--oneline').split('\n')).toHaveLength(1);
+    expect(git(tmpDir, 'rev-parse', '--verify', 'refs/ensemble/records/_shared')).toMatch(/^[0-9a-f]{40}$/);
+    const files = git(tmpDir, 'ls-tree', '-r', '--name-only', 'refs/ensemble/records/_shared');
+    expect(files).toContain('_session-log.md');
+  });
+
+  test('exits 0 and leaves HEAD alone when objects/ is unwritable (no remote, so nothing is fetched or pushed)', () => {
+    initRepoWithNoFeature(tmpDir);
+    const before = git(tmpDir, 'rev-parse', 'HEAD');
+    const objects = path.join(tmpDir, '.git', 'objects');
+    fs.chmodSync(objects, 0o555);
+    try {
+      const result = runHook({ cwd: tmpDir, payload: {} });
+      expect(result.status).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual({});
+    } finally {
+      fs.chmodSync(objects, 0o755);
+    }
+    expect(git(tmpDir, 'rev-parse', 'HEAD')).toBe(before);
+  });
+
+  test('exits 0 when git is unavailable', () => {
+    initRepoWithNoFeature(tmpDir);
+    const result = runHook({ cwd: tmpDir, payload: {}, env: { PATH: '/nonexistent' } });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({});
+  });
+});

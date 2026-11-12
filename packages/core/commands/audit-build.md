@@ -24,6 +24,16 @@ $ARGUMENTS
 If no path is given, use `current.trd` from `.trd-state/current.json`. If `--prd` is omitted,
 use `current.prd` from the same file.
 
+Once `<feature>` is known (the TRD's basename without its extension), restore the feature's
+records if this worktree lacks them, before anything is written into `.trd-state/<feature>/`:
+
+```bash
+node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
+```
+
+Any outcome but `present` or `restored` means no record: carry on as before. A `failed` outcome is
+one ISSUES line, "records ref could not be fetched".
+
 **No TRD (D14).** No path argument was given, AND `current.json` is either absent or its
 `trd` is null or empty (this is exactly what closing a feature leaves behind) → do not call
 the workflow. End immediately:
@@ -323,7 +333,7 @@ They are reported for design, and the feature stays open.
   (`.claude/commands/close-feature.md`) with `"closedBy": "audit"`, `"note": null` and
   `"audit": { "verdict": "<the VERDICT line>", "report": ".trd-state/<feature>/audit-build-report.md", "auditedCommit": "<the header's value>", "anchorCommit": <below> }`
   (`anchorCommit` goes inside `audit`, never at the top level: `custody.js` reads only
-  `audit.anchorCommit`), except that its commit is folded into the one below. Then commit, publish and open the PR as
+  `audit.anchorCommit`), except that its step 4 (the records write) is skipped here: the one write below carries it. Then commit the TRD (if needed), publish, write the records and open the PR as
   below, and print the run's single banner. Add every caveat `decide` returned, and anything
   the fix run did not finish, to the readout. A feature that is already closed (a re-audit)
   gets its `closed.json` rewritten with this run's audit fields.
@@ -340,10 +350,10 @@ They are reported for design, and the feature stays open.
   chained, a STUCK return) write `"anchorCommit": null`. `auditedCommit` stays the report header's
   value either way.
 - `reaudit` true: the feature stays open and NEXT is `/audit-build` (the next round passes
-  `previous` and `trdHash`, below). Commit the report; no close record, no PR.
+  `previous` and `trdHash`, below). The report is written to the records ref below; no close record, no PR.
 - `capReached` true: **the feature stays open. It never closes with a caveat while a defect is
-  open.** The defects still went to the fix run (step 3), but they are not re-audited. Commit the
-  report; no close record, no PR. The readout names each open defect, and NEXT is the owner's
+  open.** The defects still went to the fix run (step 3), but they are not re-audited. The report goes to
+  the records ref below; no close record, no PR. The readout names each open defect, and NEXT is the owner's
   call, not another audit: `/close-feature docs/TRD/<feature>.md` once satisfied. Never NEXT
   `/audit-build` here.
 - Neither (uncovered items, or `do not proceed` with no defects — any test gaps are still
@@ -371,20 +381,19 @@ change the verdict, `decide`, or whether the feature closes.
 the fix pass, but they never block closing and never trigger a re-audit. A weak test matters only
 when it masks a real defect, and then it is reported as that defect by its own check.
 
-**Commit, so it travels with the branch.** On any branch other than the default one, commit
-the report, and the close record when one was written, in one commit and nothing else:
+**Commit the TRD only, so its fixes travel with the branch.** The report and the close record
+are records: they go to the records ref (below), never into a commit. When the audit fixed a
+citation in the TRD, and you are on any branch other than the default one, commit the TRD alone:
 
 ```bash
-git add <trd-path> .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
-git commit -m "docs(audit): audit-build report for <feature>" -- <trd-path> .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
+git add <trd-path>
+git commit -m "docs(audit): audit-build citation fixes for <feature>" -- <trd-path>
 ```
 
-(Drop `closed.json` from both lines when the audit did not close the feature; drop the TRD when
-the audit fixed no citation in it, so the commit holds the TRD's in-place fixes and nothing else.) On a close, this commit comes after the chained fix run, so the fix run's own commits are already on the branch. The pathspec
-keeps the commit to those files whatever else is staged. **On the default branch, do not
-commit**: the owner decides what lands there, so NEXT tells them to commit the report and close
-record. A failed
-commit is one line in STATE, never STUCK.
+When the audit fixed no citation, there is nothing to commit. On a close, this commit comes
+after the chained fix run, so the fix run's own commits are already on the branch. **On the
+default branch, do not commit**: the owner decides what lands there. A failed commit is one line
+in STATE, never STUCK.
 
 **Publish it** (`.claude/rules/command-status.md` "Artifact links"; same publish-and-remember
 shape as `implement-trd.md` §9.0a). First read any stored URL:
@@ -400,20 +409,22 @@ Artifact({ file_path: ".trd-state/<feature>/audit-build-report.md",
 `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind audit-build --path .trd-state/<feature>/audit-build-report.md --command /audit-build`,
 adding `--url <returned URL>` only when a publish returned one. This keeps the next audit
 updating the same link instead of minting a second one. No command writes `artifacts.json` by hand.
-**Commit the manifest right after recording, on every run that records** (a re-audit, a capped
-audit and `--report-only` included), on any branch other than the default one, so a run never
-leaves it modified in the tree. Stage it first, because `record` may just have created it and
-`git commit -- <path>` refuses a path git does not yet track:
-`git add .trd-state/<feature>/artifacts.json && git commit -m "chore(<feature>): store audit
-report link" -- .trd-state/<feature>/artifacts.json`. Nothing to commit (an unchanged manifest)
-is not an error; on the default branch, NEXT names it with the report.
+The manifest is a record too: it is not committed, and the write below carries it.
+
+**Write the records, once, last.** After the chained fix run has returned (it writes its own
+ref before its RETURN line), and after `closed.json`, the report, `audit-rounds.jsonl` and the
+`artifacts.js record` above are all on disk, run exactly one, a re-audit, a capped audit and
+`--report-only` included:
+`node .claude/lib/record-ref.js write --state-dir .trd-state/<feature> --command /audit-build --step "<audit round and verdict>"`.
+Its outcome is one STATE line (written, or why not); it is never a gate and never STUCK.
+
 **With publishing off (`ensemble.publishArtifacts: false`) or a failed
 publish, STATE names the local report path instead of a link — one line, never STUCK, never
 retried.** STATE always names the report path; add the link above it only when one was made.
 
 **Open the pull request.** Only when the audit closed the feature (a re-audit included), the
-run is not `--report-only`, and the audit commit above succeeded. The manifest was committed
-right after recording (above), so the stored link is on the branch the PR carries. Write a short PR body (the VERDICT line and the report link, or its path) to a
+run is not `--report-only`, and the TRD commit above succeeded when one was needed. The
+records write is not a condition. Write a short PR body (the VERDICT line and the report link, or its path) to a
 temp file, then run:
 
 ```bash
@@ -423,7 +434,7 @@ node .claude/lib/pull-request.js ensure --title "<feature>: <one line>" --body-f
 
 `--expect-branch` makes it skip when the checked-out branch is not the one the feature was built on (omit it only when `implement.json` has no `branch`). It prints one JSON line `{action, url, reason}` and always exits 0; it acts only when
 `ensemble.openPullRequest` is `auto`, and it never merges. STATE names the URL, or the
-skip/failed reason, in one line — never STUCK, never retried. No audit commit, no PR.
+skip/failed reason, in one line — never STUCK, never retried. No close, no PR.
 
 ## Readout
 
@@ -494,8 +505,7 @@ call once you are satisfied, then `/close-feature docs/TRD/<feature>.md` alone i
 never `/audit-build`. When `reaudit` is true: `/audit-build <trd>` alone in its fenced block. When the audit closed the feature: first a step saying to ship it, then `/ship-build docs/TRD/<feature>.md` alone in its fenced block (this command never runs it). Then, when a PR is open (`action` `opened` or
 `updated`): a line saying to merge the PR once you have reviewed it, naming it by number and URL
 (merging stays yours), in words, no command. Closed on a feature branch with no PR: a line saying to open a PR for the branch.
-Closed on the default branch (nothing was committed): a line saying to commit the report and
-close record. **Unsynced boards.** After `closed.json` is written, run `node .claude/lib/design-map.js unsynced --all --trd <trd-path>` (JSON `[{ design, id, trd }]`). For each design it lists, add one numbered step per design. Where `.claude/rules/ship.md` lists `sync-design`, that step is a line naming that design's boards and saying they sync after the merge, naming no `/sync-design` and carrying no fenced block. Otherwise it is a line naming that design's boards and saying to check them against the build with `/sync-design` now, or once the PR has merged, then `/sync-design <slug> --trd <trd-path>` alone in its fenced block. With none, say nothing about syncing. A failing check is one ISSUES line, never STUCK. It is named, never chained: this command never runs `/sync-design` (a separate command, the owner's call). On `do not proceed` with nothing chained: the design work the
+Closed on the default branch: no commit step for the records (they are on the records ref). **Unsynced boards.** After `closed.json` is written, run `node .claude/lib/design-map.js unsynced --all --trd <trd-path>` (JSON `[{ design, id, trd }]`). For each design it lists, add one numbered step per design. Where `.claude/rules/ship.md` lists `sync-design`, that step is a line naming that design's boards and saying they sync after the merge, naming no `/sync-design` and carrying no fenced block. Otherwise it is a line naming that design's boards and saying to check them against the build with `/sync-design` now, or once the PR has merged, then `/sync-design <slug> --trd <trd-path>` alone in its fenced block. With none, say nothing about syncing. A failing check is one ISSUES line, never STUCK. It is named, never chained: this command never runs `/sync-design` (a separate command, the owner's call). On `do not proceed` with nothing chained: the design work the
 readout names.
 
 ---

@@ -148,7 +148,7 @@ Examples:
 
 **This command writes no backups, and that is deliberate.** `.claude/` is committed —
 `constitution.md`'s Architecture Invariants require it ("Runtime is committed to git for
-reproducibility"), and `.gitignore` excludes only `*.local.*` plus the few framework-written working files that differ on every branch (`.trd-state/current.json`, the dispatch logs; Step 4.7a). So git already holds every
+reproducibility"), and `.gitignore` excludes `*.local.*`, the framework-written working files that differ on every branch (`.trd-state/current.json`, the dispatch logs; Step 4.7a) and, ignore-only, the run records under `.trd-state/` (they live on the records ref). So git already holds every
 byte this command is about to replace, with better tooling than a copied directory: `git
 diff` shows exactly what the rebase changed, which a timestamped parallel tree cannot.
 
@@ -1113,7 +1113,7 @@ branches stop conflicting on them:
 ```
 
 It adds the lines from `templates/gitignore-framework.txt` to `.gitignore` and
-`templates/gitattributes-additions.txt` to `.gitattributes` when missing, and untracks (`git rm
+`templates/gitattributes-additions.txt` to `.gitattributes` when missing (including the ignore-only `.trd-state/*` lines, which are never untracked), and untracks (`git rm
 --cached`, staged, never committed) any listed file the project had been committing, such as
 `.trd-state/current.json`. Files stay on disk.
 

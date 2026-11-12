@@ -4,9 +4,9 @@
 .claude/settings.local.json
 .claude/*.local.*
 
-# Note: .trd-state/ IS tracked for parallel execution coordination.
-# Do NOT add .trd-state/ to gitignore. implement.json is per-feature, carries the
-# durable progress, and never collides.
+# Note: records under .trd-state/ live on refs/ensemble/records/<slug>, not on the
+# branch, so the last lines of this file ignore them. Files already tracked stay
+# tracked until /rebase-project's cutover untracks them.
 #
 # TWO EXCEPTIONS -- both are per-session working state, not project artifacts, and
 # tracking them makes every feature branch rewrite one shared file. That is a merge
@@ -20,6 +20,8 @@
 #                     otherwise share one counter.
 .trd-state/current.json
 .trd-state/wiggum-state.json
+.trd-state/*
+!.trd-state/_docs-audit/
 
 # OS files
 .DS_Store
