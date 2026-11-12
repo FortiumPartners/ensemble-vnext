@@ -1,0 +1,202 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/every-waived-failure-filed-as-a-defect-issue.md",
+  "trd_hash": "66c6317532451505bbcbd87c608195a8e4455fec88e56be5f6f234d5ecda4dd0",
+  "branch": "feature/70-every-waived-failure-filed-as-a-defect-issue",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "New library waived-defects.js: parse ## Issue Tracker, check reachability, list waived rows with their recorded URL, build the defect issue, file missing ones, record URLs, CLI tracker / gate / record-filed",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/waived-defects.js",
+        "packages/core/lib/waived-defects.test.js",
+        "packages/core/lib/functional-verification.js",
+        ".claude/lib/waived-defects.js",
+        ".claude/lib/functional-verification.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T18:28:10.498Z",
+      "completed_at": "2026-11-12T18:38:38.203Z",
+      "last_advanced": "2026-11-12T18:33:41.641Z"
+    },
+    "FIX-002": {
+      "description": "functional-verification.js: recordNonBlockingFollowups skips a ref whose latest [non-blocking] row is filed (resolved); read-blocking-policy takes --stack and refuses the waiver with no reachable tracker; renderReport renders a Blocking: line from input.blockingNote; the report's \"Not blocking\" line says the failures are filed as defect issues",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        ".claude/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T18:28:10.498Z",
+      "completed_at": "2026-11-12T18:38:38.204Z",
+      "last_advanced": "2026-11-12T18:33:41.642Z"
+    },
+    "FIX-003": {
+      "description": "/implement-trd §8.1a and /verify-build pass --stack to read-blocking-policy and blockingNote (from waiverRefused, else null) to the workflow; verify-functional.js validates blockingNote and carries it into every report input; DECISIONS says the waiver was refused and why; readout \"Not blocking\" wording says filed as defect issues when the feature closes",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        "packages/core/workflows/verify-functional-trd-sync.test.js",
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        "packages/core/commands/verify-build-criteria.test.js",
+        "docs/TRD/functional-verification.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T18:28:10.498Z",
+      "completed_at": "2026-11-12T18:38:38.204Z",
+      "last_advanced": "2026-11-12T18:33:41.642Z"
+    },
+    "FIX-004": {
+      "description": "/audit-build close step and /close-feature close step run waived-defects.js gate (--closed-by audit / owner) before writing closed.json; on ok: false write no close record (remove an existing one on a re-audit), open no PR, still write the records ref, end COMMAND STUCK naming each row with Next: naming the tracker fix or record-filed, then the same command; Linear/Jira rows filed through their skill then record-filed, then gate re-run; STATE lists each filed issue URL with its criterion; close-feature's \"decides nothing and checks nothing\" framing gains the one exception",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/close-feature.md",
+        "packages/core/commands/audit-build.md",
+        "packages/core/commands/waived-defects-close-prose.test.js",
+        ".claude/commands/close-feature.md",
+        ".claude/commands/audit-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T18:28:10.498Z",
+      "completed_at": "2026-11-12T18:38:38.204Z",
+      "last_advanced": "2026-11-12T18:33:41.642Z"
+    },
+    "FIX-005": {
+      "description": "file-followups files a [non-blocking] row only through waived-defects.js gate and never refiles a row with a recorded URL; close-issue gains the sentence that a waived-defect issue is never closed by the feature that waived it, only when a later feature cites it as its source",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitive-file-followups.md",
+        "packages/core/contracts/ship-primitive-close-issue.md",
+        "packages/core/contracts/ship-primitives.test.js",
+        ".claude/contracts/ship-primitive-file-followups.md",
+        ".claude/contracts/ship-primitive-close-issue.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T18:28:10.498Z",
+      "completed_at": "2026-11-12T18:38:38.204Z",
+      "last_advanced": "2026-11-12T18:33:41.642Z"
+    },
+    "FIX-006": {
+      "description": "Owner-facing text: verification.md §5c template (both copies), /verification-setup SKILL.md question sentence, docs/reference/verification.md, contracts/functional-verification.md, and the Must pass guidance in plan.md, create-trd.md, trd-authoring.md say a waived failure is filed as a defect issue and that must-pass only needs a declared tracker",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/templates/claude-directory/rules/verification.md",
+        "packages/skills/verification-setup/SKILL.md",
+        ".claude/skills/verification-setup/SKILL.md",
+        ".claude/skills/verification-setup/template.md",
+        "docs/reference/verification.md",
+        "packages/core/contracts/functional-verification.md",
+        ".claude/contracts/functional-verification.md",
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md",
+        "packages/core/commands/create-trd.md",
+        ".claude/commands/create-trd.md",
+        "packages/core/contracts/trd-authoring.md",
+        ".claude/contracts/trd-authoring.md",
+        "packages/core/commands/waived-defect-wording.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T18:28:10.498Z",
+      "completed_at": "2026-11-12T18:38:38.204Z",
+      "last_advanced": "2026-11-12T18:33:41.642Z"
+    },
+    "FIX-007": {
+      "description": "[LIVE] Headless fixture run: a scaffolded fixture slot with Blocking: must-pass only, a ## Issue Tracker naming a GitHub project, a local stub gh on PATH that logs calls, and a feature ledger with one [non-blocking] row; run /close-feature headless and capture that the issue was filed before closed.json was written",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/full/lib/waived-defects.js",
+        ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/live/FIX-007/run1-gh-calls.log",
+        ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/live/FIX-007/run1-closed.json",
+        ".trd-state/every-waived-failure-filed-as-a-defect-issue/evidence/live/FIX-007/run2-final.txt"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T18:28:10.498Z",
+      "completed_at": "2026-11-12T18:38:38.206Z",
+      "last_advanced": "2026-11-12T18:33:41.642Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "14510fb4f8f507fcff26f5e21ff12cab671ef60c",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T18:46:06.185Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "14510fb4f8f507fcff26f5e21ff12cab671ef60c",
+    "last_checkpoint_timestamp": "2026-11-12T18:46:06.185Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/every-waived-failure-filed-as-a-defect-issue.md#Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "Jest, BATS and node CLIs run from the working tree"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI installed and logged in; scaffold-project.sh present"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh logged in; authorized for /ship-build merge-order behaviour only, not used here"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched (verification.md §1)"
+      }
+    }
+  }
+}
