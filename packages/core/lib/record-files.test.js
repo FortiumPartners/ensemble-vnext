@@ -62,6 +62,9 @@ describe('isRecordFile and custody.classifyPath share one definition', () => {
     ['.trd-statex/file', false],
     ['.claude/other.md', false],
     ['src/app.js', false],
+    ['OWNER-CALLS.md', true],
+    ['docs/OWNER-CALLS.md', false],
+    ['OWNER-CALLS.md.bak', false],
   ];
   test.each(cases)('%s -> %s', (p, expected) => {
     expect(isRecordFile(p)).toBe(expected);
@@ -78,6 +81,9 @@ describe('isRecordFile and custody.classifyPath share one definition', () => {
 describe('classifyClash', () => {
   test('record paths only', () => {
     expect(classifyClash([NOTES, '.trd-state/current.json'])).toEqual({ recordOnly: true, notRecord: [] });
+  });
+  test('the root OWNER-CALLS.md log is record-only', () => {
+    expect(classifyClash(['OWNER-CALLS.md'])).toEqual({ recordOnly: true, notRecord: [] });
   });
   test('a code path is named', () => {
     expect(classifyClash([NOTES, 'src/app.js'])).toEqual({ recordOnly: false, notRecord: ['src/app.js'] });

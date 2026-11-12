@@ -2883,3 +2883,28 @@ PY
     [ -z "$(git ls-files .trd-state/feat/dispatch.jsonl)" ]
     [ -n "$(git ls-files .trd-state/feat/evidence/x/dispatch.jsonl)" ]
 }
+
+# re-prove-only-what-a-change-can-affect FIX-004: scaffold never writes ensemble.reproof (absent
+# means defaults), and a refresh must leave an owner's value exactly as set. Regression guard.
+@test "reproof: an owner's ensemble.reproof.docs survives --refresh unchanged, and none is added when absent" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    # Fresh scaffold writes no reproof key.
+    run python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print('reproof' in d.get('ensemble',{}))" "$TEST_DIR/.claude/settings.json"
+    [ "$output" = "False" ]
+
+    python3 - "$TEST_DIR/.claude/settings.json" <<'PY'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+d.setdefault("ensemble", {})["reproof"] = {"docs": "reprove"}
+json.dump(d, open(p, "w"), indent=2)
+PY
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    run python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['ensemble']['reproof'])" "$TEST_DIR/.claude/settings.json"
+    [ "$output" = "{'docs': 'reprove'}" ]
+}

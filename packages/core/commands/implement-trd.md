@@ -1968,6 +1968,19 @@ neither has anything to point at. Nothing beyond those eight — no re-reading t
 report, no re-deriving the verdict; the report and the state file are already the durable
 record.
 
+**Record what each proven criterion covers, once, after the workflow returns.** Custody
+(`ship-custody-gate.md`) re-proves, after a later change, only the criteria whose files the change
+touched; it reads those files from a record written here, never from the TRD:
+
+```bash
+node .claude/lib/live-evidence.js record-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md
+```
+
+It reads `<state-dir>/verification-state.json`, writes
+`<state-dir>/evidence/criterion-covers.json` and prints `{"recorded":[...],"none":[...]}`; a
+criterion with no record falls back to custody's conservative path. A failure is one ISSUES line,
+never STUCK: the verification outcome stands without it.
+
 ---
 
 ### 8.5 While the loop is in flight, its gaps are NOT yours to fix

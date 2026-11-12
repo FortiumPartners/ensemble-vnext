@@ -24,6 +24,16 @@
  *        --covers a.js,b.js [--shows S] [--environment E]
  *   node .claude/lib/live-evidence.js read --state-dir D       # JSON array; [] when absent
  *
+ *   node .claude/lib/live-evidence.js record-criteria --state-dir D --trd T --definition P \
+ *        [--state verification-state.json]    # prints {"recorded":[...],"none":[...]}
+ *
+ * CRITERION COVERS (separate from the manifest above): for each criterion proven `met`, the repo
+ * paths of the TRD tasks that serve it, so custody (`custody.js reconcile`) can re-prove only the
+ * criteria a later change can affect. One JSON file, `<stateDir>/evidence/criterion-covers.json`,
+ * written whole and atomically and merged with what is there -- no line cap, because the
+ * multi-task criteria with the longest lists are exactly where the saving is largest. Derived
+ * from the TRD here, at proof time, never re-derived in custody.
+ *
  * `read` on the CLI drops entries whose covered files no longer hash as recorded (a review edit
  * after capture) and says how many on stderr, so the exerciser is never offered evidence that is
  * already stale and has to learn so from the Judge.
@@ -200,6 +210,131 @@ function readFresh(stateDir) {
   return { entries, dropped: all.length - entries.length };
 }
 
+// ---------------------------------------------------------------------------
+// Criterion covers
+// ---------------------------------------------------------------------------
+
+function criterionCoversPath(stateDir) {
+  return path.join(stateDir, 'evidence', 'criterion-covers.json');
+}
+
+/** A repo-relative forward-slash path, or null for an absolute path, a `..` segment, or nothing. */
+function normalizeCoverPath(p) {
+  if (typeof p !== 'string') return null;
+  const s = p.trim().replace(/\\/g, '/').replace(/^(\.\/)+/, '');
+  if (!s || s.startsWith('/') || /^[A-Za-z]:/.test(s)) return null;
+  if (s.split('/').some((seg) => seg === '..')) return null;
+  return s.replace(/\/{2,}/g, '/');
+}
+
+/** Paths in backticks in a task row's description that exist on disk (the no-Touches fallback). */
+function backtickedExistingPaths(text, cwd) {
+  const out = [];
+  for (const m of String(text || '').matchAll(/`([^`]+)`/g)) {
+    if (/\s/.test(m[1])) continue;
+    const p = normalizeCoverPath(m[1]);
+    if (p && isFile(path.join(cwd, p))) out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Maps each criterion id to the repo paths its TRD tasks plan to touch.
+ *
+ * A criterion's definition row names objective ids (its `Must pass` cell, or any declared
+ * objective id anywhere in the row) and possibly task ids. Tasks whose `Serves` includes a named
+ * objective, plus tasks named directly, contribute their grounding Touches; a task with no
+ * Touches contributes the existing paths backticked in its Master Task List row (`source:
+ * 'task-row'`). No task or no path means no entry. Throws when the TRD or the definition cannot
+ * be read (the CLI turns that into exit 2), so a wrong path is never mistaken for "nothing maps".
+ *
+ * Requires `trd-parser`/`spec-scope`/`functional-verification` inside the function:
+ * `functional-verification.js` requires this module at load, so a top-level require is a cycle.
+ *
+ * @returns {Map<string, {covers: string[], source: 'touches'|'task-row'}>}
+ */
+function deriveCriterionCovers({ trdPath, definitionPath, ids, cwd = process.cwd() }) {
+  const { parseTrd, maskFencedLines, findTables } = require('./trd-parser');
+  const { objectiveRows } = require('./spec-scope');
+  const result = new Map();
+  const want = new Set(ids || []);
+  if (want.size === 0) return result;
+
+  const trdText = fs.readFileSync(trdPath, 'utf8');
+  const parsed = parseTrd(trdText);
+  const objectiveIds = objectiveRows(trdText).map((o) => o.id);
+  // parseTrd strips backticks from a task's description, so the fallback reads the raw table row.
+  const rawRow = (taskId) =>
+    maskFencedLines(trdText.split(/\r?\n/)).find((l) => l.replace(/[|\s*`]/g, ' ').trim().split(/\s+/)[0] === taskId && l.trim().startsWith('|')) || '';
+
+  const lines = maskFencedLines(fs.readFileSync(definitionPath, 'utf8').split(/\r?\n/));
+  const clean = (h) => String(h ?? '').replace(/\*\*|`/g, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  const table = findTables(lines, 0, lines.length).find((t) => t.headerCells.some((h) => clean(h) === 'id'));
+  if (!table) return result;
+  const idCol = table.headerCells.findIndex((h) => clean(h) === 'id');
+
+  const named = (text, candidates) =>
+    candidates.filter((c) => new RegExp(`(^|[^A-Za-z0-9_-])${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^A-Za-z0-9_-])`).test(text));
+
+  for (const row of table.dataRows) {
+    const id = String(row.cells[idCol] ?? '').replace(/\*\*|`/g, '').trim();
+    if (!want.has(id)) continue;
+    const rowText = row.cells.join(' | ');
+    const objs = named(rowText, objectiveIds);
+    const taskIds = new Set(named(rowText, parsed.tasks.map((t) => t.id)));
+    for (const t of parsed.tasks) if ((t.serves || []).some((o) => objs.includes(o))) taskIds.add(t.id);
+
+    const covers = new Set();
+    let fromRow = false;
+    for (const t of parsed.tasks.filter((x) => taskIds.has(x.id))) {
+      const touches = ((parsed.grounding[t.id] || {}).touches || []).map(normalizeCoverPath).filter(Boolean);
+      if (touches.length) touches.forEach((p) => covers.add(p));
+      else for (const p of backtickedExistingPaths(rawRow(t.id), cwd)) { covers.add(p); fromRow = true; }
+    }
+    if (covers.size) result.set(id, { covers: [...covers], source: fromRow ? 'task-row' : 'touches' });
+  }
+  return result;
+}
+
+/**
+ * Merges `map` (id -> `{covers, source}`) into the criterion-covers file, one atomic write; a
+ * re-record of an id replaces that id's entry. Entries with no usable covers are skipped.
+ * @returns {string[]} the ids recorded
+ */
+function recordCriterionCovers(stateDir, map, nowIso) {
+  const file = criterionCoversPath(stateDir);
+  let criteria = {};
+  try {
+    const cur = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (cur && cur.criteria && typeof cur.criteria === 'object' && !Array.isArray(cur.criteria)) criteria = cur.criteria;
+  } catch { /* absent or unreadable: start empty */ }
+  const ts = nowIso || new Date().toISOString();
+  const recorded = [];
+  for (const [id, v] of map instanceof Map ? map : Object.entries(map || {})) {
+    const covers = [...new Set(((v && v.covers) || []).map(normalizeCoverPath).filter(Boolean))];
+    if (!covers.length) continue;
+    criteria[id] = { covers, source: v.source === 'task-row' ? 'task-row' : 'touches', ts };
+    recorded.push(id);
+  }
+  if (recorded.length) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    require('./implement-state').save(file, { version: 1, criteria });
+  }
+  return recorded;
+}
+
+/** id -> covers array. Empty map when the file is absent, unreadable or malformed. */
+function readCriterionCovers(stateDir) {
+  const out = new Map();
+  try {
+    const cur = JSON.parse(fs.readFileSync(criterionCoversPath(stateDir), 'utf8'));
+    for (const [id, v] of Object.entries((cur && cur.criteria) || {})) {
+      if (v && Array.isArray(v.covers) && v.covers.length) out.set(id, v.covers.filter((p) => typeof p === 'string'));
+    }
+  } catch { /* empty */ }
+  return out;
+}
+
 function parseFlags(args) {
   const flags = {};
   for (let i = 0; i < args.length; i += 2) {
@@ -216,6 +351,16 @@ function main(argv, out = process.stdout, err = process.stderr) {
   try {
     const f = parseFlags(rest);
     if (!f['state-dir']) throw new Error('--state-dir is required');
+    if (sub === 'record-criteria') {
+      if (!f.trd || !f.definition) throw new Error('record-criteria needs --trd and --definition');
+      const stateFile = f.state || path.join(f['state-dir'], 'verification-state.json');
+      const st = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+      const met = (Array.isArray(st.criteria) ? st.criteria : []).filter((c) => c && c.status === 'met').map((c) => String(c.id));
+      const derived = deriveCriterionCovers({ trdPath: f.trd, definitionPath: f.definition, ids: met });
+      const recorded = recordCriterionCovers(f['state-dir'], derived);
+      out.write(JSON.stringify({ recorded, none: met.filter((id) => !recorded.includes(id)) }) + '\n');
+      return 0;
+    }
     if (sub === 'read') {
       const { entries, dropped } = readFresh(f['state-dir']);
       if (dropped > 0) err.write(`live-evidence: dropped ${dropped} stale entr${dropped === 1 ? 'y' : 'ies'} (covered files changed since capture)\n`);
@@ -233,7 +378,7 @@ function main(argv, out = process.stdout, err = process.stderr) {
       }
       return 0;
     }
-    throw new Error('usage: live-evidence.js record|read --state-dir D ...');
+    throw new Error('usage: live-evidence.js record|read|record-criteria --state-dir D ...');
   } catch (e) {
     err.write(`live-evidence: ${e.message}\n`);
     return 2;
@@ -242,4 +387,4 @@ function main(argv, out = process.stdout, err = process.stderr) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { record, recordWithReason, read, readFresh, manifestPath, hashFile, main, MAX_LINE_BYTES, COVERS_HASH_BYTES };
+module.exports = { deriveCriterionCovers, recordCriterionCovers, readCriterionCovers, criterionCoversPath, record, recordWithReason, read, readFresh, manifestPath, hashFile, main, MAX_LINE_BYTES, COVERS_HASH_BYTES };
