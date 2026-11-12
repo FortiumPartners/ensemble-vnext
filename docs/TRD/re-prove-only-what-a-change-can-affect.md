@@ -122,9 +122,9 @@ None apply — library and command-prose change with no screen, data view or des
 ### FIX-003
 - **Touches:** `packages/core/lib/custody.js`, `packages/core/lib/custody.test.js`, `.claude/lib/custody.js`
 - **Reuse:** `readThresholds` in `docs-audit-assemble.js` (lines 81-115) as the read/validate/name-the-setting pattern; `compare`, `diffNames`, `run` in `custody.js`; `readCriterionCovers` from FIX-002; the existing temp-repo helpers in `custody.test.js` [read]
-- **Replaces:** the three-class `classifyPath` return type and its header comment block "CODE EQUALITY (D9, D10)"; `compare()`'s filter `=== 'shipped'` becomes "not `ignored` and not `test-only`" (same meaning, new class names); the single covers lookup in `affectedIds` (line ~296-306) [read]
+- **Replaces:** the three-class `classifyPath` return type and its header comment block "CODE EQUALITY (D9, D10)"; `compare()`'s filter `=== 'shipped'` becomes "not `ignored` and not `test-only`" (same meaning, new class names); the single covers lookup in `affectedIds` (as delivered: `affectedIds` at `custody.js:452`, the recorded-covers read `liveEvidence.readCriterionCovers` at `custody.js:476`) [read]
 - **Follow:** every expected failure is `{action: 'refused', reason}` (reconcile) or `{ok: false, reason}` (check), never a throw; settings read from `git rev-parse --show-toplevel` + `.claude/settings.json`; header comment documents the classes, the tier table and promotion [read]
-- **Careful:** a promoted path is never softened by the BASE EXCUSE (promotion wins); keep `reason === 'format'` behaviour identical under the default; `check` and `--set-only` read no setting; tier classification in `reconcile` must include test-only paths, which `compare()` drops. The no-success-definition branch (`custody.js:461`) keeps moving the anchor before any tier logic matters. Existing tests assert exact result objects in places — add no new top-level result field. Commit the test repo's `.claude/settings.json` in the base commit, or it shows up as a `shipped` diff [inferred]
+- **Careful:** a promoted path is never softened by the BASE EXCUSE (promotion wins); keep `reason === 'format'` behaviour identical under the default; `check` and `--set-only` read no setting; tier classification in `reconcile` must include test-only paths, which `compare()` drops. The no-success-definition branch (in `reconcile`, `custody.js:682`) keeps moving the anchor before any tier logic matters. Existing tests assert exact result objects in places — add no new top-level result field. Commit the test repo's `.claude/settings.json` in the base commit, or it shows up as a `shipped` diff [inferred]
 
 ### FIX-004
 - **Touches:** `packages/core/commands/implement-trd.md`, `packages/core/commands/verify-build.md`, `packages/core/contracts/ship-custody-gate.md`, `.claude/commands/implement-trd.md`, `.claude/commands/verify-build.md`, `.claude/contracts/ship-custody-gate.md`, `docs/guides/ship-build.md`, `packages/core/scripts/scaffold-project.test.sh`, `packages/core/commands/record-criteria-prose.test.js`
@@ -135,5 +135,8 @@ None apply — library and command-prose change with no screen, data view or des
 
 ## Could Not Verify
 
-- That every real success definition names objective ids in a way `deriveCriterionCovers` can map; older definitions without a `Must pass` column and with no objective or task id in a row get no record and keep today's fallback (by design).
-- The share of criteria that end up with a record on a real feature — measurable only on the next live `/implement-trd` run.
+State after `/audit-build` (2026-11-11). All five verifiers reported; the delivered code and tests were checked against this TRD's four tasks (FIX-001 to FIX-004) and its objectives, and no gap was found.
+
+- **No PRD was supplied to the audit**, so the delivered work was checked against this TRD only, not against product requirements. Whether the TRD faithfully carries what the roadmap item asked for, and whether anything was omitted, was not checked.
+- That every real success definition names objective ids in a way `deriveCriterionCovers` can map. Not checkable from code: it depends on success definitions written by future runs. Older definitions without a `Must pass` column and with no objective or task id in a row get no record and keep today's fallback (by design).
+- The share of criteria that end up with a record on a real feature. Measurable only on the next live `/implement-trd` run, which this audit does not perform.
