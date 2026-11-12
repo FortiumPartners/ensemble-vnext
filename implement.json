@@ -1,0 +1,241 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/writers-move-to-the-ref.md",
+  "trd_hash": "b8040d389ea1352e1545bfc4986ec89668e17bfec7b3af846d8d863aa7601ea5",
+  "branch": "feature/30-writers-move-to-the-ref",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/record-ref.js",
+        "packages/core/lib/record-ref.test.js",
+        ".claude/lib/record-ref.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T12:46:52.776Z",
+      "completed_at": "2026-11-12T13:22:26.140Z",
+      "last_advanced": "2026-11-12T12:52:01.314Z"
+    },
+    "FIX-002": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/templates/gitignore-framework.txt",
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/templates/claude-directory/settings.json",
+        "packages/full/.claude/settings.json",
+        ".gitignore",
+        ".claude/settings.json"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T12:46:52.776Z",
+      "completed_at": "2026-11-12T13:22:26.141Z",
+      "last_advanced": "2026-11-12T12:52:01.314Z"
+    },
+    "FIX-003": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/templates/claude-directory/rules/command-status.md",
+        ".claude/rules/command-status.md",
+        "test/integration/tests/runtime-integrity.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T12:46:52.776Z",
+      "completed_at": "2026-11-12T13:22:26.141Z",
+      "last_advanced": "2026-11-12T12:52:01.314Z"
+    },
+    "FIX-004": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "docs/reference/implement-trd.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T12:46:52.776Z",
+      "completed_at": "2026-11-12T13:22:26.142Z",
+      "last_advanced": "2026-11-12T12:52:01.314Z"
+    },
+    "FIX-005": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        "packages/core/commands/close-feature.md",
+        ".claude/commands/audit-build.md",
+        ".claude/commands/close-feature.md",
+        "docs/reference/other-commands.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T12:46:52.776Z",
+      "completed_at": "2026-11-12T13:22:26.142Z",
+      "last_advanced": "2026-11-12T12:52:01.314Z"
+    },
+    "FIX-006": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/ship-build.md",
+        "packages/core/contracts/ship-primitive-push.md",
+        "packages/core/templates/github/ensemble-ship-resume.yml",
+        "packages/core/commands/ship-build-surface.test.js",
+        ".claude/commands/ship-build.md",
+        ".claude/contracts/ship-primitive-push.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T12:46:52.776Z",
+      "completed_at": "2026-11-12T13:22:26.142Z",
+      "last_advanced": "2026-11-12T12:52:01.314Z"
+    },
+    "FIX-007": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-build.md",
+        "packages/core/commands/refine-verification.md",
+        "packages/core/commands/amend.md",
+        "packages/core/commands/task.md",
+        "packages/core/commands/plan.md",
+        ".claude/commands/verify-build.md",
+        ".claude/commands/refine-verification.md",
+        ".claude/commands/amend.md",
+        ".claude/commands/task.md",
+        ".claude/commands/plan.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T12:46:52.776Z",
+      "completed_at": "2026-11-12T13:22:26.142Z",
+      "last_advanced": "2026-11-12T12:52:01.314Z"
+    },
+    "FIX-008": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/hooks/precompact.js",
+        "packages/core/hooks/precompact.test.js",
+        ".claude/hooks/precompact.js",
+        "packages/core/commands/sweep.md",
+        ".claude/commands/sweep.md",
+        "docs/reference/hooks.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T12:46:52.776Z",
+      "completed_at": "2026-11-12T13:22:26.142Z",
+      "last_advanced": "2026-11-12T12:52:01.314Z"
+    },
+    "FIX-009": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/records-ref-writers-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T12:46:52.776Z",
+      "completed_at": "2026-11-12T13:22:26.142Z",
+      "last_advanced": "2026-11-12T12:52:01.314Z"
+    },
+    "FIX-010": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "CHANGELOG.md",
+        "docs/reference/README.md",
+        "docs/reference/other-commands.md",
+        "packages/core/commands/init-project.md",
+        "packages/core/commands/rebase-project.md",
+        ".claude/commands/init-project.md",
+        ".claude/commands/rebase-project.md",
+        "packages/full/commands/plugin-only/init-project.md",
+        "test/integration/tests/parallel-feature-merge.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T12:46:52.776Z",
+      "completed_at": "2026-11-12T13:22:26.142Z",
+      "last_advanced": "2026-11-12T12:52:01.314Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "5f5b9cf1bfa84ae010ca3637c988bb96eb8a9e79",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T13:22:32.953Z"
+    }
+  ],
+  "recovery": {
+    "interrupted": false,
+    "last_healthy_checkpoint": "5f5b9cf1bfa84ae010ca3637c988bb96eb8a9e79",
+    "last_checkpoint_timestamp": "2026-11-12T13:22:32.953Z",
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/writers-move-to-the-ref.md § Intended Change",
+    "target": {
+      "environment": "fixtures",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude CLI logged in; scaffold script present"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login present (§3)"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched (§1)"
+      }
+    }
+  }
+}
