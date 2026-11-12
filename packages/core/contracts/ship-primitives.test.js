@@ -283,7 +283,7 @@ describe('merge', () => {
     const iWait = t.indexOf('wait for CI only on a head no recorded step judged');
     const iLatest = t.indexOf('the latest pushed commit');
     const iReread = t.indexOf('read `gh pr view <pr> --json state` again (see "One rule for every stop")');
-    const iRed = t.indexOf('then return `red`');
+    const iRed = t.indexOf('Otherwise return `red`, before the custody gate');
     const iGate = t.indexOf('ship-custody-gate.md');
     for (const i of [iWait, iLatest, iReread, iRed, iGate]) expect(i).toBeGreaterThan(-1);
     expect(iWait).toBeLessThan(iLatest);
@@ -291,6 +291,12 @@ describe('merge', () => {
     expect(iRed).toBeLessThan(iGate);
     expect(t).not.toMatch(/A CI failure on the new head is a `stop`/);
     expect(t).toMatch(/One rule for every stop[^]*`stop` or `red`[^]*MERGED/);
+  });
+  test('red carries wait-ci\'s failures for the loop, and a hand merge during the wait is proven, not stopped', () => {
+    expect(t).toMatch(/return `red`, before the custody gate[^]*`data: \{ failed, flaky, head \}`[^]*`head`, the full id of the PR head that was waited on/);
+    expect(text('merge')).toMatch(/^`red`, with `data`: `\{ failed, flaky, head \}`/m);
+    expect(t).toMatch(/`MERGED` \(merged by hand during the wait\) goes on to step 2/);
+    expect(t).toMatch(/a `red` is not\s+returned at all: go on to step 2/);
   });
   test('declares detach-on: merged, and says the record leaves the tracked tree after merged', () => {
     expect(text('merge')).toMatch(/^detach-on:\s*merged$/m);

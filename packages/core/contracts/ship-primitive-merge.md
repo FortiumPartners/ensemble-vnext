@@ -65,9 +65,17 @@ head may be fixed and the merge retried; `0` turns the loop off, so `red` stops 
    already recorded against, or whose findings the owner's bar accepted, is judged: do not wait
    on it, or a check the bar accepted would turn into `red`. To wait, do steps 1 to 3 of
    `ship-primitive-wait-ci.md` (`gh pr checks <pr>`, `Monitor`, `timeout_ms: 1800000`, one rerun
-   of failed jobs, `flaky-ci.js record`). A check that failed after the rerun: read
-   `gh pr view <pr> --json state` again (see "One rule for every stop"), then return `red` with
-   the failing check names in `reason`, before the custody gate. The sequencer then runs the loop
+   of failed jobs, `flaky-ci.js record`). Where `wait-ci` would return `failed` (a check still
+   failing after the rerun, or a capped flake): read `gh pr view <pr> --json state` again (see
+   "One rule for every stop"). `MERGED` (merged by hand during the wait) goes on to step 2, which
+   proves that merge. Otherwise return `red`, before the custody gate, with the failing check
+   names in `reason` and `data: { failed, flaky, head }`: `wait-ci`'s `data`
+   (`{ failed: [...], flaky: [...] }`, each `failed` entry with its name and run id,
+   `capped: true` on a capped flake) plus `head`, the full id of the PR head that was waited on
+   (its `headRefOid`). The loop's `collect-findings` reads the failures from `context.failed`;
+   without them it would find nothing, return `clean` and hand the merge out again on the red
+   head. `head` names that red head, the latest one published, so `context.head` points at the
+   commit the loop is fixing. The sequencer then runs the loop
    (`collect-findings`, `fix-findings`, `push`, `wait-ci`, up to `rounds` times, using the steps
    `ship.md` lists) and hands this step out again; with no loop, `red` stops the run, so the merge
    never runs on red.
@@ -99,12 +107,14 @@ head may be fixed and the merge retried; `0` turns the loop off, so `red` stops 
 
 **One rule for every stop.** Before returning any `stop` or `red` from this contract (a `decide` failure, a `merge-base-in` stop, a failed push, a head wait that times out, a CI failure on the new head,
 a custody-gate stop, a pr-head failure, a `gh pr merge` failure, a merge-link failure), read
-`gh pr view <pr> --json state` again. When it reads `MERGED`, return a `stop` (also in place of
-`red`) carrying `data: { merged: true, base }`, so the run record can still leave the tracked tree.
+`gh pr view <pr> --json state` again. When it reads `MERGED`, a `stop` carries
+`data: { merged: true, base }`, so the run record can still leave the tracked tree; a `red` is not
+returned at all: go on to step 2, which proves the merge done outside this run.
 
 ## Result
 
-`red`: step 1's CI wait failed on a head nothing judged; no merge ran.
+`red`, with `data`: `{ failed, flaky, head }` (`failed` and `flaky` as `wait-ci` records them,
+`head` the PR head waited on): step 1's CI wait failed on a head nothing judged; no merge ran.
 
 `merged`, with `data`: `{ merged: true, mergedHead, base, method }`. `merged` is the key
 `sync-design` needs and `mergedHead` is what it reads. After `merged`, or after any stop carrying `data.merged: true`, the sequencer keeps the run

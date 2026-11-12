@@ -167,7 +167,13 @@ function validateLoop(c, contracts, errors) {
     return;
   }
   if (!c.stopsOn.includes(c.loopOn)) errors.push(`${file}: loop-on "${c.loopOn}" must also be listed in stops-on`);
-  if (!c.params[c.loopRounds]) errors.push(`${file}: loop-rounds names "${c.loopRounds}", which is not a declared parameter`);
+  const rounds = c.params[c.loopRounds];
+  if (!rounds) errors.push(`${file}: loop-rounds names "${c.loopRounds}", which is not a declared parameter`);
+  // A default the policy line does not override must already be a usable bound; a bad one is
+  // the contract's fault, so it is refused here rather than surfacing later as a policy error.
+  else if (rounds.default !== null && !/^\d+$/.test(rounds.default)) {
+    errors.push(`${file}: loop-rounds parameter "${c.loopRounds}" must default to a whole number, not "${rounds.default}"`);
+  }
   for (const name of c.loopVia) {
     const via = contracts.get(name);
     if (!via) errors.push(`${file}: loop-via names unknown primitive "${name}"`);

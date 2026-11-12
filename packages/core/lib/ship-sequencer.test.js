@@ -953,5 +953,7 @@ describe('step-level recovery loop (loop-on / loop-via / loop-rounds)', () => {
     test('loop-declaring loop-via primitive', () => expect(errs({ 'loop-on': 'red', 'loop-via': 'kilo', 'loop-rounds': 'rounds' })).toMatch(/"kilo" declares a loop of its own/));
     test('loop-rounds naming no param', () => expect(errs({ 'loop-on': 'red', 'loop-via': 'echo', 'loop-rounds': 'nope' })).toMatch(/loop-rounds names "nope"/));
     test('a partial set of keys', () => expect(errs({ 'loop-on': 'red' })).toMatch(/go together/));
+    test('loop-rounds whose default is not a whole number', () => expect(errs({ params: 'rounds=two', 'loop-on': 'red', 'loop-via': 'echo', 'loop-rounds': 'rounds' })).toMatch(/loop-rounds parameter "rounds" must default to a whole number, not "two"/));
+    test('loop-rounds with a whole-number default loads cleanly', () => expect(errs({ params: 'rounds=3', 'loop-on': 'red', 'loop-via': 'echo', 'loop-rounds': 'rounds' })).not.toMatch(/papa/));
   });
 });
