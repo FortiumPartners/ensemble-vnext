@@ -144,6 +144,14 @@ describe('seed', () => {
       ship(wt, status);
       expect(run(repo).seeded.map((s) => s.slug)).toEqual(['live']);
     });
+    test('a shipped-only folder (a sweep ship, never closed) is decided by its ship run', () => {
+      const { repo, wt } = scene();
+      fs.rmSync(path.join(wt, '.trd-state/live/implement.json'));
+      ship(wt, 'done');
+      expect(reason(run(repo), 'live')).toBe('finished');
+      ship(wt, 'running');
+      expect(run(repo).seeded.map((s) => s.slug)).toEqual(['live']);
+    });
     test('status done is finished', () => {
       const { repo, wt } = scene();
       put(wt, '.trd-state/live/closed.json', '{}\n');

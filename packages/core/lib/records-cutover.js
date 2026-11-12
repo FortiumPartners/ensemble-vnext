@@ -13,7 +13,7 @@
  *
  * IN FLIGHT: the folder's recorded branch (`implement.json` `branch`, else `shipped.json`
  * `work.branch`) is the branch checked out in the worktree holding the folder, AND the feature is
- * unfinished: no `closed.json`, or a closed feature whose current ship run (read through
+ * unfinished: `implement.json` with no `closed.json`, or a folder whose current ship run (read through
  * `ship-record-dir.js resolveRun`, so a post-merge copy on the ref beats the tracked one) is not
  * `done`. A feature whose branch has no worktree is not seeded; it crosses over on its own next write.
  *
@@ -87,9 +87,13 @@ function worktrees(cwd) {
   return out;
 }
 
-/** True when the folder's feature is unfinished: not closed, or closed with a ship run not yet done. */
-function isUnfinished(folder, shipped) {
-  if (!fs.existsSync(path.join(folder, 'closed.json'))) return true;
+/**
+ * True when the folder's feature is unfinished: it has `implement.json` and no `closed.json`, or its
+ * current ship run is not `done`. A folder with no `implement.json` (a sweep's `ship-<id>` folder)
+ * never has a `closed.json`, so its ship run alone decides.
+ */
+function isUnfinished(folder, implement, shipped) {
+  if (implement && !fs.existsSync(path.join(folder, 'closed.json'))) return true;
   const run = shipRecordDir.resolveRun(folder, shipped, { local: true });
   return Boolean(run && run.state && run.state.status !== 'done');
 }
@@ -146,7 +150,7 @@ function seedInner(opts) {
         skip('branch-mismatch');
         continue;
       }
-      if (!isUnfinished(folder, shipped)) {
+      if (!isUnfinished(folder, implement, shipped)) {
         skip('finished');
         continue;
       }

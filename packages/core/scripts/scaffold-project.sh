@@ -1883,16 +1883,18 @@ records_cutover() {
     if [[ ${#paths[@]} -gt 0 ]]; then
         # `git rm` is all-or-nothing per call: one path with staged content that differs from both
         # HEAD and the file fails its whole chunk, so a failed chunk is retried one path at a time.
+        # --literal-pathspecs: these are file names from ls-files, never globs (a `[` or `*` in a
+        # record's name must not match its neighbours).
         local i=0 chunk=200 done_count=0 failed=0 q
         while [[ $i -lt ${#paths[@]} ]]; do
-            if git rm --cached --quiet --ignore-unmatch -- "${paths[@]:i:chunk}" >/dev/null 2>&1; then
+            if git --literal-pathspecs rm --cached --quiet --ignore-unmatch -- "${paths[@]:i:chunk}" >/dev/null 2>&1; then
                 for q in "${paths[@]:i:chunk}"; do
                     info "Untracked $q"
                     done_count=$((done_count + 1))
                 done
             else
                 for q in "${paths[@]:i:chunk}"; do
-                    if git rm --cached --quiet --ignore-unmatch -- "$q" >/dev/null 2>&1; then
+                    if git --literal-pathspecs rm --cached --quiet --ignore-unmatch -- "$q" >/dev/null 2>&1; then
                         info "Untracked $q"
                         done_count=$((done_count + 1))
                     else

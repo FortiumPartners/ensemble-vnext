@@ -50,9 +50,8 @@ describe('Step 4.7b', () => {
 });
 
 test('the 4.7b report names where the untracked files came from and how to list them all', () => {
-  const md = require('fs').readFileSync(require('path').join(__dirname, 'rebase-project.md'), 'utf8');
-  expect(md).toContain('git diff --cached --name-only --diff-filter=D -- .trd-state');
-  expect(md).toMatch(/files untracked \(staged, not committed\) from </);
+  expect(text).toContain('git diff --cached --name-only --diff-filter=D -- .trd-state');
+  expect(text).toMatch(/files untracked \(staged, not committed\) from </);
 });
 
 describe('4.7b report (objective O7)', () => {

@@ -1428,7 +1428,7 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 ## Exercising `scaffold-project.sh --records-cutover` and `records-cutover.js seed` (cutover-for-existing-projects)
 
 - [ran] A scaffolded project does not vendor `scaffold-project.sh` (no `.claude/scripts/`); the "vendored" cutover is run as `packages/full/scripts/scaffold-project.sh --records-cutover [--no-push] <dir>`, whose `${SCRIPT_DIR}/../lib/` resolves to `packages/full/lib/records-cutover.js` (symlink). `.claude/lib/records-cutover.js` is a copy placed in the project by the scaffold.
-- [ran] `--records-cutover` prints the `Records seed: {json}` line BEFORE the `Untracked <path>` lines (seeding reads folders first, then untracks), and the JSON is prefixed `[INFO] Records seed: `, not bare.
+- [ran] `--records-cutover` prints the `Records seed: {json}` line AFTER the `Untracked <path>` lines (it printed it before them until the verification-loop fix, 4b6eee57), and the JSON is prefixed `[INFO] Records seed: `, not bare.
 - [ran] Fixtures: build under `mktemp -d /tmp/fv-cutover.XXXXXX` with a local bare origin; `git worktree add` for linked/detached, `rm -rf` a worktree dir for a prunable one. A folder present in the main worktree AND a linked worktree is classified in both (skipped `branch-mismatch` in the main one when its recorded branch is the linked one's).
 - [ran] Packaging `cp -RL`/chmod errors during plain/`--refresh` scaffold on macOS are environmental (known), exit stays 0.
 
