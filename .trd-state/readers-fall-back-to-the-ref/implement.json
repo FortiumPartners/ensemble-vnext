@@ -216,6 +216,24 @@
         "status": "unusable",
         "reason": "must not be touched (§1)"
       }
+    },
+    "fix": {
+      "plan": ".trd-state/readers-fall-back-to-the-ref/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1,
+        "errors": []
+      },
+      "rounds": [
+        {
+          "round": 1,
+          "tasksPromoted": 0,
+          "criteriaClosed": 3,
+          "criteriaOpen": 0,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
     }
   }
 }

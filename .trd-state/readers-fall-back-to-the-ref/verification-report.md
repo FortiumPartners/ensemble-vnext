@@ -2,13 +2,12 @@
 
 **Source PRD**: docs/TRD/readers-fall-back-to-the-ref.md § Intended Change
 **Success definition**: .trd-state/readers-fall-back-to-the-ref/success-definition.md
-**Outcome**: Must-Pass Unproven (no full-environment run declared)
-**Reason**: must-pass objectives with no criterion: O3 — the core was not shown to work
-**Criteria**: 16 total — 16 met, 0 not met, 0 not verifiable, 0 unbuilt
-**Coverage**: 16 of 16 proven — uncovered: none
-**Must pass**: 14 of 14 proven — no criterion for: O3
-**Diagnosis**: 0 open
-**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`
+**Outcome**: Satisfied (no full-environment run declared)
+**Reason**: All 19 criteria are met, including every must-pass criterion; no gaps remain.
+**Criteria**: 19 total — 19 met, 0 not met, 0 not verifiable, 0 unbuilt
+**Coverage**: 19 of 19 proven — uncovered: none
+**Must pass**: 17 of 17 proven
+**Next**: `/audit-build`
 
 ## Met
 
@@ -30,6 +29,9 @@
 | FS-14 | A hook run in a repo with no local `refs/ensemble/records/<slug>` and an `origin` that holds one does not fetch it: the local ref is still absent after the hook | .trd-state/readers-fall-back-to-the-ref/evidence/fs-14-hooks-no-fetch.txt | 1 |
 | FS-15 | A ref whose `record.json` names a different `forge_feature_id` is never used: the reader answers "no record" | .trd-state/readers-fall-back-to-the-ref/evidence/fs-15-16-identity-mismatch.txt | 1 |
 | FS-16 | A ref whose `record.json` carries no `forge_feature_id` and names a different branch is never used: the reader answers "no record" | .trd-state/readers-fall-back-to-the-ref/evidence/fs-15-16-identity-mismatch.txt | 1 |
+| FS-17 | In `/implement-trd` (before the closed-feature guard's `closed.json` check), `/amend`, `/task`, `/verify-build`, `/refine-verification` and `/ship-build`, `record-ref.js ensure --state-dir .trd-state/<feature>` precedes the first `.trd-state/<feature>/` read; `/plan` reads its stored link only through `artifacts.js get` (proven by FS-4) | .trd-state/readers-fall-back-to-the-ref/evidence/FS-17-r1.txt | 1 |
+| FS-18 | On the fixture with the folder deleted and the ref holding it, `node .claude/lib/record-ref.js ensure --state-dir .trd-state/<slug>` prints `restored` and the folder comes back holding the ref's files; a second call prints `present` | .trd-state/readers-fall-back-to-the-ref/evidence/FS-18-r1.txt | 1 |
+| FS-19 | On the fixture with neither the folder nor the ref, `node .claude/lib/record-ref.js ensure --state-dir .trd-state/<slug>` prints `no-record` and creates no folder | .trd-state/readers-fall-back-to-the-ref/evidence/FS-19-r1.txt | 1 |
 
 ## Not Met
 
@@ -38,4 +40,13 @@ _None._
 ## Not Verifiable
 
 _None._
+
+
+## Fix run
+
+| Round | Tasks promoted | Criteria closed | Still open |
+|-------|-----------------|------------------|-------------|
+| 1 | 0 | 3 | 0 |
+
+_None still open._
 

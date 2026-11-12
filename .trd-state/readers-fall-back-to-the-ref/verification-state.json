@@ -15,8 +15,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "With the feature folder deleted and the ref holding it, `implement-state.load` returns the ref's `implement.json` rather than throwing ENOENT",
+      "cites": "§Intended Change, After item 1 (\"`implement-state.load` returns the ref's `implement.json`\"); Before (\"throws ENOENT on a missing file\")"
     },
     {
       "id": "FS-2",
@@ -32,8 +32,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "With the folder deleted and the ref holding it, `custody.js check` and `custody.js reconcile` see the ref's anchor and its `closed.json`",
+      "cites": "§Intended Change, After item 1 (\"`custody.js check`/`reconcile` see the ref's anchor and `closed.json`\")"
     },
     {
       "id": "FS-3",
@@ -49,8 +49,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "With the folder deleted and the ref holding it, `ship-sequencer.js start --resume` loads the ref's run record and reports `resumed: true`",
+      "cites": "§Intended Change, After item 1 (\"`ship-sequencer.js start --resume` loads the ref's run record (`resumed: true`)\")"
     },
     {
       "id": "FS-4",
@@ -66,8 +66,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "With the folder deleted and the ref holding it, `artifacts.js get <kind>` prints the URL stored in the ref's `artifacts.json`",
+      "cites": "§Intended Change, After item 1 (\"`artifacts.js get` prints the ref's stored URL\"); Before (\"`get` answers 'none'\")"
     },
     {
       "id": "FS-5",
@@ -83,8 +83,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "With the folder deleted and the ref holding it, `artifacts.js record` of one kind keeps every other entry of the ref's manifest instead of starting a fresh one",
+      "cites": "§Intended Change, After item 1 (\"`record` keeps every other entry\"); Before (\"`record` starts a fresh manifest\")"
     },
     {
       "id": "FS-6",
@@ -100,8 +100,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "With the folder deleted and the ref holding it, the `session-context.js` hook shows the feature's Closed:/Impl: line",
+      "cites": "§Intended Change, After item 1 (\"`session-context.js` shows the Closed:/Impl: line\")"
     },
     {
       "id": "FS-7",
@@ -117,8 +117,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "With the folder deleted and the ref holding it, `router.py` `feature_in_flight` reports the feature closed",
+      "cites": "§Intended Change, After item 1 (\"`router.py feature_in_flight` reports the feature closed\")"
     },
     {
       "id": "FS-8",
@@ -134,8 +134,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "With the folder deleted and the ref holding it, the `precompact.js` hook summarises the ref's task list",
+      "cites": "§Intended Change, After item 1 (\"`precompact.js` summarises the ref's task list\")"
     },
     {
       "id": "FS-9",
@@ -151,8 +151,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "With the folder deleted and the ref holding it, the `status.js` hook neither re-creates `.trd-state/<slug>/` nor runs a fetch",
+      "cites": "§Intended Change, After item 1 (\"`status.js` neither creates the folder nor fetches\")"
     },
     {
       "id": "FS-10",
@@ -168,8 +168,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "With neither the folder nor the ref, `implement-state.load` throws the same ENOENT error it throws today",
+      "cites": "§Intended Change, After item 2 (\"load throws the same ENOENT error\")"
     },
     {
       "id": "FS-11",
@@ -185,8 +185,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "With neither the folder nor the ref, `artifacts.js get` prints nothing",
+      "cites": "§Intended Change, After item 2 (\"`get` prints nothing\")"
     },
     {
       "id": "FS-12",
@@ -202,8 +202,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "With neither the folder nor the ref, the hooks `session-context.js`, `status.js`, `precompact.js` and `router.py` emit exactly what they emit today",
+      "cites": "§Intended Change, After item 2 (\"hooks emit what they emit today\")"
     },
     {
       "id": "FS-13",
@@ -219,8 +219,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "With neither the folder nor the ref, `custody.js check`/`reconcile`, `ship-sequencer.js start --resume` and `artifacts.js record` each give exactly today's answer",
+      "cites": "§Intended Change, After item 2 (\"each reader gives exactly today's answer\")"
     },
     {
       "id": "FS-14",
@@ -236,8 +236,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "A hook run in a repo with no local `refs/ensemble/records/<slug>` and an `origin` that holds one does not fetch it: the local ref is still absent after the hook",
+      "cites": "§Intended Change, After item 3"
     },
     {
       "id": "FS-15",
@@ -253,8 +253,8 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
-      "causeKey": null,
-      "awaiting": null
+      "statement": "A ref whose `record.json` names a different `forge_feature_id` is never used: the reader answers \"no record\"",
+      "cites": "§Intended Change, After item 4 (\"other `forge_feature_id`\")"
     },
     {
       "id": "FS-16",
@@ -270,6 +270,57 @@
       "kind": null,
       "settled": null,
       "verificationDigest": null,
+      "statement": "A ref whose `record.json` carries no `forge_feature_id` and names a different branch is never used: the reader answers \"no record\"",
+      "cites": "§Intended Change, After item 4 (\"no id and a different branch\")"
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/readers-fall-back-to-the-ref/evidence/FS-17-r1.txt",
+      "reason": "The prose test passed (11 of 11); in each of the six commands the ensure line comes before the first folder read (implement-trd 190<193, amend 59<62, verify-build 110<126, refine-verification 55<62, ship-build 71<89; /task's ensure at 212 is preceded only by ref reads); /plan reads its link only via artifacts.js get; all .claude/commands copies are byte-identical to their sources. Spot-checked against the sources.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/readers-fall-back-to-the-ref/evidence/FS-18-r1.txt",
+      "reason": "First ensure printed outcome restored (2 files, exit 0); the folder holds closed.json and implement.json; second call printed present; diff -r against the pre-deletion snapshot is empty.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/readers-fall-back-to-the-ref/evidence/FS-19-r1.txt",
+      "reason": "ensure printed outcome no-record with exit 0, and ls shows neither .trd-state/rnone nor .trd-state was created.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
       "causeKey": null,
       "awaiting": null
     }
@@ -277,28 +328,15 @@
   "gapsClosed": [
     0
   ],
-  "outcome": "must-pass-unproven",
+  "outcome": "satisfied",
   "causes": [],
   "exercised": [
     {
       "iteration": 1,
       "ids": [
-        "FS-1",
-        "FS-2",
-        "FS-3",
-        "FS-4",
-        "FS-5",
-        "FS-6",
-        "FS-7",
-        "FS-8",
-        "FS-9",
-        "FS-10",
-        "FS-11",
-        "FS-12",
-        "FS-13",
-        "FS-14",
-        "FS-15",
-        "FS-16"
+        "FS-17",
+        "FS-18",
+        "FS-19"
       ]
     }
   ]
