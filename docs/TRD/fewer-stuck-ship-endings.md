@@ -162,7 +162,7 @@ None apply — the change is a library and contract prose with no UI, no data-re
 - **Reuse:** `loadPrimitives` (add `loopOn`, `loopVia`, `loopRounds`; validate after all files load), `parseSectionSteps`/`validateSteps` (attach `step.loop`), `flatten` (add `loop` entries after their owner), `record()`'s repeat branch arithmetic (`pass < rounds + 1`), `laterNeedsOf`, `next()`'s `final` [read]
 - **Replaces:** nothing removed; the `contract.stopsOn` branch in `record()` now runs only when no loop round is left [read]
 - **Follow:** primitive-blind source (test "the module source names no primitive"); one JSON line per CLI call; the snapshot is the only source after `start` (`ship.md` never re-read); fixture contracts in the test's `CONTRACTS` map [read]
-- **Careful:** `handedOut`/`cursor.pass` must move together; old snapshots without `loop` must behave exactly as today; read the bound from `step.loop`, never from the contract at record time (the snapshot is the only source); `packages/full/lib` is a symlink — do not copy there [ran]
+- **Careful:** `handedOut`/`cursor.pass` must move together; old snapshots without `loop` must behave exactly as today; read the bound from `step.loop`, never from the contract at record time (the snapshot is the only source); `packages/full/lib` is a real directory whose files (e.g. `ship-sequencer.js`) are symlinks into `packages/core/lib` — do not copy there [ran]
 
 ### FIX-002
 - **Touches:** `packages/core/contracts/ship-primitive-merge.md`, `packages/core/contracts/ship-primitives.test.js`, `.claude/contracts/ship-primitive-merge.md`
@@ -187,5 +187,8 @@ None apply — the change is a library and contract prose with no UI, no data-re
 
 ## Could Not Verify
 
-- Real GitHub behaviour of a red merge-up head being fixed and merged — deferred live check on `github-live-test`, after this build.
-- Whether Forge resumes a run parked at `wait` without an escalation is Forge's side.
+State after `/audit-build` (2026-11-11). The audit checked the four tasks against the delivered code and tests; the rows below are what it did not or could not check.
+
+- **No PRD exists for this change** (its source is `docs/plans/ship-cost-reduction/roadmap.md` item 5), so the audit validated nothing against product requirements: it checked only that the delivered code and tests match this TRD. Whether the TRD itself fully and faithfully carries roadmap item 5 was not re-checked by this audit.
+- Real GitHub behaviour of a red merge-up head being fixed and merged: out of scope for a local audit (mergeability, checks and branch protection exist only on GitHub). Deferred to a live check on `github-live-test` after this build.
+- Whether Forge resumes a run parked at `wait` without an escalation: Forge's side, outside this repository; not checkable here.
