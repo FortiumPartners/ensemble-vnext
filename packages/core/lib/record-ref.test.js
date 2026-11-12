@@ -1455,6 +1455,43 @@ describe('write keeps a further-along ship record on the ref (FIX-011)', () => {
     expect(r.kept).toBeUndefined();
     expect(showBlob(repo, REF, 'shipped.json')).toBe('{not json');
   });
+
+  test('a later run on the tip is kept even with fewer results than the worktree\'s older run', () => {
+    const later = JSON.stringify({ startedAt: '2026-11-05T00:00:00Z', updatedAt: '2026-11-05T00:10:00Z', results: [{ step: '1' }] }) + '\n';
+    const repo = setup(later, '{"from":"ref"}\n', ship(4, '2026-11-01T02:00:00Z'));
+    const r = doWrite(repo, { push: false });
+    expect(r).toMatchObject({ ok: true, outcome: 'ref', kept: ['shipped.json', 'custody.json'] });
+    expect(JSON.parse(showBlob(repo, REF, 'shipped.json')).startedAt).toBe('2026-11-05T00:00:00Z');
+  });
+
+  test('a tip of another feature is not kept from: the worktree\'s ship records are written', () => {
+    const repo = setup(ship(5, '2026-11-02T00:00:00Z'), '{"from":"ref"}\n', ship(3, '2026-11-01T01:00:00Z'));
+    sh(repo, ['checkout', '-q', '-b', 'feature/y']);
+    const r = doWrite(repo, { push: false });
+    expect(r.kept).toBeUndefined();
+    expect(JSON.parse(showBlob(repo, REF, 'shipped.json')).results).toHaveLength(3);
+  });
+
+  test('a reconcile keeps a further-along record that only origin holds', () => {
+    const origin = initBare();
+    const a = cloneOf(origin, 'cloneA');
+    const b = cloneOf(origin, 'cloneB');
+    sh(a, ['checkout', '-q', '-b', 'feature/x']);
+    sh(b, ['checkout', '-q', '-b', 'feature/x']);
+    const w = recordRef.writeFiles({
+      cwd: b, slug: SLUG, identity: RUN, command: 'ship-build', step: 'merge',
+      files: [{ rel: 'shipped.json', content: ship(5, '2026-11-02T00:00:00Z') }, { rel: 'custody.json', content: '{"from":"ref"}\n' }],
+    });
+    expect(w).toMatchObject({ ok: true, push: 'pushed' });
+    put(a, `${STATE}/shipped.json`, ship(3, '2026-11-01T01:00:00Z'));
+    put(a, `${STATE}/custody.json`, '{"from":"worktree"}\n');
+    put(a, `${STATE}/implement.json`, '{"v":2}\n');
+    const r = doWrite(a);
+    expect(r).toMatchObject({ ok: true, outcome: 'ref', push: 'pushed', kept: ['shipped.json', 'custody.json'] });
+    expect(JSON.parse(showBlob(origin, REF, 'shipped.json')).results).toHaveLength(5);
+    expect(showBlob(origin, REF, 'custody.json')).toBe('{"from":"ref"}');
+    expect(showBlob(origin, REF, 'implement.json')).toBe('{"v":2}');
+  });
 });
 
 describe('vendoring', () => {

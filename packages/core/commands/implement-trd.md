@@ -1304,13 +1304,14 @@ After a phase's `Workflow` call returns `status: "complete"` and the resolved ba
 ### 5.1 Git Checkpoint — product code only
 
 ```bash
-git add -A
+git add -A -- . ':(exclude).trd-state'
 git diff --cached --quiet || git commit -m "chore(phase {N}): checkpoint (battery {green|red|skipped}; verify-app {status})"
 COMMIT_SHA=$(git rev-parse HEAD)
 ```
 
-`.trd-state/` is git-ignored: this commit carries product code only, and no staging or
-commit step in this command names a run-record path. A phase that changed nothing has
+`.trd-state/` is git-ignored and excluded from the add (records a project still tracks from
+before the cutover would otherwise be staged): this commit carries product code only, and no
+staging or commit step in this command names a run-record path. A phase that changed nothing has
 nothing staged, so the commit is skipped and `COMMIT_SHA` is the previous commit. A commit
 that fails for any other reason (a hook, signing) is a real failure: never record the
 previous commit as this phase's checkpoint. Read `COMMIT_SHA` after the commit, never before.

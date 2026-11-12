@@ -21,7 +21,9 @@ const WRITE = 'record-ref.js write';
 const BAD_GIT = /git\s+(add|commit)\b[^`]*(\.trd-state|<state-dir>|<work\.stateDir>)/;
 
 const read = (p) => fs.readFileSync(p, 'utf8');
-const badLines = (text) => text.split('\n').filter((l) => BAD_GIT.test(l));
+// An exclude pathspec (`':(exclude).trd-state'`) keeps records OUT of the add: not a hit.
+const EXCLUDE = /':(\(exclude\)|!)\.trd-state\/?'/g;
+const badLines = (text) => text.split('\n').filter((l) => BAD_GIT.test(l.replace(EXCLUDE, '')));
 
 const TOUCHED = [
   'implement-trd.md', 'audit-build.md', 'close-feature.md', 'ship-build.md', 'verify-build.md',
@@ -40,6 +42,11 @@ describe('matcher', () => {
     expect(BAD_GIT.test('check-never-unattended --files .trd-state/<slug>-sweep/')).toBe(false);
     expect(BAD_GIT.test('git commit -m "fix" -- src/a.js')).toBe(false);
     expect(BAD_GIT.test('no `git commit` line names a `.trd-state/` path')).toBe(false);
+  });
+  test('an exclude pathspec for the records is not a hit, an include still is', () => {
+    expect(badLines("git add -A -- . ':(exclude).trd-state'")).toEqual([]);
+    expect(badLines("git add -A -- . ':!.trd-state/'")).toEqual([]);
+    expect(badLines("git add -A -- . ':(exclude).trd-state' .trd-state/x")).toHaveLength(1);
   });
 });
 

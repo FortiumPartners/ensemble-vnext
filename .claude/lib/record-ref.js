@@ -565,12 +565,19 @@ function reconcile(ctx, ref, localTip) {
     if (ctx.guardForeign && !sameFeature(identityAt(ctx.top, remoteTip), ctx.identity)) {
       return { state: 'failed', err: 'remote ref belongs to another feature' };
     }
+    // The keep-the-ship-records decision was made against the local tip; the tree is now built on
+    // the remote one, which may hold a further-along post-merge record (written from another clone).
+    let kept = null;
+    if (ctx.allFiles) {
+      kept = shipRecordsToKeep(ctx.top, remoteTip, ctx.allFiles, ctx.identity);
+      ctx.files = ctx.allFiles.filter((f) => !kept.includes(f.rel));
+    }
     const parents = remoteTip === localTip ? [remoteTip] : [remoteTip, localTip];
     const b = commitOn(ctx, remoteTip, parents, localTip);
     if (b.error) return { state: 'failed', err: b.error };
     if (!swapRef(ctx.top, ref, b.commit, localTip).ok) return { state: 'failed', err: 'local ref moved during reconcile' };
     const p = pushOnce(ctx.top, ref);
-    return { ...p, commit: b.commit, written: b.written, missingImages: b.missingImages };
+    return { ...p, commit: b.commit, written: b.written, missingImages: b.missingImages, ...(kept ? { kept } : {}) };
   } finally {
     git(['update-ref', '-d', tmpRef], { cwd: ctx.top });
   }
@@ -695,13 +702,15 @@ function write(opts = {}) {
  * Which of the folder's ship records the tip must keep. After a merge `ship-sequencer` writes the
  * post-merge `shipped.json` and `custody.json` straight to the ref; a worktree folder still
  * holding the pre-merge copies must not roll them back. The tip's `shipped.json` is further along
- * when it is the same run (same `startedAt`) or a later one and holds more step `results`, or
- * equally many with a later `updatedAt`. `custody.json` follows that decision. An unreadable
- * copy on either side means "worktree wins" (today's behaviour). Never throws.
+ * when it is a later run (later `startedAt`), or the same run and holds more step `results`, or
+ * equally many with a later `updatedAt`. `custody.json` follows that decision. Only a tip of this
+ * feature counts: another feature's tip is not overlaid, so keeping would drop the files. An
+ * unreadable copy on either side means "worktree wins" (today's behaviour). Never throws.
  */
-function shipRecordsToKeep(top, tip, files) {
+function shipRecordsToKeep(top, tip, files, identity) {
   const mine = files.find((f) => f.rel === 'shipped.json');
   if (!tip || !mine) return [];
+  if (!sameFeature(identityAt(top, tip), identity)) return [];
   const parse = (buf) => {
     try {
       const v = JSON.parse(buf.toString('utf8'));
@@ -723,7 +732,8 @@ function shipRecordsToKeep(top, tip, files) {
   const started = (v) => String(v.startedAt || '');
   const updated = (v) => String(v.updatedAt || '');
   if (started(tp) < started(wt)) return []; // the worktree holds a newer run
-  const ahead = n(tp) > n(wt) || (n(tp) === n(wt) && updated(tp) > updated(wt));
+  const ahead =
+    started(tp) > started(wt) || n(tp) > n(wt) || (n(tp) === n(wt) && updated(tp) > updated(wt));
   return ahead ? ['shipped.json', 'custody.json'] : [];
 }
 
@@ -788,6 +798,7 @@ function writeInner(opts) {
     identity: shared ? null : { forge_feature_id: nonEmpty(process.env.FORGE_FEATURE_ID), branch, slug },
     message: `records(${slug}): ${command} - ${step}`,
     guardIdentity: false,
+    allFiles: shared ? null : sel.files,
   };
   // Paths the fallback commits: every selected file plus the report's images that exist here.
   const fallbackPaths = [
@@ -817,7 +828,7 @@ function writeInner(opts) {
       // that feature's records with ours.
       const theirs = ctx.guardIdentity && tip ? foreignIdentity(ctx, tip) : null;
       if (theirs) return identityRefusal(theirs, tip);
-      kept = shared ? [] : shipRecordsToKeep(top, tip, sel.files);
+      kept = shared ? [] : shipRecordsToKeep(top, tip, sel.files, ctx.identity);
       ctx.files = sel.files.filter((f) => !kept.includes(f.rel));
       const b = commitOn(ctx, tip, tip ? [tip] : []);
       if (b.error) {
@@ -836,26 +847,26 @@ function writeInner(opts) {
       refError = `ref moved under the writer (${attempt} of ${MAX_ATTEMPTS}): ${s.err}`;
     }
 
-    const base = { slug, ref, skipped: sel.skipped, ...(kept.length ? { kept } : {}) };
+    const base = () => ({ slug, ref, skipped: sel.skipped, ...(kept.length ? { kept } : {}) });
     // On a fallback, `commit` is the BRANCH commit that now holds the records (null when nothing
     // was staged for them); a ref commit that moved but could not be pushed is `refCommit`.
     const fallback = (reason, detail, extra = {}) => {
       const fb = branchCommit(top, fallbackPaths, ctx.message);
       if (fb.ok) {
-        return { ok: true, outcome: 'fallback', fallbackReason: reason, detail, committed: fb.committed, commit: fb.commit || null, ...base, ...extra };
+        return { ok: true, outcome: 'fallback', fallbackReason: reason, detail, committed: fb.committed, commit: fb.commit || null, ...base(), ...extra };
       }
-      return { ok: false, outcome: 'failed', fallbackReason: reason, refError: detail, fallbackError: fb.err, ...base, ...extra };
+      return { ok: false, outcome: 'failed', fallbackReason: reason, refError: detail, fallbackError: fb.err, ...base(), ...extra };
     };
 
     if (!built) {
-      if (noFallback) return { ok: false, outcome: 'failed', refError, fallbackSkipped, ...base };
+      if (noFallback) return { ok: false, outcome: 'failed', refError, fallbackSkipped, ...base() };
       return fallback('ref-write-failed', refError);
     }
 
     let commit = built.commit;
     let written = built.written;
     let missingImages = built.missingImages;
-    const common = () => ({ commit, files: written.length, missingImages, ...base });
+    const common = () => ({ commit, files: written.length, missingImages, ...base() });
     if (opts.push === false) return { ok: true, outcome: 'ref', push: 'skipped', folded: [], ...common() };
 
     let p = pushOnce(top, ref);
@@ -865,6 +876,7 @@ function writeInner(opts) {
         commit = rc.commit;
         written = rc.written;
         missingImages = rc.missingImages;
+        if (rc.kept) kept = rc.kept;
       }
       p = rc;
     }
