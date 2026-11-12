@@ -4,7 +4,7 @@
   "trd_hash": "1c5c8fdae7fab27cb8b358aebd8b1466d0cf13561be1d9ce0f7cb98b92389a46",
   "branch": "feature/20-readers-fall-back-to-the-ref",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "phase": 1,
@@ -171,9 +171,21 @@
       "last_advanced": "2026-11-12T10:53:26.001Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "0a0fb5ede79f0257907611e9482067c1c7208250",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T11:05:25.127Z"
+    }
+  ],
   "recovery": {
-    "interrupted": false
+    "interrupted": false,
+    "last_healthy_checkpoint": "0a0fb5ede79f0257907611e9482067c1c7208250",
+    "last_checkpoint_timestamp": "2026-11-12T11:05:25.127Z",
+    "interrupt_reason": null
   },
   "functional_verification": {
     "prd_resolved": true,
