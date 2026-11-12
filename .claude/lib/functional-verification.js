@@ -1174,6 +1174,46 @@ function readBlockingPolicy(content) {
   return { policy: null, status: 'invalid', raw: found[0] };
 }
 
+function readTextOrEmpty(p) {
+  try {
+    return fs.readFileSync(p, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * The must-pass-only waiver is only safe when every waived failure can be filed as a defect issue,
+ * so a declared `must-pass` with no reachable tracker is refused: the policy falls back to `all`.
+ * Pure over its inputs except `runner` (the reachability probe, injectable): `gh repo view` is
+ * read-only. Linear and Jira count as reachable from the declaration alone (no read-only probe
+ * exists without their skills).
+ *
+ * @param {{policy: string|null, status: string, raw: string|null}} result  readBlockingPolicy output
+ * @param {string} stackText  stack.md content ('' when absent)
+ * @param {(cmd: string, args: string[]) => {status: number}} [runner]
+ * @returns {object}  `result` unchanged, or on a downgrade `{...result, policy: 'all', declared: 'must-pass', waiverRefused}`
+ */
+function applyTrackerGate(result, stackText, runner) {
+  if (!result || result.policy !== 'must-pass') return result;
+  const { parseTracker } = require('./waived-defects'); // lazy: mutual require
+  const { tracker, project } = parseTracker(stackText);
+  let refused = null;
+  if (tracker === 'none') {
+    refused = 'must-pass only needs an issue tracker to file the waived failures in, and stack.md declares none (Tracker: none)';
+  } else if (tracker === 'github') {
+    if (!project) {
+      refused = 'stack.md declares Tracker: github with no Project, so waived failures cannot be filed';
+    } else {
+      const run = runner || ((cmd, args) => spawnSync(cmd, args, { encoding: 'utf8' }));
+      const r = run('gh', ['repo', 'view', project, '--json', 'name']);
+      if (!r || r.status !== 0) refused = `the GitHub tracker ${project} is not reachable, so waived failures cannot be filed`;
+    }
+  }
+  if (!refused) return result;
+  return { ...result, policy: 'all', declared: 'must-pass', waiverRefused: refused };
+}
+
 // Rounding is floor-to-5% (D6): the recommendation must never sit ABOVE any past satisfied
 // run's proven share, or that run would fail to re-pass its own history. The epsilon guards
 // against a share such as 0.35 rounding down to 0.30 through floating-point error
@@ -1584,8 +1624,14 @@ function recordNonBlockingFollowups(stateDir, nonBlocking, nowIso) {
   if (!stateDir || !Array.isArray(nonBlocking) || nonBlocking.length === 0) return out;
   // The latest open row per ref, in the ledger's own ordering (by `ts`, later wins).
   const latest = new Map();
-  for (const r of discovered.latestPerRef(discovered.readAll(stateDir, { open: true }))) {
-    if (r && r.ref) latest.set(r.ref, r);
+  // Resolved rows are kept: a row resolved by `filed <url>` is already filed as a defect issue
+  // and must not be re-recorded (and so re-filed) on the next run. A row resolved any other way
+  // (fixed) is finished, so a later failure of the same criterion records afresh.
+  const { listWaived } = require('./waived-defects'); // lazy: mutual require
+  const filedRefs = new Set(listWaived(stateDir).filter((w) => w.url).map((w) => w.ref));
+  for (const r of discovered.latestPerRef(discovered.readAll(stateDir))) {
+    if (!r || !r.ref) continue;
+    if (!r.resolvedAt || filedRefs.has(r.ref)) latest.set(r.ref, r);
   }
   for (const e of nonBlocking) {
     const id = e && typeof e === 'object' ? e.id : e;
@@ -1768,6 +1814,11 @@ function renderReport(input) {
   }
   lines.push(`**Outcome**: ${OUTCOME_LABEL[outcome] ?? outcome}${outcomeSuffix}${finalRunSuffix}`);
   lines.push(`**Reason**: ${reason}`);
+  // Why the declared must-pass-only policy was not honoured (no reachable tracker to file the
+  // waived failures in). Absent when there is nothing to say, so other reports stay byte-identical.
+  if (typeof input.blockingNote === 'string' && input.blockingNote.trim()) {
+    lines.push(`**Blocking**: ${escapeCell(input.blockingNote.trim())}`);
+  }
   // Failures the must-pass-only policy let through (block-only-on-material-failures). Gated on a
   // non-empty list so every other report stays byte-identical; a header line, not a section,
   // because `## Evidence` must stay last. Entries are ids or {id, reason}; ids are Judge-free
@@ -1779,7 +1830,7 @@ function renderReport(input) {
     .map((e) => (e.reason ? `${escapeCell(e.reason)} (${escapeCell(e.id)})` : escapeCell(e.id)));
   if (nonBlockingItems.length > 0) {
     lines.push(
-      `**Not blocking**: ${nonBlockingItems.length} failure(s) on criteria not marked must-pass, filed as product follow-ups: ${nonBlockingItems.join(', ')} (verification.md: Blocking: must-pass only)`
+      `**Not blocking**: ${nonBlockingItems.length} failure(s) on criteria not marked must-pass, filed as defect issues: ${nonBlockingItems.join(', ')} (verification.md: Blocking: must-pass only)`
     );
   }
   // One line per setup problem (preflight §3.3), only under `setup-failure`, so every other
@@ -2763,6 +2814,8 @@ module.exports = {
   offHostProven,
   renderReport,
   recordNonBlockingFollowups,
+  readDefinitionRows,
+  applyTrackerGate,
   isEmbeddableImagePath,
   reportPublishPlan,
   readStopRule,
@@ -2866,7 +2919,7 @@ if (require.main === module) {
         '  node functional-verification.js report-publish-plan --report <path> [--published-file <path>]\n' +
         '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
-        '  node functional-verification.js read-blocking-policy <projectPath>\n' +
+        '  node functional-verification.js read-blocking-policy <projectPath> [--stack <stack.md>]\n' +
         '  node functional-verification.js verification-digest <verificationPath>\n' +
         '  node functional-verification.js preclassify --file <payload> --verification <path> [--design-map <path> ...]\n' +
         '  node functional-verification.js reproof-retry-set <statePath>\n' +
@@ -3194,6 +3247,8 @@ if (require.main === module) {
     }
   } else if (subcommand === 'read-blocking-policy') {
     const [projectPath] = rest;
+    const sti = rest.indexOf('--stack');
+    const stackPath = sti >= 0 ? rest[sti + 1] : undefined;
     if (!projectPath) {
       usage();
     } else if (!fs.existsSync(projectPath)) {
@@ -3205,7 +3260,9 @@ if (require.main === module) {
       console.log(JSON.stringify(
         content === null
           ? { policy: 'all', status: 'absent', raw: null, reason: 'unreadable' }
-          : readBlockingPolicy(content)
+          : stackPath === undefined
+            ? readBlockingPolicy(content)
+            : applyTrackerGate(readBlockingPolicy(content), readTextOrEmpty(stackPath))
       ));
     }
   } else if (subcommand === 'reproof-retry-set') {

@@ -24,7 +24,9 @@ There are two ways a feature gets closed, and this command is one of them:
 Either way, closing is bookkeeping, not judgement: write the record and clear away the
 in-flight state, so the session banner, the prompt hint and `/implement-trd`'s automatic
 lookup stop treating the feature as work in progress. This command decides nothing and checks
-nothing beyond what it needs to find the feature.
+nothing beyond what it needs to find the feature, with one exception: it will not close a
+feature that still has a failure waived under `Blocking: must-pass only` with no defect issue
+filed for it (step 0 of the close step).
 
 ## User Input
 
@@ -57,8 +59,31 @@ closed and by whom, and end `COMMAND COMPLETE`. To reopen a feature, delete that
 
 ## The close step
 
-The same four steps `/audit-build` performs when its audit closes a feature; only `closedBy`
+The same steps `/audit-build` performs when its audit closes a feature; only `closedBy`
 and the audit fields differ.
+
+0. **File every waived failure first.** The owner's 2026-11-12 rule, plus the project's opt-in to
+   `Blocking: must-pass only`, is the whole authority: filing needs no `ship.md` step and no
+   `autonomy.md` sentence. Run
+   `node .claude/lib/waived-defects.js gate --state-dir .trd-state/<feature>`
+   (one JSON line, exit 0 even on a refusal; read `ok`). It reads the ledger first and looks at
+   the tracker only when a waived row has no issue, so a feature with none closes exactly as
+   before. For GitHub it files one issue labelled `defect` per waived criterion and records the
+   URL on the ledger row. STATE lists each `filed` URL with its criterion.
+
+   When `ok` is false, the feature is not closed. The command writes no close record (steps 1 to 3
+   and 5 do not run; a stale `closed.json` is not created), opens no PR, and still writes the
+   records ref (step 4, `--step "close refused: waived failures not filed"`). It ends
+   `COMMAND STUCK` with `Reason:` naming each row in `failed` (its criterion, from `summary`, and
+   its `error`) and `Next:` naming the fix, then the same command again:
+   - tracker not reachable, none declared, or no label: fix the tracker or `## Issue Tracker` in
+     `stack.md`, then `/close-feature docs/TRD/<feature>.md`;
+   - a row reported `file via the linear skill` or `file via the jira skill`: file it through
+     `managing-linear-issues` / `managing-jira-issues` (label `defect`), run
+     `node .claude/lib/waived-defects.js record-filed --state-dir .trd-state/<feature> --ref <ref> --url <url>`
+     for it, then `/close-feature docs/TRD/<feature>.md`, which runs the gate again;
+   - a row whose issue exists but whose marker was not written (its `url` is in `failed`): run
+     `record-filed` with that URL, then the same command.
 
 1. **Write `.trd-state/<feature>/closed.json`:**
 

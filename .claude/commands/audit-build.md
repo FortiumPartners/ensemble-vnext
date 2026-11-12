@@ -329,7 +329,19 @@ caveat. **Uncovered items (`covered: false`) are never recorded for the fix run 
 They are reported for design, and the feature stays open.
 
 **4. Close, or re-audit.**
-- `close` true: after the chained run's RETURN line, perform `/close-feature`'s "The close step"
+- `close` true: after the chained run's RETURN line, first run the waived-defect gate:
+  `node .claude/lib/waived-defects.js gate --state-dir .trd-state/<feature>` (the same step 0 as
+  `/close-feature`'s close step; the owner's 2026-11-12 rule plus the project's opt-in to
+  `must-pass only` is the authority, so filing needs no `ship.md` step and no `autonomy.md`
+  sentence). STATE lists each filed issue URL with its criterion. When its `ok` is false the
+  feature does not close: write no close record (a re-audit removes an existing `closed.json`
+  rather than rewriting it), open no PR, skip the chain-to-close steps below, and still write
+  the records ref, the report and the round record as for any audit. End `COMMAND STUCK` with
+  `Reason:` naming each row in `failed` and `Next:` naming the tracker fix, or `record-filed`
+  (`node .claude/lib/waived-defects.js record-filed --state-dir .trd-state/<feature> --ref <ref> --url <url>`)
+  for a Linear or Jira row filed through `managing-linear-issues` / `managing-jira-issues`, then
+  `/audit-build docs/TRD/<feature>.md`, which runs the gate again. Never NEXT `/close-feature`
+  here. When `ok` is true, perform `/close-feature`'s "The close step"
   (`.claude/commands/close-feature.md`) with `"closedBy": "audit"`, `"note": null` and
   `"audit": { "verdict": "<the VERDICT line>", "report": ".trd-state/<feature>/audit-build-report.md", "auditedCommit": "<the header's value>", "anchorCommit": <below> }`
   (`anchorCommit` goes inside `audit`, never at the top level: `custody.js` reads only

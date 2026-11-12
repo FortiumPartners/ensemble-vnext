@@ -260,14 +260,14 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 31 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
-  test('implement-trd.md §8.3 lists 31 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered/verificationDigest/preclassified/offHostProofs/blocking, with setupTargets after coverageFloor', () => {
+describe('both dispatch blocks carry the same 32 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
+  test('implement-trd.md §8.3 lists 32 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered/verificationDigest/preclassified/offHostProofs/blocking/blockingNote, with setupTargets after coverageFloor', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(31);
+    expect(fields).toHaveLength(32);
     expect(fields.indexOf('criterionCovers')).toBe(fields.indexOf('liveEvidence') + 1);
     expect(fields.indexOf('setupTargets')).toBe(fields.indexOf('coverageFloor') + 1);
-    expect(fields.slice(-9)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered', 'verificationDigest', 'preclassified', 'offHostProofs', 'blocking']);
+    expect(fields.slice(-10)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered', 'verificationDigest', 'preclassified', 'offHostProofs', 'blocking', 'blockingNote']);
   });
 
   test('implement-trd.md §8.3 names the derive-criteria command, the sweep-file {} and the failure fallback (REGR-B006)', () => {
@@ -299,14 +299,14 @@ describe('both dispatch blocks carry the same 31 fields in the same order (VSET-
     expect(t).toMatch(/`offHostProofs` is recomputed with `--ids <retry set>`/);
   });
 
-  test('verify-build.md §4 lists the identical 31 fields in the identical order', () => {
+  test('verify-build.md §4 lists the identical 32 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 31 fields, not 30, 29, 28, 26, 25, 23, 22, 21 or 18', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 31 fields/);
+  test('verify-build.md §4 intro says 32 fields, not 31, 30, 29, 28, 26, 25, 23, 22, 21 or 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 32 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 30 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 29 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 28 fields/);
@@ -2586,7 +2586,7 @@ describe('trd-authoring.md documents the Off-host proof column (OHP-B003, D1, D6
 describe('blocking policy wiring in implement-trd.md and verify-build.md', () => {
   const impl = () => flat(read(CORE_IMPLEMENT));
   const vb = () => flat(read(CORE_VERIFY_BUILD));
-  const POLICY_CMD = 'node .claude/lib/functional-verification.js read-blocking-policy "$(node .claude/lib/owner-rules.js path verification.md)"';
+  const POLICY_CMD = 'node .claude/lib/functional-verification.js read-blocking-policy "$(node .claude/lib/owner-rules.js path verification.md)" --stack "$(node .claude/lib/owner-rules.js path stack.md)"';
 
   test('both commands run read-blocking-policy through owner-rules.js path verification.md', () => {
     expect(impl()).toContain(POLICY_CMD);
@@ -2608,18 +2608,18 @@ describe('blocking policy wiring in implement-trd.md and verify-build.md', () =>
     expect(t).toMatch(/`Next:` `\/verification-setup`/);
   });
 
-  test('both args blocks end offHostProofs, blocking', () => {
+  test('both args blocks end offHostProofs, blocking, blockingNote', () => {
     for (const p of [CORE_IMPLEMENT, CORE_VERIFY_BUILD]) {
       const f = extractDispatchFields(read(p));
-      expect(f.slice(-2)).toEqual(['offHostProofs', 'blocking']);
+      expect(f.slice(-3)).toEqual(['offHostProofs', 'blocking', 'blockingNote']);
     }
   });
 
-  test('the field-count prose says 31 in verify-build.md', () => {
+  test('the field-count prose says 32 in verify-build.md', () => {
     const t = vb();
-    expect(t).toMatch(/the list is the 31 fields, `blocking` last/);
-    expect(t).toMatch(/with the same 31 fields except/);
-    expect(t).not.toMatch(/the 30 fields|same 30 fields/);
+    expect(t).toMatch(/the list is the 32 fields, `blockingNote` last/);
+    expect(t).toMatch(/with the same 32 fields except/);
+    expect(t).not.toMatch(/the 31 fields|same 31 fields/);
   });
 
   test('both commands run record-nonblocking beside record-criteria', () => {

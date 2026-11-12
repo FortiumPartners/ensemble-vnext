@@ -563,6 +563,17 @@ describe('the after-shipping primitives', () => {
     expect(t).toMatch(/None: close nothing/);
     expect(t).toMatch(/More than one: close nothing/);
   });
+  test('close-issue never closes a waived-defect issue its own feature filed', () => {
+    const t = flat('close-issue');
+    expect(t).toMatch(/A waived-defect issue is never closed by the feature that waived it/);
+    expect(t).toMatch(/only when a later feature cites it as its source/);
+  });
+  test('file-followups files a [non-blocking] row only through waived-defects.js gate, never twice', () => {
+    const t = flat('file-followups');
+    expect(t).toMatch(/`\[non-blocking\]` row is filed only through `node \.claude\/lib\/waived-defects\.js gate --state-dir <dir>`/);
+    expect(t).toMatch(/never with a plain `gh issue create`/);
+    expect(t).toMatch(/never refiled when it already carries a `filed <url>` marker/);
+  });
   test('file-followups imports flaked jobs through flaky-ci.js as [flaky-ci] rows keyed flaky:<job>', () => {
     const t = flat('file-followups');
     expect(t).toMatch(/flaky-ci\.js import --state-dir <work\.stateDir>/);

@@ -168,8 +168,11 @@ Paths: none
 Which failures stop a verification run from reporting `satisfied`. `all criteria` (the
 default; a missing line means the same) blocks on any failing criterion. `must-pass only`
 blocks only on criteria the TRD marks must-pass: a failure on any other criterion is
-recorded as a non-blocking follow-up and the run still reports `satisfied`. Write
-`all criteria` or `must-pass only`; any other value stops the run.
+filed as a defect issue in the project's tracker and the run still reports `satisfied`.
+`must-pass only` needs nothing beyond a declared tracker (GitHub, Linear or Jira): if none
+is declared, or it cannot be reached, the run blocks as under `all criteria` rather than
+let a failure go unfiled. Write `all criteria` or `must-pass only`; any other value stops
+the run.
 
 Blocking: all criteria
 

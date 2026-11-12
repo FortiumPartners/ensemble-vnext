@@ -31,6 +31,8 @@ Closes the one issue the work names, and nothing else (D28, D29).
    (`linearis issues update <id> --state <done state>`; `jira issues transitions <key>` then
    `jira issues update <key> --status <done>`).
 
+A waived-defect issue is never closed by the feature that waived it, only when a later feature cites it as its source.
+
 ## Result
 
 `closed` with `data`: `{ issue, tracker }`, or `none` with the reason in `data.issues`.

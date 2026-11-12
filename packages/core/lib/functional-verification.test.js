@@ -2572,6 +2572,68 @@ describe('readBlockingPolicy', () => {
       expect(JSON.parse(stdout)).toEqual({ policy: 'all', status: 'absent', raw: null, reason: 'unreadable' });
     });
 
+    describe('--stack: the waiver needs a reachable tracker', () => {
+      const run = (extra, env) =>
+        JSON.parse(
+          execFileSync('node', [MODULE_PATH, 'read-blocking-policy', path.join(tmpDir, 'verification.md'), ...extra], {
+            encoding: 'utf8',
+            env: { ...process.env, ...(env || {}) },
+          })
+        );
+      const writeStack = (tracker, project) => {
+        const f = path.join(tmpDir, 'stack.md');
+        fs.writeFileSync(f, `# Stack\n\n## Issue Tracker\n\nTracker: ${tracker}\n${project ? `Project: ${project}\n` : ''}`);
+        return f;
+      };
+      beforeEach(() => {
+        fs.writeFileSync(path.join(tmpDir, 'verification.md'), withPolicy('Blocking: must-pass only'));
+      });
+
+      test('Tracker: none downgrades to all and names the missing tracker', () => {
+        const out = run(['--stack', writeStack('none')]);
+        expect(out.policy).toBe('all');
+        expect(out.declared).toBe('must-pass');
+        expect(out.status).toBe('declared');
+        expect(out.waiverRefused).toMatch(/Tracker: none/);
+      });
+
+      test('no stack file at all is no tracker', () => {
+        const out = run(['--stack', path.join(tmpDir, 'absent-stack.md')]);
+        expect(out.policy).toBe('all');
+        expect(out.waiverRefused).toMatch(/declares none/);
+      });
+
+      test('a reachable (stubbed gh) GitHub tracker keeps must-pass and adds no new keys', () => {
+        const bin = path.join(tmpDir, 'bin');
+        fs.mkdirSync(bin);
+        fs.writeFileSync(path.join(bin, 'gh'), '#!/bin/sh\necho \'{"name":"r"}\'\nexit 0\n', { mode: 0o755 });
+        const out = run(['--stack', writeStack('github', 'o/r')], { PATH: `${bin}:${process.env.PATH}` });
+        expect(out).toEqual({ policy: 'must-pass', status: 'declared', raw: 'must-pass only' });
+      });
+
+      test('an unreachable GitHub tracker (gh fails) is refused', () => {
+        const bin = path.join(tmpDir, 'bin');
+        fs.mkdirSync(bin);
+        fs.writeFileSync(path.join(bin, 'gh'), '#!/bin/sh\necho nope >&2\nexit 1\n', { mode: 0o755 });
+        const out = run(['--stack', writeStack('github', 'o/r')], { PATH: `${bin}:${process.env.PATH}` });
+        expect(out.policy).toBe('all');
+        expect(out.waiverRefused).toMatch(/not reachable/);
+      });
+
+      test('a declared Linear tracker counts as reachable', () => {
+        expect(run(['--stack', writeStack('linear', 'ENS')]).policy).toBe('must-pass');
+      });
+
+      test('an all-criteria policy is untouched by --stack', () => {
+        fs.writeFileSync(path.join(tmpDir, 'verification.md'), withPolicy('Blocking: all criteria'));
+        expect(run(['--stack', writeStack('none')])).toEqual({ policy: 'all', status: 'declared', raw: 'all criteria' });
+      });
+
+      test('without --stack the output is unchanged', () => {
+        expect(run([])).toEqual({ policy: 'must-pass', status: 'declared', raw: 'must-pass only' });
+      });
+    });
+
     test('missing arguments print usage and exit non-zero', () => {
       expect(() => {
         execFileSync('node', [MODULE_PATH, 'read-blocking-policy'], { stdio: 'pipe' });
@@ -5368,6 +5430,22 @@ describe('recordNonBlockingFollowups and the Not blocking report line (FIX-003)'
     expect(again).toEqual({ recorded: ['FS-2'], skipped: [], failed: [] });
   });
 
+  test('a row resolved "filed <url>" is not re-recorded on a second call', () => {
+    recordNonBlockingFollowups(dir, [entries[0]], '2026-11-12T00:00:00.000Z');
+    const row = discovered.readAll(dir)[0];
+    expect(discovered.resolve(dir, { ts: row.ts, summary: row.summary }, 'filed https://github.com/o/r/issues/9')).toBe(true);
+    const again = recordNonBlockingFollowups(dir, [entries[0]], '2026-11-12T03:00:00.000Z');
+    expect(again).toEqual({ recorded: [], skipped: ['FS-2'], failed: [] });
+    expect(discovered.readAll(dir).filter((r) => r.ref === 'FS-2' && String(r.summary).startsWith('[non-blocking]'))).toHaveLength(1);
+  });
+
+  test('a row resolved some other way (fixed) is recorded afresh', () => {
+    recordNonBlockingFollowups(dir, [entries[0]], '2026-11-12T00:00:00.000Z');
+    const row = discovered.readAll(dir)[0];
+    discovered.resolve(dir, { ts: row.ts, summary: row.summary }, 'fixed in abc123');
+    expect(recordNonBlockingFollowups(dir, [entries[0]], '2026-11-12T03:00:00.000Z').recorded).toEqual(['FS-2']);
+  });
+
   test('a repeated id in one list writes once', () => {
     expect(recordNonBlockingFollowups(dir, ['FS-5', 'FS-5'])).toEqual({ recorded: ['FS-5'], skipped: ['FS-5'], failed: [] });
   });
@@ -5405,11 +5483,21 @@ describe('recordNonBlockingFollowups and the Not blocking report line (FIX-003)'
       const lines = renderReport({ ...base, nonBlocking: entries }).split('\n');
       const i = lines.findIndex((l) => l.startsWith('**Reason**'));
       expect(lines[i + 1]).toBe(
-        '**Not blocking**: 2 failure(s) on criteria not marked must-pass, filed as product follow-ups: the export button is missing (FS-2), the footer wraps (FS-3) (verification.md: Blocking: must-pass only)'
+        '**Not blocking**: 2 failure(s) on criteria not marked must-pass, filed as defect issues: the export button is missing (FS-2), the footer wraps (FS-3) (verification.md: Blocking: must-pass only)'
       );
     });
     test('a bare id (no reason) is printed as the id alone', () => {
-      expect(renderReport({ ...base, nonBlocking: ['FS-9'] })).toContain('filed as product follow-ups: FS-9 (verification.md');
+      expect(renderReport({ ...base, nonBlocking: ['FS-9'] })).toContain('filed as defect issues: FS-9 (verification.md');
+    });
+    test('blockingNote emits exactly one Blocking line naming the reason, right after Reason', () => {
+      const lines = renderReport({ ...base, blockingNote: 'must-pass only was declared but no issue tracker is reachable (Tracker: none)' }).split('\n');
+      const hits = lines.filter((l) => l.startsWith('**Blocking**'));
+      expect(hits).toEqual(['**Blocking**: must-pass only was declared but no issue tracker is reachable (Tracker: none)']);
+      expect(lines[lines.findIndex((l) => l.startsWith('**Reason**')) + 1]).toBe(hits[0]);
+    });
+    test('is byte-identical without blockingNote', () => {
+      expect(renderReport({ ...base, blockingNote: '' })).toBe(renderReport(base));
+      expect(renderReport(base)).not.toContain('**Blocking**');
     });
     test('is byte-identical without nonBlocking', () => {
       expect(renderReport({ ...base, nonBlocking: [] })).toBe(renderReport(base));
