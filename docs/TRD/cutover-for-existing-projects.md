@@ -148,11 +148,11 @@ none
 - **Reuse:** `record-ref.js` `write` (`cwd`, `fallback: false`, `push`), `list({remote})` (returns `remoteError` when `ls-remote` fails), `isSafeSlug`, `REF_PREFIX`; `ship-record-dir.js` `resolveRun(stateDir, tracked, {local: true})` for the ship run's current copy [read]
 - **Replaces:** nothing — no seeding exists today [read]
 - **Follow:** record-ref.js conventions: `'use strict'`, `spawnSync` with argument arrays only, one JSON line on stdout, exit 0, never throws; JSDoc header stating WHY; tests build throwaway repos under `os.tmpdir()` like `record-ref.test.js` (linked worktree via `git worktree add`) [read]
-- **Careful:** `record-ref.js write` reads `FORGE_FEATURE_ID` at `record-ref.js:798`; the new option must apply only when the key is present. `resolveRun` resolves `stateDir` against `process.cwd()` — pass an absolute state dir or confirm. `.claude/lib/record-ref.js` stays byte-identical to `packages/core/lib/record-ref.js`; `packages/full/lib/records-cutover.js` is a symlink `../../core/lib/records-cutover.js` like its siblings. `git worktree list --porcelain` paths may be symlinked (macOS `/tmp`): compare realpaths.
+- **Careful:** `record-ref.js write` reads `FORGE_FEATURE_ID` at `record-ref.js:798` before this change (`:800` as built); the new option must apply only when the key is present. `resolveRun` resolves `stateDir` against `process.cwd()` — pass an absolute state dir or confirm. `.claude/lib/record-ref.js` stays byte-identical to `packages/core/lib/record-ref.js`; `packages/full/lib/records-cutover.js` is a symlink `../../core/lib/records-cutover.js` like its siblings. `git worktree list --porcelain` paths may be symlinked (macOS `/tmp`): compare realpaths.
 
 ### FIX-002
 - **Touches:** `packages/core/scripts/scaffold-project.sh`, `packages/core/scripts/scaffold-project.test.sh`
-- **Reuse:** `ensure_gitignore untrack` (`scaffold-project.sh:1781`), the `--git-files` flag parsing, exclusivity check and dispatch (`:104`, `:163-169`, `:2128-2129`) as the pattern; BATS helpers `_seed_paths` and the `--git-files` tests at `scaffold-project.test.sh:2834-2955` [read]
+- **Reuse:** `ensure_gitignore untrack` (`scaffold-project.sh:1811` as built, `:1781` before this change), the `--git-files` flag parsing, exclusivity check and dispatch (as built `:115`, `:183-185`, `:2228`; before this change `:104`, `:164-166`, `:2128`) as the pattern; BATS helpers `_seed_paths` and the `--git-files` tests at `scaffold-project.test.sh:2834-2955` [read]
 - **Replaces:** nothing; `--git-files` keeps its current behaviour (records stay tracked) [read]
 - **Follow:** strict standalone mode, documented in the header comment block like `--git-files`; `info`/`warn` helpers; errors warn and the mode exits 0 except a rejected flag combination (exit 1); lib path `${SCRIPT_DIR}/../lib/records-cutover.js` (works in `packages/core/scripts` and through the `packages/full/scripts` symlink) [read]
 - **Careful:** read `git ls-files -z` NUL-separated and pass paths to `git rm --cached --quiet --` in chunks (no shell glob expansion); a missing `node` or lib warns and skips seeding; outside a git repo it delivers the lines and skips untrack and seed.
@@ -166,5 +166,8 @@ none
 
 ## Could Not Verify
 
-- Behaviour in a Claude Code Web session (ref push/fetch) — `verification.md` §5; the seed then reports `push: failed` and keeps the ref local.
-- Whether Forge's N7 needs finished records in `main`'s tree rather than its history: the brief asks for the untracking, which the owner then commits; read here as "readable in history".
+State after `/audit-build` (2026-11-12). Five of five verifiers reported; 8 objectives and 3 tasks were checked against the delivered code and tests.
+
+- **Product-requirement validation was not run.** This TRD has no PRD (its source is item 5 of `docs/plans/run-records-off-branch/roadmap.md`), so the audit checked the TRD against the code only; whether the objectives faithfully and completely capture the roadmap brief was not checked.
+- Behaviour in a Claude Code Web session (ref push/fetch) — out of scope: `verification.md` §5 lists remote sessions as not reproducible from this machine. The seed then reports `push: failed` and keeps the ref local.
+- Whether Forge's N7 needs finished records in `main`'s tree rather than its history — out of scope: it is a question about Forge's reader, not this repository's code. The brief asks for the untracking, which the owner then commits; read here as "readable in history".
