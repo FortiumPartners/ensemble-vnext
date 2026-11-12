@@ -17,5 +17,11 @@
     "url": "",
     "updated_at": "2026-11-12T14:47:50.879Z",
     "command": "/implement-trd"
+  },
+  "verification-plan": {
+    "path": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-11-12T14:50:32.849Z",
+    "command": "/refine-verification"
   }
 }
