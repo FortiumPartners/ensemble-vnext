@@ -100,6 +100,23 @@
         "status": "unusable",
         "reason": "verification.md §1: must not be touched"
       }
+    },
+    "fix": {
+      "plan": ".trd-state/records-ref-library/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1
+      },
+      "rounds": [
+        {
+          "round": 0,
+          "tasksPromoted": 0,
+          "criteriaClosed": 1,
+          "criteriaOpen": 0,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
     }
   }
 }
