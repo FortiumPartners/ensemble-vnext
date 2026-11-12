@@ -26,12 +26,33 @@ describe('refine-verification.md must-pass handling (D16)', () => {
     expect(bullet).toMatch(/never a must-pass criterion|except a must-pass|not a must-pass/i);
   });
 
-  test('the Owner rulings bullet names both ways out', () => {
+  test('the Owner rulings bullet names three ways out', () => {
     const bullet = derive().split('- **Owner rulings**')[1].split('- **Extra checks**')[0];
     expect(bullet).toMatch(/must-pass/i);
     expect(bullet).toMatch(/OWNER-CALL/);
     expect(bullet).toContain('/verification-setup');
     expect(bullet).toMatch(/remove the must-pass marking/i);
+    expect(bullet).toMatch(/three ways out/);
+    expect(bullet).toMatch(/off-host proof/i);
+  });
+
+  test('--auto never writes, edits or removes an Off-host proof cell (D16)', () => {
+    const flat = (x) => x.replace(/\s+/g, ' ');
+    const bullet = flat(derive().split('- **Owner rulings**')[1].split('- **Extra checks**')[0]);
+    const para = flat(text.split('**Access only the owner has is never guessed.**')[1].split('\n---')[0]);
+    const never = flat(text.split('\n## Never')[1].split('\n---')[0]);
+    for (const x of [bullet, para, never]) {
+      expect(x).toMatch(/never write, edit or remove an `Off-host proof` cell|never writes, edits or removes an `Off-host proof` cell/i);
+    }
+    expect(never).toMatch(/--auto/);
+  });
+
+  test('the interactive path writes the TRD only, naming it under Written into', () => {
+    const bullet = derive().split('- **Owner rulings**')[1].split('- **Extra checks**')[0].replace(/\s+/g, ' ');
+    expect(bullet).toMatch(/TRD Objectives rows only/);
+    expect(bullet).toMatch(/adding the `Off-host proof` column if absent/);
+    expect(bullet).toMatch(/name the TRD under `Written into`/);
+    expect(bullet).toMatch(/success definition is not written/);
   });
 
   test('the --auto owner-only-access paragraph records an OWNER-CALL for must-pass', () => {

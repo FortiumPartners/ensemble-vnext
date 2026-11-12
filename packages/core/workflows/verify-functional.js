@@ -291,7 +291,9 @@ function imageKeys(c) {
   const out = {}
   // `kind` and `settled` (triage D1, D5) travel the same carry-only-when-present way, so an
   // entry from before they existed -- and every `met` entry -- gains no key.
-  for (const k of ['image', 'ui', 'imageExcluded', 'kind', 'settled', 'verificationDigest']) if (c[k] !== undefined) out[k] = c[k]
+  // `proof` (off-host proof D9) travels the same way: only a criterion this script settled `met` from
+  // a green CI job carries one.
+  for (const k of ['image', 'ui', 'imageExcluded', 'kind', 'settled', 'verificationDigest', 'proof']) if (c[k] !== undefined) out[k] = c[k]
   return out
 }
 // NEW (triage D8, D12). The sha256 of this invocation's verification.md ("" = nothing persists) and
@@ -322,6 +324,39 @@ const PRECLASSIFIED = (() => {
     }
   })
   return raw
+})()
+// NEW (off-host proof D6). What the command's `off-host-proofs` lookup found for each must-pass
+// criterion that names a CI job: `{id, workflow, job, status, runId, url, commit, reason}`, `[]` when
+// nothing is declared. Validated before any agent runs, in PRECLASSIFIED's "wrong shape throws" form.
+// Only a `green` entry can prove anything (the settle helper), so only a green one is held to carry
+// the run it names.
+const OFF_HOST_STATUSES = ['green', 'red', 'pending', 'missing', 'dirty', 'error']
+const OFF_HOST_PROOFS = (() => {
+  const raw = a.offHostProofs
+  if (raw === undefined || raw === null) return new Map()
+  if (!Array.isArray(raw)) throw new Error('verify-functional: args.offHostProofs must be an array when supplied')
+  const byId = new Map()
+  raw.forEach((e, i) => {
+    const at = `verify-functional: args.offHostProofs[${i}]`
+    if (!e || typeof e !== 'object' || typeof e.id !== 'string' || e.id === '') {
+      throw new Error(`${at} must be an object with a non-empty string id`)
+    }
+    if (!CRITERION_BY_ID.has(e.id) || !MUST_PASS_IDS.includes(e.id)) {
+      throw new Error(`${at}.id ${JSON.stringify(e.id)} is not a must-pass criterion of this run`)
+    }
+    if (typeof e.workflow !== 'string' || e.workflow === '') throw new Error(`${at}.workflow must be a non-empty string`)
+    if (typeof e.job !== 'string' || e.job === '') throw new Error(`${at}.job must be a non-empty string`)
+    if (!OFF_HOST_STATUSES.includes(e.status)) {
+      throw new Error(`${at}.status must be one of ${OFF_HOST_STATUSES.join(', ')} (got ${JSON.stringify(e.status)})`)
+    }
+    if (e.status === 'green') {
+      if (typeof e.url !== 'string' || e.url === '') throw new Error(`${at} is green and needs a non-empty string url`)
+      if (typeof e.commit !== 'string' || e.commit === '') throw new Error(`${at} is green and needs a non-empty string commit`)
+      if (!Number.isInteger(e.runId)) throw new Error(`${at} is green and needs an integer runId`)
+    }
+    byId.set(e.id, e)
+  })
+  return byId
 })()
 // KS-1 and KS-2 (D13): the Judge never sees the contract, so the two sentences are written
 // here word for word and a test checks they match the contract's.
@@ -1700,9 +1735,28 @@ function mustPassSummary(criteria, overridden) {
   }
 }
 
+// NEW (off-host proof D8). The checks applyMustPassRecheck makes, over the criteria as they now stand
+// (settled entries, this iteration's returns and the carried open ones), in one place so the off-host
+// upgrade below repeats exactly the same ones and the two cannot drift. `blocked` is a `not_met` that is
+// not a settled definition problem or an unchecked regression capture, or an `unbuilt`.
+function mustPassCheckState(judgeResult, settled) {
+  const criteria = [...settledList(settled), ...(judgeResult.criteria || []).filter((c) => !settled.has(c.id)), ...carriedCriteria(judgeResult.criteria, settled)]
+  // A settled evidence gap (D5), or a capture the regression pass could not make (regression pass
+  // D10), is `not_met` by status but is not an open gap: it is treated like `not_verifiable`, so a
+  // must-pass one falls through to the unproven check (D7).
+  const blocked = criteria.some((c) => (c.status === 'not_met' && c.settled !== 'definition-problem' && c.settled !== 'regression-unchecked') || c.status === 'unbuilt')
+  const unproven = mustPassSummary(criteria, false).unproven.map((u) => u.id)
+  const uncoveredIds = MUST_PASS_UNCOVERED.map((o) => o.id)
+  const coverage = coverageOf(criteria)
+  const floorMissed = FLOOR !== null && N > 0 && coverage.proven / N < FLOOR
+  return { criteria, blocked, unproven, uncoveredIds, coverage, floorMissed }
+}
+
 // NEW (verification-must-pass D11). The deterministic backstop for the Judge's decide-next call,
 // which is a model's run of a CLI: recompute, from the final criteria list (settled entries plus
-// this iteration's returns), whether an exit may stand. One-directional -- it only ever blocks.
+// this iteration's returns), whether an exit may stand. The recheck itself is one-directional -- it
+// only ever blocks; the one place an exit is un-blocked is upgradeOffHostExit below, which repeats
+// these same checks (off-host proof D8).
 // It acts only on an `exit-satisfied` or `exit-insufficient-coverage` action over a clean base
 // (no not_met, no unbuilt), so a stalled, stuck or unbuilt exit, and a remediate, are never
 // touched. The floor then picks the target, so the precedence decideNext applies holds here too:
@@ -1712,17 +1766,11 @@ function applyMustPassRecheck(judgeResult, settled) {
   const unchanged = { judgeResult, overridden: false }
   if (MUST_PASS_IDS.length === 0 && MUST_PASS_UNCOVERED.length === 0) return unchanged
   if (judgeResult.action !== 'exit-satisfied' && judgeResult.action !== 'exit-insufficient-coverage') return unchanged
-  const criteria = [...settledList(settled), ...(judgeResult.criteria || []).filter((c) => !settled.has(c.id)), ...carriedCriteria(judgeResult.criteria, settled)]
-  // A settled evidence gap (D5), or a capture the regression pass could not make (regression pass
-  // D10), is `not_met` by status but is not an open gap: it is treated like `not_verifiable`, so a
-  // must-pass one falls through to the unproven check below (D7).
-  if (criteria.some((c) => (c.status === 'not_met' && c.settled !== 'definition-problem' && c.settled !== 'regression-unchecked') || c.status === 'unbuilt')) return unchanged
-  const unproven = mustPassSummary(criteria, false).unproven.map((u) => u.id)
-  const uncoveredIds = MUST_PASS_UNCOVERED.map((o) => o.id)
+  const state = mustPassCheckState(judgeResult, settled)
+  if (state.blocked) return unchanged
+  const { unproven, uncoveredIds, coverage, floorMissed } = state
   if (unproven.length === 0 && uncoveredIds.length === 0) return unchanged
 
-  const coverage = coverageOf(criteria)
-  const floorMissed = FLOOR !== null && N > 0 && coverage.proven / N < FLOOR
   const named = [
     unproven.length > 0 ? `must-pass criteria not proven: ${unproven.join(', ')}` : null,
     uncoveredIds.length > 0 ? `must-pass objectives with no criterion: ${uncoveredIds.join(', ')}` : null,
@@ -1750,6 +1798,31 @@ function applyMustPassRecheck(judgeResult, settled) {
   return {
     judgeResult: { ...judgeResult, action: 'exit-must-pass-unproven', reason: `${named} — the core was not shown to work` },
     overridden: true,
+  }
+}
+
+// NEW (off-host proof D9). True when an exit's settled entries include one proven off-host: the Judge
+// wrote the state and report without it, so the exit always syncs, whether or not anything else changed.
+const hasOffHostProof = () => [...settled.values()].some((v) => v.proof && v.proof.kind === 'off-host')
+
+// NEW (off-host proof D8). A must-pass criterion this script settled `met` from a green CI job can
+// make the Judge's `exit-must-pass-unproven` stale: the Judge ruled it not checkable and decide-next
+// counted it unproven. Only that action is ever upgraded, to `exit-satisfied`, and only after every
+// check applyMustPassRecheck makes passes on the criteria as they now stand -- so a Judge-returned
+// `exit-must-pass-unproven` over an open `not_met`, an `unbuilt` or a missed floor stays as it is, and
+// `exit-insufficient-coverage` is never touched (its base action cannot be known from the result).
+// Returns the same object when nothing changes.
+function upgradeOffHostExit(judgeResult, settled, iteration) {
+  if (judgeResult.action !== 'exit-must-pass-unproven') return judgeResult
+  const proven = [...offHostSettledThisRun].filter((id) => settled.has(id) && settled.get(id).proof)
+  if (proven.length === 0) return judgeResult
+  const state = mustPassCheckState(judgeResult, settled)
+  if (state.blocked || state.unproven.length > 0 || state.uncoveredIds.length > 0 || state.floorMissed) return judgeResult
+  log(`iteration ${iteration}: every must-pass criterion is now proven (${proven.join(', ')} off-host) -- the exit becomes satisfied`)
+  return {
+    ...judgeResult,
+    action: 'exit-satisfied',
+    reason: `all must-pass criteria proven; ${proven.join(', ')} proven off-host by a green CI job on the commit under test`,
   }
 }
 
@@ -1792,6 +1865,70 @@ const reportInputFileFor = (iteration) =>
 // its length, before the loop's own state exists; a resume seeds it further down.
 const debugChanges = []
 
+// NEW (off-host proof D7, D10). The ids this invocation, or the resume snapshot, ruled `build-defect`,
+// `evidence-gap` or `unbuilt`: a green CI run on HEAD cannot overrule a failure this host saw on that
+// same code, so the settle helper refuses them. Filled from the snapshot before the resume seeding and
+// from every entry the fold records (id -> the phrase the reason uses, e.g. "was ruled build-defect earlier in this run"). `offHostSettledThisRun` holds the ids the helper settled `met` in
+// this invocation, which is what lets the exit upgrade tell its own proof from one a resume carried in.
+const offHostRefused = new Map()
+function refuseOffHost(id, phrase) {
+  if (!offHostRefused.has(id)) offHostRefused.set(id, phrase)
+}
+const offHostSettledThisRun = new Set()
+
+// NEW (off-host proof D7 rule 3). True when a Debug record of THIS invocation touched `id`'s covers. A
+// record counts when its iteration is past the one the run resumed at, or it is a regression-round
+// repair: the synthetic `{iteration: RESUME_ITERATION, files: null}` record a resumed run pushes at
+// start does not, because the lookup made before dispatch already proved HEAD green and the covered
+// files clean, so whatever the interrupted pass changed is in HEAD (which CI ran) or reads `dirty`. A
+// counted `files: null` touches everything; a criterion with no covers record is touched by any counted
+// record naming a file. Returns before `coverMatches` when nothing counts: the resume seeding calls this
+// before `globRegexCache` exists.
+function debugTouchedCovers(id) {
+  const counted = debugChanges.filter((r) => r.iteration > RESUME_ITERATION || r.regression)
+  if (counted.length === 0) return false
+  if (counted.some((r) => r.files === null)) return true
+  const covers = CRITERION_COVERS.get(id) || []
+  return counted.some((r) => (covers.length === 0 ? r.files.length > 0 : r.files.some((f) => covers.some((cv) => coverMatches(cv, f)))))
+}
+
+// NEW (off-host proof D7). The one settle helper, called where a not-checkable must-pass verdict is
+// final (the fold, and the resume seeding of a persisting one). `entry` is that verdict: `{id, status:
+// 'not_verifiable', kind: 'not-checkable-here', reason, cause, ...}`. Returns null when nothing is
+// declared for it (not must-pass, or no lookup entry), else `{entry, settledMet}`: the entry settled
+// `met` with a `proof` when all three rules hold, or the same entry with its reason extended to say
+// why the declared job did not prove it. Rule 1: a green lookup entry. Rule 2: the id was never ruled
+// a failing kind. Rule 3: no Debug pass of this invocation touched its covers.
+function settleOffHost(entry) {
+  const p = OFF_HOST_PROOFS.get(entry.id)
+  if (!p || !MUST_PASS_IDS.includes(entry.id)) return null
+  const job = `${p.workflow}#${p.job}`
+  // A resumed entry already carries the clause an earlier settle appended; cut it, so a resume does
+  // not append the same clause again each time.
+  const marker = `declared off-host proof ${job} `
+  const at = entry.reason ? entry.reason.indexOf(marker) : -1
+  const baseReason = at === 0 ? null : at > 0 && entry.reason.slice(at - 2, at) === '; ' ? entry.reason.slice(0, at - 2) : entry.reason
+  let why = null
+  if (p.status !== 'green') why = `declared off-host proof ${job} is ${p.status}${p.reason ? ` (${p.reason})` : ''}`
+  else if (offHostRefused.has(entry.id)) why = `declared off-host proof ${job} is green but this id ${offHostRefused.get(entry.id)}`
+  else if (debugTouchedCovers(entry.id)) why = `declared off-host proof ${job} is green but its covered files were changed by Debug in this run`
+  if (why !== null) return { entry: { ...entry, reason: baseReason ? `${baseReason}; ${why}` : why }, settledMet: false }
+  const { kind: _kind, verificationDigest: _digest, settled: _settled, causeKey: _key, awaiting: _awaiting, ...keep } = entry
+  offHostSettledThisRun.add(entry.id)
+  return {
+    entry: {
+      ...keep,
+      status: 'met',
+      tier1: null,
+      artifact: p.url,
+      reason: `proven off-host: CI job ${job} succeeded in run ${p.runId} on ${p.commit}${baseReason ? ` (not checkable here: ${baseReason})` : ''}`,
+      cause: entry.cause ?? null,
+      proof: { kind: 'off-host', workflow: p.workflow, job: p.job, runId: p.runId, url: p.url, commit: p.commit },
+    },
+    settledMet: true,
+  }
+}
+
 // NEW (triage D1, D5, D20, D21). Reconcile each criterion the Judge ruled this iteration against
 // the cause-derived kind, and settle the ones the script (not the Judge) decides are done:
 //   - kind is KIND_BY_CAUSE[cause]; a returned kind that disagrees is overridden and logged.
@@ -1821,7 +1958,12 @@ function reconcileJudgeKinds(judgeResult, iteration, recaptureIds = [], settleAs
     // `causeKey` and `awaiting` are the script's to decide (causes D1, D4), so they are taken off
     // the Judge's entry here and put back below only when validated. A skipped Exercise needs no
     // special case any more: the open criteria it did not walk are carried, not ruled never-exercised.
-    const { kind: returned, settled: _echoed, verificationDigest: returnedDigest, causeKey: returnedKey, awaiting: returnedAwaiting, ...rest } = c
+    const { kind: returned, settled: _echoed, verificationDigest: returnedDigest, causeKey: returnedKey, awaiting: returnedAwaiting, proof: returnedProof, ...rest } = c
+    // Off-host proof D9: only this script ever sets `proof`, so one the Judge returned is dropped.
+    if (returnedProof != null) {
+      changed = true
+      log(`iteration ${iteration}: the Judge returned a proof for ${c.id} -- dropping it (only the script sets one)`)
+    }
     if (returnedAwaiting != null) {
       changed = true
       log(`iteration ${iteration}: the Judge returned awaiting ${JSON.stringify(returnedAwaiting)} for ${c.id}, which it ruled this iteration -- dropping it`)
@@ -1885,6 +2027,20 @@ function reconcileJudgeKinds(judgeResult, iteration, recaptureIds = [], settleAs
     if (out.status === 'not_verifiable' && out.kind === 'not-checkable-here' && VERIFICATION_DIGEST !== '') {
       out.verificationDigest = VERIFICATION_DIGEST
       if (returnedDigest !== VERIFICATION_DIGEST) changed = true
+    }
+    // Off-host proof D7: the fold has now ruled this id. A failing kind (or unbuilt) bars a later
+    // settle for the rest of the run; a not-checkable verdict goes to the settle helper, which may
+    // turn it into a `met` proven by CI or extend its reason.
+    if (out.kind === 'build-defect' || out.kind === 'evidence-gap' || out.status === 'unbuilt') {
+      refuseOffHost(c.id, `was ruled ${out.status === 'unbuilt' ? 'unbuilt' : out.kind} earlier in this run`)
+    }
+    if (out.status === 'not_verifiable' && out.kind === 'not-checkable-here') {
+      const offHost = settleOffHost(out)
+      if (offHost) {
+        changed = true
+        if (offHost.settledMet) log(`iteration ${iteration}: ${c.id} is not checkable here but its declared CI job succeeded -- settling it met, proven off-host`)
+        return offHost.entry
+      }
     }
     return out
   })
@@ -1955,7 +2111,11 @@ function buildStateSyncPrompt(iteration, stateJson, patches, causesJson, reportF
     ? `2. Read ${reportInputFile} (JSON). For each of these entries, find the criterion in its ` +
       `"criteria" array by "id" and set its "status" and "reason" to the values given; set its "kind", ` +
       `"settled", "causeKey", "awaiting" and "regression" to the values given, or delete those keys from the ` +
-      `criterion when the entry has none:\n${JSON.stringify(patches)}\nSet the file's top-level ` +
+      `criterion when the entry has none` +
+      (patches.some((p) => p.proof !== undefined)
+        ? `; for an entry that carries "proof", also set its "artifact" and "proof" to the values given (the run that proved it)`
+        : '') +
+      `:\n${JSON.stringify(patches)}\nSet the file's top-level ` +
       `"causes" to this array:\n${causesJson}\n` +
       (regression
         ? `Set the file's top-level "regression" to this object (the regression pass's record):\n${JSON.stringify(regression)}\n`
@@ -1982,7 +2142,7 @@ function buildStateSyncPrompt(iteration, stateJson, patches, causesJson, reportF
   )
 }
 
-const STATE_KEYS = ['tier1', 'artifact', 'reason', 'cause', 'causeKey', 'awaiting', 'image', 'ui', 'imageExcluded', 'kind', 'settled', 'verificationDigest', 'regression']
+const STATE_KEYS = ['tier1', 'artifact', 'reason', 'cause', 'causeKey', 'awaiting', 'image', 'ui', 'imageExcluded', 'kind', 'settled', 'verificationDigest', 'regression', 'proof']
 
 // A state-file view of one recorded open entry (no `files`, which is Debug's input, not state).
 function stateEntryOf(id, entry) {
@@ -2032,6 +2192,11 @@ async function syncState(judgeResult, iteration, exiting, reportFix = null, regr
         if (e.causeKey !== undefined) p.causeKey = e.causeKey
         if (e.awaiting !== undefined) p.awaiting = e.awaiting
         if (e.regression !== undefined) p.regression = e.regression
+        // Off-host proof D9: the report input must carry the proof and the run URL the script set.
+        if (e.proof !== undefined) {
+          p.proof = e.proof
+          p.artifact = e.artifact ?? null
+        }
         return p
       })
     : null
@@ -2394,6 +2559,28 @@ const settled = new Map()
 // re-settled by this invocation. Their `provenAt` belongs to an earlier invocation (a fix-round resume
 // restarts iteration numbering), so the scope rule counts every change recorded here against them.
 const resumedProof = new Set()
+// NEW (off-host proof D10). Why a resumed off-host `met` entry no longer stands, or null when it does:
+// it stands only while this invocation's lookup holds a green entry for the same commit it was proven
+// on. A proof is for one commit, so a resume after a new commit, or after CI changed, must not keep it.
+function staleOffHostProof(c) {
+  if (c.status !== 'met' || !c.proof || c.proof.kind !== 'off-host') return null
+  const now = OFF_HOST_PROOFS.get(c.id)
+  if (now && now.status === 'green' && now.commit === c.proof.commit) return null
+  return `proven off-host on ${c.proof.commit}, but this lookup ${now ? (now.status === 'green' ? `is green on ${now.commit}` : `reads ${now.status}`) : 'declares no proof for it'}`
+}
+
+// Off-host proof D7 rule 2: a snapshot that holds the id unbuilt, or not_met as a build defect or an
+// evidence gap (kind read the D20 way: a non-null kindOf(cause) wins, else the stored kind, else a
+// build defect), bars the settle for this invocation as well.
+if (RESUME_CRITERIA) {
+  for (const c of RESUME_CRITERIA) {
+    if (c.status === 'unbuilt') refuseOffHost(c.id, 'was unbuilt in the run it resumes')
+    else if (c.status === 'not_met') {
+      const k = kindOf(c.cause) ?? c.kind ?? 'build-defect'
+      if (k !== 'not-checkable-here') refuseOffHost(c.id, `was ruled ${k} in the run it resumes`)
+    }
+  }
+}
 if (RESUME_CRITERIA) {
   for (const c of RESUME_CRITERIA) {
     // D8: a not-checkable-here entry persists only while verification.md is unchanged: its recorded
@@ -2404,8 +2591,13 @@ if (RESUME_CRITERIA) {
       typeof c.verificationDigest === 'string' &&
       c.verificationDigest !== '' &&
       c.verificationDigest === VERIFICATION_DIGEST
+    const stale = staleOffHostProof(c)
+    if (stale !== null) {
+      log(`resume: ${c.id} was ${stale} -- it is judged again`)
+      continue
+    }
     if (c.status === 'met' || persists) {
-      settled.set(c.id, {
+      let seed = {
         status: c.status,
         tier1: c.tier1 ?? null,
         artifact: c.artifact ?? null,
@@ -2415,8 +2607,23 @@ if (RESUME_CRITERIA) {
         ...imageKeys(c),
         // Carried only when set, so an older state file's bytes are unchanged (regression pass D11).
         ...(c.regression === 1 || c.regression === 2 ? { regression: c.regression } : {}),
-      })
-      if (c.status === 'met') resumedProof.add(c.id)
+      }
+      if (c.status !== 'met') delete seed.proof
+      let proven = c.status === 'met'
+      // Off-host proof D7(b), D10(b): a persisting not-checkable must-pass entry goes through the
+      // settle helper here too, so a job `missing` in an earlier round and green now settles it. At
+      // this point no Debug record of this invocation exists, only the synthetic resume one, which
+      // the helper does not count.
+      if (persists && MUST_PASS_IDS.includes(c.id)) {
+        const offHost = settleOffHost({ id: c.id, ...seed })
+        if (offHost) {
+          const { id: _id, ...rest } = offHost.entry
+          seed = { ...rest, provenAt: c.provenAt ?? RESUME_ITERATION }
+          proven = offHost.settledMet
+        }
+      }
+      settled.set(c.id, seed)
+      if (proven) resumedProof.add(c.id)
     }
   }
 }
@@ -2440,21 +2647,30 @@ function pagesList() {
 // whole run becomes a silent no-op. Name the real cause and carry the resumed statuses
 // forward so the banner reports what the prior run actually established.
 if (iteration > CAP) {
+  // Off-host proof D10(a): nothing ran, so a proof for a commit this lookup no longer shows green is
+  // reported as it now stands -- not verifiable here, proof and artifact dropped -- and the counts
+  // below are computed from that list.
+  const capCriteria = (RESUME_CRITERIA || []).map((c) => {
+    const stale = staleOffHostProof(c)
+    if (stale === null) return c
+    const { proof: _proof, ...rest } = c
+    return { ...rest, status: 'not_verifiable', kind: 'not-checkable-here', artifact: null, reason: `${stale}${c.reason ? `; ${c.reason}` : ''}` }
+  })
   return {
     outcome: 'stuck',
     reason: `resumed at iteration ${iteration} with an iteration cap of ${CAP} -- the prior run already spent the whole budget, so no iteration ran on this invocation; raise the cap or reset the loop state to make further progress`,
     iterations: RESUME_ITERATION,
     reportPath: REPORT_PATH,
-    criteria: RESUME_CRITERIA || [],
-    gaps: RESUME_CRITERIA ? RESUME_CRITERIA.filter((c) => c.status === 'not_met').map((c) => c.id) : [],
-    unbuilt: RESUME_CRITERIA ? RESUME_CRITERIA.filter((c) => c.status === 'unbuilt').map((c) => c.id) : [],
+    criteria: capCriteria,
+    gaps: capCriteria.filter((c) => c.status === 'not_met').map((c) => c.id),
+    unbuilt: capCriteria.filter((c) => c.status === 'unbuilt').map((c) => c.id),
     exercised: `0/${N}`,
     debugAttempts: [],
     notesUpdated: false,
-    coverage: coverageOf(RESUME_CRITERIA),
+    coverage: coverageOf(capCriteria),
     finalRun: null, // NEW (D14) -- one of the two "not-run" cases: no Judge turn happened this invocation to run the gate at all
     pages: [], // NEW (D8) -- no iteration ran this invocation, so no Render agent was ever dispatched
-    mustPass: mustPassSummary(RESUME_CRITERIA, false), // NEW (verification-must-pass D11) -- no Judge exit, so nothing to override
+    mustPass: mustPassSummary(capCriteria, false), // NEW (verification-must-pass D11) -- no Judge exit, so nothing to override
     setup: setupSummary(), // NEW (preflight D10) -- nothing was checked this invocation
     regression: null, // NEW (regression pass D13) -- nothing ran this invocation
   }
@@ -3053,6 +3269,7 @@ async function regressionRound(round, iteration, plan, ctx) {
   }))
   // D11: every entry the round ruled carries the round, so the state and the report can say who proved
   // or broke it.
+  for (const e of standIns) refuseOffHost(e.id, 'was recorded as an unchecked evidence gap earlier in this run')
   result = {
     ...result,
     criteria: [...(result.criteria || []), ...standIns].map((c) => (scopeSet.has(c.id) ? { ...c, regression: round } : c)),
@@ -3233,6 +3450,13 @@ async function runRegressionPass(exitResult, iteration, exitPreviousCauses, exit
         }
         reportFixed = true
       }
+      // Off-host proof D8: the round's Judge ruled on criteria the CI-proven one was among, so the same
+      // upgrade the loop applies is applied to the last round's action.
+      const upgradedLast = upgradeOffHostExit(result, settled, iteration)
+      if (upgradedLast !== result) {
+        result = upgradedLast
+        reportFixed = true
+      }
     }
   }
   if (record || outcomePending) await syncState(result, iteration, true, reportFixed ? reportFixOf(result) : null, record)
@@ -3344,6 +3568,12 @@ for (; iteration <= CAP; iteration++) {
     judgeResult = replaceStalledExit(judgeResult, iteration, closure.closedNow)
     replaced = true
   }
+  // Off-host proof D8: a CI-proven must-pass criterion can lift the Judge's must-pass-unproven exit.
+  const upgraded = upgradeOffHostExit(judgeResult, settled, iteration)
+  if (upgraded !== judgeResult) {
+    judgeResult = upgraded
+    replaced = true
+  }
 
 
   // D20, causes D17: when the script corrected or settled something the Judge had already written,
@@ -3353,7 +3583,7 @@ for (; iteration <= CAP; iteration++) {
   // NEW (regression pass D18b). On an exit after a Debug pass the regression pass owns the state write
   // (the exit Judge was told to write `outcome: null`), so the loop does not sync that exit itself.
   const exitSyncDeferred = judgeResult.action !== 'remediate' && debugChanges.length > 0
-  if ((reconciledKinds.changed || closure.changed || replaced) && !exitSyncDeferred) {
+  if ((reconciledKinds.changed || closure.changed || replaced || (judgeResult.action !== 'remediate' && hasOffHostProof())) && !exitSyncDeferred) {
     await syncState(judgeResult, iteration, judgeResult.action !== 'remediate', replaced && judgeResult.action !== 'remediate' ? reportFixOf(judgeResult) : null)
   }
 

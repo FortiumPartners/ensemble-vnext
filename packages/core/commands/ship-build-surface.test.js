@@ -189,6 +189,23 @@ describe('Step 6: readout and banner', () => {
     expect(s).toContain('git status --porcelain');
   });
 
+  test('STATE names criteria proven off host, silent when there are none (D14)', () => {
+    expect(s).toContain('functional-verification.js off-host-proven --state-dir <state-dir>');
+    expect(s).toContain('its id when `statement` is `null`');
+    expect(s).toContain('proven off host by a CI job: <statement> - <url>');
+    expect(s).toContain('say nothing and skip this and the ISSUES check below');
+  });
+
+  test('ISSUES re-checks those ids on the head being shipped and is not a gate (D14, TR4)', () => {
+    expect(s).toContain(
+      'functional-verification.js off-host-proofs --trd <trd-path> --definition <state-dir>/success-definition.md --ids <those ids>',
+    );
+    expect(s).toContain('the head being shipped');
+    expect(s).toContain('whose `status` is not `green`');
+    expect(s).toContain('"still running"');
+    expect(s).toContain('never a gate');
+  });
+
   test('no policy: NEXT names /ship-setup and an open PR or says the branch is ready for one', () => {
     expect(s).toContain('Policy `none`');
     expect(s).toContain('/ship-setup');

@@ -522,6 +522,68 @@ describe('reconcile: change classes and ensemble.reproof', () => {
     });
   });
 
+  describe('a criterion proven off-host (met, with a run-URL artifact and proof) is custody\'s like any other met one (D15)', () => {
+    const RUN_URL = 'https://github.com/o/r/actions/runs/123';
+    // FS-1 settled by a CI job: artifact is a URL (matches no live-evidence manifest entry, so custody falls
+    // back to the criterion-covers record) and `proof` is an extra key custody never reads.
+    const ciProven = (s) => {
+      const proof = {
+        kind: 'off-host', workflow: '.github/workflows/ci.yml', job: 'read-aloud', runId: 123,
+        url: RUN_URL, commit: s.readCustody().anchor.commit,
+      };
+      fs.writeFileSync(path.join(s.stateDir, 'verification-state.json'), JSON.stringify({
+        criteria: [
+          { id: 'FS-1', status: 'met', artifact: RUN_URL, proof },
+          { id: 'FS-2', status: 'met', artifact: null },
+        ],
+      }));
+      return proof;
+    };
+    const reverifiedFile = (s, criteria) => {
+      const p = path.join(s.root, 'reverify-state.json');
+      fs.writeFileSync(p, JSON.stringify({ criteria }));
+      return p;
+    };
+
+    test('no covered file changed: the CI-proven id is reused, only the other is re-proved', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      ciProven(s);
+      s.commit('fix', { 'src/b.js': 'b3' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-2'], reused: ['FS-1'] });
+    });
+
+    test('a covered file changed: the CI-proven id is listed for re-proof, the other is reused', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      ciProven(s);
+      s.commit('fix', { 'src/a.js': 'a3' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1'], reused: ['FS-2'] });
+    });
+
+    test('--reverified with the id met again (proof carried) moves the anchor', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      const proof = ciProven(s);
+      const before = s.readCustody().anchor.commit;
+      const head = s.commit('fix', { 'src/a.js': 'a3' });
+      const moved = reconcile(s.args({
+        reverifiedPath: reverifiedFile(s, [{ id: 'FS-1', status: 'met', artifact: RUN_URL, proof: { ...proof, commit: head } }]),
+      }));
+      expect(moved).toMatchObject({ action: 'moved', anchor: head, ids: ['FS-1'] });
+      expect(s.readCustody().moves[0]).toMatchObject({ rule: 'reverified', reverified: ['FS-1'], from: before, to: head });
+    });
+
+    test('TR4 pin: a change to ci.yml alone moves the anchor (tier-ci) with the CI-proven id not re-proved', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      ciProven(s);
+      const before = s.readCustody().anchor.commit;
+      const head = s.commit('ci', { '.github/workflows/ci.yml': 'on: push\njobs: {}' });
+      const r = reconcile(s.args());
+      expect(r).toMatchObject({ action: 'moved', anchor: head });
+      expect(r.ids).toBeUndefined();
+      expect(r.reason).toMatch(/ci-config/);
+      expect(s.readCustody().moves[0]).toMatchObject({ from: before, to: head, rule: 'tier-ci', reverified: [] });
+    });
+  });
+
   describe('shipped changes re-prove by covers', () => {
     test('a change to a file in A\'s record re-proves A only (B\'s record names another file)', () => {
       const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });

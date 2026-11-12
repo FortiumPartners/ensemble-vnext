@@ -123,9 +123,15 @@ identifier.
   A must-pass criterion of kind `not-checkable-here` (or, when `kind` is absent, whose cause is `environment-unreachable` or `capability-absent`) is also
   an owner ruling, never an acceptance. Interactive, ask the owner; under `--auto`, record it
   as an `OWNER-CALL` row marked `decided by: agent (--auto)`. Either way the ruling names the
-  two ways out: declare an environment that reaches it (via `/verification-setup`, since
-  `verification.md` is owner-governed), or remove the must-pass marking from the TRD's
-  Objectives table.
+  three ways out: declare an environment that reaches it (via `/verification-setup`, since
+  `verification.md` is owner-governed); declare an off-host proof (a CI workflow file and job,
+  `<workflow file>#<job name>`) on every must-pass objective the criterion's `Must pass` cell
+  names, in the TRD's Objectives table; or remove the must-pass marking from the TRD's
+  Objectives table. Interactive, when the owner chooses the off-host proof and names the job,
+  write it into those TRD Objectives rows only (adding the `Off-host proof` column if absent),
+  with a dated changelog line, and name the TRD under `Written into`; the success definition is
+  not written. Under `--auto` the ruling is only recorded: never write, edit or remove an
+  `Off-host proof` cell.
 - **Extra checks** — only `check`-role rows from the framework skill list that fit a gap the
   diagnosis shows; `none` when none do.
 - **Stop rule** — `max-rounds: 3` and `stop-when-closed-below: 1`, unless an existing plan or a
@@ -174,8 +180,9 @@ or an approval the agent has no way to supply is marked not verifiable, and the 
 in the readout's ISSUES for the owner to take to `/verification-setup` — the same way the
 interactive path names one in its diagnosis. Nothing is recorded or written for it (see Never),
 **except for a must-pass criterion**: that is recorded as an `OWNER-CALL` ruling (decided by:
-agent (--auto)) naming the two ways out, as under Owner rulings above, never marked not
-verifiable alone.
+agent (--auto)) naming the three ways out, as under Owner rulings above, never marked not
+verifiable alone. Declaring an off-host proof is the owner's: `--auto` never writes, edits or
+removes an `Off-host proof` cell.
 
 ---
 
@@ -246,6 +253,9 @@ verifiable alone.
   only when the owner runs `/verification-setup`. A change it needs is named in the
   conversation (or the readout, under `--auto`) for the owner to take there, never applied or
   recorded here.
+- **Never writes, edits or removes an `Off-host proof` cell under `--auto`.** Declaring a CI
+  job as the proof of a must-pass objective is the owner's call, made in an interactive
+  refinement or by the TRD author; `--auto` only records the ruling as an `OWNER-CALL`.
 - **Never writes a credential's value** anywhere — only where a credential lives, if a need
   for one comes up.
 - **Never starts `/verify-build`.** Writing the plan is this command's whole job; running it is

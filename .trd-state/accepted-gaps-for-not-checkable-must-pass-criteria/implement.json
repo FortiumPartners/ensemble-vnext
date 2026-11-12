@@ -1,0 +1,216 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/accepted-gaps-for-not-checkable-must-pass-criteria.md",
+  "trd_hash": "d804f486fbab3c32ed501bd410c2f123cf33aa433dd4ca87efd04336d35768a8",
+  "branch": "feature/40-accepted-gaps-for-not-checkable-must-pass-criteria",
+  "strategy": "tdd",
+  "phase_cursor": 3,
+  "tasks": {
+    "OHP-B001": {
+      "description": "Lib side of the declaration, lookup, report and readout: spec-scope.js objectiveRows reads an Off-host proof column by header name and renderObjectives carries it through /plan's rewrite (D3); offHost",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/spec-scope.js",
+        "packages/core/lib/functional-verification.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T13:45:36.618Z",
+      "completed_at": "2026-11-12T13:59:46.334Z",
+      "last_advanced": "2026-11-12T13:48:25.475Z"
+    },
+    "OHP-B002": {
+      "description": "Workflow side: the offHostProofs argument and its validation (D6); the settle helper, called from reconcileJudgeKinds and from the resume seeding of persisting not-checkable must-pass entries, with th",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        "docs/TRD/functional-verification.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T13:45:36.618Z",
+      "completed_at": "2026-11-12T13:59:46.335Z",
+      "last_advanced": "2026-11-12T13:48:25.476Z"
+    },
+    "OHP-B004": {
+      "description": "/refine-verification: the must-pass not-checkable Owner ruling names the third way out (an off-host proof declared on every must-pass objective the criterion's Must pass cell names, in the TRD's Objec",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/refine-verification.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T13:45:36.618Z",
+      "completed_at": "2026-11-12T13:59:46.335Z",
+      "last_advanced": "2026-11-12T13:48:25.476Z"
+    },
+    "OHP-B003": {
+      "description": "Commands and contract: implement-trd.md §8.3 runs off-host-proofs immediately before the dispatch, after criterionCovers is derived (its output written to a file for --covers), and says this holds on ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        "packages/core/contracts/trd-authoring.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T13:45:36.618Z",
+      "completed_at": "2026-11-12T13:59:46.335Z",
+      "last_advanced": "2026-11-12T13:48:25.476Z"
+    },
+    "OHP-T001": {
+      "description": "Custody pin across the seam from workflow state to custody: in custody.test.js, a must-pass criterion met with proof.kind: 'off-host' and a run-URL artifact, plus a criterion-covers record, is reused ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/custody.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T13:45:36.618Z",
+      "completed_at": "2026-11-12T13:59:46.335Z",
+      "last_advanced": "2026-11-12T13:48:25.476Z"
+    },
+    "OHP-B005": {
+      "description": "/ship-build Step 6: STATE runs off-host-proven --state-dir <state-dir> and names each criterion proven off host by its statement in plain words (its id when the statement is null) and its run URL, say",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/ship-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T13:45:36.618Z",
+      "completed_at": "2026-11-12T13:59:46.335Z",
+      "last_advanced": "2026-11-12T13:48:25.476Z"
+    },
+    "OHP-D001": {
+      "description": "Documents (D18). docs/reference/verification.md: (1) a paragraph on the TRD Objectives Off-host proof column and its join through the definition's Must pass cell, beside the must-pass-marks paragraph ",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "docs/reference/verification.md",
+        "docs/guides/PROCESS.md",
+        "docs/TRD/verification-must-pass.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-12T14:00:16.877Z",
+      "completed_at": "2026-11-12T14:01:13.376Z",
+      "last_advanced": "2026-11-12T14:01:08.672Z"
+    },
+    "OHP-T002": {
+      "description": "[LIVE] Headless fixture scenario test/smoke/scenarios/verify-off-host-proof.sh in the fixtures environment per D17: the host-only criterion reaches not-checkable through the Judge and the fold; the fi",
+      "phase": 3,
+      "status": "deferred",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "AMEND-001": {
+      "status": "success",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        "docs/TRD/accepted-gaps-for-not-checkable-must-pass-criteria.md"
+      ],
+      "files_deleted": [],
+      "current_problem": null,
+      "completed_at": "2026-11-12T15:11:27.488Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "c364e140ed75e2d8c23a4d071a3790b0cd0ecaa6",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T13:59:46.335Z"
+    },
+    {
+      "phase": 2,
+      "commit": "ad46dd11897e9c50b33f7fbb58d47c98bf4aeb3b",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T14:01:22.635Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "ad46dd11897e9c50b33f7fbb58d47c98bf4aeb3b",
+    "last_checkpoint_timestamp": "2026-11-12T14:01:22.635Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/plan/accepted-gaps-for-not-checkable-must-pass-criteria.investigation.md",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI installed; scaffold-project.sh present"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh installed; not needed by this feature"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    },
+    "fix": {
+      "plan": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1
+      },
+      "rounds": [
+        {
+          "round": 1,
+          "tasksPromoted": 0,
+          "criteriaClosed": 32,
+          "criteriaOpen": 0,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
+    }
+  }
+}

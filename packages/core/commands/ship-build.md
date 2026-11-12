@@ -260,6 +260,11 @@ who was not in the session:
     (the order `data.filed` is recorded in): the row's class, its summary, e.g. `product ·
     [below-critical] <finding>`, and its issue URL. A count ("7 of 9 filed") may precede
     them, never replace them.
+  - **Criteria proven off host (D14).** Run `node .claude/lib/functional-verification.js
+    off-host-proven --state-dir <state-dir>`. For each entry it prints, write one line: the
+    criterion's statement in plain words (its id when `statement` is `null`) and its run URL, as
+    "proven off host by a CI job: <statement> - <url>". When it prints `[]`, or the work has no
+    TRD, say nothing and skip this and the ISSUES check below.
 - **DECISIONS** — a default applied (the push-only fallback when there is no policy, a branch
   created for a sweep), one line each with the reason; otherwise none.
 - **ISSUES** — every line any step put in `data.issues` (unfiled findings and review gaps come
@@ -272,6 +277,15 @@ who was not in the session:
   - **Unfiled follow-ups are listed one by one, never as a count.** Each `file-followups`
     `data.issues` line keeps its own line, in the order product, host, tooling, paperwork,
     not-verifiable: the row's class, its summary, its ledger path and why it was not filed. A summary line ("five could not be filed") may precede them, never replace them.
+  - **Off-host proofs no longer green for this head (D14, TR4).** When the STATE check above
+    listed criteria, run `node .claude/lib/functional-verification.js off-host-proofs --trd
+    <trd-path> --definition <state-dir>/success-definition.md --ids <those ids>` in the work
+    tree, whose HEAD is the head being shipped. For each `proofs` entry whose `status` is not
+    `green`, write one line naming the criterion, its workflow and job, and the status in words
+    (`red` as "failed", `pending` as "still running", `missing` as "no run found for this head",
+    `dirty` as "the tree has uncommitted changes", `error` as "could not be looked up"), using its
+    `reason`. This is a report, never a gate: a failure to run the verb (non-zero exit) is one
+    ISSUES line, not a stop.
   - **Recorded, not yet filed (D27, AC-F5.8).** When no `file-followups` step has the result
     `filed` in `status`'s `steps` (the run parked or stopped before it, or `ship.md` lists
     none), list every finding a `collect-findings` step recorded and nothing has filed yet, one

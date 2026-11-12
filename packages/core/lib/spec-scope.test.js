@@ -439,3 +439,39 @@ describe('objectiveRows — a hyphenated Must-pass header (review fix)', () => {
     expect(objectiveRows(md).map((r) => [r.id, r.mustPass])).toEqual([['O1', true], ['O2', false]]);
   });
 });
+
+describe('Off-host proof column (OHP-B001, D3)', () => {
+  const trdWith = (table) => ['# T', '', '**Source PRD**: None', '', '## Objectives', '', ...table, '', '## Next', ''].join('\n');
+  const spec = ['## S', '', '### Acceptance criteria', '', '- **P-1** · Web: first', '- **P-2** · Web: second', ''].join('\n');
+  const rerender = (trd) => S.renderObjectives({ trdMarkdown: trd, specMarkdown: spec, specPath: 's.md', section: 'S', ids: ['P-1', 'P-2'] });
+
+  test('objectiveRows carries offHostProof only when the cell is non-blank, found by header name', () => {
+    const rows = S.objectiveRows(trdWith([
+      '| ID | Objective | Off-host_proof | Must-pass |', '|--|--|--|--|',
+      '| O1 | a | .github/workflows/ci.yml#job | yes |', '| O2 | b |  | yes |',
+    ]));
+    expect(rows[0]).toEqual({ id: 'O1', text: 'a', mustPass: true, offHostProof: '.github/workflows/ci.yml#job' });
+    expect(rows[1]).toEqual({ id: 'O2', text: 'b', mustPass: true });
+    expect('offHostProof' in rows[1]).toBe(false);
+  });
+
+  test('renderObjectives keeps an Off-host proof cell through a rewrite, beside Must pass', () => {
+    const trd = trdWith([
+      '| ID | Objective | Source | Must pass | Off-host proof |', '|--|--|--|--|--|',
+      '| P-1 | first | s | yes | .github/workflows/ci.yml#read-aloud |', '| P-2 | second | s | yes | |',
+    ]);
+    const out = rerender(trd);
+    const rows = S.objectiveRows(out);
+    expect(rows.find((r) => r.id === 'P-1')).toMatchObject({ mustPass: true, offHostProof: '.github/workflows/ci.yml#read-aloud' });
+    expect(rows.find((r) => r.id === 'P-2')).toMatchObject({ mustPass: true });
+    expect(rows.find((r) => r.id === 'P-2').offHostProof).toBeUndefined();
+  });
+
+  test('a TRD with no Off-host proof column rewrites byte-identically to before', () => {
+    const marked = trdWith(['| ID | Objective | Source | Must pass |', '|--|--|--|--|', '| P-1 | first | s | yes |', '| P-2 | second | s | |']);
+    expect(rerender(marked)).not.toContain('Off-host proof');
+    const plain = trdWith(['| ID | Objective | Source |', '|--|--|--|', '| P-1 | first | s |']);
+    expect(rerender(plain)).not.toContain('Off-host proof');
+    expect(rerender(plain)).not.toContain('Must pass');
+  });
+});

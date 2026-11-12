@@ -1,6 +1,6 @@
 # TRD: Functional Verification of Delivered Software
 
-**Version**: 2.13.0
+**Version**: 2.14.0
 **Status**: Draft
 **Created**: 2026-08-17
 **Last Updated**: 2026-11-12
@@ -14,6 +14,7 @@
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
+| 2.14.0 | 2026-11-12 | **Synced to `docs/TRD/accepted-gaps-for-not-checkable-must-pass-criteria.md` (OHP-B002).** §3.3 `VerifyFunctionalArgs` gains `offHostProofs` (30 fields, its D6) with its `OffHostProofArg` shape: a green CI job can settle a not-checkable must-pass criterion `met` with a `proof` record, under that TRD's D7 rules, and lift an `exit-must-pass-unproven` exit to `exit-satisfied` (its D8). | @backend-implementer (OHP-B002) |
 | 2.13.0 | 2026-11-12 | **Synced to `docs/TRD/one-full-regression-pass-at-the-end.md` (REGR-D001, its D16).** The end-of-run confirmation pass is replaced by a regression pass scoped by the files Debug changed. Inline AMENDED markers extended, original wording kept: §3.3 (the `exercised` entry gains `regression?: 1 | 2`; `criterionCovers` and the result's `regression` were added with the code; the state file gains a `regression` key), §3.3a (the regression-mode Judge), §3.5 (Debug returns a measured `filesChanged`; one repair Debug may follow round 1), §3.6 (the `## Regression pass` section). | @backend-implementer (REGR-D001) |
 | 2.12.0 | 2026-11-11 | **Synced to `docs/TRD/targeted-inner-loop-by-shared-cause.md` (CAUSE-D001, D22).** The loop now fixes and re-checks by shared root cause. Inline AMENDED markers, original wording kept: D8 (a second marker beside triage's: Debug is handed one gap per open cause and returns one result per cause, D7/D9; one agent per iteration is unchanged); §3.3 (`resume` gains an optional `exercised` history, D18, and the state file now has SIX top-level keys, D16); §3.3a (the Judge writes six keys, `causes` after ruling, and its `decide-next` payload gains three inputs, D12/D13/D16); §3.4 (`decideNext` requires `causes`, `previousCauses` and `awaitingRegression`, returns `closedCauses`, and the stall rule also needs no closed cause, D12); §3.5 (Debug: one gap and one result per cause, pre-checks after the refresh, D7/D9/D10/D11); §3.6 (a `## Causes` section and an awaiting marker in the report, D19). `verification-convergence.md` D3 and D11 still hold and are not amended. | @backend-implementer (CAUSE-D001) |
 | 2.11.0 | 2026-11-11 | **Synced to `docs/TRD/triage-unmet-results-by-kind.md` (TRIAGE-D001, D18).** D8 and D14 carry inline AMENDED markers: Debug receives only `build-defect` gaps (triage D4). §3.3 `VerifyFunctionalArgs` gains `verificationDigest` and `preclassified` (28 fields, triage D12), and `resume.criteria` also carries digest-matched `not-checkable-here` entries (triage D8); §3.5 narrows what Debug receives. Original decision wording kept. | @backend-implementer (TRIAGE-D001) |
@@ -634,6 +635,13 @@ interface VerifyFunctionalArgs {
                                   //   provenAt 0. Absent = []. An id not in `criteria`, or an entry
                                   //   whose status/kind is not not_verifiable/not-checkable-here,
                                   //   throws before any agent is dispatched
+  offHostProofs?: OffHostProofArg[];     // NEW (`docs/TRD/accepted-gaps-for-not-checkable-must-pass-criteria.md`
+                                         //   D6). What the `off-host-proofs` lookup found for each
+                                         //   must-pass criterion that names a CI job; absent = [].
+                                         //   An entry whose id is not a must-pass criterion of this
+                                         //   run, a missing workflow/job, a status outside the six,
+                                         //   or a green entry without a url, commit and integer
+                                         //   runId throws before any agent is dispatched
   checks: { [skill: string]: string };  // NEW (VART D11). Each selected verification-check
                                         //   skill's SKILL.md text, keyed by skill name; {} when
                                         //   none were selected. Every criterion whose
@@ -651,6 +659,12 @@ interface VerifyFunctionalArgs {
   pagesDir: string;        // NEW (VART D8). ".trd-state/<feature>/verification-artifacts";
                            //   required (non-empty) when any check criterion exists in the
                            //   definition, else ""
+}
+
+interface OffHostProofArg {   // one args.offHostProofs entry
+  id: string; workflow: string; job: string;
+  status: 'green' | 'red' | 'pending' | 'missing' | 'dirty' | 'error';  // only green proves anything
+  runId: number | null; url: string | null; commit: string; reason?: string;
 }
 
 // return

@@ -8,6 +8,9 @@ const { execFileSync, spawnSync } = require('child_process');
 const {
   checkEvidence,
   mustPassCoverage,
+  offHostDeclarations,
+  offHostDeclarationsFromFiles,
+  offHostProven,
   decideNext,
   decideSetup,
   renderReport,
@@ -4808,5 +4811,236 @@ describe('renderReport: kind rendering', () => {
     expect(report).not.toContain('Evidence gaps (definition problems)');
     expect(report).toContain('**Diagnosis**: 4 open — ');
     expect(report).not.toMatch(/build defects?,/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Off-host proof: reader, lookup verb, report line, readout verb (OHP-B001)
+// ---------------------------------------------------------------------------
+describe('offHostDeclarations (D1, D2)', () => {
+  const J = '.github/workflows/ci.yml#read-aloud';
+  const obj = (id, offHostProof, mustPass = true) => ({ id, mustPass, ...(offHostProof === undefined ? {} : { offHostProof }) });
+  const decl = (objectives, criteria) => offHostDeclarations({ objectives, criteria });
+
+  test('one named must-pass objective declaring a job is declared', () => {
+    expect(decl([obj('O3', J)], [{ id: 'FS-3', mustPass: 'O3' }])).toEqual({
+      declared: [{ id: 'FS-3', objectives: ['O3'], workflow: '.github/workflows/ci.yml', job: 'read-aloud' }],
+      ignored: [],
+    });
+  });
+  test('two named objectives declaring the same job are declared', () => {
+    const r = decl([obj('O3', J), obj('O5', J)], [{ id: 'FS-4', mustPass: 'O3, O5' }]);
+    expect(r.declared).toEqual([{ id: 'FS-4', objectives: ['O3', 'O5'], workflow: '.github/workflows/ci.yml', job: 'read-aloud' }]);
+  });
+  test('only one of two named objectives declaring a job is ignored', () => {
+    const r = decl([obj('O3', J), obj('O5')], [{ id: 'FS-4', mustPass: 'O3, O5' }]);
+    expect(r.declared).toEqual([]);
+    expect(r.ignored).toEqual([{ id: 'FS-4', cell: 'O3, O5', reason: 'not declared for every named objective' }]);
+  });
+  test('two different jobs are ignored', () => {
+    const r = decl([obj('O3', J), obj('O5', '.github/workflows/ci.yml#other')], [{ id: 'FS-4', mustPass: 'O3 O5' }]);
+    expect(r.declared).toEqual([]);
+    expect(r.ignored.map((i) => i.reason)).toEqual(['not declared for every named objective']);
+  });
+  test('a cell on an objective not marked must-pass is ignored', () => {
+    const r = decl([obj('O1', J, false)], [{ id: 'FS-1', mustPass: 'O1' }]);
+    expect(r).toEqual({ declared: [], ignored: [{ id: 'O1', cell: J, reason: 'not must-pass' }] });
+  });
+  test.each([
+    ['a non-YAML workflow file', '.github/workflows/ci.sh#job'],
+    ['a basename starting with a dash', '.github/workflows/-ci.yml#job'],
+    ['an empty job', '.github/workflows/ci.yml#  '],
+    ['a job starting with a dash', '.github/workflows/ci.yml#--help'],
+    ['no # at all', '.github/workflows/ci.yml'],
+  ])('%s is ignored as malformed', (_n, cell) => {
+    const r = decl([obj('O3', cell)], [{ id: 'FS-3', mustPass: 'O3' }]);
+    expect(r.declared).toEqual([]);
+    expect(r.ignored).toEqual([{ id: 'O3', cell, reason: 'malformed' }]);
+  });
+  test('a job name may contain # and spaces; only the first # splits', () => {
+    expect(decl([obj('O3', 'ci.yml#build #2 fast')], [{ id: 'F', mustPass: 'O3' }]).declared[0]).toMatchObject({ workflow: 'ci.yml', job: 'build #2 fast' });
+  });
+  test('placeholders and a TRD with no column yield nothing', () => {
+    expect(decl([obj('O3', 'none')], [{ id: 'F', mustPass: 'O3' }])).toEqual({ declared: [], ignored: [] });
+    expect(decl([obj('O3')], [{ id: 'F', mustPass: 'O3' }])).toEqual({ declared: [], ignored: [] });
+  });
+  test('rejects non-array input', () => {
+    expect(() => offHostDeclarations({ objectives: null, criteria: [] })).toThrow(TypeError);
+  });
+});
+
+describe('off-host-proofs and off-host-proven verbs (D4, D5, D14)', () => {
+  const { execFileSync: git } = require('child_process');
+  let root; let bin; let log; let env; let head;
+  const sh = (cmd, args, cwd = root) => git(cmd, args, { cwd, encoding: 'utf8' }).trim();
+  const TRD_TEXT = [
+    '# T', '', '## Objectives', '',
+    '| ID | Objective | Source | Must pass | Off-host proof |', '|--|--|--|--|--|',
+    '| O1 | read aloud | s | yes | .github/workflows/ci.yml#read-aloud |', '',
+  ].join('\n');
+  const DEF_TEXT = [
+    '# D', '',
+    '| ID | Functional statement | Cites | Evidence | Derivation | Tier 1 | Parts | Must pass |', '|--|--|--|--|--|--|--|--|',
+    '| FS-1 | Speaks the passage | c | e | [read] | judge-only | | O1 |', '',
+  ].join('\n');
+
+  // A stub gh that switches on `run list` / `run view`, logs every argv, and takes its replies from files.
+  const writeStub = () => {
+    fs.writeFileSync(path.join(bin, 'gh'), [
+      '#!/bin/sh',
+      'echo "$@" >> "$STUB_LOG"',
+      '[ -n "$STUB_FAIL" ] && { echo "HTTP 500" >&2; exit 1; }',
+      'case "$1 $2" in',
+      '  "run list") cat "$STUB_LIST" ;;',
+      '  "run view") cat "$STUB_VIEW" ;;',
+      '  *) exit 1 ;;',
+      'esac', '',
+    ].join('\n'), { mode: 0o755 });
+  };
+  const reply = (list, jobs) => {
+    fs.writeFileSync(path.join(root, '.stub-list'), JSON.stringify(list));
+    fs.writeFileSync(path.join(root, '.stub-view'), JSON.stringify({ jobs }));
+  };
+  const runOf = (over = {}) => ({ databaseId: 4242, status: 'completed', conclusion: 'success', url: 'https://example.test/runs/4242', headSha: head, createdAt: '2026-11-12T00:00:00Z', ...over });
+  const jobOf = (over = {}) => ({ name: 'read-aloud', status: 'completed', conclusion: 'success', ...over });
+  const proofs = (extra = []) => {
+    const r = spawnSync('node', [MODULE_PATH, 'off-host-proofs', '--trd', 'trd.md', '--definition', 'def.md', ...extra], { cwd: root, env, encoding: 'utf8' });
+    return { ...r, json: r.stdout ? JSON.parse(r.stdout) : null };
+  };
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'ohp-'));
+    bin = path.join(root, '.bin'); fs.mkdirSync(bin);
+    log = path.join(root, '.stub.log');
+    sh('git', ['init', '-q']); sh('git', ['config', 'user.email', 't@t']); sh('git', ['config', 'user.name', 't']);
+    fs.writeFileSync(path.join(root, 'trd.md'), TRD_TEXT);
+    fs.writeFileSync(path.join(root, 'def.md'), DEF_TEXT);
+    fs.mkdirSync(path.join(root, 'src')); fs.writeFileSync(path.join(root, 'src', 'a.js'), 'a');
+    fs.writeFileSync(path.join(root, '.gitignore'), '.bin\n.stub*\n');
+    sh('git', ['add', '-A']); sh('git', ['commit', '-qm', 'init']);
+    head = sh('git', ['rev-parse', 'HEAD']);
+    writeStub();
+    env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, STUB_LOG: log, STUB_LIST: path.join(root, '.stub-list'), STUB_VIEW: path.join(root, '.stub-view') };
+    reply([runOf()], [jobOf()]);
+  });
+  afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  test('green carries the run id, URL and HEAD; argv shows --workflow=ci.yml as one argument and the HEAD sha', () => {
+    const { json, status } = proofs();
+    expect(status).toBe(0);
+    expect(json.proofs).toEqual([expect.objectContaining({ id: 'FS-1', workflow: '.github/workflows/ci.yml', job: 'read-aloud', status: 'green', runId: 4242, url: 'https://example.test/runs/4242', commit: head })]);
+    const lines = fs.readFileSync(log, 'utf8').trim().split('\n');
+    expect(lines[0]).toMatch(/^run list --workflow=ci\.yml /);
+    expect(lines[0]).toContain(`--commit=${head}`);
+    expect(lines[1]).toMatch(/^run view 4242 /);
+  });
+  test('red when the job concluded failure', () => {
+    reply([runOf()], [jobOf({ conclusion: 'failure' })]);
+    expect(proofs().json.proofs[0]).toMatchObject({ status: 'red', runId: 4242 });
+  });
+  test('pending when the run, or the job, has not completed', () => {
+    reply([runOf({ status: 'in_progress', conclusion: '' })], []);
+    expect(proofs().json.proofs[0].status).toBe('pending');
+    reply([runOf()], [jobOf({ status: 'in_progress', conclusion: null })]);
+    expect(proofs().json.proofs[0].status).toBe('pending');
+  });
+  test('missing when no run is for HEAD, or the run has no job of that name', () => {
+    reply([runOf({ headSha: 'f'.repeat(40) })], []);
+    expect(proofs().json.proofs[0].status).toBe('missing');
+    reply([runOf()], [jobOf({ name: 'other' })]);
+    expect(proofs().json.proofs[0].status).toBe('missing');
+  });
+  test('the newest run for HEAD wins', () => {
+    reply([runOf({ databaseId: 1, createdAt: '2026-11-11T00:00:00Z' }), runOf({ databaseId: 2, createdAt: '2026-11-12T00:00:00Z' })], [jobOf()]);
+    expect(proofs().json.proofs[0].runId).toBe(2);
+  });
+  test('error when gh fails, and when databaseId is not a positive integer (no gh run view call)', () => {
+    expect(proofs().json.proofs[0].status).toBe('green');
+    env.STUB_FAIL = '1';
+    expect(proofs().json.proofs[0].status).toBe('error');
+    delete env.STUB_FAIL;
+    fs.writeFileSync(log, '');
+    reply([runOf({ databaseId: '4242; rm -rf /' })], [jobOf()]);
+    expect(proofs().json.proofs[0].status).toBe('error');
+    expect(fs.readFileSync(log, 'utf8')).not.toMatch(/run view/);
+  });
+  test('error, exit 0, when gh is absent', () => {
+    const r = spawnSync('node', [MODULE_PATH, 'off-host-proofs', '--trd', 'trd.md', '--definition', 'def.md'], { cwd: root, env: { ...process.env, PATH: path.dirname(process.execPath) }, encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout).proofs[0].status).toBe('error');
+  });
+  test('dirty: an uncommitted change under a covered path, including a new file in a new directory', () => {
+    const covers = path.join(root, 'covers.json');
+    fs.writeFileSync(covers, JSON.stringify({ 'FS-1': ['src/'] }));
+    fs.mkdirSync(path.join(root, 'src', 'deep')); fs.writeFileSync(path.join(root, 'src', 'deep', 'new.js'), 'n');
+    expect(proofs(['--covers', covers]).json.proofs[0]).toMatchObject({ status: 'dirty' });
+    expect(fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '').toBe('');
+  });
+  test('an uncommitted change outside the covers does not void a green proof', () => {
+    const covers = path.join(root, 'covers.json');
+    fs.writeFileSync(covers, JSON.stringify({ 'FS-1': ['src/'] }));
+    fs.writeFileSync(path.join(root, 'other.js'), 'x');
+    expect(proofs(['--covers', covers]).json.proofs[0].status).toBe('green');
+  });
+  test('dirty: with no covers record, an uncommitted shipped path voids it; a docs change does not', () => {
+    fs.mkdirSync(path.join(root, 'docs')); fs.writeFileSync(path.join(root, 'docs', 'n.md'), 'n');
+    expect(proofs().json.proofs[0].status).toBe('green');
+    fs.mkdirSync(path.join(root, 'lib')); fs.writeFileSync(path.join(root, 'lib', 'new.js'), 'n');
+    expect(proofs().json.proofs[0].status).toBe('dirty');
+  });
+  test('--ids restricts proofs to the named subset', () => {
+    fs.writeFileSync(path.join(root, 'def.md'), DEF_TEXT + '| FS-2 | Other | c | e | [read] | judge-only | | O1 |\n');
+    expect(proofs().json.proofs.map((p) => p.id)).toEqual(['FS-1', 'FS-2']);
+    expect(proofs(['--ids', 'FS-2']).json.proofs.map((p) => p.id)).toEqual(['FS-2']);
+  });
+  test('a missing flag and an unreadable TRD each exit 1', () => {
+    expect(spawnSync('node', [MODULE_PATH, 'off-host-proofs', '--trd', 'trd.md'], { cwd: root, env, encoding: 'utf8' }).status).toBe(1);
+    const r = spawnSync('node', [MODULE_PATH, 'off-host-proofs', '--trd', 'nope.md', '--definition', 'def.md'], { cwd: root, env, encoding: 'utf8' });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/off-host-proofs/);
+  });
+
+  describe('off-host-proven', () => {
+    const state = (dir, criteria) => { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, 'verification-state.json'), JSON.stringify({ criteria })); };
+    const proof = (runId) => ({ kind: 'off-host', workflow: '.github/workflows/ci.yml', job: 'read-aloud', runId, url: `https://example.test/${runId}`, commit: head });
+    const proven = (dir) => JSON.parse(execFileSync('node', [MODULE_PATH, 'off-host-proven', '--state-dir', dir]).toString());
+
+    test('prints [] for a missing dir', () => {
+      expect(proven(path.join(root, 'nope'))).toEqual([]);
+    });
+    test('reads the statement from the definition, null when absent', () => {
+      const dir = path.join(root, 'sd');
+      state(dir, [{ id: 'FS-1', status: 'met', proof: proof(1) }, { id: 'FS-2', status: 'met', proof: proof(2) }, { id: 'FS-3', status: 'met' }]);
+      fs.writeFileSync(path.join(dir, 'success-definition.md'), DEF_TEXT);
+      expect(proven(dir)).toEqual([
+        { id: 'FS-1', statement: 'Speaks the passage', workflow: '.github/workflows/ci.yml', job: 'read-aloud', runId: 1, url: 'https://example.test/1', commit: head },
+        expect.objectContaining({ id: 'FS-2', statement: null, runId: 2 }),
+      ]);
+    });
+    test('reverify/ overlays per id: the re-proof wins', () => {
+      const dir = path.join(root, 'sd2');
+      state(dir, [{ id: 'FS-1', status: 'met', proof: proof(1) }, { id: 'FS-2', status: 'met', proof: proof(2) }]);
+      state(path.join(dir, 'reverify'), [{ id: 'FS-1', status: 'met', proof: proof(9) }, { id: 'FS-2', status: 'not_verifiable' }]);
+      expect(proven(dir).map((p) => [p.id, p.runId])).toEqual([['FS-1', 9]]);
+    });
+  });
+
+  test('offHostDeclarationsFromFiles reads the column by header name from a TRD file', () => {
+    expect(offHostDeclarationsFromFiles(path.join(root, 'trd.md'), path.join(root, 'def.md')).declared).toEqual([
+      { id: 'FS-1', objectives: ['O1'], workflow: '.github/workflows/ci.yml', job: 'read-aloud' },
+    ]);
+  });
+});
+
+describe('renderReport: Proven off-host line (D13)', () => {
+  const base = { feature: 'f', prd: 'p', definitionPath: 'd', outcome: 'satisfied', reason: 'r' };
+  const met = { id: 'FS-1', status: 'met', tier1: null, artifact: 'u', reason: 'r' };
+  test('without any proof the report has no such line', () => {
+    expect(renderReport({ ...base, criteria: [met] })).not.toContain('Proven off-host');
+  });
+  test('with one it prints the line naming the run', () => {
+    const proof = { kind: 'off-host', workflow: '.github/workflows/ci.yml', job: 'read-aloud', runId: 4242, url: 'https://example.test/4242', commit: 'abc' };
+    const report = renderReport({ ...base, criteria: [{ ...met, proof }] });
+    expect(report).toContain('**Proven off-host**: FS-1 — .github/workflows/ci.yml#read-aloud, run 4242 (https://example.test/4242)');
   });
 });
