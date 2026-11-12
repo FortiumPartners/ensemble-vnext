@@ -159,6 +159,7 @@
     "prd_dir": "docs/PRD",
     "trd_dir": "docs/TRD",
     "publishArtifacts": true,
-    "openPullRequest": "never"
+    "openPullRequest": "never",
+    "records": "ref"
   }
 }

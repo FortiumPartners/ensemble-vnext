@@ -735,7 +735,7 @@ Ensure these patterns are added:
 .env.*.local
 ```
 
-**Important:** Do NOT add `.claude/` or `.trd-state/` to gitignore - these should be tracked (the few framework files the scaffold ignores are the exception).
+**Important:** Do NOT add `.claude/` to gitignore - it should be tracked. Do not add `.trd-state/` by hand either: the scaffold writes the framework's own `.trd-state/*` ignore lines (run records live on the records ref, `refs/ensemble/records/<slug>`, not on the branch), and ignoring does not untrack anything already committed.
 
 </gitignore-update>
 

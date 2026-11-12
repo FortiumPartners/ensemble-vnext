@@ -174,6 +174,27 @@ COMPLETE` banner appearing in `$NOTIFY_TRANSCRIPT_PATH`, e.g.
 `export NOTIFY_ON_STOP='grep -q "═══ COMMAND COMPLETE" "$NOTIFY_TRANSCRIPT_PATH" && printf "\a"'`.
 More recipes are in the history doc linked below.
 
+## Run records go to the records ref
+
+Run records (`.trd-state/<feature>/`: `implement.json`, `closed.json`, reports,
+`artifacts.json`) are never committed on the branch. They go to the feature's **records ref**,
+`refs/ensemble/records/<slug>`, a git ref that is not a branch, so they reach origin without
+entering the pull request. This is the one place the rule is stated.
+
+- **Ensure first.** Before its first write into `.trd-state/<feature>/`, a command runs
+  `node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>` (`failed` is one
+  ISSUES line: "records ref could not be fetched").
+- **One write per run, before the banner** (before the RETURN line under `--chained`; a command
+  that hands off to a chained one does not write): `node .claude/lib/record-ref.js write
+  --state-dir .trd-state/<feature> --command /<name> --step "<what happened>"`, after the last
+  record and any `artifacts.js record`. Never one per file save. No feature folder: `--shared`
+  (ref `_shared`). A step that forbids new commits adds `--no-fallback`.
+- **Never `git add`/`git commit` a `.trd-state/` path.** The library's fallback is the only
+  branch commit of a record.
+- **Report, never STUCK.** `ref` with `push` `pushed`/`no-remote`/`skipped` is silent; `ref`
+  with `push: "failed"` or a `foldError`, `fallback`, `failed` and `refused` are each one ISSUES line.
+- `ensemble.records` in settings is informational; no command branches on it.
+
 ## Artifact links
 
 A command that produces a document — a PRD, a TRD, a verification report — publishes it as an
@@ -193,7 +214,8 @@ that drifts from it.
 
 **Store the URL and redeploy to it.** Record each artifact with the one lib helper, `node
 .claude/lib/artifacts.js record|get|read`; no command writes the JSON by hand. The manifest,
-`.trd-state/<feature>/artifacts.json`, holds `"version": 2` beside one `{path, url, updated_at,
+`.trd-state/<feature>/artifacts.json`, is a run record: it leaves the worktree on the command's
+single records-ref write (see "Run records go to the records ref"), never in a commit of its own. It holds `"version": 2` beside one `{path, url, updated_at,
 command}` entry per kind: `prd`, `trd`, `audit-prd`, `audit-trd`, `success-definition`,
 `verification-plan`, `verification-report`, `audit-build`, `report`, `design`, `audit-design`, and
 one key per verification-check skill. On a later refine or re-verify, `get` the entry and pass its url as `url:` so the same

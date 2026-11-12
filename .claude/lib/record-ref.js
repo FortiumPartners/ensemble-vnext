@@ -13,12 +13,16 @@
  * index (`GIT_INDEX_FILE`, in the OS temp dir, removed in a `finally`), `write-tree`, `commit-tree`
  * on the ref's current tip, then move the ref by compare-and-swap (`update-ref --stdin`). A lost
  * swap re-reads the tip and rebuilds, up to 5 attempts. Then push, then either fold the branch-
- * tracked copies out of the index (`rm --cached`, staged, never committed) or, if the ref cannot
- * be written or pushed, commit the records on the branch by pathspec as before.
+ * tracked copies out of the branch (`rm --cached`, then ONE commit of exactly those removals,
+ * "records(<slug>): moved to refs/ensemble/records/<slug>") or, if the ref cannot be written or
+ * pushed, commit the records on the branch by pathspec as before.
+ * On a DEFAULT branch (origin/HEAD, else main / master / init.defaultBranch) or a detached HEAD,
+ * and for `--shared` writes and `--no-fallback`, nothing is ever committed to the branch and
+ * nothing is folded: a failed push leaves the ref local, a failed ref write is `failed`.
  * Full design: `docs/TRD/records-ref-library.md` (## Decision).
  *
  * CLI (run from the project root; prints ONE JSON line and exits 0 always, even on refusal):
- *   node record-ref.js write   --state-dir <dir> --command <name> --step <text> [--no-push]
+ *   node record-ref.js write   --state-dir <dir> --command <name> --step <text> [--no-push] [--no-fallback]
  *   node record-ref.js write   --shared --command <name> --step <text> [--no-push]
  *   node record-ref.js read    --slug <slug> --file <path-in-tree> [--local]
  *   node record-ref.js list    [--remote]
@@ -30,11 +34,19 @@
  * `--local` never fetches (hooks). `ensure` prints {ok, outcome: present|restored|no-record|mismatch|
  * refused|failed}.
  *
+ * `kept` (additive, only when set): the ship records (`["shipped.json","custody.json"]`) the ref
+ * already held further along than the worktree's copy and so were not replaced.
+ *
  * `write` outcomes: "ref" (on the ref; `push` is "pushed" | "no-remote" | "skipped"),
  * "fallback" (committed on the branch; `fallbackReason` "push-failed" | "ref-write-failed";
  * `commit` is the branch commit, null when nothing needed committing; `refCommit` is the
  * unpushed ref commit on "push-failed"),
  * "failed" (neither worked), "refused" (nothing attempted).
+ * Additive fields: `foldCommit` (the branch commit that removed the folded paths), and
+ * `fallbackSkipped` ("default-branch" | "shared" | "no-fallback") when a fallback was due but
+ * forbidden: with "ref" it comes with `push: "failed"` (ref kept local, `refError` says why),
+ * with "failed" the ref could not be written. On a default branch a tip whose record.json names a
+ * different feature is "refused" with reason "identity" and the tip is left unchanged.
  *
  * Every git call is `spawnSync` with an argument array (no shell). Nothing here throws to a caller.
  */
@@ -498,6 +510,18 @@ function commitOn(ctx, overlayTip, parents, alsoTip = null) {
   return { commit: ct.out, tree, written, missingImages, unchanged: false };
 }
 
+/**
+ * The identity at `tip` when it names a feature other than this write's, else null. Two detached
+ * writes with no Forge id on either side cannot be told apart, so they count as the same feature.
+ */
+function foreignIdentity(ctx, tip) {
+  const theirs = identityAt(ctx.top, tip);
+  if (!theirs || sameFeature(theirs, ctx.identity)) return null;
+  const detachedBoth =
+    theirs.branch === null && ctx.identity.branch === null && !theirs.forge_feature_id && !ctx.identity.forge_feature_id;
+  return detachedBoth ? null : theirs;
+}
+
 /** Compare-and-swap: creating is itself a swap (no all-zeros value to size to the hash). */
 function swapRef(top, ref, next, old) {
   const input = old ? `update ${ref} ${next} ${old}\n` : `create ${ref} ${next}\n`;
@@ -534,12 +558,26 @@ function reconcile(ctx, ref, localTip) {
     if (!f.ok) return { state: 'failed', err: f.err };
     const remoteTip = resolveRef(ctx.top, tmpRef);
     if (!remoteTip) return { state: 'failed', err: 'remote ref did not arrive' };
+    // The same default-branch rule as the first build: never rebuild over another feature's tip.
+    const theirs = ctx.guardIdentity ? foreignIdentity(ctx, remoteTip) : null;
+    if (theirs) return { state: 'identity', theirs, tip: remoteTip };
+    // writeFiles never replaces another feature's records, on the remote tip either.
+    if (ctx.guardForeign && !sameFeature(identityAt(ctx.top, remoteTip), ctx.identity)) {
+      return { state: 'failed', err: 'remote ref belongs to another feature' };
+    }
+    // The keep-the-ship-records decision was made against the local tip; the tree is now built on
+    // the remote one, which may hold a further-along post-merge record (written from another clone).
+    let kept = null;
+    if (ctx.allFiles) {
+      kept = shipRecordsToKeep(ctx.top, remoteTip, ctx.allFiles, ctx.identity);
+      ctx.files = ctx.allFiles.filter((f) => !kept.includes(f.rel));
+    }
     const parents = remoteTip === localTip ? [remoteTip] : [remoteTip, localTip];
     const b = commitOn(ctx, remoteTip, parents, localTip);
     if (b.error) return { state: 'failed', err: b.error };
     if (!swapRef(ctx.top, ref, b.commit, localTip).ok) return { state: 'failed', err: 'local ref moved during reconcile' };
     const p = pushOnce(ctx.top, ref);
-    return { ...p, commit: b.commit, written: b.written, missingImages: b.missingImages };
+    return { ...p, commit: b.commit, written: b.written, missingImages: b.missingImages, ...(kept ? { kept } : {}) };
   } finally {
     git(['update-ref', '-d', tmpRef], { cwd: ctx.top });
   }
@@ -548,8 +586,33 @@ function reconcile(ctx, ref, localTip) {
 const LITERAL = { GIT_LITERAL_PATHSPECS: '1' };
 const pathList = (paths) => paths.join('\0') + '\0';
 
-/** Untracks (staged only, never committed) exactly those of `repoPaths` that are tracked. */
-function fold(top, repoPaths) {
+/** The branch names that count as "the default branch" (see `isDefaultBranch`). */
+function defaultBranches(top) {
+  const head = git(['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], { cwd: top });
+  const prefix = 'refs/remotes/origin/';
+  // A known origin default is the whole answer; only without it do we guess from the usual names.
+  if (head.ok && head.out.startsWith(prefix) && head.out.length > prefix.length) return [head.out.slice(prefix.length)];
+  const names = ['main', 'master'];
+  const cfg = git(['config', '--get', 'init.defaultBranch'], { cwd: top });
+  if (cfg.ok && cfg.out) names.push(cfg.out);
+  return names;
+}
+
+/**
+ * True when `branch` is the repository's default branch, or there is no branch (detached HEAD).
+ * Without `origin/HEAD` every usual default name (main, master, init.defaultBranch) counts, so
+ * none of them receives a record commit; a default named anything else is not recognised then.
+ */
+function isDefaultBranch(top, branch) {
+  return branch === null || defaultBranches(top).includes(branch);
+}
+
+/**
+ * Untracks exactly those of `repoPaths` that are tracked (staged), and -- when `message` is given --
+ * commits exactly those removals, leaving the user's other staged changes staged. The commit is
+ * built on a throwaway index: `git commit -o <path>` would re-add a path whose file still exists.
+ */
+function fold(top, repoPaths, message) {
   const tracked = new Set();
   for (let i = 0; i < repoPaths.length; i += CHUNK) {
     const r = git(['ls-files', '-z', '--', ...repoPaths.slice(i, i + CHUNK)], { cwd: top, env: LITERAL });
@@ -563,7 +626,38 @@ function fold(top, repoPaths) {
     env: LITERAL,
     input: pathList(list),
   });
-  return rm.ok ? { folded: list } : { folded: [], foldError: rm.err };
+  if (!rm.ok) return { folded: [], foldError: rm.err };
+  if (!message) return { folded: list };
+  const c = commitRemoval(top, list, message);
+  if (!c.ok) return { folded: list, foldError: c.err };
+  return c.commit ? { folded: list, foldCommit: c.commit } : { folded: list };
+}
+
+/** Commits the removal of `paths` from HEAD's tree only (through a temporary index). */
+function commitRemoval(top, paths, message) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'record-ref-fold-'));
+  try {
+    const env = { GIT_INDEX_FILE: path.join(tmp, 'index'), ...LITERAL };
+    const parent = git(['rev-parse', '--verify', '-q', 'HEAD'], { cwd: top });
+    if (!parent.ok) return { ok: false, err: 'no HEAD to commit on' };
+    for (const step of [
+      git(['read-tree', 'HEAD'], { cwd: top, env }),
+      git(['update-index', '--force-remove', '-z', '--stdin'], { cwd: top, env, input: pathList(paths) }),
+    ]) {
+      if (!step.ok) return { ok: false, err: step.err };
+    }
+    const tree = git(['write-tree'], { cwd: top, env });
+    if (!tree.ok) return { ok: false, err: tree.err };
+    // Paths that were only staged (never in HEAD) leave HEAD's tree as it was: no empty commit.
+    const headTree = git(['rev-parse', 'HEAD^{tree}'], { cwd: top });
+    if (headTree.ok && headTree.out === tree.out) return { ok: true, commit: null };
+    const c = git(['commit-tree', tree.out, '-p', parent.out, '-m', message], { cwd: top, env });
+    if (!c.ok) return { ok: false, err: c.err };
+    const u = git(['update-ref', '-m', message, 'HEAD', c.out, parent.out], { cwd: top });
+    return u.ok ? { ok: true, commit: c.out } : { ok: false, err: u.err };
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 /** Commits the records on the branch by pathspec; the user's other staged changes are untouched. */
@@ -593,7 +687,8 @@ const cleanText = (s) => String(s == null ? '' : s).replace(/[\0-\x1f\x7f]+/g, '
 
 /**
  * Writes a state folder (or the shared logs) to its ref. Never throws.
- * @param {{stateDir?: string, shared?: boolean, command: string, step: string, push?: boolean, cwd?: string}} opts
+ * @param {{stateDir?: string, shared?: boolean, command: string, step: string, push?: boolean, fallback?: boolean, cwd?: string}} opts
+ * `fallback: false` (CLI `--no-fallback`) forbids the branch commit and the fold, as on a default branch.
  */
 function write(opts = {}) {
   try {
@@ -601,6 +696,45 @@ function write(opts = {}) {
   } catch (e) {
     return { ok: false, outcome: 'failed', reason: `unexpected error: ${e && e.message}` };
   }
+}
+
+/**
+ * Which of the folder's ship records the tip must keep. After a merge `ship-sequencer` writes the
+ * post-merge `shipped.json` and `custody.json` straight to the ref; a worktree folder still
+ * holding the pre-merge copies must not roll them back. The tip's `shipped.json` is further along
+ * when it is a later run (later `startedAt`), or the same run and holds more step `results`, or
+ * equally many with a later `updatedAt`. `custody.json` follows that decision. Only a tip of this
+ * feature counts: another feature's tip is not overlaid, so keeping would drop the files. An
+ * unreadable copy on either side means "worktree wins" (today's behaviour). Never throws.
+ */
+function shipRecordsToKeep(top, tip, files, identity) {
+  const mine = files.find((f) => f.rel === 'shipped.json');
+  if (!tip || !mine) return [];
+  if (!sameFeature(identityAt(top, tip), identity)) return [];
+  const parse = (buf) => {
+    try {
+      const v = JSON.parse(buf.toString('utf8'));
+      return v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+    } catch {
+      return null;
+    }
+  };
+  const tipBuf = blobAt(top, tip, 'shipped.json');
+  let wt;
+  try {
+    wt = parse(fs.readFileSync(mine.abs));
+  } catch {
+    wt = null;
+  }
+  const tp = tipBuf && parse(tipBuf);
+  if (!tp || !wt) return [];
+  const n = (v) => (Array.isArray(v.results) ? v.results.length : 0);
+  const started = (v) => String(v.startedAt || '');
+  const updated = (v) => String(v.updatedAt || '');
+  if (started(tp) < started(wt)) return []; // the worktree holds a newer run
+  const ahead =
+    started(tp) > started(wt) || n(tp) > n(wt) || (n(tp) === n(wt) && updated(tp) > updated(wt));
+  return ahead ? ['shipped.json', 'custody.json'] : [];
 }
 
 function writeInner(opts) {
@@ -648,6 +782,7 @@ function writeInner(opts) {
     }
   }
   const repoPrefix = toPosix(path.relative(top, folderAbs)) + '/';
+  const branch = currentBranch(top);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'record-ref-'));
   const ctx = {
     top,
@@ -660,8 +795,10 @@ function writeInner(opts) {
     reportText,
     hashes: new Map(),
     counter: 0,
-    identity: shared ? null : { forge_feature_id: nonEmpty(process.env.FORGE_FEATURE_ID), branch: currentBranch(top), slug },
+    identity: shared ? null : { forge_feature_id: nonEmpty(process.env.FORGE_FEATURE_ID), branch, slug },
     message: `records(${slug}): ${command} - ${step}`,
+    guardIdentity: false,
+    allFiles: shared ? null : sel.files,
   };
   // Paths the fallback commits: every selected file plus the report's images that exist here.
   const fallbackPaths = [
@@ -669,11 +806,30 @@ function writeInner(opts) {
     ...referencedImages(reportText, slug).filter((k) => sel.evidence(k)).map((k) => repoPrefix + k),
   ];
 
+  // A default branch (or a detached HEAD) never receives a record commit and never has records
+  // untracked from it: a commit there is a push to the product's trunk. `--no-fallback` and the
+  // shared logs get the same rule on any branch.
+  const onDefault = isDefaultBranch(top, branch);
+  const noFallback = onDefault || shared || opts.fallback === false;
+  const fallbackSkipped = onDefault ? 'default-branch' : shared ? 'shared' : 'no-fallback';
+  ctx.guardIdentity = onDefault && !shared;
+
   try {
     let built = null;
     let refError = null;
+    let priorTip = null;
+    let kept = [];
+    const identityRefusal = (theirs, tip) =>
+      refused('identity', { ref, detail: `${ref} belongs to another feature (branch ${theirs.branch || 'unknown'})`, tip });
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const tip = resolveRef(top, ref);
+      priorTip = tip;
+      // On the default branch the slug may be another feature's ref; writing over it would replace
+      // that feature's records with ours.
+      const theirs = ctx.guardIdentity && tip ? foreignIdentity(ctx, tip) : null;
+      if (theirs) return identityRefusal(theirs, tip);
+      kept = shared ? [] : shipRecordsToKeep(top, tip, sel.files, ctx.identity);
+      ctx.files = sel.files.filter((f) => !kept.includes(f.rel));
       const b = commitOn(ctx, tip, tip ? [tip] : []);
       if (b.error) {
         refError = b.error;
@@ -691,23 +847,26 @@ function writeInner(opts) {
       refError = `ref moved under the writer (${attempt} of ${MAX_ATTEMPTS}): ${s.err}`;
     }
 
-    const base = { slug, ref, skipped: sel.skipped };
+    const base = () => ({ slug, ref, skipped: sel.skipped, ...(kept.length ? { kept } : {}) });
     // On a fallback, `commit` is the BRANCH commit that now holds the records (null when nothing
     // was staged for them); a ref commit that moved but could not be pushed is `refCommit`.
     const fallback = (reason, detail, extra = {}) => {
       const fb = branchCommit(top, fallbackPaths, ctx.message);
       if (fb.ok) {
-        return { ok: true, outcome: 'fallback', fallbackReason: reason, detail, committed: fb.committed, commit: fb.commit || null, ...base, ...extra };
+        return { ok: true, outcome: 'fallback', fallbackReason: reason, detail, committed: fb.committed, commit: fb.commit || null, ...base(), ...extra };
       }
-      return { ok: false, outcome: 'failed', fallbackReason: reason, refError: detail, fallbackError: fb.err, ...base, ...extra };
+      return { ok: false, outcome: 'failed', fallbackReason: reason, refError: detail, fallbackError: fb.err, ...base(), ...extra };
     };
 
-    if (!built) return fallback('ref-write-failed', refError);
+    if (!built) {
+      if (noFallback) return { ok: false, outcome: 'failed', refError, fallbackSkipped, ...base() };
+      return fallback('ref-write-failed', refError);
+    }
 
     let commit = built.commit;
     let written = built.written;
     let missingImages = built.missingImages;
-    const common = () => ({ commit, files: written.length, missingImages, ...base });
+    const common = () => ({ commit, files: written.length, missingImages, ...base() });
     if (opts.push === false) return { ok: true, outcome: 'ref', push: 'skipped', folded: [], ...common() };
 
     let p = pushOnce(top, ref);
@@ -717,14 +876,154 @@ function writeInner(opts) {
         commit = rc.commit;
         written = rc.written;
         missingImages = rc.missingImages;
+        if (rc.kept) kept = rc.kept;
       }
       p = rc;
     }
-    if (p.state === 'pushed' || p.state === 'no-remote') {
-      const f = fold(top, written.map((w) => w.repo));
-      return { ok: true, outcome: 'ref', push: p.state, folded: f.folded, ...(f.foldError ? { foldError: f.foldError } : {}), ...common() };
+    if (p.state === 'identity') {
+      // origin's tip belongs to another feature: put the local ref back where it was and refuse.
+      const undo = priorTip ? ['update-ref', ref, priorTip, built.commit] : ['update-ref', '-d', ref, built.commit];
+      if (built.commit !== priorTip) git(undo, { cwd: top });
+      return identityRefusal(p.theirs, p.tip);
     }
+    if (p.state === 'pushed' || p.state === 'no-remote') {
+      if (noFallback) return { ok: true, outcome: 'ref', push: p.state, folded: [], ...common() };
+      const f = fold(top, written.map((w) => w.repo), `records(${slug}): moved to ${ref}`);
+      return {
+        ok: true,
+        outcome: 'ref',
+        push: p.state,
+        folded: f.folded,
+        ...(f.foldCommit ? { foldCommit: f.foldCommit } : {}),
+        ...(f.foldError ? { foldError: f.foldError } : {}),
+        ...common(),
+      };
+    }
+    // The ref is written locally; with no fallback the records stay there and the lost push is reported.
+    if (noFallback) return { ok: true, outcome: 'ref', push: 'failed', folded: [], refError: p.err || 'push refused', fallbackSkipped, ...common() };
     return fallback('push-failed', p.err || 'push refused', { refCommit: commit, push: 'failed' });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Commits the given file contents onto a feature's ref, keeping every other record already on it.
+ * Unlike `write` it reads nothing from the worktree and never touches the worktree, the index or
+ * the branch: after a merge the checked-out branch is the merged one, the one place records must
+ * not land. It never falls back to a branch commit and never replaces another feature's ref.
+ * Never throws.
+ *
+ * `identity` is the run's own `{branch, forge_feature_id}` (not the session's), written to
+ * `record.json`; one of the two must be set. A failed push is not a failure: the local ref holds
+ * the record, and `push` says `failed`.
+ *
+ * @example
+ *   writeFiles({ slug: 'feat', files: [{ rel: 'shipped.json', content: '{}\n' }],
+ *     identity: { branch: 'feature/x', forge_feature_id: null }, command: 'ship-build', step: 'merge' })
+ *   // => { ok: true, outcome: 'ref', push: 'pushed'|'no-remote'|'skipped'|'failed', commit, ... }
+ *
+ * @param {{cwd?: string, slug: string, files: {rel: string, content: string|Buffer}[],
+ *   identity: {branch?: string|null, forge_feature_id?: string|null}, command: string, step: string,
+ *   push?: boolean}} opts
+ */
+function writeFiles(opts = {}) {
+  try {
+    return writeFilesInner(opts);
+  } catch (e) {
+    return { ok: false, outcome: 'failed', reason: `unexpected error: ${e && e.message}` };
+  }
+}
+
+function writeFilesInner(opts) {
+  const top = topLevel(opts.cwd || process.cwd());
+  if (!top) return refused('not a git work tree');
+  const command = cleanText(opts.command);
+  const step = cleanText(opts.step);
+  if (!command || !step) return refused('writeFiles needs command and step');
+  const slug = opts.slug;
+  if (!isSafeSlug(slug) || slug === SHARED_SLUG) return refused(`"${slug}" is not a slug Forge reads`);
+  const ref = refFor(slug);
+  if (!git(['check-ref-format', ref], { cwd: top }).ok) return refused(`"${ref}" is not a valid ref name`);
+  const given = opts.identity || {};
+  const identity = { forge_feature_id: nonEmpty(given.forge_feature_id), branch: nonEmpty(given.branch), slug };
+  // Without either, record.json would match nothing and Forge would never read the ref.
+  if (!identity.forge_feature_id && !identity.branch) return refused('identity has neither a branch nor a feature id');
+  const files = Array.isArray(opts.files) ? opts.files : [];
+  if (!files.length || files.length > MAX_FILES) return refused('writeFiles needs between 1 and 1000 files');
+  const seen = new Set();
+  for (const f of files) {
+    const ok = f && safeTreePath(f.rel) && f.rel !== 'record.json' && (typeof f.content === 'string' || Buffer.isBuffer(f.content));
+    if (!ok) return refused(`bad file entry: ${f && f.rel}`);
+    if (Buffer.byteLength(f.content) > MAX_FILE_BYTES) return refused(`${f.rel} is over the size limit`);
+    if (seen.has(f.rel)) return refused(`duplicate file: ${f.rel}`);
+    seen.add(f.rel);
+  }
+
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'record-ref-'));
+  try {
+    // Contents go to temp files so commitOn's hashFiles works unchanged.
+    const staged = files.map((f, i) => {
+      const abs = path.join(tmp, `content-${i}`);
+      fs.writeFileSync(abs, f.content);
+      return { rel: f.rel, abs };
+    });
+    const ctx = {
+      top,
+      tmp,
+      slug,
+      shared: false,
+      repoPrefix: '',
+      files: staged,
+      evidence: () => null, // images already on the ref are kept by the overlay; none are added
+      reportText: null,
+      hashes: new Map(),
+      counter: 0,
+      identity,
+      guardForeign: true,
+      message: `records(${slug}): ${command} - ${step}`,
+    };
+    let built = null;
+    let refError = null;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const tip = resolveRef(top, ref);
+      // Checked before building: commitOn skips the overlay on a mismatch and would silently
+      // build a tree without the tip's files.
+      const tipIdentity = tip ? identityAt(top, tip) : null;
+      if (tip && !sameFeature(tipIdentity, identity)) return refused(`${ref} belongs to another feature`, { slug, ref });
+      // Same feature: keep what the tip's record.json knew that the run does not (a run started
+      // without FORGE_FEATURE_ID must not strip the feature id Forge matches the ref by).
+      ctx.identity = {
+        forge_feature_id: identity.forge_feature_id || (tipIdentity && tipIdentity.forge_feature_id) || null,
+        branch: identity.branch || (tipIdentity && tipIdentity.branch) || null,
+        slug,
+      };
+      const b = commitOn(ctx, tip, tip ? [tip] : []);
+      if (b.error) return { ok: false, outcome: 'failed', reason: b.error, slug, ref };
+      if (b.unchanged) {
+        built = b;
+        break;
+      }
+      const s = swapRef(top, ref, b.commit, tip);
+      if (s.ok) {
+        built = b;
+        break;
+      }
+      refError = `ref moved under the writer (${attempt} of ${MAX_ATTEMPTS}): ${s.err}`;
+    }
+    if (!built) return { ok: false, outcome: 'failed', reason: refError, slug, ref };
+
+    let commit = built.commit;
+    const result = (push, extra = {}) => ({ ok: true, outcome: 'ref', push, commit, files: files.length, slug, ref, ...extra });
+    if (opts.push === false) return result('skipped');
+    let p = pushOnce(top, ref);
+    if (p.state === 'non-fast-forward') {
+      const rc = reconcile(ctx, ref, built.commit);
+      if (rc.commit) commit = rc.commit;
+      p = rc;
+    }
+    if (p.state === 'pushed' || p.state === 'no-remote') return result(p.state);
+    return result('failed', { pushError: p.err || 'push refused' });
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -1073,7 +1372,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (!a.startsWith('--')) continue;
     const key = a.slice(2);
-    if (key === 'shared' || key === 'no-push' || key === 'remote' || key === 'local') o[key] = true;
+    if (key === 'shared' || key === 'no-push' || key === 'no-fallback' || key === 'remote' || key === 'local') o[key] = true;
     else o[key] = argv[++i];
   }
   return o;
@@ -1083,7 +1382,7 @@ function main(argv) {
   const cmd = argv[0];
   const a = parseArgs(argv.slice(1));
   let result;
-  if (cmd === 'write') result = write({ stateDir: a['state-dir'], shared: a.shared, command: a.command, step: a.step, push: !a['no-push'] });
+  if (cmd === 'write') result = write({ stateDir: a['state-dir'], shared: a.shared, command: a.command, step: a.step, push: !a['no-push'], fallback: !a['no-fallback'] });
   else if (cmd === 'read') result = read({ slug: a.slug, file: a.file, local: a.local });
   else if (cmd === 'list') result = list({ remote: a.remote });
   else if (cmd === 'restore') result = restore({ stateDir: a['state-dir'], local: a.local });
@@ -1096,4 +1395,4 @@ function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2));
 
-module.exports = { write, read, list, restore, ensure, readRecord, hasRecords, isSafeSlug, referencedImages, sameFeature, refFor, SHARED_SLUG, REF_PREFIX };
+module.exports = { write, writeFiles, read, list, restore, ensure, readRecord, hasRecords, isSafeSlug, referencedImages, sameFeature, refFor, SHARED_SLUG, REF_PREFIX };

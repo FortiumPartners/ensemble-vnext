@@ -160,6 +160,7 @@
     "trd_dir": "docs/TRD",
     "publishArtifacts": true,
     "openPullRequest": "auto",
+    "records": "ref",
     "version": "4.16.1",
     "refreshed_at": "2026-11-07T07:26:01Z"
   }

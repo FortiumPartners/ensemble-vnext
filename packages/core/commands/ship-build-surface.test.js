@@ -141,15 +141,21 @@ describe('Steps 3 and 4: the sequencer', () => {
 describe('Step 5: the record', () => {
   const s = section('## Step 5', '## Step 6');
 
-  test('commits the state directory by pathspec', () => {
-    expect(s).toContain('git add -- <state-dir>');
-    expect(s).toContain('-- <state-dir>');
+  test('writes the records ref and commits no state directory', () => {
+    expect(s).toContain('record-ref.js write --state-dir <state-dir>');
+    expect(s).not.toMatch(/git\s+(add|commit)\b.*<state-dir>/);
+  });
+
+  test('Step 4 writes the ref with --no-fallback after each step result', () => {
+    const l = section('## Step 4', '## Step 5');
+    expect(l).toContain('record-ref.js write --state-dir <state-dir>');
+    expect(l).toContain('--no-fallback');
   });
 
   test('"merged" is read from the PR list, not from a merge step', () => {
     expect(s).toContain('gh pr list --head <branch> --state merged');
     expect(s).toContain('not from whether a step called `merge` ran');
-    expect(s).toContain('no state commit');
+    expect(s).toContain('no records write');
   });
 
   test('Step 3 takes the resume branch from implement.json; Step 6 reads custodyPath', () => {
@@ -157,10 +163,12 @@ describe('Step 5: the record', () => {
     expect(text).toMatch(/`branch` in `\.trd-state\/<feature>\/implement\.json`[^]*falling back to\s+the current branch/);
     expect(text).toMatch(/kind, id and branch all match/);
     expect(text).toContain("`status`'s `custodyPath`");
+    expect(text).toContain('<ref>:custody.json');
+    expect(text).not.toContain('Without `--resume`, never restore it');
   });
 
-  test('the state directory is pushed only at a wait whose data says remoteResume', () => {
-    expect(s).toContain('Push the state directory only at a `wait`');
+  test('the record is pushed at a wait whose data says remoteResume', () => {
+    expect(s).toContain('At a `wait` whose recorded `data` carries `remoteResume: true`');
     expect(s).toContain('remoteResume: true');
     expect(s).toContain('claims no trigger');
   });

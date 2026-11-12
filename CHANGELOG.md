@@ -12,6 +12,42 @@ the work is actually released.
 
 ## [Unreleased]
 
+Run records now leave the worktree through `record-ref.js write` and nowhere else. Every command
+that used to `git add`/`git commit` its `.trd-state/<feature>/` records (`/implement-trd`,
+`/audit-build`, `/close-feature`, `/plan` and its sweep chain, `/amend`, `/sweep`, `/task`,
+`/verify-build`, `/refine-verification`, `/ship-build`) runs `node .claude/lib/record-ref.js write
+--state-dir .trd-state/<feature> --command /<name> --step "<what happened>"` once, immediately
+before its COMMAND COMPLETE or COMMAND STUCK banner (before its RETURN line under `--chained`). The
+single rule lives in `.claude/rules/command-status.md`, so commands that only call `artifacts.js
+record` need no edit. The outcome is reported, never STUCK: only a failed push, `fallback`,
+`failed` and `refused` earn an ISSUES line. The gitignore template gains `.trd-state/*` and
+`!.trd-state/_docs-audit/` under a new `# @ignore-only` marker: those lines are appended to
+`.gitignore` but `ensure_gitignore untrack` never untracks them (nor any `!` line), so nothing
+already tracked is removed here; the cutover that untracks existing records is a later item.
+`record-ref.js write` gains `--no-fallback` (`fallback: false`), used by `precompact.js` and by
+`/ship-build`'s per-step writes before the merge, so a hook or a pre-merge step never commits. The
+library never commits or untracks on the default branch or a detached HEAD, and refuses (reason
+`identity`) to write over another feature's ref from there. On a feature branch, a write that folds
+branch-tracked record copies out of the index commits exactly those paths once per feature
+(`records(<slug>): moved to refs/ensemble/records/<slug>`); a `--shared` write never folds. The
+`/ship-build` push primitive writes the ref before `git push`, and its sweep-work commit pathspec
+leaves out every `.trd-state/` path. `ensemble.records: "ref"` is informational for Forge; no
+Ensemble writer reads it. Plan: `docs/TRD/writers-move-to-the-ref.md`.
+
+After the merge, `/ship-build`'s run record and custody anchor (`shipped.json`, `custody.json`) are
+written to the feature's records ref `refs/ensemble/records/<feature>` and pushed with it when there
+is an origin, instead of the untracked file under the git common directory; that file and its pointer
+remain the fallback when a ref write fails, and runs started earlier keep loading from it, after the
+ref. `record-ref.js` gains `writeFiles` (commit given contents onto the ref, never touching the
+worktree, index or branch; refuses a ref owned by another feature); `ship-record-dir.js` holds the
+shared path rule; when two copies of a run exist the later `updatedAt` wins. `status` reports
+`recordPath` / `custodyPath` as `<ref>:shipped.json` / `<ref>:custody.json` (read with `git show`).
+`ship-sequencer.js start` now restores the state folder from the ref, plain start included (with
+`--branch`), then drops a restored `shipped.json` and a restored `custody.json` stamped with an
+earlier run, so a plain start stays a fresh run; this replaces the earlier rule that a plain start
+restores nothing. `shipped.json` now carries `work.forge_feature_id`. Plan:
+`docs/TRD/fold-the-detached-ship-record-into-the-ref.md`.
+
 Readers now fall back to the records ref (`refs/ensemble/records/<slug>`) when a feature's
 `.trd-state/<slug>/` folder is missing from the worktree, so a re-created worktree can resume.
 `record-ref.js` gains `ensure` (restore the folder from the ref before ordinary reads run; CLI

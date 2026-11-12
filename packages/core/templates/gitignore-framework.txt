@@ -4,10 +4,13 @@
 # feature's dispatch log (per-session working state like the shared one), and
 # the bulky per-run scratch of the verification loop (evidence/, findings/,
 # judge-*, record-* and setup-decide-* files). That scratch is reproducible by
-# re-running the loop and holds no decision. The durable records stay tracked:
-# closed.json, shipped.json, custody.json, verification-state.json,
-# implement.json, artifacts.json, success-definition.md, verification-report.md,
-# verification-plan.md, audit-build-report.md and the other audit-* reports.
+# re-running the loop and holds no decision.
+#
+# Records (closed.json, implement.json, reports, the shared session log...) live
+# on the feature's ref, refs/ensemble/records/<slug>, not on the branch; the
+# last lines below ignore them so they stop appearing as changes. Ignoring does
+# not untrack: removing the copies already tracked is /rebase-project's cutover.
+# Lines after the marker are written to .gitignore only, never untracked.
 .trd-state/current.json
 .trd-state/_dispatch.jsonl
 .trd-state/*/dispatch.jsonl
@@ -17,3 +20,6 @@
 .trd-state/**/judge-*.json
 .trd-state/**/record-*.json
 .trd-state/**/setup-decide-*.json
+# @ignore-only
+.trd-state/*
+!.trd-state/_docs-audit/

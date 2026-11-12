@@ -275,6 +275,10 @@ file. Then the rest of STATE: the plan's path, the blocker and slice counts.
 **NEXT** is `/verify-build`, naming the plan path. After a `setup-failure` run, the step before it
 is the environment fix, as plain text.
 
+Before the banner (and before a `COMMAND STUCK` banner), after `verification-plan.md` is on
+disk, write the records to the ref once (`command-status.md`, "Run records go to the records
+ref"): `node .claude/lib/record-ref.js write --state-dir .trd-state/<feature> --command /refine-verification --step "verification plan"`.
+
 ```
 ═══ COMMAND COMPLETE: /refine-verification ═══
 <plan path>, <n> blockers, <n> slices, <n> owner rulings — next: /verify-build

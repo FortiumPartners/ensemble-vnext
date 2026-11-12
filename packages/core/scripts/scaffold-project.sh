@@ -1623,6 +1623,9 @@ ensemble.setdefault("publishArtifacts", True)
 # setdefault, never assignment: an owner who chose "auto" must keep it
 # across every refresh.
 ensemble.setdefault("openPullRequest", "never")
+# Where a feature's records are written: "ref" (refs/ensemble/records/<slug>).
+# Informational; setdefault so an owner's "branch" survives every refresh.
+ensemble.setdefault("records", "ref")
 data["ensemble"] = ensemble
 
 # The one env key this touches, and only when absent. The Stop-hook judge was
@@ -1791,11 +1794,20 @@ ensure_gitignore() {
         untrack=""
     fi
 
+    local ignore_only=0
     while IFS= read -r line || [[ -n "$line" ]]; do
+        # The marker must be seen before the comment skip. Lines after it are
+        # ignored but never untracked: records already tracked stay tracked
+        # until /rebase-project's cutover.
+        if [[ "$line" == "# @ignore-only" ]]; then
+            ignore_only=1
+            continue
+        fi
         [[ -z "$line" || "$line" == \#* ]] && continue
         append_missing_line "$target" "$line" || return 0
 
         [[ "$untrack" == "untrack" ]] || continue
+        [[ "$ignore_only" -eq 0 && "$line" != '!'* ]] || continue
         # :(glob) gives the pathspec .gitignore's semantics (`*` never crosses
         # `/`), so only paths the line actually ignores are untracked. Quoted:
         # the glob is git's to expand, never the shell's. A glob pathspec that

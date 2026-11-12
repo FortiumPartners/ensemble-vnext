@@ -4,7 +4,8 @@
 # `await-approval trigger=github-actions` step, this workflow runs `/ship-build --resume`
 # on the PR's branch, so the remaining steps of `.claude/rules/ship.md` run without anyone
 # opening a session. The parked run's record (`.trd-state/<feature>/shipped.json`) is on the
-# branch because `/ship-build` pushed it when it parked.
+# feature's records ref (`refs/ensemble/records/<feature>`) because `/ship-build` wrote and
+# pushed it when it parked; `--resume` restores it from there.
 #
 # It needs a model credential in this repository's secrets, named below. The value is never
 # written in this file: add the secret yourself under Settings > Secrets and variables >

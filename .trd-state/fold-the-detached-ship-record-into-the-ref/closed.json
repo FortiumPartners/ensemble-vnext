@@ -1,0 +1,13 @@
+{
+  "feature": "fold-the-detached-ship-record-into-the-ref",
+  "trd": "docs/TRD/fold-the-detached-ship-record-into-the-ref.md",
+  "closedAt": "2026-11-12T13:10:54Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this change has no PRD; its source is roadmap item 4 and the PM's instructions, so the code was checked against the TRD only); pushing the records ref to GitHub and Forge's reader consuming the post-merge shipped.json were not exercised (tests use a local bare origin, and the reader lives in forge-vnext); the folder writer (record-ref.js write) would overwrite the ref's post-merge shipped.json if run on a merged worktree, a hazard left to roadmap item 3 (\"Writers move to the ref\")",
+    "report": ".trd-state/fold-the-detached-ship-record-into-the-ref/audit-build-report.md",
+    "auditedCommit": "cc8c738e7848d5d26f0a24dcc31c2c293860326a",
+    "anchorCommit": null
+  }
+}

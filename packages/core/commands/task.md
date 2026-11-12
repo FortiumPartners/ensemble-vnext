@@ -193,8 +193,12 @@ Write `<dir>/closed.json`, with `closedAt` from `date -u +%Y-%m-%dT%H:%M:%SZ`:
 did. **Zero completed steps ends `COMMAND STUCK`**; a task with some `success` and some
 `deferred` steps ends `COMMAND COMPLETE`, with the deferred ones named in ISSUES. `followups`
 may be empty. Check the file parses (`node -e 'JSON.parse(require("fs").readFileSync(process.argv[1]))' <path>`);
-a write that does not parse is rewritten once, then reported in ISSUES. Do not commit or push
-anything.
+a write that does not parse is rewritten once, then reported in ISSUES. Do not commit anything. Once `closed.json` parses, write the task's records to its ref
+(`command-status.md`, "Run records go to the records ref"):
+`node .claude/lib/record-ref.js write --state-dir .trd-state/task-<slug> --command /task --step "task closed" --no-fallback`;
+that pushes only the task's records ref, and `--no-fallback` keeps a lost push from becoming a
+branch commit, so "nothing committed" stays true. Run it before the
+`COMMAND COMPLETE` or `COMMAND STUCK` banner.
 
 ## Resume
 

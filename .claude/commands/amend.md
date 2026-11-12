@@ -202,6 +202,10 @@ STATE names the files that changed and whether the battery is green. DECISIONS n
 chosen that the instruction did not specify. ISSUES names what is still wrong. NEXT is usually
 "nothing — this is done", and says so rather than inventing follow-up work.
 
+Before the banner (and before a `COMMAND STUCK` banner), after the TRD row and every record are
+on disk, write the records to the ref once (`command-status.md`, "Run records go to the records
+ref"): `node .claude/lib/record-ref.js write --state-dir .trd-state/<feature> --command /amend --step "amendment"`.
+
 Then the banner, as the last line:
 
 ```

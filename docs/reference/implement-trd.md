@@ -256,10 +256,11 @@ they are always `skipped` or empty.
 | 2 | Branches on the status that `recordResult` **wrote**, not on the status the workflow returned. The two differ exactly when attestation catches a false success | code | §4.4 |
 | 3 | Runs the project's own full test battery. It resolves the command from `stack.md`/`constitution.md`, then the `package.json` scripts `smoke`, `test:ci`, `test`, then `pytest`/`go test`/`cargo test`/`rspec`/`mvn test`. If none is found the battery is **skipped**, and the banner says so. A skipped battery does not fail the phase | code (fixed order) | §4.4 |
 | 4 | **Failure** (a task failed, verify-app failed, or the battery was red): if every failed task has `retry_count < 3`, the **whole group** is dispatched again, including tasks that succeeded. Otherwise the run is STUCK (§10.1) and says whether the failure matches a documented risk | code | §4.4, §10.1 |
-| 5 | **Success:** `checkpoint(state, N, {commit, review})`, advance `phase_cursor`, save | code | §5.1 |
-| 6 | `git add -A`, then `git commit -m "chore(phase N): checkpoint (...)"`. No push here: the branch is pushed once, at Step 9.0, after the review fixes | code | §5.2 |
-| 7 | Prints the `PHASE N/M COMPLETE` banner, then `discovered.render()` for that phase (it prints nothing if nothing was recorded). Discoveries don't pause the run and are never acted on automatically | code | §5.3 |
-| 8 | Goes straight on to the next group. Nothing in the loop asks you anything | code | §5.3, §10 |
+| 5 | `git add -A`, then `git commit -m "chore(phase N): checkpoint (...)"` (product code only), then `COMMIT_SHA=$(git rev-parse HEAD)`. No branch push here: the branch is pushed once, at Step 9.0, after the review fixes | code | §5.1 |
+| 6 | **Success:** `checkpoint(state, N, {commit: COMMIT_SHA, review})`, advance `phase_cursor`, save | code | §5.2 |
+| 6a | `record-ref.js write --step "phase N checkpoint"`: the records go to the feature's records ref, which the write pushes | code | §5.3 |
+| 7 | Prints the `PHASE N/M COMPLETE` banner, then `discovered.render()` for that phase (it prints nothing if nothing was recorded). Discoveries don't pause the run and are never acted on automatically | code | §5.4 |
+| 8 | Goes straight on to the next group. Nothing in the loop asks you anything | code | §5.4, §10 |
 
 When the tasks in a group are dispatched as a **group** (§4.0), it is still one call over
 waves that were computed for the whole TRD. So every dependency and every shared-file ordering
@@ -344,9 +345,9 @@ mode. The command text does not say how the other stops above behave under `--ch
 | Path | Written by | Read by |
 |---|---|---|
 | `.trd-state/current.json` | §1.3a | ledger, `notify-complete.sh`, SessionStart context |
-| `.trd-state/<feature>/implement.json` | `implement-state.save()` (§3.6, §4.1, §4.4, §5.1); `status.js` hook | every resume, `/audit-build`, `/close-feature` |
+| `.trd-state/<feature>/implement.json` | `implement-state.save()` (§3.6, §4.1, §4.4, §5.2); `status.js` hook | every resume, `/audit-build`, `/close-feature` |
 | `.trd-state/<feature>/implement.lock` | §1.5 | §1.5 |
-| `.trd-state/<feature>/discovered.jsonl` (via `ledgerPath()`) | implementers through `discovered.record()` | §5.3 `render()`, §2.1a `promoteToTrd()` |
+| `.trd-state/<feature>/discovered.jsonl` (via `ledgerPath()`) | implementers through `discovered.record()` | §5.4 `render()`, §2.1a `promoteToTrd()` |
 | `.trd-state/<feature>/dispatch.jsonl` | `dispatch-ledger.js` hook | RESUMED turns (`--open`) |
 | `.trd-state/<feature>/session-log.md` | `precompact.js` hook | the lead after compaction |
 | `.trd-state/<feature>/success-definition.md` | `product-manager` (§3.6); check rows added at §8.1b | §8.1 |
@@ -354,7 +355,7 @@ mode. The command text does not say how the other stops above behave under `--ch
 | `.trd-state/<feature>/evidence/`, `verification-artifacts/` | the Exercise (`verify-app`) and Render agents inside `verify-functional` | the Judge; §9.0a publishes the check pages |
 | `.trd-state/<feature>/artifacts.json` | §9.0a | §8.1b (comments), later publishes |
 | `.trd-state/<feature>/evidence/live-manifest.jsonl` | `[LIVE]` tasks, through `live-evidence.js record` | §8.3 (`liveEvidence`), so verification reuses an artifact while its source files are unchanged |
-| git: one `chore(phase N)` commit per phase group; one push at §9.0 | §5.2, §9.0 | `--resume` (§2.2), state repair (§2.4) |
+| git: one `chore(phase N)` commit per phase group; one push at §9.0 | §5.1, §9.0 | `--resume` (§2.2), state repair (§2.4) |
 
 ---
 
@@ -371,12 +372,12 @@ These disagreements were found while writing this page. The code is what actuall
   lead applies. In fact `parseTrd()` already sets `task.agentType` through `agent-routing.js`,
   and the keyword table in code differs from the one in §3.3: a different order (checks
   `agent-implementer` first) and different keywords.
-- **The phase gate's review fields are always empty.** §5.3 says to print
+- **The phase gate's review fields are always empty.** §5.4 says to print
   `gate.review.summary`. `implement-phase.js` hard-codes it to `[]`, because the review was
   removed.
-- **The checkpoint needs a commit that does not exist yet.** §5.1 calls
-  `checkpoint(state, N, {commit: $COMMIT_SHA, …})` and saves, and only then does §5.2 run
-  `git commit`. Read literally, the SHA recorded is the previous commit. The lead has to reorder
-  the two steps, or record the new SHA afterwards, to get it right.
+- **The checkpoint order is commit, state, records write.** §5.1 commits product code and reads
+  `COMMIT_SHA`, §5.2 records the checkpoint with it, §5.3 runs `record-ref.js write --step "phase N
+  checkpoint"`. Run records are never committed on the branch; a final write precedes every
+  banner and the `--chained` RETURN line.
 - **The lock exists only in prose.** No script writes or reads `implement.lock`. §1.5 depends
   on the lead model to handle it.

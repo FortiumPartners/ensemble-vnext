@@ -62,6 +62,13 @@ branch_with_writes() {
 
 commit_base() {
     g add -A
+    # The shared logs are ignored since writers-move-to-the-ref (records live on
+    # refs/ensemble/records/*). A project from before the cutover still tracks
+    # them, and the union lines are their fallback: force-add to keep that case.
+    local f
+    for f in .trd-state/_session-log.md .trd-state/_sweep/discovered.jsonl; do
+        if [ -f "$f" ]; then g add -f "$f"; fi
+    done
     g commit -q -m base
 }
 
@@ -90,7 +97,8 @@ merge_in_order() {
         grep -qx "block $n" .trd-state/_session-log.md
         grep -qx "{\"id\":\"$n\"}" .trd-state/_sweep/discovered.jsonl
         grep -qx "note $n" .claude/verification-notes.md
-        [ -f ".trd-state/feat-$n/implement.json" ]
+        # A new feature's records are ignored: they go to the records ref, never the branch.
+        [ -z "$(g ls-files ".trd-state/feat-$n/implement.json")" ]
     done
 }
 
