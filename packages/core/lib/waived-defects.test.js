@@ -214,6 +214,33 @@ describe('waived-defects', () => {
     expect(body).toContain(row.ts);
   });
 
+  test('the issue body carries the verbatim shipped-waived line by default', () => {
+    const { root, stateDir } = setup();
+    const s = stub();
+    wd.gate(stateDir, { root, runner: s.run });
+    expect(creates(s.calls)[0].body).toContain(
+      'Shipped waived under `Blocking: must-pass only` (verification.md §5c). This issue stays open until someone decides not to fix it; no Ensemble step closes it.'
+    );
+  });
+
+  test('closedBy owner words the waiver line for a feature its owner closed', () => {
+    const { root, stateDir } = setup();
+    const s = stub();
+    wd.gate(stateDir, { root, runner: s.run, closedBy: 'owner' });
+    const { body } = creates(s.calls)[0];
+    expect(body).toContain(
+      'Waived under `Blocking: must-pass only` (verification.md §5c) when the feature was closed by its owner. This issue stays open until someone decides not to fix it; no Ensemble step closes it.'
+    );
+    expect(body).not.toContain('Shipped waived');
+  });
+
+  test('the CLI rejects an unknown --closed-by value', () => {
+    const { stateDir } = setup({ waived: [] });
+    const cli = (v) => spawnSync('node', [path.join(__dirname, 'waived-defects.js'), 'gate', '--state-dir', stateDir, '--closed-by', v], { encoding: 'utf8' });
+    expect(cli('someone').status).toBe(2);
+    expect(cli('owner').status).toBe(0);
+  });
+
   test('bad CLI usage exits non-zero', () => {
     expect(spawnSync('node', [path.join(__dirname, 'waived-defects.js'), 'gate'], { encoding: 'utf8' }).status).toBe(2);
   });

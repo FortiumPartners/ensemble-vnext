@@ -330,7 +330,7 @@ They are reported for design, and the feature stays open.
 
 **4. Close, or re-audit.**
 - `close` true: after the chained run's RETURN line, first run the waived-defect gate:
-  `node .claude/lib/waived-defects.js gate --state-dir .trd-state/<feature> --stack "$(node .claude/lib/owner-rules.js path stack.md)"`
+  `node .claude/lib/waived-defects.js gate --state-dir .trd-state/<feature> --stack "$(node .claude/lib/owner-rules.js path stack.md)" --closed-by audit`
   (the same step 0 as `/close-feature`'s close step, including filing Linear and Jira rows through
   their skills and `record-filed` before reading `ok`; the owner's 2026-11-12 rule plus the project's opt-in to
   `must-pass only` is the authority, so filing needs no `ship.md` step and no `autonomy.md`
@@ -338,11 +338,14 @@ They are reported for design, and the feature stays open.
   feature does not close: write no close record (a re-audit removes an existing `closed.json`
   rather than rewriting it), open no PR, skip the chain-to-close steps below, and still write
   the records ref, the report and the round record as for any audit. End `COMMAND STUCK` with
-  `Reason:` naming each row in `failed` and `Next:` naming the tracker fix, or `record-filed`
-  (`node .claude/lib/waived-defects.js record-filed --state-dir .trd-state/<feature> --ref <ref> --url <url>`)
-  for a Linear or Jira row the skill could not file, filed by hand, then
-  `/audit-build docs/TRD/<feature>.md`, which runs the gate again. Never NEXT `/close-feature`
-  here. When `ok` is true, perform `/close-feature`'s "The close step"
+  `Reason:` naming each row in `failed` (its criterion, from `summary`, and its `error`) and a
+  `Next:` that names BOTH ways out on every refusal, whatever the tracker (GitHub, Linear or
+  Jira) and whatever the error: fix the tracker (or `## Issue Tracker` in `stack.md`), **or**
+  file each row's issue by hand (label `defect`) and run `record-filed` for it
+  (`node .claude/lib/waived-defects.js record-filed --state-dir .trd-state/<feature> --ref <ref> --url <url>`;
+  a row whose `url` is already in `failed` needs only `record-filed` with that URL); then
+  `/audit-build docs/TRD/<feature>.md`, which runs the gate again. Never omit the by-hand
+  `record-filed` way out because the tracker is GitHub. Never NEXT `/close-feature` here. When `ok` is true, perform `/close-feature`'s "The close step"
   (`.claude/commands/close-feature.md`) with `"closedBy": "audit"`, `"note": null` and
   `"audit": { "verdict": "<the VERDICT line>", "report": ".trd-state/<feature>/audit-build-report.md", "auditedCommit": "<the header's value>", "anchorCommit": <below> }`
   (`anchorCommit` goes inside `audit`, never at the top level: `custody.js` reads only

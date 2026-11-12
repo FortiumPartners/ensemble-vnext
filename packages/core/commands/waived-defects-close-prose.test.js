@@ -52,6 +52,15 @@ describe('waived-defect close gate prose', () => {
     expect(f).toMatch(/Never NEXT `\/close-feature`/);
   });
 
+  test.each([
+    ['close-feature', closeFeature],
+    ['audit-build', auditClose],
+  ])('%s refusal Next names the by-hand record-filed way out for any tracker, GitHub included', (_n, t) => {
+    const f = flat(t);
+    expect(f).toMatch(/names BOTH ways out on every refusal, whatever the tracker \(GitHub, Linear or Jira\)/);
+    expect(f).not.toMatch(/record-filed[^.;]{0,160}for a Linear or Jira row/);
+  });
+
   test('close-feature framing carries the one exception', () => {
     const f = flat(closeFeature);
     expect(f).not.toContain('This command decides nothing and checks nothing beyond what it needs to find the feature.');

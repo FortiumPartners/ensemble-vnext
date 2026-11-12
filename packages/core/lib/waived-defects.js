@@ -18,11 +18,15 @@
  *
  * CLI (one JSON line on stdout; exit 0 even on a refusal, non-zero only on bad usage):
  *   node waived-defects.js tracker      [--root <dir>] [--stack <stack.md>]
- *   node waived-defects.js gate         --state-dir <dir> [--root <dir>] [--stack <stack.md>]
+ *   node waived-defects.js gate         --state-dir <dir> [--root <dir>] [--stack <stack.md>] [--closed-by audit|owner]
  *   node waived-defects.js record-filed --state-dir <dir> --ref <id> --url <url>
  *
  * functional-verification.js requires this lazily and vice versa; neither requires the other at
  * the top level.
+ *
+ * `--closed-by` words the body's waiver line: `audit` (the default; `/audit-build` and
+ * `file-followups`) says the criterion shipped waived; `owner` (`/close-feature`) says it was waived
+ * when the owner closed the feature, since an abandoned feature shipped nothing.
  */
 const fs = require('fs');
 const os = require('os');
@@ -128,13 +132,24 @@ function criterionFacts(stateDir, ref, summary) {
   };
 }
 
+const STAYS_OPEN = 'This issue stays open until someone decides not to fix it; no Ensemble step closes it.';
+const CLOSED_BY = ['audit', 'owner'];
+
+/** The body's waiver line, worded for how the feature was closed (`audit` or `owner`). */
+function waiverLine(closedBy) {
+  const policy = '`Blocking: must-pass only` (verification.md §5c)';
+  return closedBy === 'owner'
+    ? `Waived under ${policy} when the feature was closed by its owner. ${STAYS_OPEN}`
+    : `Shipped waived under ${policy}. ${STAYS_OPEN}`;
+}
+
 /** Title and body of the defect issue for one waived row. */
-function buildIssue(stateDir, row) {
+function buildIssue(stateDir, row, { closedBy = 'audit' } = {}) {
   const f = criterionFacts(stateDir, row.ref, row.summary);
   const impl = readJson(path.join(stateDir, 'implement.json')) || {};
   const title = `Defect: ${row.ref} ${f.statement || f.failure}`.replace(/\s+/g, ' ').slice(0, 120);
   const body = [
-    `Criterion ${row.ref} failed verification and was waived under \`Blocking: must-pass only\` (it is not must-pass) when the feature was closed.`,
+    `Criterion ${row.ref} failed verification; it is not must-pass, so it did not block.`,
     '',
     `**Criterion:** ${f.statement || '(statement not found in success-definition.md)'}`,
     `**Failure:** ${f.failure}`,
@@ -144,7 +159,7 @@ function buildIssue(stateDir, row) {
     `**Branch:** ${impl.branch || '(not recorded)'}`,
     `**Ledger row:** \`${discovered.ledgerPath(stateDir)}\` ts \`${row.ts}\``,
     '',
-    'This is a defect, not a follow-up idea: it stays open until someone decides not to fix it.',
+    waiverLine(closedBy),
   ].join('\n');
   return { title, body };
 }
@@ -182,7 +197,7 @@ function ensureLabel(run, project) {
  * File every waived row that has no recorded URL. Refuses (`ok: false`) when any row stays unfiled.
  * @returns {{ok: boolean, tracker: string, filed: object[], already: object[], failed: object[], reason?: string}}
  */
-function gate(stateDir, { root = process.cwd(), runner = defaultRunner, stackPath } = {}) {
+function gate(stateDir, { root = process.cwd(), runner = defaultRunner, stackPath, closedBy = 'audit' } = {}) {
   const out = { ok: true, tracker: 'none', filed: [], already: [], retired: [], failed: [] };
   const rows = listWaived(stateDir);
   // A criterion the latest full verification run proved `met` is no longer failing: only
@@ -226,7 +241,7 @@ function gate(stateDir, { root = process.cwd(), runner = defaultRunner, stackPat
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'waived-defect-'));
   try {
     for (const r of todo) {
-      const { title, body } = buildIssue(stateDir, r);
+      const { title, body } = buildIssue(stateDir, r, { closedBy });
       const file = path.join(dir, 'body.md');
       fs.writeFileSync(file, body);
       const res = runner('gh', ['issue', 'create', '-R', project, '--title', title, '--body-file', file, '--label', LABEL]);
@@ -271,7 +286,11 @@ function main(argv) {
   const root = opt.root || process.cwd();
   if (cmd === 'tracker') return emit({ ok: true, ...readTracker(root, opt.stack) });
   if (!opt['state-dir']) return usage();
-  if (cmd === 'gate') return emit(gate(opt['state-dir'], { root, stackPath: opt.stack }));
+  if (cmd === 'gate') {
+    const closedBy = opt['closed-by'] || 'audit';
+    if (!CLOSED_BY.includes(closedBy)) return usage();
+    return emit(gate(opt['state-dir'], { root, stackPath: opt.stack, closedBy }));
+  }
   if (cmd === 'record-filed' && opt.ref && opt.url) return emit(recordFiled(opt['state-dir'], opt.ref, opt.url));
   return usage();
 }
@@ -280,10 +299,10 @@ function emit(o) {
   return 0;
 }
 function usage() {
-  process.stderr.write('usage: waived-defects.js tracker [--root d] [--stack f] | gate --state-dir d [--root d] [--stack f] | record-filed --state-dir d --ref id --url u\n');
+  process.stderr.write('usage: waived-defects.js tracker [--root d] [--stack f] | gate --state-dir d [--root d] [--stack f] [--closed-by audit|owner] | record-filed --state-dir d --ref id --url u\n');
   return 2;
 }
 
-module.exports = { parseTracker, readTracker, listWaived, buildIssue, gate, recordFiled, WAIVED_PREFIX };
+module.exports = { parseTracker, readTracker, listWaived, buildIssue, waiverLine, gate, recordFiled, WAIVED_PREFIX };
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));

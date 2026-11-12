@@ -65,11 +65,13 @@ and the audit fields differ.
 0. **File every waived failure first.** The owner's 2026-11-12 rule, plus the project's opt-in to
    `Blocking: must-pass only`, is the whole authority: filing needs no `ship.md` step and no
    `autonomy.md` sentence. Run
-   `node .claude/lib/waived-defects.js gate --state-dir .trd-state/<feature> --stack "$(node .claude/lib/owner-rules.js path stack.md)"`
+   `node .claude/lib/waived-defects.js gate --state-dir .trd-state/<feature> --stack "$(node .claude/lib/owner-rules.js path stack.md)" --closed-by owner`
    (one JSON line, exit 0 even on a refusal; read `ok`). It reads the ledger first and looks at
    the tracker only when a waived row has no issue, so a feature with none closes exactly as
    before. For GitHub it files one issue labelled `defect` per waived criterion and records the
-   URL on the ledger row. STATE lists each `filed` URL with its criterion.
+   URL on the ledger row. `--closed-by owner` words each issue's waiver line "Waived under …
+   when the feature was closed by its owner", since a feature closed this way shipped nothing.
+   STATE lists each `filed` URL with its criterion.
 
    For a Linear or Jira tracker the gate reports each unfiled row `file via the linear skill` /
    `file via the jira skill`: file each such row now through `managing-linear-issues` /
@@ -83,12 +85,14 @@ and the audit fields differ.
    and 5 do not run; a stale `closed.json` is not created), opens no PR, and still writes the
    records ref (step 4, `--step "close refused: waived failures not filed"`). It ends
    `COMMAND STUCK` with `Reason:` naming each row in `failed` (its criterion, from `summary`, and
-   its `error`) and `Next:` naming the fix, then the same command again:
-   - tracker not reachable, none declared, or no label: fix the tracker or `## Issue Tracker` in
+   its `error`) and a `Next:` that names BOTH ways out on every refusal, whatever the tracker
+   (GitHub, Linear or Jira), then the same command again:
+   - fix the tracker (not reachable, none declared, or no label) or `## Issue Tracker` in
      `stack.md`, then `/close-feature docs/TRD/<feature>.md`;
-   - a Linear or Jira row the skill could not file: file it by hand (label `defect`), run
+   - **or** file each unfiled row by hand (label `defect`), run
      `node .claude/lib/waived-defects.js record-filed --state-dir .trd-state/<feature> --ref <ref> --url <url>`
-     for it, then `/close-feature docs/TRD/<feature>.md`, which runs the gate again;
+     for it, then `/close-feature docs/TRD/<feature>.md`, which runs the gate again; this way
+     out is named for a GitHub row too, never only for Linear or Jira;
    - a row whose issue exists but whose marker was not written (its `url` is in `failed`): run
      `record-filed` with that URL, then the same command.
 

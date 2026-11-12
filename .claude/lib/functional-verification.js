@@ -1816,7 +1816,8 @@ function renderReport(input) {
   // Why the declared must-pass-only policy was not honoured (no reachable tracker to file the
   // waived failures in). Absent when there is nothing to say, so other reports stay byte-identical.
   if (typeof input.blockingNote === 'string' && input.blockingNote.trim()) {
-    lines.push(`**Blocking**: ${escapeCell(input.blockingNote.trim())}`);
+    const why = escapeCell(input.blockingNote.trim().replace(/[.;]+$/, ''));
+    lines.push(`**Blocking**: must-pass only is declared but not applied: ${why}; every failing criterion blocks`);
   }
   // Failures the must-pass-only policy let through (block-only-on-material-failures). Gated on a
   // non-empty list so every other report stays byte-identical; a header line, not a section,

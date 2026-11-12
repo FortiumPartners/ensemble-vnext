@@ -5502,7 +5502,9 @@ describe('recordNonBlockingFollowups and the Not blocking report line (FIX-003)'
     test('blockingNote emits exactly one Blocking line naming the reason, right after Reason', () => {
       const lines = renderReport({ ...base, blockingNote: 'must-pass only was declared but no issue tracker is reachable (Tracker: none)' }).split('\n');
       const hits = lines.filter((l) => l.startsWith('**Blocking**'));
-      expect(hits).toEqual(['**Blocking**: must-pass only was declared but no issue tracker is reachable (Tracker: none)']);
+      expect(hits).toEqual([
+        '**Blocking**: must-pass only is declared but not applied: must-pass only was declared but no issue tracker is reachable (Tracker: none); every failing criterion blocks',
+      ]);
       expect(lines[lines.findIndex((l) => l.startsWith('**Reason**')) + 1]).toBe(hits[0]);
     });
     test('is byte-identical without blockingNote', () => {
