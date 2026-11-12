@@ -5436,7 +5436,7 @@ describe('verify-functional: off-host proof of a not-checkable must-pass criteri
 
     it('a build defect in iteration 1, a Debug edit outside its covers, then ruled not checkable in iteration 2 stays unproven, and the run is not satisfied', async () => {
       const { result, logs } = await run([remediate([metC('FS-1'), bd()], ['FS-2']), unproven([nc()])], {
-        args: { criterionCovers: { FS-1: ['src/a.js'], FS-2: ['src/read.js'] } },
+        args: { criterionCovers: { 'FS-1': ['src/a.js'], 'FS-2': ['src/read.js'] } },
         debugFiles: ['src/other.js'],
       });
       expect(result.outcome).toBe('must-pass-unproven');
@@ -5465,7 +5465,7 @@ describe('verify-functional: off-host proof of a not-checkable must-pass criteri
     describe('a Debug pass of this invocation (rule 3)', () => {
       // FS-2 stays open while Debug runs: the iteration-1 Judge rules only FS-1.
       const journey = (debugFiles, args = {}) =>
-        run([remediate([bd('FS-1')]), unproven([metC('FS-1'), nc()])], { args: { criterionCovers: { FS-1: ['src/a.js'], FS-2: ['src/read.js'] }, ...args }, debugFiles });
+        run([remediate([bd('FS-1')]), unproven([metC('FS-1'), nc()])], { args: { criterionCovers: { 'FS-1': ['src/a.js'], 'FS-2': ['src/read.js'] }, ...args }, debugFiles });
 
       it('an edit outside its covers leaves the proof standing', async () => {
         const { result } = await journey(['src/other.js']);
@@ -5568,7 +5568,7 @@ describe('verify-functional: off-host proof of a not-checkable must-pass criteri
     });
 
     it('a Debug pass first: the loop still upgrades and the regression pass owns the one state write, with the proof', async () => {
-      const { result, agent } = await run([remediate([bd('FS-1')]), unproven([metC('FS-1'), nc()])], { args: { criterionCovers: { FS-1: ['src/a.js'], FS-2: ['src/read.js'] } } });
+      const { result, agent } = await run([remediate([bd('FS-1')]), unproven([metC('FS-1'), nc()])], { args: { criterionCovers: { 'FS-1': ['src/a.js'], 'FS-2': ['src/read.js'] } } });
       expect(result.outcome).toBe('satisfied');
       expect(syncs(agent)).toHaveLength(1);
       expect(syncs(agent)[0].prompt).toContain('"proof":{"kind":"off-host"');
@@ -5580,7 +5580,7 @@ describe('verify-functional: off-host proof of a not-checkable must-pass criteri
       // so the regression pass re-checks FS-1 only; its Judge returns must-pass-unproven for FS-2's carried entry.
       const { result, agent } = await run(
         [remediate([bd('FS-1'), nc()]), judgeOf('exit-must-pass-unproven', [metC('FS-1')])],
-        { args: { criterionCovers: { FS-1: ['src/a.js'], FS-2: ['src/read.js'] } }, debugFiles: ['src/a.js'] }
+        { args: { criterionCovers: { 'FS-1': ['src/a.js'], 'FS-2': ['src/read.js'] } }, debugFiles: ['src/a.js'] }
       );
       expect(result.outcome).toBe('satisfied');
       expect(fs2(result)).toMatchObject({ status: 'met', proof: { runId: 4242 } });
@@ -5649,7 +5649,7 @@ describe('verify-functional: off-host proof of a not-checkable must-pass criteri
 
     it('the setup-failure return', async () => {
       const agent = makeAgentStub(setupPlan({ setup: setupResult({ action: 'setup-failure', problems: [BROKEN], reason: 'broken' }), record: { recorded: true } }));
-      const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2'], offHostProofs: [GREEN], resume: seeded, verificationDigest: 'd', setupTargets: [setupTarget({ criteria: ['FS-1'] })] }) });
+      const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2'], offHostProofs: [GREEN], resume: { ...seeded, criteria: [{ id: 'FS-1', status: 'not_met', cause: 'judged-failed', artifact: null, reason: 'r', provenAt: null }, seeded.criteria[1]] }, verificationDigest: 'd', setupTargets: [setupTarget({ criteria: ['FS-1'] })] }) });
       // FS-1 is the only open one; FS-2 settled from CI at the seeding keeps its proof here.
       expect(result.outcome).toBe('setup-failure');
       expect(fs2(result)).toMatchObject({ status: 'met', proof: { runId: 4242 } });
