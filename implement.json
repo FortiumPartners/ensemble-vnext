@@ -205,6 +205,66 @@
       "started_at": null,
       "completed_at": "2026-11-12T13:37:19.272Z",
       "description": "Amendment from the product PM: write never rolls back a post-merge shipped.json/custody.json"
+    },
+    "AMEND-001": {
+      "description": "AMEND-001",
+      "phase": 1,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/records-ref-writers-prose.test.js"
+      ],
+      "commit": null,
+      "current_problem": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-12T14:02:39.284Z",
+      "last_advanced": "2026-11-12T14:03:35.746Z",
+      "completed_at": "2026-11-12T14:06:17.273Z"
+    },
+    "AMEND-002": {
+      "description": "AMEND-002",
+      "phase": 1,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/records-ref-readers-prose.test.js"
+      ],
+      "commit": null,
+      "current_problem": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-12T14:02:39.284Z",
+      "last_advanced": "2026-11-12T14:03:35.747Z",
+      "completed_at": "2026-11-12T14:06:17.275Z"
+    },
+    "AMEND-003": {
+      "description": "AMEND-003",
+      "phase": 1,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitives.test.js"
+      ],
+      "commit": null,
+      "current_problem": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-12T14:02:39.284Z",
+      "last_advanced": "2026-11-12T14:03:35.747Z",
+      "completed_at": "2026-11-12T14:06:17.275Z"
+    },
+    "AMEND-004": {
+      "description": "AMEND-004",
+      "phase": 1,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/records-ref-writers-prose.test.js"
+      ],
+      "commit": null,
+      "current_problem": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-12T14:02:39.284Z",
+      "last_advanced": "2026-11-12T14:03:35.747Z",
+      "completed_at": "2026-11-12T14:06:17.275Z"
     }
   },
   "checkpoints": [
@@ -215,12 +275,20 @@
         "findings": 0
       },
       "timestamp": "2026-11-12T13:22:32.953Z"
+    },
+    {
+      "phase": 1,
+      "commit": "2b8a918dcaeb4ff95b538fc109e0d4e36fcaca21",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-12T14:06:17.275Z"
     }
   ],
   "recovery": {
     "interrupted": false,
-    "last_healthy_checkpoint": "5f5b9cf1bfa84ae010ca3637c988bb96eb8a9e79",
-    "last_checkpoint_timestamp": "2026-11-12T13:22:32.953Z",
+    "last_healthy_checkpoint": "2b8a918dcaeb4ff95b538fc109e0d4e36fcaca21",
+    "last_checkpoint_timestamp": "2026-11-12T14:06:17.275Z",
     "interrupt_reason": null
   },
   "functional_verification": {
