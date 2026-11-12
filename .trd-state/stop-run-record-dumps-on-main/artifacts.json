@@ -11,5 +11,11 @@
     "url": "",
     "updated_at": "2026-11-12T07:29:14.979Z",
     "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/stop-run-record-dumps-on-main/verification-report.md",
+    "url": "https://claude.ai/artifact/LfmXkZfqcVBF9mVLjoTNvJ",
+    "updated_at": "2026-11-12T07:35:52.828Z",
+    "command": "/implement-trd"
   }
 }
