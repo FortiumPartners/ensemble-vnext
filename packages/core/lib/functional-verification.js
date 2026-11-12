@@ -3171,8 +3171,15 @@ if (require.main === module) {
     } else if (!fs.existsSync(projectPath)) {
       console.log(JSON.stringify({ floor: null, status: 'absent', raw: null, reason: 'missing' }));
     } else {
-      const content = fs.readFileSync(projectPath, 'utf8');
-      console.log(JSON.stringify(readCoverageFloor(content)));
+      // A path that exists but cannot be read (a directory, no permission) reads as absent,
+      // like a missing file, rather than throwing a stack trace.
+      let content = null;
+      try { content = fs.readFileSync(projectPath, 'utf8'); } catch { /* unreadable */ }
+      console.log(JSON.stringify(
+        content === null
+          ? { floor: null, status: 'absent', raw: null, reason: 'unreadable' }
+          : readCoverageFloor(content)
+      ));
     }
   } else if (subcommand === 'read-blocking-policy') {
     const [projectPath] = rest;
@@ -3181,7 +3188,14 @@ if (require.main === module) {
     } else if (!fs.existsSync(projectPath)) {
       console.log(JSON.stringify({ policy: 'all', status: 'absent', raw: null, reason: 'missing' }));
     } else {
-      console.log(JSON.stringify(readBlockingPolicy(fs.readFileSync(projectPath, 'utf8'))));
+      // Exists but unreadable (a directory, no permission): the default, `all`, not a crash.
+      let content = null;
+      try { content = fs.readFileSync(projectPath, 'utf8'); } catch { /* unreadable */ }
+      console.log(JSON.stringify(
+        content === null
+          ? { policy: 'all', status: 'absent', raw: null, reason: 'unreadable' }
+          : readBlockingPolicy(content)
+      ));
     }
   } else if (subcommand === 'reproof-retry-set') {
     const [statePath] = rest;

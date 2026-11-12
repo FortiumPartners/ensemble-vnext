@@ -2433,6 +2433,21 @@ describe('readCoverageFloor', () => {
       expect(JSON.parse(stdout)).toEqual({ floor: 0.6, status: 'declared', raw: '60%' });
     });
 
+
+    test('a directory path reads as the default, unreadable', () => {
+      const stdout = execFileSync('node', [MODULE_PATH, 'read-coverage-floor', tmpDir]).toString();
+      expect(JSON.parse(stdout)).toEqual({ floor: null, status: 'absent', raw: null, reason: 'unreadable' });
+    });
+
+    const itNotRoot = typeof process.getuid === 'function' && process.getuid() === 0 ? test.skip : test;
+    itNotRoot('a file with no read permission reads as the default, unreadable', () => {
+      const projectPath = path.join(tmpDir, 'verification.md');
+      fs.writeFileSync(projectPath, 'x');
+      fs.chmodSync(projectPath, 0o000);
+      const stdout = execFileSync('node', [MODULE_PATH, 'read-coverage-floor', projectPath]).toString();
+      expect(JSON.parse(stdout)).toEqual({ floor: null, status: 'absent', raw: null, reason: 'unreadable' });
+    });
+
     test('reports a missing file distinctly', () => {
       const projectPath = path.join(tmpDir, 'does-not-exist.md');
 
@@ -2540,6 +2555,21 @@ describe('readBlockingPolicy', () => {
         path.join(tmpDir, 'nope.md'),
       ]).toString();
       expect(JSON.parse(stdout)).toEqual({ policy: 'all', status: 'absent', raw: null, reason: 'missing' });
+    });
+
+
+    test('a directory path reads as the default, unreadable', () => {
+      const stdout = execFileSync('node', [MODULE_PATH, 'read-blocking-policy', tmpDir]).toString();
+      expect(JSON.parse(stdout)).toEqual({ policy: 'all', status: 'absent', raw: null, reason: 'unreadable' });
+    });
+
+    const itNotRoot = typeof process.getuid === 'function' && process.getuid() === 0 ? test.skip : test;
+    itNotRoot('a file with no read permission reads as the default, unreadable', () => {
+      const projectPath = path.join(tmpDir, 'verification.md');
+      fs.writeFileSync(projectPath, 'x');
+      fs.chmodSync(projectPath, 0o000);
+      const stdout = execFileSync('node', [MODULE_PATH, 'read-blocking-policy', projectPath]).toString();
+      expect(JSON.parse(stdout)).toEqual({ policy: 'all', status: 'absent', raw: null, reason: 'unreadable' });
     });
 
     test('missing arguments print usage and exit non-zero', () => {
