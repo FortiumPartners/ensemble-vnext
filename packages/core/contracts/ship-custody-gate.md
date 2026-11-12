@@ -30,10 +30,11 @@ The caller gives the gate `work`, `context`, and which act it guards (`merge` or
 3. **Act on the result:**
    - `set`, `none` or `moved`: go on.
    - `reverify` (shipped source changed since the anchor and the listed must-pass criteria need
-     proof again): the head is already pushed, so a preview of it exists or is building. Run
+     proof again): the head is already pushed, so a preview of it exists or is building. First
+     take the start time with `date -u +%Y-%m-%dT%H:%M:%SZ` (UTC, taken BEFORE the call: a time
+     taken after it makes the fresh proof file read as stale). Then run
      `/verify-build <work.trd> --criteria <ids> --no-fix --chained` (a synchronous Skill call; its
-     setup check waits for the environment as `verification.md` declares). Note the time (ISO)
-     before that call. When it returns, and BEFORE the repeat reconcile, record the re-proof in
+     setup check waits for the environment as `verification.md` declares). When it returns, and BEFORE the repeat reconcile, record the re-proof in
      the ship record: `node .claude/lib/ship-sequencer.js reproof --state-dir <work.stateDir>
      --custody '<the reconcile JSON line that returned reverify>' --reverified
      <work.stateDir>/reverify/verification-state.json --started-at <that time> --outcome <the

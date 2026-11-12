@@ -868,10 +868,13 @@ function recordReproof(stateDir, { custody, reverifiedPath, startedAt, outcome }
   } catch {
     reverified = null;
   }
-  const judged = reverified && Array.isArray(reverified.criteria) ? reverified.criteria : [];
+  // Last entry per id wins, as custody.js reconcile reads the same file, so the two never disagree.
+  const judged = new Map(
+    (reverified && Array.isArray(reverified.criteria) ? reverified.criteria : []).filter((c) => c).map((c) => [c.id, c]),
+  );
   const met = line.ids
-    .map((id) => judged.find((c) => c && c.id === id && c.status === 'met'))
-    .filter(Boolean)
+    .map((id) => judged.get(id))
+    .filter((c) => c && c.status === 'met')
     .map((c) => ({ id: c.id, retried: c.retried === true }));
 
   // Lazy: custody.js is only needed here, as in record().
@@ -1005,7 +1008,9 @@ function main(argv) {
     emit(record(stateDir, { step: arg('--step'), result: arg('--result'), data, reason: arg('--reason') }, opts));
     return 0;
   }
-  if (cmd === 'reproof' && stateDir && arg('--custody') !== undefined && arg('--started-at') !== undefined) {
+  // A missing --custody or --started-at is refused as ok:false (never a usage exit): the gate
+  // treats a refused re-proof record as a readout line, not a stop.
+  if (cmd === 'reproof' && stateDir) {
     emit(recordReproof(stateDir, {
       custody: arg('--custody'),
       reverifiedPath: arg('--reverified'),

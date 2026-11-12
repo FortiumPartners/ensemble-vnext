@@ -872,8 +872,7 @@ describe('reproof', () => {
     const second = rec.reproof.runs[1];
     expect(second.met).toEqual([{ id: 'FS-2', retried: false }]);
     expect(second.outcome).toBe('partial');
-    expect(second.custody.classes).toEqual(['shipped', 'test-only', 'base'].filter((c) => second.custody.classes.includes(c)));
-    expect(second.custody.classes).toContain('base');
+    expect(second.custody.classes).toEqual(['shipped', 'test-only', 'base']);
     expect(second.custody.excused).toEqual(['x.js']);
     // the cursor and results are untouched
     expect(rec.results).toEqual([]);
@@ -935,6 +934,12 @@ describe('reproof', () => {
       expect(reproof(custody, f, started).out.ok).toBe(false);
       expect(fs.readFileSync(shippedFile(), 'utf8')).toBe(bytes);
     }
+    // a missing --started-at or --custody is a refusal too, not a usage exit
+    const noTime = cli(['reproof', '--state-dir', stateDir(), '--custody', line({ ids: ['A'] }), '--reverified', f]);
+    expect(noTime).toMatchObject({ code: 0, out: { ok: false } });
+    const noCustody = cli(['reproof', '--state-dir', stateDir(), '--reverified', f, '--started-at', t]);
+    expect(noCustody).toMatchObject({ code: 0, out: { ok: false } });
+    expect(fs.readFileSync(shippedFile(), 'utf8')).toBe(bytes);
     // a done run
     cli(['record', '--state-dir', stateDir(), '--step', '1', '--result', 'done', ...common()]);
     handOut();
