@@ -97,26 +97,42 @@
     "REGR-B006": {
       "description": "Commands: implement-trd.md §8.3 and verify-build.md §4 add criterionCovers after liveEvidence with its derive step (derive-criteria; {} for a sweep file; {} plus an ISSUES line on a non-zero exit) — 2",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        "packages/core/commands/verify-build-criteria.test.js",
+        ".claude/commands/implement-trd.md",
+        ".claude/commands/verify-build.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-12T11:11:16.962Z",
+      "completed_at": "2026-11-12T11:15:22.067Z",
+      "last_advanced": "2026-11-12T11:15:17.145Z"
     },
     "REGR-D001": {
       "description": "Documentation (D16): the contract's \"awaiting\" and \"When a cause closes\" paragraphs describe the regression pass (scope reasons, fresh capture, one repair round) instead of the confirmation pass, keep",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/contracts/functional-verification.md",
+        ".claude/contracts/functional-verification.md",
+        "docs/reference/verification.md",
+        "docs/TRD/targeted-inner-loop-by-shared-cause.md",
+        "docs/TRD/functional-verification.md",
+        "docs/TRD/verification-convergence.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-12T11:11:16.962Z",
+      "completed_at": "2026-11-12T11:15:22.067Z",
+      "last_advanced": "2026-11-12T11:15:17.147Z"
     },
     "REGR-T001": {
       "description": "Add test/smoke/scenarios/verify-regression-pass.sh (D17); register it in test/smoke/run-smoke.sh (LLM_OPT_IN_SCENARIOS and a SCENARIO_TIMEOUT entry) and test/smoke/README.md (table row and tree line).",

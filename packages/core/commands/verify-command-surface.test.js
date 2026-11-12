@@ -260,23 +260,25 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 28 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
-  test('implement-trd.md §8.3 lists 28 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered/verificationDigest/preclassified, with setupTargets after coverageFloor', () => {
+describe('both dispatch blocks carry the same 29 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
+  test('implement-trd.md §8.3 lists 29 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered/verificationDigest/preclassified, with setupTargets after coverageFloor', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(28);
+    expect(fields).toHaveLength(29);
+    expect(fields.indexOf('criterionCovers')).toBe(fields.indexOf('liveEvidence') + 1);
     expect(fields.indexOf('setupTargets')).toBe(fields.indexOf('coverageFloor') + 1);
     expect(fields.slice(-7)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered', 'verificationDigest', 'preclassified']);
   });
 
-  test('verify-build.md §4 lists the identical 28 fields in the identical order', () => {
+  test('verify-build.md §4 lists the identical 29 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 28 fields, not 26, 25, 23, 22, 21 or 18', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 28 fields/);
+  test('verify-build.md §4 intro says 29 fields, not 28, 26, 25, 23, 22, 21 or 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 29 fields/);
+    expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 28 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 26 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 25 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 23 fields/);

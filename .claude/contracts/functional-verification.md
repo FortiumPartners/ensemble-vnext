@@ -469,7 +469,8 @@ check-derived. A check-derived member is the costlier one to re-capture, so it i
 
 **When a cause closes.** After a Debug pass, the next Exercise pass walks only the representative
 of each cause that pass addressed, the representative of any cause awaiting its confirmation, and
-the evidence gaps owed their one re-capture. A cause closes when its representative is ruled
+the evidence gaps owed their one re-capture. The other members of a closed cause wait for the
+regression pass at the end of the run (below). A cause closes when its representative is ruled
 `met`, or `not_met` with a valid key different from the cause's own. A representative that
 returns with the fallback key `criterion:<id>` does not close it: a missing key is not a finding
 about the root cause.
@@ -477,9 +478,28 @@ about the root cause.
 **`awaiting`.** When a cause closes, its other members keep their last verdict (`not_met`, with
 their `causeKey`) and are marked `awaiting: "regression"`. They are not handed to Exercise, the
 judge or the debugger inside the loop, and they are not gaps for `decide-next`. They are not
-`met` either: one confirmation pass at the end of the run re-checks them, and a member that still
-fails keeps the run from `satisfied`. Copy a criterion marked "open, not re-checked this
-iteration" into the state file and the report input exactly as given; never rule it.
+`met` either: the regression pass at the end of the run re-checks them (they are in its scope as
+`cause-member`), and a member that still fails keeps the run from `satisfied`. Copy a criterion
+marked "open, not re-checked this iteration" into the state file and the report input exactly as
+given; never rule it.
+
+**The regression pass.** When the loop exits on anything but `unbuilt` or a broken environment,
+the script re-checks the criteria that something done in this run may have broken, and only those.
+It works out the scope itself from the debugger's `filesChanged` (below) and each criterion's
+covered files: a settled `met` criterion is re-checked when a changed file falls inside what it
+covers (`covers-changed`), when a debugger could not say what it changed (`changes-unknown`), or
+when it has no covers record and a debugger changed something after the criterion was proven
+(`no-covers`); each member awaiting a closed cause is re-checked too (`cause-member`). A criterion
+whose covered files did not change keeps its proof and is not walked again. Each re-checked
+criterion is captured afresh into `regression-<round>/` under the evidence directory: an artifact
+from earlier in the run predates the fix and does not count. A re-checked criterion that now
+fails is a regression: you give it a cause key like any other `build-defect`. When a round catches
+one, one more debugger repairs just those causes, and a second and final round re-checks them
+and anything the repair touched. There is never a third. A capture a round cannot make is recorded
+as `settled: "regression-unchecked"`, not retried and not sent to the debugger, and it is not a
+definition problem. The full-environment gate ran once, at the exit, and is not run again; the
+report says so when a repair round followed it. Rulings made in a regression round are marked
+`regression: 1 | 2` in the state file, which also gains a top-level `regression` record.
 
 ---
 
@@ -542,7 +562,14 @@ a debug round absorbs quietly.
 **Returns**, per cause: whether it addressed the cause, what was changed or why it could not be
 fixed, `unbuilt` when the cause is absent capability (every member of that cause is then unbuilt),
 and the pre-check it ran, if any. A cause it returns nothing for counts as not addressed. It also
-returns its refresh result. It does not write to any TRD and it does not render a phase — there
+returns its refresh result, and `filesChanged`: the files it changed, measured rather than
+recalled. As its first act it takes a tree id with a temporary index
+(`GIT_INDEX_FILE=<fresh temp path> git add -A && git write-tree`), as its last act, after the
+refresh, it takes another the same way, and it returns `git -c core.quotePath=false diff
+--name-only <before> <after>`, leaving out anything under the run's state and pages folders, which
+other agents write at the same time. It returns `null` when either git step fails. The regression
+pass reads this to decide what to re-check, and `null` widens that scope instead of narrowing it.
+It does not write to any TRD and it does not render a phase — there
 is no remediation phase or task graph in this loop; one debugger fixing causes sequentially cannot
 collide with itself on a file, so the machinery that exists solely to prevent that collision has
 nothing to do here.
@@ -630,7 +657,9 @@ resolves to either, so a later iteration re-walks only what is still open — a 
 reported status can be the one an *earlier* iteration produced, stamped with when it was
 proven, not necessarily the final iteration's own reading. The report does not need to
 disambiguate a carried-forward status from a fresh one; it only needs to render whichever one
-the criterion actually carries.
+the criterion actually carries. The one exception is the regression pass at the end of the run: it
+can re-open a settled `met` once, and its ruling then replaces the earlier proof, stamped with the
+exit iteration and a `regression` marker.
 
 **The loop's own exit carries one of seven outcomes: `satisfied`, `unbuilt`, `stalled`,
 `stuck`, `insufficient-coverage`, `must-pass-unproven`, or `setup-failure`.** The first four are the ordinary shape — every gap
