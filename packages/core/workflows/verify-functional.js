@@ -895,10 +895,12 @@ function buildSetupPrompt(iteration, stage, targets, debugRefresh, firstResult) 
     `null when it was not run or failed>, "exitCode": <number, or null when not run>}, ` +
     `"holderCheck": "ran"|"unavailable"|"not-applicable", "listeners": [ {"port": <number>, ` +
     `"pid": <number|null>, "toplevel": <string|null>} ]}.\n` +
-    `   - reach: probe the target's url a cold-start tolerant probe: first send one warm-up request and ignore its result, then run ` +
+    `   - reach: probe the target's url with a cold-start tolerant probe: first send one warm-up request ` +
+    `(\`curl -s -o /dev/null --max-time 15 <url>\`) and ignore its result, then run ` +
     `\`curl -s -o /dev/null --max-time 60 -w '%{http_code}' <url>\` and retry it until about 90 seconds ` +
-    `have passed in total. Put the whole retry loop inside ONE Bash call (keep it under the Bash tool's ` +
-    `default 120 second limit) so the budget fits a single call; ` +
+    `have passed in total, starting no new try once 45 seconds have passed since the warm-up began (so ` +
+    `the slowest last try still ends inside the budget). Put the whole retry loop inside ONE Bash call ` +
+    `(keep it under the Bash tool's default 120 second limit) so the budget fits a single call; ` +
     `ok is true when something answers, false only when nothing answered after that, null when the target names no url or ` +
     `there is no way to test it.\n` +
     `   - identity: when the target's identity command is not "", run it exactly as given and record ` +
@@ -1392,14 +1394,18 @@ const lastRulings = new Map()
 //   - a cause that yields no kind: a valid returned kind stands, else a `not_met` entry is a
 //     `build-defect` (D21) so it still reaches Debug rather than being stranded.
 //   - a `not_met` entry of kind `not-checkable-here` is re-statused `not_verifiable` (D21).
-//   - a `not_met` entry of kind `evidence-gap` whose one re-capture has run is settled as a
-//     definition problem (D5); `settled` is only ever set here, never trusted from the Judge.
+//   - a `not_met` entry of kind `evidence-gap` whose one re-capture ran in THIS iteration's
+//     Exercise pass is settled as a definition problem (D5); `settled` is only ever set here,
+//     never trusted from the Judge. Only `recaptureIds` -- the ids the Judge was told about --
+//     can settle (D22): settling an id the Judge was not told about would leave its decide-next
+//     counting that id as an open gap, so the run would exit stalled or stuck on a gap the
+//     script has just closed.
 // `changed` is true when the Judge's own STEP 4/5 copy of the state would now be wrong (a kind it
 // returned was overridden, a status was re-statused, a definition problem was settled): that is
 // what makes the script write the state and report itself (D20). A kind the Judge simply left out
 // does not count -- readers derive kind from cause when it is absent.
 // Returns the result with `criteria`, `gaps` and `debugGaps` brought in line.
-function reconcileJudgeKinds(judgeResult, iteration) {
+function reconcileJudgeKinds(judgeResult, iteration, recaptureIds = []) {
   let changed = false
   const closed = new Set()
   const criteria = (judgeResult.criteria || []).map((c0) => {
@@ -1438,7 +1444,7 @@ function reconcileJudgeKinds(judgeResult, iteration) {
       changed = true
       closed.add(c.id)
       log(`iteration ${iteration}: ${c.id} is not_met with cause ${c.cause} -- settling it as not verifiable here`)
-    } else if (c.status === 'not_met' && kind === 'evidence-gap' && recaptured.has(c.id)) {
+    } else if (c.status === 'not_met' && kind === 'evidence-gap' && recaptureIds.includes(c.id)) {
       out.settled = 'definition-problem'
       changed = true
       closed.add(c.id)
@@ -1807,7 +1813,14 @@ const RESUME_ITERATION = RESUME && Number.isFinite(Number(RESUME.iteration)) ? N
 const RESUME_CRITERIA = RESUME && Array.isArray(RESUME.criteria) ? RESUME.criteria : null
 
 let iteration = RESUME_ITERATION + 1
-let previousGaps = RESUME_CRITERIA ? RESUME_CRITERIA.filter((c) => c.status === 'not_met').map((c) => c.id) : null
+// D23 across a resume: a `not_met` evidence gap (pending its one re-capture, or settled as a
+// definition problem, which re-opens on resume) had no fix attempted, so it is kept out of the
+// gaps the first resumed Judge's stall rule compares against -- otherwise that Judge rules it an
+// evidence gap again, "closes nothing" and exits stalled before the re-capture ever runs. Kind is
+// read the D20 way: a non-null kindOf(cause) wins over a stored kind.
+let previousGaps = RESUME_CRITERIA
+  ? RESUME_CRITERIA.filter((c) => c.status === 'not_met' && (kindOf(c.cause) ?? c.kind) !== 'evidence-gap').map((c) => c.id)
+  : null
 
 // --------------------------------------------------------------------------- settled/open (D1, D2, §3.4)
 //
@@ -1875,7 +1888,7 @@ if (iteration > CAP) {
     iterations: RESUME_ITERATION,
     reportPath: REPORT_PATH,
     criteria: RESUME_CRITERIA || [],
-    gaps: previousGaps || [],
+    gaps: RESUME_CRITERIA ? RESUME_CRITERIA.filter((c) => c.status === 'not_met').map((c) => c.id) : [],
     unbuilt: RESUME_CRITERIA ? RESUME_CRITERIA.filter((c) => c.status === 'unbuilt').map((c) => c.id) : [],
     exercised: `0/${N}`,
     debugAttempts: [],
@@ -1913,9 +1926,6 @@ let forcedUnbuilt = null
 // Evidence gaps the last Judge reported for the FIRST time, shown to the next Exercise pass (the
 // one re-capture, D5). Reset after each Judge; rebuilt from that Judge's routing.
 let evidenceRetries = []
-// Ids whose one re-capture has run in this invocation (D5, D22). An evidence gap the Judge rules
-// again for an id in this set is settled as a definition problem instead of being re-captured.
-const recaptured = new Set()
 
 for (; iteration <= CAP; iteration++) {
   // Recomputed every iteration: a criterion the previous iteration's Judge settled is not
@@ -2075,10 +2085,7 @@ for (; iteration <= CAP; iteration++) {
     for (const r of sliceResults) {
       if (r.dead) continue
       for (const id of r.returnedIds) {
-        if (retryIds.has(id) && !recaptured.has(id)) {
-          recaptured.add(id)
-          recaptureIds.push(id)
-        }
+        if (retryIds.has(id) && !recaptureIds.includes(id)) recaptureIds.push(id)
       }
     }
 
@@ -2100,7 +2107,7 @@ for (; iteration <= CAP; iteration++) {
     'Judge'
   )
   // Kind is reconciled here, before anything below reads the Judge's criteria (triage D1, D21).
-  const reconciledKinds = reconcileJudgeKinds(judgeRaw, iteration)
+  const reconciledKinds = reconcileJudgeKinds(judgeRaw, iteration, recaptureIds)
   const judgeResult = reconciledKinds.judgeResult
   skipExercise = false
   forcedUnbuilt = null

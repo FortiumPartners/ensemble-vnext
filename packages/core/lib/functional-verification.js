@@ -325,8 +325,7 @@ function formatCoveragePercent(fraction) {
  *   reason: string, closed: string[]}}
  */
 function decideNext(input) {
-  const { iteration, gaps: inputGaps, unbuilt, previousGaps: inputPreviousGaps, met, total } = input;
-  const gaps = inputGaps; // raw list; only `openGaps` drives the decision
+  const { iteration, gaps, unbuilt, previousGaps: inputPreviousGaps, met, total } = input;
 
   // Validate rather than default. Found twice independently by the phase review and the
   // end-of-run review on the 2026-08-19 live smoke run, where an omitted key died with a bare
@@ -1286,9 +1285,9 @@ function renderReport(input) {
   // key existing: a state written for an all-`met` run has `kind: null` throughout and must keep
   // its old bytes. A closed gate skips every line below that mentions kind.
   const kindGate = criteria.some((c) => c.kind != null);
-  // The kind a row shows: the recorded one, else the cause's, else "unrecorded" (mirrors the
-  // `unrecorded` cause bucket).
-  const rowKind = (c) => c.kind ?? kindOf(c.cause) ?? 'unrecorded';
+  // The kind a row shows, read the D20 way: a non-null kind of the cause wins over a disagreeing
+  // recorded one; else the recorded one; else "unrecorded" (mirrors the `unrecorded` cause bucket).
+  const rowKind = (c) => kindOf(c.cause) ?? c.kind ?? 'unrecorded';
   const kindWords = (c) => KIND_LABEL[rowKind(c)] ?? rowKind(c);
   // Settled evidence gaps (D5, D7): listed in their own section, never under Not Met.
   const isSettledGap = (c) => c.settled === 'definition-problem';
@@ -2163,7 +2162,9 @@ function readMinifiedEnvironments(verificationText) {
     const name = clean(r.cells[0]);
     if (!name) continue;
     const text = r.cells.join(' ').toLowerCase();
-    if (name.toLowerCase() === 'production' || /production build|prod build|minified/.test(text)) names.push(name);
+    // The lookbehind keeps a negated form ("unminified", "non-minified", "non-production build")
+    // from reading as the thing it negates.
+    if (name.toLowerCase() === 'production' || /(?<![\w-])(?:production build|prod build|minified)\b/.test(text)) names.push(name);
   }
   return names;
 }

@@ -4389,6 +4389,15 @@ describe('readMinifiedEnvironments', () => {
     expect(readMinifiedEnvironments('# nothing here')).toEqual([]);
   });
 
+  test('a negated form ("unminified", "non-minified", "non-production build") is not read as minified', () => {
+    const text = table([
+      '| local | http://localhost:3000 | dev server, unminified bundle |',
+      '| preview | https://p.example | non-minified preview |',
+      '| qa | https://q.example | a non-production build |',
+    ]);
+    expect(readMinifiedEnvironments(text)).toEqual([]);
+  });
+
   test('rejects a non-string', () => {
     expect(() => readMinifiedEnvironments(null)).toThrow(TypeError);
   });

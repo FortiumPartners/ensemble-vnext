@@ -289,8 +289,8 @@ sweep file has no TRD and declares no must-pass (D19): skip the call and use `[]
 whole definition, so a floor measured over it is meaningless: `coverageFloor` is `null`,
 `mustPassIds` is the must-pass-coverage `criteria` restricted to the named ids, and
 `mustPassUncovered` is `[]`. `fullRunCommand` is `""` (no end-of-run full deploy).
-`preclassified` is filtered to the named ids (the workflow throws on a preclassified id that is
-not in `criteria`).
+`preclassified` is `[]` (D25: a subset is not the whole definition, and the workflow throws on a
+preclassified id that is not in `criteria`).
 
 ### 4. Dispatch
 
@@ -498,8 +498,8 @@ belong to its full run, so a subset must never overwrite them. Under it:
   stop rule are ignored and the run still builds nothing.
 - **Only the named criteria**: read the feature's `success-definition.md` (present, as for any
   run), then filter `criteria` to the named ids. Restrict `mustPassIds` to them,
-  `mustPassUncovered: []`, `preclassified: []` (filtered to the named ids would be the same
-  empty list; D12 throws on an id outside `criteria`), `coverageFloor: null` (no coverage floor).
+  `mustPassUncovered: []`, `preclassified: []` (D25: a subset is not the whole definition; D12
+  throws on an id outside `criteria`), `coverageFloor: null` (no coverage floor).
 - **One retry, no Debug**: a re-proof can fail on a flaky first look, so it gets at most once
   more chance, for only the criteria that were not met. After the first dispatch, run
   `node .claude/lib/functional-verification.js reproof-retry-set .trd-state/<feature>/reverify/verification-state.json`.
