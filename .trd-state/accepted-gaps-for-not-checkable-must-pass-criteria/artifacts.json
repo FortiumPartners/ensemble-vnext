@@ -5,5 +5,17 @@
     "url": "https://claude.ai/artifact/Vy13AG7ZnR9B9WyafFTdcn",
     "updated_at": "2026-11-12T13:44:26.694Z",
     "command": "/plan"
+  },
+  "verification-report": {
+    "path": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/verification-report.md",
+    "url": "https://claude.ai/artifact/PLfvSnS5wy8yWcGJtwEqxH",
+    "updated_at": "2026-11-12T14:47:50.828Z",
+    "command": "/implement-trd"
+  },
+  "success-definition": {
+    "path": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-12T14:47:50.879Z",
+    "command": "/implement-trd"
   }
 }

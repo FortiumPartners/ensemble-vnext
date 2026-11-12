@@ -1,0 +1,685 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/it2-fs1-lib.txt",
+      "reason": "The reader now reads the Off-host proof column from the success definition: the lib call on a fixture definition returns one declaration keyed FS-3 (objective O3) with workflow .github/workflows/ci.yml and job read-aloud split out, and nothing ignored.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/lib-driver2-transcript.txt",
+      "reason": "A cell on the ordinary FS-2 row comes back under ignored with reason \"not must-pass\" and is absent from proofs.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/lib-driver2-transcript.txt",
+      "reason": "A must-pass cell with no #job yields no proofs and is ignored with reason \"malformed\".",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/lib-driver2-transcript.txt",
+      "reason": "No column yields {proofs:[],ignored:[]}; main Jest run 1347 of 1347 pass.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/fs5-contracts-excerpt.txt",
+      "reason": "Both contracts document the column and the deriver copy rule; mirrors byte-identical.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/lib-driver2-transcript.txt",
+      "reason": "Stub green job returns green with run id 777, URL and HEAD sha.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/lib-driver2-transcript.txt",
+      "reason": "failure and cancelled each return red.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/lib-driver2-transcript.txt",
+      "reason": "Unfinished run returns pending, elapsed_s=0.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/lib-driver2-transcript.txt",
+      "reason": "No run, and a run lacking the job, each return missing.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/lib-driver2-transcript.txt",
+      "reason": "Covered-file edit and shipped-file edit with no covers each return dirty despite green stub.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/lib-driver2-transcript.txt",
+      "reason": "Failing gh returns error, never green.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/fs12-argv-transcript.txt",
+      "reason": "gh gets separate argv entries; job \"j;touch pwned4\" stays literal, no pwned file created.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/it2-fs13-text.txt",
+      "reason": "implement-trd.md and verify-build.md both call off-host-proofs before dispatch and pass its proofs as offHostProofs ([] when none declared or the call fails); mirrors byte-identical; verify-command-surface.test.js pinning the 30-field arg list ending in offHostProofs passes.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/it2-fs14-text.txt",
+      "reason": "The --criteria branch passes offHostProofs: [] without calling off-host-proofs, on first dispatch and retry; a sweep file passes []; the surface test pins both.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/offhost-workflow-jest-names.txt",
+      "reason": "Passing test: throws before any agent for an id that is not must-pass.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/offhost-workflow-jest-names.txt",
+      "reason": "Passing test: green job settles met, artifact is run URL, proof names the run.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/it2-fs17-paths.txt",
+      "reason": "All 3 settling paths (fold, regression round, preclassification) are shown by passing workflow-run tests; settleOffHost is now called on the preclassified seed; 1326 of 1326 tests pass.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/offhost-workflow-jest-names.txt",
+      "reason": "Five passing tests (red, missing, pending, dirty, error) each leave it not_verifiable naming job and status.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/offhost-workflow-jest-names.txt",
+      "reason": "Passing tests: covered edit, files:null, and no-covers edit each void the proof.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/offhost-workflow-jest-names.txt",
+      "reason": "Passing tests: build-defect and evidence-gap with green entry never settled.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-21",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/offhost-workflow-jest-names.txt",
+      "reason": "Passing test: no declared proof leaves must-pass-unproven.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-22",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/offhost-workflow-jest-names.txt",
+      "reason": "Passing tests: green settle makes the run satisfied with state and report synced, incl. exit-upgrade paths.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-23",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/offhost-workflow-jest-names.txt",
+      "reason": "Passing test: red job leaves the run must-pass-unproven.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-24",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/offhost-workflow-jest-names.txt",
+      "reason": "Passing test: exit-insufficient-coverage is never upgraded.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-25",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/render-report-fs25-26.txt",
+      "reason": "Report prints the Proven off-host line with id, job and run URL.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-26",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/render-report-fs25-26.txt",
+      "reason": "No-proof input renders byte-identical to pre-change renderer; Jest 0 failures.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-27",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/fs27-lib-call.txt",
+      "reason": "off-host-proven lists the criterion with run 4242; ship-build.md STATE invokes it; mirror identical.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-28",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/jest-custody-names.txt",
+      "reason": "Passing custody test: CI-proven id reused when no covered file changed.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-29",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/jest-custody-names.txt",
+      "reason": "Passing custody test: CI-proven id listed for re-proof when a covered file changed.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-30",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/fs30-31-excerpt.txt",
+      "reason": "Owner-rulings bullet names the off-host third way out, owner-only interactively; mirror identical; D16 tests pass.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-31",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/fs30-31-jest-names.txt",
+      "reason": "--auto records OWNER-CALL and never touches an Off-host proof cell; pinning test passes.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-32",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/accepted-gaps-for-not-checkable-must-pass-criteria/evidence/regression-1/FS-32-live-state.json",
+      "reason": "Live fixture /verify-build settled FS-1 met with proof.kind off-host, run 987654321; report Satisfied with Proven off-host line.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    }
+  ],
+  "gapsClosed": [
+    0,
+    3
+  ],
+  "outcome": "satisfied",
+  "causes": [
+    {
+      "key": "offhost-column-on-trd-not-definition",
+      "representative": "FS-1",
+      "members": [
+        "FS-1",
+        "FS-5"
+      ],
+      "status": "closed",
+      "closedAt": 2
+    },
+    {
+      "key": "criteria-subset-looks-up-offhost-proofs",
+      "representative": "FS-14",
+      "members": [
+        "FS-14"
+      ],
+      "status": "closed",
+      "closedAt": 2
+    },
+    {
+      "key": "preclassified-path-not-settled-offhost",
+      "representative": "FS-17",
+      "members": [
+        "FS-17"
+      ],
+      "status": "closed",
+      "closedAt": 2
+    }
+  ],
+  "exercised": [
+    {
+      "iteration": 1,
+      "ids": [
+        "FS-1",
+        "FS-2",
+        "FS-3",
+        "FS-4",
+        "FS-5",
+        "FS-6",
+        "FS-7",
+        "FS-8",
+        "FS-9",
+        "FS-10",
+        "FS-11",
+        "FS-12",
+        "FS-13",
+        "FS-14",
+        "FS-15",
+        "FS-16",
+        "FS-17",
+        "FS-18",
+        "FS-19",
+        "FS-20",
+        "FS-21",
+        "FS-22",
+        "FS-23",
+        "FS-24",
+        "FS-25",
+        "FS-26",
+        "FS-27",
+        "FS-28",
+        "FS-29",
+        "FS-30",
+        "FS-31",
+        "FS-32"
+      ]
+    },
+    {
+      "iteration": 2,
+      "ids": [
+        "FS-1",
+        "FS-13",
+        "FS-14",
+        "FS-17"
+      ]
+    },
+    {
+      "iteration": 2,
+      "ids": [
+        "FS-2",
+        "FS-3",
+        "FS-4",
+        "FS-5",
+        "FS-6",
+        "FS-7",
+        "FS-8",
+        "FS-9",
+        "FS-10",
+        "FS-11",
+        "FS-12",
+        "FS-15",
+        "FS-16",
+        "FS-18",
+        "FS-19",
+        "FS-20",
+        "FS-21",
+        "FS-22",
+        "FS-23",
+        "FS-24",
+        "FS-25",
+        "FS-26",
+        "FS-27",
+        "FS-28",
+        "FS-29",
+        "FS-30",
+        "FS-31",
+        "FS-32"
+      ],
+      "regression": 1
+    }
+  ],
+  "regression": {
+    "rounds": [
+      {
+        "round": 1,
+        "iteration": 2,
+        "scope": [
+          {
+            "id": "FS-2",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-3",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-4",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-5",
+            "reason": "cause-member"
+          },
+          {
+            "id": "FS-6",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-7",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-8",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-9",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-10",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-11",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-12",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-15",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-16",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-18",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-19",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-20",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-21",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-22",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-23",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-24",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-25",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-26",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-27",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-28",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-29",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-30",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-31",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-32",
+            "reason": "no-covers"
+          }
+        ],
+        "caught": []
+      }
+    ],
+    "notRewalked": [
+      "FS-1",
+      "FS-13",
+      "FS-14",
+      "FS-17"
+    ],
+    "unclaimedChanges": [
+      ".claude/commands/implement-trd.md",
+      ".claude/commands/verify-build.md",
+      ".claude/contracts/functional-verification.md",
+      ".claude/contracts/trd-authoring.md",
+      ".claude/lib/functional-verification.js",
+      ".claude/lib/spec-scope.js",
+      ".claude/workflows/verify-functional.js",
+      "docs/reference/verification.md",
+      "packages/core/commands/implement-trd.md",
+      "packages/core/commands/verify-build.md",
+      "packages/core/commands/verify-command-surface.test.js",
+      "packages/core/contracts/functional-verification.md",
+      "packages/core/contracts/trd-authoring.md",
+      "packages/core/lib/functional-verification.js",
+      "packages/core/lib/functional-verification.test.js",
+      "packages/core/lib/spec-scope.js",
+      "packages/core/lib/spec-scope.test.js",
+      "packages/core/workflows/verify-functional.js",
+      "packages/core/workflows/verify-functional.test.js"
+    ],
+    "gateBeforeEdits": false
+  }
+}
