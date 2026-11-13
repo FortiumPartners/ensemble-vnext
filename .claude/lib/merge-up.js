@@ -118,7 +118,6 @@ function syncHead(args) {
   }
   if (a.judged !== 'none' && !/^[0-9a-f]{7,64}$/i.test(a.judged)) return fail(`${USAGE} (--judged must be a sha or none)`);
   const cwd = a.cwd;
-  const judgedIn = a.judged === 'none' ? 'none' : a.judged;
 
   const v = run('gh', ['pr', 'view', String(a.pr), '--json', 'state'], cwd);
   if (!v.ok) return fail(`could not read PR ${a.pr}: ${v.err || 'gh failed'}`);
@@ -128,7 +127,7 @@ function syncHead(args) {
   } catch {
     return fail(`could not parse gh output for PR ${a.pr}`);
   }
-  if (state === 'MERGED') return { ok: true, head: null, judged: judgedIn, moved: false, sync: 'none', baseOnly: false, changed: [] };
+  if (state === 'MERGED') return { ok: true, head: null, judged: a.judged, moved: false, sync: 'none', baseOnly: false, changed: [] };
   if (state === 'CLOSED') return fail(`PR ${a.pr} is closed without being merged`);
   // Only the PR's own branch may be moved: a fast-forward or merge on any other checkout would
   // rewrite the wrong branch (record-files merge-base-in refuses the same way).
@@ -185,7 +184,7 @@ function syncHead(args) {
       baseOnly = fc.length === 0;
     }
   }
-  return { ok: true, head: tip, judged: judgedIn, moved, sync, baseOnly, changed };
+  return { ok: true, head: tip, judged: a.judged, moved, sync, baseOnly, changed };
 }
 
 function flag(argv, name) {
