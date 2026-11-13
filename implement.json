@@ -89,6 +89,36 @@
       "started_at": "2026-11-13T18:08:31.720Z",
       "completed_at": "2026-11-13T18:22:45.566Z",
       "last_advanced": "2026-11-13T18:11:27.212Z"
+    },
+    "AMEND-001": {
+      "description": "AMEND-001",
+      "phase": 1,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-build.seam.test.js"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-13T18:49:18.559Z",
+      "current_problem": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "last_advanced": "2026-11-13T18:47:14.181Z"
+    },
+    "AMEND-002": {
+      "description": "AMEND-002",
+      "phase": 1,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/merge-up.test.js"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-13T18:49:18.562Z",
+      "current_problem": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "last_advanced": "2026-11-13T18:47:14.182Z"
     }
   },
   "checkpoints": [
@@ -99,11 +129,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-13T18:24:45.121Z"
+    },
+    {
+      "phase": 1,
+      "commit": "d9e2af20494515a32ae07dcca8db0a7697e5b53c",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-13T18:49:18.563Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "4f976360e56e0e8608439d7e76ac3a3388d62c64",
-    "last_checkpoint_timestamp": "2026-11-13T18:24:45.121Z",
+    "last_healthy_checkpoint": "d9e2af20494515a32ae07dcca8db0a7697e5b53c",
+    "last_checkpoint_timestamp": "2026-11-13T18:49:18.563Z",
     "interrupted": false,
     "interrupt_reason": null
   },
