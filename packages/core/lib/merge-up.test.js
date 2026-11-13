@@ -206,13 +206,23 @@ describe('sync-head', () => {
     expect(g(local, 'rev-parse', 'HEAD')).toBe(B);
   });
 
-  test('(e) a local record-file commit is merged, and custody no longer sees it', () => {
+  test('(e) a local record-file commit is merged, and custody no longer refuses', () => {
+    const { reconcile } = require('./custody');
     commit(local, '.trd-state/f/implement.json', '{}', 'record');
     const B = commit(other, 'src/more.js', 'm');
     g(other, 'push', '-q', 'origin', 'feat');
+    const custodyArgs = { stateDir: path.join(local, '.trd-state', 'f'), trdPath: null, cwd: local, head: B };
+    // Before the sync: local sits behind the tip (it lacks src/more.js), so custody sees a
+    // shipped-file mismatch between the local tree and the PR head and refuses.
+    const before = reconcile(custodyArgs);
+    expect(before.action).toBe('refused');
+    expect(before.differing).toEqual(['src/more.js']);
     const r = sync(A);
     expect(r).toMatchObject({ ok: true, sync: 'merged', head: B });
+    // The merge brought the tip in; only the record file differs from it, and custody ignores that.
     expect(g(local, 'diff', '--name-only', B, 'HEAD')).toBe('.trd-state/f/implement.json');
+    expect(g(local, 'merge-base', '--is-ancestor', B, 'HEAD') ?? '').toBe('');
+    expect(reconcile(custodyArgs).action).not.toBe('refused');
   });
 
   test('(f) a local source commit not on the tip is a divergence; HEAD unchanged', () => {

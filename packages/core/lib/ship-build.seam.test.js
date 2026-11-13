@@ -528,8 +528,11 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
           out.redData = { failed: [{ name: 'build', runId: 1 }], flaky: [], head: waited, judgedHead: waited };
           return finish(); // `head` is the red head that was waited on
         }
-      } else if (out.sync && out.sync.moved && !out.sync.baseOnly && prState() !== 'MERGED') {
-        // Green on a head another writer pushed: with a round left, hand it to the loop as `moved`.
+      } else if (ctx.judgedHead && out.sync && out.sync.moved && !out.sync.baseOnly && prState() !== 'MERGED') {
+        // Green on a head another writer pushed. Only when a judgedHead is recorded: with none, `moved`
+        // means "not yet judged", the one CI wait above is all it asks for, and the step goes on to the
+        // custody gate with no `moved` result and no issues line (ship-primitive-merge.md, "A green wait
+        // on a moved head"). With one and a round left, hand it to the loop as `moved`.
         if (loop && loop.roundsLeft > 0 && loop.on.includes('moved')) {
           out.moved = true;
           out.movedData = { failed: [], flaky: [], head: waited, judgedHead: waited };
@@ -930,7 +933,7 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
         expect(played.mergeCalls).toEqual([MERGE_ARGS(B)]);
       });
 
-      test('(f) a run saved before judgedHead (snapshot loop.on "red", no judgedHead anywhere) still reaches merged on B', () => {
+      test('(f) a run saved before judgedHead (snapshot loop.on "red", no judgedHead anywhere): CI waited once on B, merge pinned to B, no moved, no loop round, no issues line', () => {
         const s = twoCriteria(LOOP_POLICY);
         const mergeStep = toMerge(s);
         // Make the record look like Storybook\'s: strip every judgedHead the new contracts wrote.
@@ -944,18 +947,21 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
 
         const step = s.next();
         expect(step.step.input.context.judgedHead).toBeUndefined();
-        const first = playMerge(s, { ...OPEN, step });
-        expect(first.sync).toMatchObject({ head: B, judged: 'none', moved: true });
-        expect(first.ciHeads).toEqual([B]); // unknown means wait, once
-        expect(first.moved).toBe(true); // the live contract's loop-on list reaches this old snapshot
-        expect(s.record(mergeStep.step.id, 'moved', first.movedData)).toMatchObject({ ok: true, status: 'running' });
-        const collect = s.next();
-        expect(collect.step.primitive).toBe('collect-findings');
-        expect(s.record(collect.step.id, 'clean', { findings: [], judgedHead: B })).toMatchObject({ ok: true });
-        const again = s.next();
-        const second = playMerge(s, { ...OPEN, step: again });
-        expect(second.mergeCalls).toEqual([MERGE_ARGS(B)]);
-        expect(s.record(again.step.id, 'merged', { merged: true, mergedHead: B, base: 'main', method: 'merge' })).toMatchObject({ ok: true });
+        const roundsBefore = step.step.input.loop && step.step.input.loop.roundsLeft;
+        const played = playMerge(s, { ...OPEN, step });
+        expect(played.sync).toMatchObject({ head: B, judged: 'none', moved: true });
+        expect(played.ciHeads).toEqual([B]); // unknown means wait, once
+        // No judgedHead recorded: `moved` only means "not yet judged", so nothing is handed to the loop
+        // and no issues line is added.
+        expect(played.moved).toBeUndefined();
+        expect(played.issues).toEqual([]);
+        expect(played.gate.result).toBe('go');
+        expect(played.prHead).toMatchObject({ ok: true, observed: B });
+        expect(played.mergeCalls).toEqual([MERGE_ARGS(B)]);
+        const rec = s.record(mergeStep.step.id, 'merged', { merged: true, mergedHead: B, base: 'main', method: 'merge' });
+        expect(rec).toMatchObject({ ok: true });
+        // No loop round was spent: the step went straight to merged, and the loop still has all its rounds.
+        expect(roundsBefore).toBeGreaterThan(0);
         expect(s.next()).toMatchObject({ action: 'done', shipped: true });
       });
     });
