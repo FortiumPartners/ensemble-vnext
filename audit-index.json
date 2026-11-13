@@ -1,0 +1,96 @@
+{
+ "requirements": [
+  {
+   "id": "O1",
+   "statement": "Every question /refine-prd (Phase 0 and Phase 2) and /refine-trd (Phase 0 and Phase 2) puts to the owner in interactive mode marks one option \"(Recommended)\", lists it first and gives a one-line reason, or says plainly why there is no recommendation. Must pass.",
+   "source": "TRD Objectives, O1 (source: issue #59; owner, 2026-11-04)",
+   "served_by": [
+    "FIX-001"
+   ]
+  },
+  {
+   "id": "O2",
+   "statement": "In a multi-select batch of findings the rule applies to each finding on its own, and each finding is explained in plain words, never by its id alone. Must pass.",
+   "source": "TRD Objectives, O2 (source: issue #59, Change bullets 2 and 3)",
+   "served_by": [
+    "FIX-001"
+   ]
+  },
+  {
+   "id": "O3",
+   "statement": "/refine-verification and /refine-design state the same rule in the same terms, so all four refine commands ask the same way.",
+   "source": "TRD Objectives, O3 (source: owner instruction, 2026-11-13)",
+   "served_by": [
+    "FIX-001"
+   ]
+  },
+  {
+   "id": "O4",
+   "statement": "The .claude/commands/ copies of all four commands are byte-identical to packages/core/commands/, and a test pins the rule's wording in each.",
+   "source": "TRD Objectives, O4 (source: issue #59, Done when)",
+   "served_by": [
+    "FIX-001"
+   ]
+  },
+  {
+   "id": "FIX-001-AC1",
+   "statement": "Each of the four files contains the heading \"### Putting a question to the owner\" and the phrases: marks one option \"(Recommended)\", \"lists it first\", \"one-line reason\", \"say so plainly in the question text\", \"the author's recorded assumption\", \"what the non-interactive mode would do\", \"at most four findings in one question\", \"the rule applies to each finding\", and \"never by its id alone\". These tests fail on today's files.",
+   "source": "TRD Master Task List, FIX-001 acceptance criterion (1)",
+   "served_by": [
+    "FIX-001"
+   ]
+  },
+  {
+   "id": "FIX-001-AC2",
+   "statement": "The subsection, from its heading to the next heading, with whitespace collapsed, is identical in all four files.",
+   "source": "TRD Master Task List, FIX-001 acceptance criterion (2)",
+   "served_by": [
+    "FIX-001"
+   ]
+  },
+  {
+   "id": "FIX-001-AC3",
+   "statement": "Each asking site, tested in its own slice, contains \"Putting a question to the owner\": refine-prd and refine-trd Phase 0 and Phase 2 (each sliced by phase heading); refine-verification ### Interactive and the must-pass owner-ruling bullet; refine-design's conditional-on-mode paragraph alone. Removing any one pointer fails the test.",
+   "source": "TRD Master Task List, FIX-001 acceptance criterion (3)",
+   "served_by": [
+    "FIX-001"
+   ]
+  },
+  {
+   "id": "FIX-001-AC4",
+   "statement": ".claude/commands/<name>.md is byte-identical to packages/core/commands/<name>.md for all four commands. Guards against regressions only; passes today.",
+   "source": "TRD Master Task List, FIX-001 acceptance criterion (4)",
+   "served_by": [
+    "FIX-001"
+   ]
+  },
+  {
+   "id": "FIX-001-AC5",
+   "statement": "The existing refine-design-prose.test.js, refine-verification-must-pass.test.js and verify-command-surface.test.js still pass, and the full Jest (npx jest) and BATS batteries pass.",
+   "source": "TRD Master Task List, FIX-001 acceptance criterion (5)",
+   "served_by": [
+    "FIX-001"
+   ]
+  }
+ ],
+ "tasks": [
+  {
+   "id": "FIX-001",
+   "description": "Add the \"### Putting a question to the owner\" subsection (verbatim text from the TRD's Decision section) to the ## Modes section of refine-prd.md, refine-trd.md, refine-verification.md and refine-design.md in packages/core/commands/. Add the one-sentence pointer at every interactive asking site (refine-prd and refine-trd Phase 0 and Phase 2 Interactive; refine-verification ### Interactive and the must-pass owner-ruling line under Derive; refine-design Modes paragraph, replacing the \"Every question names one option\" sentence to point at the subsection). Mirror all four files to .claude/commands/ with cp, and add packages/core/commands/refine-recommend-prose.test.js pinning the rule.",
+   "touches": [
+    "packages/core/commands/refine-prd.md",
+    "packages/core/commands/refine-trd.md",
+    "packages/core/commands/refine-verification.md",
+    "packages/core/commands/refine-design.md",
+    ".claude/commands/refine-prd.md",
+    ".claude/commands/refine-trd.md",
+    ".claude/commands/refine-verification.md",
+    ".claude/commands/refine-design.md",
+    "packages/core/commands/refine-recommend-prose.test.js"
+   ]
+  }
+ ],
+ "open_questions": [
+  "none"
+ ]
+}
