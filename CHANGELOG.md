@@ -12,6 +12,12 @@ the work is actually released.
 
 ## [Unreleased]
 
+## [4.17.8] - 2026-11-13
+
+Three fixes. **`/ship-build --resume` catches up with a moved PR head** instead of ending STUCK and
+asking for a hand merge (#141, fixes #98). **Refine commands recommend an option** on every question
+they put to the owner (#140, fixes #59). **Five small defects** fixed, each with a test (#147).
+
 ### Fixed
 
 - **`/ship-build --resume` no longer stops at custody when the PR head has moved (#98).** The merge
@@ -20,6 +26,24 @@ the work is actually released.
   returns a new `moved` result that loops through `collect-findings` before merging. `wait-ci` and
   `collect-findings` record the head they judged as `judgedHead`; a contract's `loop-on` may now list
   several words.
+- **Refine commands state a recommended option on every owner question (#59).** `/refine-prd`,
+  `/refine-trd`, `/refine-verification` and `/refine-design` mark one option as recommended on each
+  `AskUserQuestion` they put to the owner; `refine-recommend-prose.test.js` pins the wording.
+- **Five small defects (#147).** Tests no longer read live run records: `implement-state.test.js`
+  and `record-criteria-prose.test.js` read fixtures in `__fixtures__` (#134). The seam test's deploy
+  token no longer fails on an all-digit 12-character hash prefix (#129). `promoteToTrd` in
+  `discovered.js` finds the `[<ref> @ <ts>]` marker anywhere in the cell, so promoting the same
+  discoveries twice adds nothing the second time (#73). `save()` in `implement-state.js` creates the
+  state folder before its first write (#137). The waived-defects test sets the state file's mtime
+  explicitly, removing a timing flake (#146).
+
+### Not yet proven
+
+- No live session has run the new resume path or a refine command following the new rule; tests pin
+  the contract and prompt text only. Two `merge-up.js` review edge cases and the unproven live
+  behaviour are filed as #142 to #145.
+- Seven Jest suites fail only on the maintainers' machines (mock-fs on Node 26, `cp -RL`, design
+  render tooling), filed as #138; they pass in CI.
 
 ## [4.17.7] - 2026-11-12
 
