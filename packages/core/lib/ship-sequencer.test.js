@@ -988,6 +988,67 @@ describe('step-level recovery loop (loop-on / loop-via / loop-rounds)', () => {
     expect(step('5', 'ok')).toEqual([]); // the last attempt: no round left, nothing later
   });
 
+  describe('a loop-on list (red, moved)', () => {
+    const KILO2 = { ...CONTRACTS.kilo, results: 'ok, red, moved', 'stops-on': 'red, moved', 'loop-on': 'red, moved' };
+    const body = { '5.1': 'found', '5.2': 'fixed', '5.3': 'done', '5.4': 'passed' };
+
+    test('parses: loopOn is the first word, loopOnAll the list', () => {
+      writeContract(contractsDir, KILO2);
+      const { contracts: cs, errors } = seq.loadPrimitives(contractsDir);
+      expect(errors).toEqual([]);
+      expect(cs.get('kilo')).toMatchObject({ loopOn: 'red', loopOnAll: ['red', 'moved'] });
+    });
+
+    test('a word missing from stops-on is refused', () => {
+      writeContract(contractsDir, { ...KILO2, 'stops-on': 'red' });
+      expect(seq.loadPrimitives(contractsDir).errors.join('\n')).toMatch(/loop-on "moved" must also be listed in stops-on/);
+    });
+
+    test('recording moved runs the loop body, and the last round ends stuck naming the bound', () => {
+      writeContract(contractsDir, KILO2);
+      const r = run(LISTED, { ...base, 5: 'moved', ...body });
+      expect(idsOf(r)).toEqual(['1', '2', '3', '4', '5', '5.1', '5.2', '5.3', '5.4', '5', '5.1', '5.2', '5.3', '5.4', '5']);
+      expect(r.last).toMatchObject({ status: 'stuck', reason: 'step 5 (kilo) loop ended after 2 rounds: step 5 (kilo) recorded moved' });
+    });
+
+    test('the live contract decides: a snapshot saved with loop.on "red" still loops on moved', () => {
+      seq.start(startOpts(policy(LISTED)));
+      const state = JSON.parse(fs.readFileSync(path.join(stateDir(), 'shipped.json'), 'utf8'));
+      expect(state.steps[4].loop.on).toBe('red');
+      writeContract(contractsDir, KILO2);
+      const r = drive(noAuth(), { ...base, 5: ['moved', 'ok'], ...body, 6: 'gone' });
+      expect(idsOf(r)).toEqual(['1', '2', '3', '4', '5', '5.1', '5.2', '5.3', '5.4', '5', '6']);
+    });
+
+    test('next gives a loop owner input.loop with roundsLeft dropping per attempt; others get null', () => {
+      writeContract(contractsDir, KILO2);
+      seq.start(startOpts(policy(LISTED)));
+      const seen = {};
+      const step = (id, result) => {
+        const n = seq.next(stateDir(), noAuth());
+        expect(n.step.id).toBe(id);
+        (seen[id] = seen[id] || []).push(n.step.input.loop);
+        seq.record(stateDir(), { step: id, result }, noAuth());
+      };
+      step('1', 'done'); step('2', 'clean'); step('3', 'fixed'); step('4', 'passed');
+      step('5', 'moved'); step('5.1', 'found'); step('5.2', 'fixed'); step('5.3', 'done'); step('5.4', 'passed');
+      step('5', 'moved'); step('5.1', 'found'); step('5.2', 'fixed'); step('5.3', 'done'); step('5.4', 'passed');
+      step('5', 'moved');
+      expect(seen['5']).toEqual([
+        { on: ['red', 'moved'], roundsLeft: 2 },
+        { on: ['red', 'moved'], roundsLeft: 1 },
+        { on: ['red', 'moved'], roundsLeft: 0 },
+      ]);
+      expect(seen['1']).toEqual([null]);
+      expect(seen['5.1']).toEqual([null, null]);
+    });
+
+    test('a contract declaring a parameter named loop is refused', () => {
+      writeContract(contractsDir, { primitive: 'papa', params: 'loop=', results: 'ok', outward: 'no', section: 'ship' });
+      expect(seq.loadPrimitives(contractsDir).errors.join('\n')).toMatch(/parameter "loop" is reserved/);
+    });
+  });
+
   describe('loader errors', () => {
     const errs = (fields) => {
       writeContract(contractsDir, { primitive: 'papa', params: 'rounds=2', results: 'ok, red', 'stops-on': 'red', outward: 'no', section: 'ship', ...fields });

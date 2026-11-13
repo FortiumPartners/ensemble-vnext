@@ -150,7 +150,7 @@ node .claude/lib/ship-sequencer.js next --state-dir <state-dir>
 ```
 
 - **`{action: "run", step}`**: read the contract file `step.contract` names and do exactly what
-  its `## Do` says with `step.input` (the step's parameters, `work`, `final`, `laterNeeds` and
+  its `## Do` says with `step.input` (the step's parameters, `work`, `final`, `laterNeeds`, `loop` and
   `context`). The contract says how to wait, what to call and what result to report. Then
   record what happened:
 
@@ -186,10 +186,11 @@ node .claude/lib/ship-sequencer.js next --state-dir <state-dir>
   `repeat` returns `status: "stuck"` and leaves the cursor on that step; the next step is never
   handed out. Go to Step 5.
 
-  The exception is a result the contract also lists under `loop-on` (`merge`'s `red`) on a step
+  The exception is a result the contract also lists under `loop-on` (`merge`'s `red` and `moved`) on a step
   whose loop the sequencer built from the owner's listed steps: `record` then returns
   `status: "running"`, not `stuck`, and the next `next` hands out the loop's steps and then the
-  same step again. Keep looping. When the loop's rounds are spent, `record` returns `stuck`
+  same step again. `loop` in `step.input` is `{on, roundsLeft}` for a step that owns such a loop
+  (`null` otherwise); the contract reads it to know whether a round is left. Keep looping. When the loop's rounds are spent, `record` returns `stuck`
   with the bound named.
 - **`{action: "wait"}`**: the run is parked. Go to Step 5.
 - **`{action: "stop", reason}`**: the run is stuck. A step the sequencer refused as not

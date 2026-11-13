@@ -35,7 +35,7 @@ const EXPECTED = {
   'await-approval': { results: ['approved'], outward: 'no', needs: ['pr'], provides: [], section: 'ship' },
   'collect-findings': { results: ['clean', 'found'], outward: 'no', needs: ['head'], provides: ['findings'], section: 'ship' },
   'fix-findings': { results: ['fixed', 'nothing'], outward: 'no', needs: ['findings'], provides: [], section: 'ship' },
-  merge: { results: ['merged', 'red'], outward: 'yes', needs: ['pr'], provides: ['merged'], section: 'ship' },
+  merge: { results: ['merged', 'red', 'moved'], outward: 'yes', needs: ['pr'], provides: ['merged'], section: 'ship' },
   release: { results: ['released'], outward: 'yes', needs: ['head'], provides: [], section: 'ship' },
   run: { results: ['ran'], outward: 'yes', needs: [], provides: [], section: 'any' },
   'close-issue': { results: ['closed', 'none'], outward: 'yes', needs: [], provides: [], section: 'after' },
@@ -296,8 +296,9 @@ describe('merge', () => {
   test('declares the red loop: rounds defaults to 2, loop keys load, loop order is fixed', () => {
     const c = contracts.get('merge');
     expect(c.params.rounds.default).toBe('2');
-    expect(c.stopsOn).toEqual(['red']);
+    expect(c.stopsOn).toEqual(['red', 'moved']);
     expect(c.loopOn).toBe('red');
+    expect(c.loopOnAll).toEqual(['red', 'moved']);
     expect(c.loopVia).toEqual(['collect-findings', 'fix-findings', 'push', 'wait-ci']);
     expect(c.loopRounds).toBe('rounds');
   });
@@ -305,22 +306,48 @@ describe('merge', () => {
     expect(t).toMatch(/up to 40 times, 15s apart \(10 minutes\), until it equals the pushed commit/);
     expect(t).not.toMatch(/up to 8 times, 15s apart, until it equals/);
   });
-  test('CI is awaited only on an unjudged head, and red comes before the custody gate', () => {
-    const iWait = t.indexOf('wait for CI only on a head no recorded step judged');
-    const iLatest = t.indexOf('the latest pushed commit');
+  test('CI is awaited on every head that is not context.judgedHead, and red comes before the custody gate', () => {
+    const iWait = t.indexOf('wait for CI on every PR head that is not `context.judgedHead`');
     const iReread = t.indexOf('read `gh pr view <pr> --json state` again (see "One rule for every stop")');
     const iRed = t.indexOf('Otherwise return `red`, before the custody gate');
     const iGate = t.indexOf('ship-custody-gate.md');
-    for (const i of [iWait, iLatest, iReread, iRed, iGate]) expect(i).toBeGreaterThan(-1);
-    expect(iWait).toBeLessThan(iLatest);
+    for (const i of [iWait, iReread, iRed, iGate]) expect(i).toBeGreaterThan(-1);
+    expect(iWait).toBeLessThan(iReread);
     expect(iReread).toBeLessThan(iRed);
     expect(iRed).toBeLessThan(iGate);
     expect(t).not.toMatch(/A CI failure on the new head is a `stop`/);
     expect(t).toMatch(/One rule for every stop[^]*`stop` or `red`[^]*MERGED/);
   });
+  test('the old "head this step pushed" wait rule is gone, and a judged head is not waited on', () => {
+    expect(t).not.toMatch(/only on a head no recorded step judged/);
+    expect(t).not.toMatch(/the latest pushed commit, meaning one this step pushed/);
+    expect(t).toMatch(/A head equal to `context\.judgedHead` is judged: do not wait on it/);
+  });
+  test('step 0 runs sync-head before decide, passing context.judgedHead, and is a listed stop', () => {
+    const iSync = t.indexOf('merge-up.js sync-head');
+    const iDecide = t.indexOf('merge-up.js decide');
+    expect(iSync).toBeGreaterThan(-1);
+    expect(iSync).toBeLessThan(iDecide);
+    expect(t).toMatch(/sync-head --pr <pr> --branch <branch> --base <base> \\ --judged <context\.judgedHead\|none>/);
+    expect(t).toMatch(/up to 8\s+times, 15s apart, like `decide`/);
+    expect(t).toMatch(/One rule for every stop[^]*`sync-head` failure/);
+  });
+  test('declares moved: results, stops-on, loop-on, and the data it carries', () => {
+    const raw = text('merge');
+    expect(raw).toMatch(/^results: merged, red, moved$/m);
+    expect(raw).toMatch(/^stops-on: red, moved$/m);
+    expect(raw).toMatch(/^loop-on: red, moved$/m);
+    expect(t).toMatch(/return `moved` with `data: \{ failed: \[\], flaky, head, judgedHead \}`/);
+    expect(raw).toMatch(/^`moved`, with `data`: `\{ failed: \[\], flaky, head, judgedHead \}`/m);
+    expect(t).toMatch(/`input\.loop` is not `null` and its `roundsLeft` is above 0/);
+  });
+  test('red records judgedHead, and moved with no round left merges with an issues line', () => {
+    expect(t).toMatch(/`data: \{ failed, flaky, head, judgedHead \}`/);
+    expect(text('merge')).toMatch(/^`red`, with `data`: `\{ failed, flaky, head, judgedHead \}`/m);
+    expect(t).toMatch(/With no loop round left, go on to the custody gate[^]*one `data\.issues` line/);
+  });
   test('red carries wait-ci\'s failures for the loop, and a hand merge during the wait is proven, not stopped', () => {
-    expect(t).toMatch(/return `red`, before the custody gate[^]*`data: \{ failed, flaky, head \}`[^]*`head`, the full id of the PR head that was waited on/);
-    expect(text('merge')).toMatch(/^`red`, with `data`: `\{ failed, flaky, head \}`/m);
+    expect(t).toMatch(/return `red`, before the custody gate[^]*`head` names that red head, so `context\.head` points at the commit the loop is fixing/);
     expect(t).toMatch(/`MERGED` \(merged by hand during the wait\) goes on to step 2/);
     expect(t).toMatch(/a `red` is not\s+returned at all: go on to step 2/);
   });
@@ -391,6 +418,9 @@ describe('the waiting primitives', () => {
     expect(t).toMatch(/headRefOid/);
     expect(t).toMatch(/latest `pushed` result/);
     expect(t).toMatch(/never local `HEAD`/);
+  });
+  test.each(['wait-ci', 'collect-findings'])('%s records judgedHead in its result data', (name) => {
+    expect(flat(name)).toMatch(/with `data`: `\{[^}]*judgedHead[^}]*\}`/);
   });
   test.each(['request-review', 'wait-ci'])('%s uses Monitor with timeout_ms 1800000', (name) => {
     expect(flat(name)).toMatch(/Monitor/);

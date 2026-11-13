@@ -59,8 +59,9 @@ otherwise the `commit` of the latest `pushed` result in `context`. It is never l
 
 ## Result
 
-`clean` or `found`, with `data`: `{ count, findings }` (`findings` is the number of blocking rows
-recorded; it is the key `fix-findings` needs). `clean` ends the surrounding `repeat`.
+`clean` or `found`, with `data`: `{ count, findings, judgedHead }` (`findings` is the number of blocking rows
+recorded; it is the key `fix-findings` needs; `judgedHead` is the full id of the current head the
+findings were collected on, recorded on every result so the merge step does not wait on it again). `clean` ends the surrounding `repeat`.
 
 ## Waiting
 

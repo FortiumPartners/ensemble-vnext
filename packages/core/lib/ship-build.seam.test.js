@@ -365,7 +365,7 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
   const DEF2 = DEFINITION + '| FS-2 | b | c | e | [read] | locator | | O2 |\n';
   const POLICY = '## Ship\n1. push\n2. open-pr\n3. merge\n';
   const origPath = process.env.PATH;
-  const STUB_VARS = ['STUB_BARE', 'STUB_MERGEABLE', 'STUB_STATUS', 'STUB_MERGE_LOG', 'STUB_RED', 'STUB_STATE'];
+  const STUB_VARS = ['STUB_BARE', 'STUB_MERGEABLE', 'STUB_STATUS', 'STUB_MERGE_LOG', 'STUB_RED', 'STUB_STATE', 'STUB_CHECK_LOG'];
   let binDir;
 
   beforeAll(() => {
@@ -384,10 +384,19 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
       // `pr checks` fails for a head listed in the file $STUB_RED (one oid per line; `*` = every head).
       'if [ "$1 $2" = "pr checks" ]; then',
       '  oid=$(git ls-remote "$STUB_BARE" refs/heads/feature/f | cut -f1)',
+      // Which head the checks were read on: the seam cases assert the CI wait ran on the right one.
+      '  [ -n "$STUB_CHECK_LOG" ] && echo "$oid" >> "$STUB_CHECK_LOG"',
       '  if [ -f "$STUB_RED" ] && grep -qxE "$oid|\\*" "$STUB_RED"; then echo "build\tfail"; exit 1; fi',
       '  echo "build\tpass"; exit 0',
       'fi',
-      'if [ "$1 $2" = "pr merge" ]; then shift 2; echo "$@" >> "$STUB_MERGE_LOG"; exit 0; fi',
+      // As GitHub does: a merge pinned to a head that is not the branch's head is refused.
+      'if [ "$1 $2" = "pr merge" ]; then',
+      '  shift 2; args="$*"; want=""',
+      '  while [ $# -gt 0 ]; do [ "$1" = "--match-head-commit" ] && want="$2"; shift; done',
+      '  oid=$(git ls-remote "$STUB_BARE" refs/heads/feature/f | cut -f1)',
+      '  if [ -n "$want" ] && [ "$want" != "$oid" ]; then echo "Head branch was modified. Review the latest commit and try again." >&2; exit 1; fi',
+      '  echo "$args" >> "$STUB_MERGE_LOG"; exit 0',
+      'fi',
       'echo "unstubbed gh $*" >&2; exit 1',
       '',
     ].join('\n'), { mode: 0o755 });
@@ -433,36 +442,80 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
     s.g(s.repo, 'fetch', 'origin');
   }
 
+  /** Another session pushes to the PR branch: a clone of origin commits `files` (or merges the base) and pushes. */
+  function peerPushes(s, files, { mergeBase = false } = {}) {
+    const peer = path.join(s.root, `peer-${fs.readdirSync(s.root).length}`);
+    s.g(s.root, 'clone', '-q', '-b', 'feature/f', path.join(s.root, 'origin.git'), peer);
+    s.g(peer, 'config', 'user.email', 'p@example.com');
+    s.g(peer, 'config', 'user.name', 'p');
+    if (mergeBase) {
+      s.g(peer, 'merge', '--no-ff', '--no-edit', 'origin/main');
+    } else {
+      for (const [rel, text] of Object.entries(files)) {
+        fs.mkdirSync(path.dirname(path.join(peer, rel)), { recursive: true });
+        fs.writeFileSync(path.join(peer, rel), text);
+      }
+      s.g(peer, 'add', '-A');
+      s.g(peer, 'commit', '-m', 'peer work');
+    }
+    s.g(peer, 'push', 'origin', 'feature/f');
+    return s.g(peer, 'rev-parse', 'HEAD');
+  }
+
   /**
-   * The merge contract's Do, as the lead plays it: decide, merge-base-in + push when told to,
-   * the custody gate, the pr-head check, then `gh pr merge --match-head-commit <observed>`.
+   * The merge contract's Do, as the lead plays it: step 0 `sync-head` with the recorded
+   * `context.judgedHead`, decide, merge-base-in + push when told to, the CI wait on every head
+   * that is not `judgedHead`, the custody gate, the pr-head check, then
+   * `gh pr merge --match-head-commit <observed>`. `step` is the hand-out from `next` (its
+   * `step.input.context` and `step.input.loop`); without one the head reads as unjudged and no loop exists.
+   * `sync: false` plays the contract as it read before step 0 (no catch-up), for the contrast case.
    * Counts how many times origin's branch ref moved during the step with an `update` hook.
    */
-  function playMerge(s, { mergeable, status, redNew = false, mergedDuringWait = false }) {
+  function playMerge(s, { mergeable, status, redNew = false, mergedDuringWait = false, step = null, sync = true }) {
     const bare = path.join(s.root, 'origin.git');
     const refLog = path.join(s.root, 'ref-moves.log');
     const mergeLog = path.join(s.root, 'merge-calls.log');
+    const checkLog = path.join(s.root, 'check-heads.log');
     fs.writeFileSync(refLog, '');
+    fs.writeFileSync(checkLog, '');
     fs.writeFileSync(path.join(bare, 'hooks', 'update'),
       `#!/bin/sh\n[ "$1" = "refs/heads/feature/f" ] && echo "$3" >> "${refLog}"\nexit 0\n`, { mode: 0o755 });
     Object.assign(process.env, { STUB_BARE: bare, STUB_MERGEABLE: mergeable, STUB_STATUS: status, STUB_MERGE_LOG: mergeLog,
-      STUB_RED: path.join(s.root, 'red-heads.txt'), STUB_STATE: 'OPEN' });
+      STUB_RED: path.join(s.root, 'red-heads.txt'), STUB_STATE: 'OPEN', STUB_CHECK_LOG: checkLog });
+    const ctx = (step && step.step.input.context) || {};
+    const loop = step ? step.step.input.loop : null;
     const prState = () => JSON.parse(spawnSync('gh', ['pr', 'view', '7', '--json', 'state'], { encoding: 'utf8', env: cleanEnv() }).stdout).state;
     const prHead = () => s.g(s.repo, 'ls-remote', 'origin', 'refs/heads/feature/f').split(/\s+/)[0];
     const json = (script, args) => {
       const r = spawnSync(process.execPath, [script, ...args], { cwd: s.repo, encoding: 'utf8', env: cleanEnv() });
       return JSON.parse(r.stdout.trim().split('\n').pop());
     };
-    const out = { mergedIn: null };
+    const out = { mergedIn: null, issues: [] };
+    const lines = (f) => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8').split('\n').filter(Boolean) : []);
+    const finish = () => {
+      out.refMoves = lines(refLog);
+      out.mergeCalls = lines(mergeLog);
+      out.ciHeads = lines(checkLog);
+      out.head = prHead();
+      return out;
+    };
+    if (sync) {
+      out.sync = json(MERGE_UP, ['sync-head', '--pr', '7', '--branch', 'feature/f', '--base', 'main',
+        '--judged', ctx.judgedHead || 'none', '--trd', TRD]);
+      expect(out.sync.ok).toBe(true);
+    }
     out.decide = json(MERGE_UP, ['decide', '--pr', '7']);
     if (out.decide.action === 'merge-in') {
       s.g(s.repo, 'fetch', 'origin', 'main');
       out.mergedIn = json(RECORD_FILES, ['merge-base-in', '--base', 'origin/main', '--branch', 'feature/f', '--pr-head', prHead()]);
       expect(out.mergedIn.ok).toBe(true);
       s.g(s.repo, 'push', 'origin', 'feature/f');
-      // The merge contract waits for CI on a head it pushed itself; a red check there returns
-      // `red` before the custody gate, so no merge call follows.
-      if (redNew) fs.appendFileSync(process.env.STUB_RED, `${prHead()}\n`);
+    }
+    // The CI wait: every PR head that is not the judged one. A red check there returns `red`
+    // before the custody gate, so no merge call follows.
+    if (prHead() !== ctx.judgedHead) {
+      const waited = prHead();
+      if (redNew) fs.appendFileSync(process.env.STUB_RED, `${waited}\n`);
       // Someone merges the PR by hand while the run waits on CI.
       if (mergedDuringWait) process.env.STUB_STATE = 'MERGED';
       if (spawnSync('gh', ['pr', 'checks', '7'], { encoding: 'utf8', env: cleanEnv() }).status !== 0) {
@@ -472,9 +525,17 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
         if (out.stateAfterRed !== 'MERGED') {
           out.red = true;
           out.mergeCalls = [];
-          out.head = prHead(); // the red head that was waited on: `red` reports it as data.head
-          return out;
+          out.redData = { failed: [{ name: 'build', runId: 1 }], flaky: [], head: waited, judgedHead: waited };
+          return finish(); // `head` is the red head that was waited on
         }
+      } else if (out.sync && out.sync.moved && !out.sync.baseOnly && prState() !== 'MERGED') {
+        // Green on a head another writer pushed: with a round left, hand it to the loop as `moved`.
+        if (loop && loop.roundsLeft > 0 && loop.on.includes('moved')) {
+          out.moved = true;
+          out.movedData = { failed: [], flaky: [], head: waited, judgedHead: waited };
+          return finish();
+        }
+        out.issues.push('merged with another session\'s commits and no findings collected on them');
       }
     }
     out.gate = s.playGate({ reverifiedStatus: 'met' });
@@ -485,16 +546,14 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
       out.prHead = json(CUSTODY, ['check', '--state-dir', s.stateDir, '--link', 'pr-head', '--pr', '7', '--trd', TRD]);
       if (out.prHead.ok) {
         const m = spawnSync('gh', ['pr', 'merge', '7', '--merge', '--match-head-commit', out.prHead.observed], { encoding: 'utf8', env: cleanEnv() });
-        expect(m.status).toBe(0);
+        out.mergeStatus = m.status;
+        out.mergeErr = m.stderr;
       }
     }
     if (process.env.STUB_STATE === 'MERGED') {
       out.mergeLink = json(CUSTODY, ['check', '--state-dir', s.stateDir, '--link', 'merge', '--pr', '7', '--target', 'main', '--trd', TRD]);
     }
-    out.refMoves = fs.readFileSync(refLog, 'utf8').split('\n').filter(Boolean);
-    out.mergeCalls = fs.existsSync(mergeLog) ? fs.readFileSync(mergeLog, 'utf8').split('\n').filter(Boolean) : [];
-    out.head = prHead();
-    return out;
+    return finish();
   }
 
   /** Records the steps before merge, plays it, and records merged the way the lead would. */
@@ -647,17 +706,19 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
 
   describe('a red merge-up head is fixed by the loop, within its bound', () => {
     const LOOP_POLICY = '## Ship\n1. push\n2. open-pr\n3. repeat rounds=1\n   - wait-ci\n   - collect-findings\n   - fix-findings\n4. merge\n';
-    const BEFORE_MERGE = {
+    // The head a judging step read: wait-ci and collect-findings record it as `judgedHead`.
+    const originHead = (s) => s.g(s.repo, 'ls-remote', 'origin', 'refs/heads/feature/f').split(/\s+/)[0];
+    const beforeMerge = (s) => ({
       push: ['pushed', { head: 'h' }], 'open-pr': ['opened', { pr: 7, head: 'h' }],
-      'wait-ci': ['passed', {}], 'collect-findings': ['clean', { findings: [] }],
-    };
+      'wait-ci': ['passed', { judgedHead: originHead(s) }], 'collect-findings': ['clean', { findings: [], judgedHead: originHead(s) }],
+    });
 
     /** Record every step before the first merge hand-out; return that hand-out. */
     function toMerge(s) {
       for (let i = 0; i < 20; i++) {
         const n = s.next();
         if (n.step.primitive === 'merge') return n;
-        s.record(n.step.id, ...BEFORE_MERGE[n.step.primitive]);
+        s.record(n.step.id, ...beforeMerge(s)[n.step.primitive]);
       }
       throw new Error('merge never handed out');
     }
@@ -666,10 +727,10 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
     function playLoopStep(s, n, round) {
       const ci = () => (spawnSync('gh', ['pr', 'checks', '7'], { encoding: 'utf8', env: cleanEnv() }).status === 0 ? 'passed' : 'failed');
       switch (n.step.primitive) {
-        case 'collect-findings': return ['found', { findings: ['red check'] }];
+        case 'collect-findings': return ['found', { findings: ['red check'], judgedHead: originHead(s) }];
         case 'fix-findings': s.commit(`fix ${round}`, { [`src/fix${round}.js`]: `f${round}` }); return ['fixed', {}];
         case 'push': { const p = s.playPush(); return [p.result, p.data]; }
-        case 'wait-ci': return [ci(), {}];
+        case 'wait-ci': return [ci(), { judgedHead: originHead(s) }];
         default: throw new Error(`unexpected ${n.step.primitive}`);
       }
     }
@@ -678,10 +739,11 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
       const s = twoCriteria(LOOP_POLICY);
       landOnBase(s, { 'src/c.js': 'c1' });
       const mergeStep = toMerge(s);
-      const first = playMerge(s, { mergeable: 'CONFLICTING', status: 'DIRTY', redNew: true });
+      const first = playMerge(s, { mergeable: 'CONFLICTING', status: 'DIRTY', redNew: true, step: mergeStep });
       expect(first.red).toBe(true);
+      expect(first.redData.judgedHead).toBe(first.head);
       expect(first.mergeCalls).toEqual([]);
-      expect(s.record(mergeStep.step.id, 'red', { failed: [{ name: 'build', runId: 1 }], flaky: [], head: first.head })).toMatchObject({ ok: true });
+      expect(s.record(mergeStep.step.id, 'red', first.redData)).toMatchObject({ ok: true });
 
       const handed = [];
       for (let i = 0; i < 4; i++) {
@@ -699,7 +761,8 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
 
       const again = s.next();
       expect(again.step).toMatchObject({ id: mergeStep.step.id, primitive: 'merge' });
-      const second = playMerge(s, { mergeable: 'MERGEABLE', status: 'CLEAN' });
+      const second = playMerge(s, { mergeable: 'MERGEABLE', status: 'CLEAN', step: again });
+      expect(second.ciHeads).toEqual([]); // the loop's wait-ci judged the fixed head: no second wait
       expect(second.red).toBeUndefined();
       expect(second.mergeCalls).toEqual([`7 --merge --match-head-commit ${second.head}`]);
       expect(s.record(again.step.id, 'merged', { merged: true, mergedHead: second.head, base: 'main', method: 'merge' })).toMatchObject({ ok: true });
@@ -711,7 +774,7 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
       const s = twoCriteria(LOOP_POLICY);
       landOnBase(s, { 'src/c.js': 'c1' });
       const mergeStep = toMerge(s);
-      const played = playMerge(s, { mergeable: 'CONFLICTING', status: 'DIRTY', redNew: true, mergedDuringWait: true });
+      const played = playMerge(s, { mergeable: 'CONFLICTING', status: 'DIRTY', redNew: true, mergedDuringWait: true, step: mergeStep });
       // The checks failed, the re-read found MERGED, and the step went on to step 2 instead of returning red.
       expect(played.stateAfterRed).toBe('MERGED');
       expect(played.red).toBeUndefined();
@@ -729,9 +792,9 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
       const s = twoCriteria(LOOP_POLICY);
       landOnBase(s, { 'src/c.js': 'c1' });
       const mergeStep = toMerge(s);
-      const first = playMerge(s, { mergeable: 'CONFLICTING', status: 'DIRTY', redNew: true });
+      const first = playMerge(s, { mergeable: 'CONFLICTING', status: 'DIRTY', redNew: true, step: mergeStep });
       expect(first.red).toBe(true);
-      s.record(mergeStep.step.id, 'red', { failed: [{ name: 'build', runId: 1 }], flaky: [], head: first.head });
+      s.record(mergeStep.step.id, 'red', first.redData);
       // From here every head is red.
       fs.writeFileSync(process.env.STUB_RED, '*\n');
 
@@ -747,6 +810,154 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
       expect(s.status()).toMatchObject({ status: 'stuck' });
       const mergeLog = path.join(s.root, 'merge-calls.log');
       expect(fs.existsSync(mergeLog) ? fs.readFileSync(mergeLog, 'utf8').trim() : '').toBe('');
+    });
+
+    describe('a head another session pushed while the run was parked (issue #98)', () => {
+      const OPEN = { mergeable: 'MERGEABLE', status: 'CLEAN' };
+      const MERGE_ARGS = (head) => `7 --merge --match-head-commit ${head}`;
+
+      test('(a) base-only move: sync-head catches up, CI is waited on B, and the merge is pinned to B; the old play is refused by custody', () => {
+        const s = twoCriteria(LOOP_POLICY);
+        const A = originHead(s);
+        const mergeStep = toMerge(s);
+        landOnBase(s, { 'src/c.js': 'c1' });
+        const B = peerPushes(s, {}, { mergeBase: true });
+        expect(B).not.toBe(A);
+        expect(mergeStep.step.input.context.judgedHead).toBe(A);
+
+        const played = playMerge(s, { ...OPEN, step: mergeStep });
+        expect(played.sync).toMatchObject({ ok: true, head: B, judged: A, moved: true, sync: 'fast-forward', baseOnly: true });
+        expect(played.ciHeads).toEqual([B]); // the wait ran on B, not on the head the run knew
+        expect(played.moved).toBeUndefined(); // a base-only move is not handed to the loop
+        expect(played.gate.result).toBe('go');
+        expect(played.prHead).toMatchObject({ ok: true, observed: B });
+        expect(played.mergeCalls).toEqual([MERGE_ARGS(B)]);
+        expect(s.record(mergeStep.step.id, 'merged', { merged: true, mergedHead: B, base: 'main', method: 'merge' })).toMatchObject({ ok: true });
+        expect(s.next()).toMatchObject({ action: 'done', shipped: true });
+
+        // The same start with the play as it read before step 0: local is still A, so custody refuses.
+        const s2 = twoCriteria(LOOP_POLICY);
+        const step2 = toMerge(s2);
+        landOnBase(s2, { 'src/c.js': 'c1' });
+        peerPushes(s2, {}, { mergeBase: true });
+        const old = playMerge(s2, { ...OPEN, step: step2, sync: false });
+        expect(old.prHead.ok).toBe(false);
+        expect(old.mergeCalls).toEqual([]);
+      });
+
+      test('(b) CI red on B: red carrying judgedHead B, and no merge call', () => {
+        const s = twoCriteria();
+        const mergeStep = toMerge(s);
+        const B = peerPushes(s, { 'src/peer.js': 'p1' });
+        fs.writeFileSync(path.join(s.root, 'red-heads.txt'), `${B}\n`);
+        const played = playMerge(s, { ...OPEN, step: mergeStep });
+        expect(played.red).toBe(true);
+        expect(played.redData).toMatchObject({ head: B, judgedHead: B });
+        expect(played.ciHeads).toEqual([B]);
+        expect(played.mergeCalls).toEqual([]);
+        expect(s.record(mergeStep.step.id, 'red', played.redData)).toMatchObject({ ok: true });
+      });
+
+      test('(c) non-base move with a loop: moved, collect-findings sees B, then the merge does not wait on B again and merges B', () => {
+        const s = twoCriteria(LOOP_POLICY);
+        const mergeStep = toMerge(s);
+        const B = peerPushes(s, { 'src/peer.js': 'p1' });
+        expect(mergeStep.step.input.loop).toMatchObject({ on: ['red', 'moved'], roundsLeft: 2 });
+
+        const first = playMerge(s, { ...OPEN, step: mergeStep });
+        expect(first.sync).toMatchObject({ head: B, moved: true, baseOnly: false, changed: ['src/peer.js'] });
+        expect(first.ciHeads).toEqual([B]);
+        expect(first.moved).toBe(true);
+        expect(first.mergeCalls).toEqual([]);
+        expect(s.record(mergeStep.step.id, 'moved', first.movedData)).toMatchObject({ ok: true, status: 'running' });
+
+        const collect = s.next();
+        expect(collect.step.primitive).toBe('collect-findings');
+        expect(collect.step.input.context.head).toBe(B);
+        expect(collect.step.input.context.judgedHead).toBe(B);
+        expect(s.record(collect.step.id, 'clean', { findings: [], judgedHead: B })).toMatchObject({ ok: true });
+
+        const again = s.next();
+        expect(again.step).toMatchObject({ id: mergeStep.step.id, primitive: 'merge' });
+        const second = playMerge(s, { ...OPEN, step: again });
+        expect(second.sync).toMatchObject({ head: B, moved: false });
+        expect(second.ciHeads).toEqual([]);
+        expect(second.mergeCalls).toEqual([MERGE_ARGS(B)]);
+        expect(s.record(again.step.id, 'merged', { merged: true, mergedHead: B, base: 'main', method: 'merge' })).toMatchObject({ ok: true });
+        expect(s.next()).toMatchObject({ action: 'done', shipped: true });
+      });
+
+      test('(d) the bar rule: a red head the loop\'s collect-findings records clean on is merged with no second CI wait', () => {
+        const s = twoCriteria(LOOP_POLICY);
+        const mergeStep = toMerge(s);
+        const B = peerPushes(s, { 'src/peer.js': 'p1' });
+        fs.writeFileSync(path.join(s.root, 'red-heads.txt'), `${B}\n`);
+        const first = playMerge(s, { ...OPEN, step: mergeStep });
+        expect(first.red).toBe(true);
+        expect(s.record(mergeStep.step.id, 'red', first.redData)).toMatchObject({ ok: true });
+
+        const collect = s.next();
+        expect(collect.step.primitive).toBe('collect-findings');
+        expect(collect.step.input.context.failed).toEqual(first.redData.failed);
+        // The owner's bar accepts the failure: clean, on the head CI judged.
+        expect(s.record(collect.step.id, 'clean', { findings: [], judgedHead: B })).toMatchObject({ ok: true });
+
+        const again = s.next();
+        const second = playMerge(s, { ...OPEN, step: again });
+        expect(second.red).toBeUndefined();
+        expect(second.ciHeads).toEqual([]); // B is red in the stub, yet it is not waited on again
+        expect(second.mergeCalls).toEqual([MERGE_ARGS(B)]);
+      });
+
+      test('(e) await-approval recording head B without judging it: the merge still syncs and waits on B', () => {
+        const s = twoCriteria('## Ship\n1. push\n2. open-pr\n3. wait-ci\n4. await-approval\n5. merge\n');
+        const A = originHead(s);
+        const B = peerPushes(s, { 'src/peer.js': 'p1' });
+        s.record(s.next().step.id, 'pushed', { head: A });
+        s.record(s.next().step.id, 'opened', { pr: 7, head: A });
+        s.record(s.next().step.id, 'passed', { judgedHead: A });
+        s.record(s.next().step.id, 'approved', { head: B }); // the PR's head at approval: seen, not judged
+        const mergeStep = s.next();
+        expect(mergeStep.step.primitive).toBe('merge');
+        expect(mergeStep.step.input.context).toMatchObject({ head: B, judgedHead: A });
+        expect(mergeStep.step.input.loop).toBeNull();
+
+        const played = playMerge(s, { ...OPEN, step: mergeStep });
+        expect(played.sync).toMatchObject({ head: B, moved: true, sync: 'fast-forward' });
+        expect(played.ciHeads).toEqual([B]);
+        // No loop round to collect findings: it merges B and says so.
+        expect(played.issues).toHaveLength(1);
+        expect(played.mergeCalls).toEqual([MERGE_ARGS(B)]);
+      });
+
+      test('(f) a run saved before judgedHead (snapshot loop.on "red", no judgedHead anywhere) still reaches merged on B', () => {
+        const s = twoCriteria(LOOP_POLICY);
+        const mergeStep = toMerge(s);
+        // Make the record look like Storybook\'s: strip every judgedHead the new contracts wrote.
+        const file = s.abs(`${s.stateDir}/shipped.json`);
+        const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+        for (const r of saved.results) delete r.data.judgedHead;
+        const owner = saved.steps.find((x) => x.primitive === 'merge');
+        expect(owner.loop.on).toBe('red');
+        fs.writeFileSync(file, JSON.stringify(saved));
+        const B = peerPushes(s, { 'src/peer.js': 'p1' });
+
+        const step = s.next();
+        expect(step.step.input.context.judgedHead).toBeUndefined();
+        const first = playMerge(s, { ...OPEN, step });
+        expect(first.sync).toMatchObject({ head: B, judged: 'none', moved: true });
+        expect(first.ciHeads).toEqual([B]); // unknown means wait, once
+        expect(first.moved).toBe(true); // the live contract's loop-on list reaches this old snapshot
+        expect(s.record(mergeStep.step.id, 'moved', first.movedData)).toMatchObject({ ok: true, status: 'running' });
+        const collect = s.next();
+        expect(collect.step.primitive).toBe('collect-findings');
+        expect(s.record(collect.step.id, 'clean', { findings: [], judgedHead: B })).toMatchObject({ ok: true });
+        const again = s.next();
+        const second = playMerge(s, { ...OPEN, step: again });
+        expect(second.mergeCalls).toEqual([MERGE_ARGS(B)]);
+        expect(s.record(again.step.id, 'merged', { merged: true, mergedHead: B, base: 'main', method: 'merge' })).toMatchObject({ ok: true });
+        expect(s.next()).toMatchObject({ action: 'done', shipped: true });
+      });
     });
   });
 });
