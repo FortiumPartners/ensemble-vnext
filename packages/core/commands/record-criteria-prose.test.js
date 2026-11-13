@@ -44,7 +44,7 @@ describe('record-criteria command prose', () => {
       fs.mkdirSync(path.dirname(stateDir), { recursive: true });
       fs.mkdirSync(stateDir, { recursive: true });
       for (const f of ['verification-state.json', 'success-definition.md']) {
-        fs.copyFileSync(path.join(REPO, '.trd-state', feature, f), path.join(stateDir, f));
+        fs.copyFileSync(path.join(__dirname, '__fixtures__', feature, f), path.join(stateDir, f));
       }
       fs.mkdirSync(path.join(tmp, 'docs', 'TRD'), { recursive: true });
       fs.copyFileSync(path.join(REPO, 'docs/TRD', `${feature}.md`), path.join(tmp, 'docs/TRD', `${feature}.md`));

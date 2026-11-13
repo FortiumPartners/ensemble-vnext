@@ -302,6 +302,22 @@ describe('promoteToTrd', () => {
     expect(promoteToTrd(f, [disc('a different defect')]).added).toEqual(['AMEND-002']);
   });
 
+  it('promoting twice adds nothing, for rows carrying a file, evidence, a ref, or the audit-build suffix', () => {
+    const ts = '2026-01-01T00:00:00Z';
+    const rows = [
+      disc('has a file', 'a.js'),
+      { ...disc('gap with evidence'), kind: 'gap', evidence: 'saw nothing' },
+      { ...disc('ref gap with evidence'), kind: 'gap', evidence: 'saw nothing', ref: 'C1', ts },
+      { ...disc('ref with a file'), file: 'b.js', ref: 'C2', ts },
+      { ...disc('ref from audit'), foundBy: 'audit-build', ref: 'C3', ts },
+    ];
+    const f = mk(SIX);
+    expect(promoteToTrd(f, rows).added).toHaveLength(5);
+    const after = fs.readFileSync(f, 'utf8');
+    expect(promoteToTrd(f, rows).added).toEqual([]);
+    expect(fs.readFileSync(f, 'utf8')).toBe(after);
+  });
+
   it('does not emit two rows for the same summary within one call', () => {
     const f = mk(SIX);
     expect(promoteToTrd(f, [disc('dupe'), disc('dupe')]).added).toEqual(['AMEND-001']);
