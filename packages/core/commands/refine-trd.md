@@ -32,6 +32,35 @@ command's input.
 this command because interactive mode's purpose is to ask. `--auto` obeys autonomy discipline
 like any other command and asks nothing.
 
+### Putting a question to the owner
+
+**Every question states a recommendation.** Each question in an `AskUserQuestion` call marks
+one option "(Recommended)", lists it first, and gives a one-line reason for it in that
+option's description. When no option is better than the others (the evidence supports each
+reading equally, or the choice is purely the owner's preference), say so plainly in the
+question text, and say why, rather than marking one at random.
+
+**Base the recommendation on what this command already does, not on taste.** For an open
+question, recommend the author's recorded assumption unless evidence you can cite says
+otherwise. For a finding, recommend what the non-interactive mode would do with it. A
+recommendation is held to the same sourcing as a finding: "never strike on judgment" applies
+to what you recommend, too.
+
+**In a multi-select batch of findings, the rule applies to each finding.** Mark
+"(Recommended)" on every finding you recommend applying and list those first. A question
+holds at most four options, so put at most four findings in one question, group them by
+action, and split a larger batch across questions (up to four per call). The option's label
+carries a short plain name and the id. Its description carries what the finding is, what
+applying it changes, and why you do or do not recommend it.
+
+**Explain each item in plain words, never by its id alone.** Write "the uptime target nothing
+in the source asks for (NFR-3)", not "NFR-3". The owner has to be able to decide from the
+question alone, without opening the artifact.
+
+This is the owner's rule (2026-11-04): "refine commands need to clearly state if there's a
+recommended path!" It exists because a batch of findings sent with no recommendations cost a
+second round of questions.
+
 ---
 
 ## Phase 0: Answer the open questions
@@ -44,7 +73,7 @@ the author's assumption offered as an option so a default is always one keystrok
 Give real options, not a blank prompt. The author already stated what it assumed and what
 goes wrong if that is mistaken; put both in front of the user. Batch related questions into
 one call where the tool allows it, and ask the highest-consequence one first — the owner may
-stop reading.
+stop reading. Follow **Putting a question to the owner**, above.
 
 Do not ask questions the artifact already answers, and do not re-ask something the changelog
 records as settled. A question the source resolved is a question the author should not have
@@ -142,7 +171,7 @@ retired design certifies a retired design.
 
 ### Phase 2: Apply
 
-**Interactive:** present findings grouped by action, ask, apply the user's decisions.
+**Interactive:** present findings grouped by action, ask, apply the user's decisions. Follow **Putting a question to the owner**, above.
 
 **Non-interactive:** remove unsourced requirements and list them; lower unsourced
 severities to the `constitution.md` floor and list them; report buildability failures with
