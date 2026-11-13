@@ -1,0 +1,80 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/refine-recommended-option.md",
+  "trd_hash": "4f3ad1949b676b0cabb857ee2d5aca93a0ad4f70836c130555370f722021f53e",
+  "branch": "feature/2-refine-commands-recommend-an-option-on-every-question",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "Add the Putting a question to the owner subsection to four refine commands, pointers, mirrors, prose test",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/refine-recommend-prose.test.js",
+        "packages/core/commands/refine-prd.md",
+        "packages/core/commands/refine-trd.md",
+        "packages/core/commands/refine-verification.md",
+        "packages/core/commands/refine-design.md",
+        ".claude/commands/refine-prd.md",
+        ".claude/commands/refine-trd.md",
+        ".claude/commands/refine-verification.md",
+        ".claude/commands/refine-design.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-13T17:58:16.301Z",
+      "completed_at": "2026-11-13T18:04:41.835Z",
+      "last_advanced": "2026-11-13T18:04:36.889Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "ed389b161caf1d6f22fb2a6971d3f961b9229740",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-13T18:11:47.815Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "ed389b161caf1d6f22fb2a6971d3f961b9229740",
+    "last_checkpoint_timestamp": "2026-11-13T18:11:47.815Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/refine-recommended-option.md § Intended Change",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI installed and logged in; scaffold script present"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool always available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh logged in with repo scope"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "verification.md marks it must not be touched"
+      }
+    }
+  }
+}

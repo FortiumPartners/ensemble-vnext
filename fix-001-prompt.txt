@@ -1,0 +1,143 @@
+<task>
+  <id>FIX-001</id>
+  <description>Add the `### Putting a question to the owner` subsection (verbatim text from `## Decision`) to the `## Modes` section of refine-prd.md, refine-trd.md, refine-verification.md and refine-design.md in `packages/core/commands/`. Add the pointer sentence at every interactive asking site, copy all four files to `.claude/commands/`, and add `packages/core/commands/refine-recommend-prose.test.js` pinning the rule</description>
+</task>
+
+<context>
+  <trd_file>docs/TRD/refine-recommended-option.md</trd_file>
+  <strategy>tdd</strategy>
+  <quality_gates>
+    <unit_coverage>60%</unit_coverage>
+    <integration_coverage>50%</integration_coverage>
+  </quality_gates>
+  <completed_tasks>none</completed_tasks>
+</context>
+
+<grounding>
+  <evidence_key>
+    [ran]      Someone executed this and read the output. Trust it most.
+    [read]     Someone opened the file and verified the claim. Trust it.
+    [inferred] Deduced, not checked. VERIFY IT BEFORE YOU RELY ON IT.
+  </evidence_key>
+  <touches>`packages/core/commands/refine-prd.md`, `packages/core/commands/refine-trd.md`, `packages/core/commands/refine-verification.md`, `packages/core/commands/refine-design.md`, `.claude/commands/refine-prd.md`, `.claude/commands/refine-trd.md`, `.claude/commands/refine-verification.md`, `.claude/commands/refine-design.md`, `packages/core/commands/refine-recommend-prose.test.js`</touches>
+  <reuse>the prose-test pattern of `packages/core/commands/refine-design-prose.test.js`: read the file, flatten whitespace with `.replace(/\s+/g, ' ')`, assert phrases, and assert mirror parity with `toBe(raw)` [read]</reuse>
+  <replaces>refine-design.md line 34–35's one-sentence statement of the rule. It is kept, but now extended to point at the full subsection, and it must keep matching `/names? one option "\(Recommended\)"/` [read]</replaces>
+  <follow>insert the subsection as the last thing in `## Modes`, right after the "autonomy exemption is conditional on mode" paragraph. In refine-design it goes after that paragraph and before `### --auto: decisions, answers and audit findings`. Prose wraps at about 95 columns, like the surrounding text. Mirror with `cp`, never by hand [read]</follow>
+  <careful>refine-prd has two identical `**Interactive:**` markers (Phase 0 and Phase 2), so slice by phase heading. `verify-command-surface.test.js` line ~1890 checks every command for hand-edit instructions about `artifacts.json`, so the new text must not mention artifacts.json. `notify-on-complete.test.sh` L2 compares `.claude/commands` mirrors with the canonical copies, so a missed `cp` fails BATS too [read]</careful>
+  <instruction>
+    Treat this grounding as findings you already own. Do not reimplement what <reuse> names; match <follow>; report any grounding that turns out wrong in your deliverables.
+  </instruction>
+</grounding>
+
+<decision>
+One rule text, written identically into all four commands, so the four cannot drift apart
+again. Each file carries the full text rather than pointing at a shared rule file. A command
+prompt is read on its own; a pointer to another file is a lookup the model may skip.
+`/refine-design` already shows that inline statement works. Rejected: a new section in
+`autonomy.md`. That file governs when to ask, not how, and changing it would need owner
+approval, and `autonomy.md` plus `async-discipline.md` must stay under the 17000-byte ceiling that
+`refine-design-prose.test.js` enforces.
+
+The rule text, verbatim (wrapping may differ; the words may not):
+
+> ### Putting a question to the owner
+>
+> **Every question states a recommendation.** Each question in an `AskUserQuestion` call marks
+> one option "(Recommended)", lists it first, and gives a one-line reason for it in that
+> option's description. When no option is better than the others (the evidence supports each
+> reading equally, or the choice is purely the owner's preference), say so plainly in the
+> question text, and say why, rather than marking one at random.
+>
+> **Base the recommendation on what this command already does, not on taste.** For an open
+> question, recommend the author's recorded assumption unless evidence you can cite says
+> otherwise. For a finding, recommend what the non-interactive mode would do with it. A
+> recommendation is held to the same sourcing as a finding: "never strike on judgment" applies
+> to what you recommend, too.
+>
+> **In a multi-select batch of findings, the rule applies to each finding.** Mark
+> "(Recommended)" on every finding you recommend applying and list those first. A question
+> holds at most four options, so put at most four findings in one question, group them by
+> action, and split a larger batch across questions (up to four per call). The option's label
+> carries a short plain name and the id. Its description carries what the finding is, what
+> applying it changes, and why you do or do not recommend it.
+>
+> **Explain each item in plain words, never by its id alone.** Write "the uptime target nothing
+> in the source asks for (NFR-3)", not "NFR-3". The owner has to be able to decide from the
+> question alone, without opening the artifact.
+>
+> This is the owner's rule (2026-11-04): "refine commands need to clearly state if there's a
+> recommended path!" It exists because a batch of findings sent with no recommendations cost a
+> second round of questions.
+
+In refine-verification, "the non-interactive mode" is `--auto`. In refine-design, it is the
+default `--auto` records under `## Decisions taken by default`. The general wording covers
+both, so the text stays identical across all four files.
+
+At each asking site, add one sentence: "Follow **Putting a question to the owner**, above."
+The asking sites are: refine-prd and refine-trd, Phase 0 Interactive and Phase 2 Interactive;
+refine-verification, `### Interactive` under Open items **and** the must-pass owner ruling under
+Derive → Owner rulings ("Interactive, ask the owner", line 124), which becomes "Interactive,
+ask the owner, following **Putting a question to the owner**, above;"; refine-design, its
+Modes paragraph. refine-trd Phase 0 says "one question per call" and then "Batch related
+questions into one call". The rule's "each question in an `AskUserQuestion` call" works under
+either reading, so that line is left as it is.
+In refine-design, replace "Every question names one option "(Recommended)" and says why." with
+"Every question names one option "(Recommended)" and says why, as **Putting a question to the
+owner**, below, sets out." That keeps the phrase `refine-design-prose.test.js` already pins
+(`/names? one option "\(Recommended\)"/`).
+
+`packages/full/commands/core` is a symlink to `packages/core/commands`, so the full-plugin copy
+needs no edit. [ran: `ls -la packages/full/commands`]
+</decision>
+<!-- The decision is the approach for THIS change, not prior art. If your task would contradict it, stop and report. -->
+
+<scope_discipline>
+  <instruction>Implement what the task asks for. Do NOT add delivery machinery, flags or toggles.</instruction>
+</scope_discipline>
+
+<scope_boundaries>
+  <non_goals>
+- No change to `--auto` / non-interactive behaviour of any refine command; they ask nothing.
+- No change to `autonomy.md`, `command-status.md` or any rule file.
+- No change to `verification-setup` / `design-setup` skills, which also ask, but are outside
+  this issue.
+- No wording change to the existing Phase 0/Phase 2 content beyond the added pointer sentence.
+  </non_goals>
+  <instruction>If your work would address any non-goal, STOP and report the scope conflict.</instruction>
+</scope_boundaries>
+
+<objective>
+(1) Each of the four files contains the heading `### Putting a question to the owner` and the phrases `marks one option "(Recommended)"`, "lists it first", "one-line reason", "say so plainly in the question text", "the author's recorded assumption", "what the non-interactive mode would do", "at most four findings in one question", "the rule applies to each finding" and "never by its id alone". These tests fail on today's files. (2) The subsection, from its heading to the next heading, with whitespace collapsed, is identical in all four files. (3) Each asking site, tested in its own slice, contains "Putting a question to the owner": refine-prd and refine-trd Phase 0 and Phase 2, each sliced by its phase heading; refine-verification `### Interactive` and the must-pass owner-ruling bullet; refine-design's "conditional on mode" paragraph alone, not the whole Modes section. Removing any one pointer fails the test. (4) `.claude/commands/<name>.md` is byte-identical to `packages/core/commands/<name>.md` for all four. This guards against regressions only; it passes today. (5) The existing `refine-design-prose.test.js`, `refine-verification-must-pass.test.js` and `verify-command-surface.test.js` still pass, and the full Jest (`npx jest`) and BATS batteries pass
+</objective>
+
+<skills>
+  <matched>jest</matched>
+  <instruction>Invoke the jest skill with the Skill tool before writing the test. Report SKILLS_USED and RULES_APPLIED.</instruction>
+</skills>
+
+<strategy_instructions>
+Strategy is: tdd. Write the failing test yourself first, in this same task (no separate RED stage runs), run it and see it fail on today's files, then make the prose change and see it pass. Do not refactor beyond the task.
+</strategy_instructions>
+
+<check_battery>
+  <unit>npx jest packages/core/commands/refine-recommend-prose.test.js packages/core/commands/refine-design-prose.test.js packages/core/commands/verify-command-surface.test.js packages/core/commands/records-ref-writers-prose.test.js packages/core/commands/records-ref-readers-prose.test.js packages/core/lib/refine-verification-must-pass.test.js</unit>
+  <shell>bats test/integration/tests/notify-on-complete.test.sh</shell>
+  <instruction>
+    Run the commands above against files you changed. On failure, debug it yourself (5 Whys, fix, re-run) before returning. Only report "failed" if still red after genuinely trying. NEVER run a live, model-spending check (anything that starts `claude` sessions).
+  </instruction>
+</check_battery>
+
+<discovered>
+  <instruction>
+    If you find work this task does not cover, RECORD it and carry on; do not fix it:
+      node -e 'require("./.claude/lib/discovered").record(".trd-state/refine-recommended-option", {kind: "bug", foundBy: "FIX-001", phase: 1, summary: "one line", file: "path", evidence: "how you know"})'
+  </instruction>
+</discovered>
+
+<deliverables>
+1. Implementation complete per objective
+2. Every file changed, with paths (mirror copies via cp, never by hand)
+3. Tests written
+4. Brief outcome summary
+Do not commit; the orchestrator commits.
+</deliverables>
