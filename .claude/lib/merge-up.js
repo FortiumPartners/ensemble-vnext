@@ -130,6 +130,10 @@ function syncHead(args) {
   }
   if (state === 'MERGED') return { ok: true, head: null, judged: judgedIn, moved: false, sync: 'none', baseOnly: false, changed: [] };
   if (state === 'CLOSED') return fail(`PR ${a.pr} is closed without being merged`);
+  // Only the PR's own branch may be moved: a fast-forward or merge on any other checkout would
+  // rewrite the wrong branch (record-files merge-base-in refuses the same way).
+  const cur = gitRun(['rev-parse', '--abbrev-ref', 'HEAD'], cwd);
+  if (!cur.ok || cur.out !== a.branch) return fail(`current branch is ${cur.out || 'unknown'}, not ${a.branch}`);
 
   const f = gitRun(['fetch', 'origin', `+refs/heads/${a.branch}:refs/remotes/origin/${a.branch}`, `+refs/heads/${a.base}:refs/remotes/origin/${a.base}`], cwd);
   if (!f.ok) return fail(`could not fetch origin ${a.branch} and ${a.base}: ${f.err}`);
@@ -141,7 +145,10 @@ function syncHead(args) {
   const local = localR.out;
 
   let sync = 'none';
-  if (local !== tip) {
+  // Local strictly ahead of the tip (this run's own commit whose push has not landed yet, e.g. a
+  // merge-in whose push failed before a resume): origin has not moved, there is nothing to catch
+  // up with, and it is not two writers. Custody's local-versus-head check still guards the merge.
+  if (local !== tip && !gitRun(['merge-base', '--is-ancestor', tip, local], cwd).ok) {
     if (gitRun(['merge-base', '--is-ancestor', local, tip], cwd).ok) {
       const ff = gitRun(['merge', '--ff-only', tip], cwd);
       if (!ff.ok) return fail(`could not fast-forward to ${tip}: ${ff.err}`);
@@ -164,17 +171,18 @@ function syncHead(args) {
     }
   }
 
-  const moved = tip !== a.judged;
+  // Compare full ids: an abbreviated or upper-case --judged naming the tip is not a move.
+  // Unresolvable (or `none`) is unknown, and unknown means wait.
+  const j = a.judged === 'none' ? null : gitRun(['rev-parse', '--verify', '--quiet', `${a.judged}^{commit}`], cwd);
+  const judgedFull = j && j.ok ? j.out : null;
+  const moved = tip !== judgedFull;
   let baseOnly = false;
   let changed = [];
-  if (moved && a.judged !== 'none') {
-    const j = gitRun(['rev-parse', '--verify', `${a.judged}^{commit}`], cwd);
-    if (j.ok) {
-      const fc = featureChanges(j.out, tip, a.base, cwd);
-      if (fc) {
-        changed = fc;
-        baseOnly = fc.length === 0;
-      }
+  if (moved && judgedFull) {
+    const fc = featureChanges(judgedFull, tip, a.base, cwd);
+    if (fc) {
+      changed = fc;
+      baseOnly = fc.length === 0;
     }
   }
   return { ok: true, head: tip, judged: judgedIn, moved, sync, baseOnly, changed };

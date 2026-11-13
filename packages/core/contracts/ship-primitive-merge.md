@@ -45,7 +45,11 @@ for `red`.
    `none`, `fast-forward` or `merged`) and returns `head` (that tip), `moved` (`head` is not
    `context.judgedHead`; true when none is recorded, because an unknown head is waited on),
    `baseOnly` (every non-record change since the judged head came from the base) and `changed`.
-   Keep `head`, `moved` and `baseOnly` for step 1.
+   Keep `head`, `moved` and `baseOnly` for step 1. When `moved`, poll
+   `gh pr view <pr> --json headRefOid` up to 40 times, 15s apart (10 minutes), until it equals
+   `head` (still different: `stop`): GitHub's head trails a push by about 80s, and `gh pr checks`
+   reads checks on `headRefOid`, so a wait started earlier would judge the old head's checks and
+   record the new head as judged with no CI seen on it.
 1. **Bring the base in when the PR has clashed with it or the base requires the head to be up
    to date**, before the gate. Ask GitHub's own verdict:
    ```bash
@@ -110,7 +114,8 @@ for `red`.
    then finds `context.judgedHead` equal to the branch tip and does not wait again. With no loop
    round left, go on to the custody gate, which re-proves any must-pass criterion the new commits
    affect, and merge pinned to the new head; add one `data.issues` line saying the merge ran with
-   another session's commits and no findings collected on them. A moved head that is only the
+   commits no step collected findings on (another session's, or of unknown origin when
+   `context.judgedHead` was absent). A moved head that is only the
    base merged in, or a green wait on a head that did not move, goes straight on to step 2.
 2. **Run the custody gate**, as `ship-custody-gate.md` says, with `--head` set to the PR's
    `headRefOid`, before reading the PR's state: a PR merged by hand while the run was parked

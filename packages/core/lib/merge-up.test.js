@@ -255,6 +255,32 @@ describe('sync-head', () => {
     expect(sync('none')).toMatchObject({ ok: true, moved: true, judged: 'none', baseOnly: false });
   });
 
+  test('an abbreviated or upper-case --judged naming the tip is not moved', () => {
+    expect(sync(A.slice(0, 10))).toMatchObject({ ok: true, moved: false });
+    expect(sync(A.toUpperCase())).toMatchObject({ ok: true, moved: false });
+  });
+
+  test('an unresolvable --judged is moved, with no base excuse', () => {
+    expect(sync('deadbeefdeadbeef')).toMatchObject({ ok: true, moved: true, baseOnly: false });
+  });
+
+  test('local strictly ahead of the tip (an unpushed own commit) is not a divergence', () => {
+    const L = commit(local, 'src/mine.js', 'x');
+    expect(sync(A)).toMatchObject({ ok: true, head: A, moved: false, sync: 'none' });
+    expect(g(local, 'rev-parse', 'HEAD')).toBe(L);
+  });
+
+  test('a checkout on another branch is refused and nothing moves', () => {
+    commit(other, 'src/more.js', 'm');
+    g(other, 'push', '-q', 'origin', 'feat');
+    g(local, 'checkout', '-q', 'main');
+    const before = g(local, 'rev-parse', 'HEAD');
+    const r = sync(A);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/not feat/);
+    expect(g(local, 'rev-parse', 'HEAD')).toBe(before);
+  });
+
   test('arguments are validated', () => {
     expect(sync(A, { pr: 'x' }).ok).toBe(false);
     expect(sync(A, { branch: '--upload-pack=x' }).ok).toBe(false);
