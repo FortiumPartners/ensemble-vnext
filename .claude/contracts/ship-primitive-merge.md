@@ -105,17 +105,21 @@ for `red`.
    `ship.md` lists) and hands this step out again; with no loop, `red` stops the run, so the merge
    never runs on red.
 
-   **A green wait on a moved head.** When the wait passed on a head step 0 reported `moved` and not
-   `baseOnly`, the new commits came from another writer and nobody has collected findings on
-   them. With a round left (`input.loop` is not `null` and its `roundsLeft` is above 0), return
+   **A green wait on a moved head.** This applies only when `context.judgedHead` is recorded. With
+   none recorded (a `ship.md` with no `wait-ci` or `collect-findings` step, or a run recorded
+   before `judgedHead` existed), `moved` means only "not yet judged": the wait above is all it
+   asks for, nothing here applies, and the step goes on to step 2 with no `moved` result and no
+   issues line, so a run's own head never spends a loop round or reads as another writer's.
+   When the wait passed on a head step 0 reported `moved` and not
+   `baseOnly`, and `context.judgedHead` is recorded, the new commits came from another writer and
+   nobody has collected findings on them. With a round left (`input.loop` is not `null` and its `roundsLeft` is above 0), return
    `moved` with `data: { failed: [], flaky, head, judgedHead }`, `head` and `judgedHead` both the
    head just waited on. The sequencer runs the same loop (`collect-findings` on the new head, and
    `fix-findings`, `push`, `wait-ci` when it finds something) and hands this step out again; it
    then finds `context.judgedHead` equal to the branch tip and does not wait again. With no loop
    round left, go on to the custody gate, which re-proves any must-pass criterion the new commits
    affect, and merge pinned to the new head; add one `data.issues` line saying the merge ran with
-   commits no step collected findings on (another session's, or of unknown origin when
-   `context.judgedHead` was absent). A moved head that is only the
+   another session's commits and no findings collected on them. A moved head that is only the
    base merged in, or a green wait on a head that did not move, goes straight on to step 2.
 2. **Run the custody gate**, as `ship-custody-gate.md` says, with `--head` set to the PR's
    `headRefOid`, before reading the PR's state: a PR merged by hand while the run was parked

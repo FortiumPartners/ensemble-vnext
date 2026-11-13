@@ -346,6 +346,11 @@ describe('merge', () => {
     expect(text('merge')).toMatch(/^`red`, with `data`: `\{ failed, flaky, head, judgedHead \}`/m);
     expect(t).toMatch(/With no loop round left, go on to the custody gate[^]*one `data\.issues` line/);
   });
+  test('with no judgedHead recorded, a moved head is only waited on: no moved result, no round, no issues line', () => {
+    expect(t).toMatch(/This applies only when `context\.judgedHead` is recorded/);
+    expect(t).toMatch(/With\s+none recorded[^]*`moved` means only "not yet judged"[^]*no `moved` result and no\s+issues line/);
+    expect(t).toMatch(/and `context\.judgedHead` is recorded, the new commits came from another writer/);
+  });
   test('red carries wait-ci\'s failures for the loop, and a hand merge during the wait is proven, not stopped', () => {
     expect(t).toMatch(/return `red`, before the custody gate[^]*`head` names that red head, so `context\.head` points at the commit the loop is fixing/);
     expect(t).toMatch(/`MERGED` \(merged by hand during the wait\) goes on to step 2/);
