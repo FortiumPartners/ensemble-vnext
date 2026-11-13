@@ -14,7 +14,7 @@ const { reconcile,
   checkpoint,
 } = require('./implement-state');
 
-const FIXTURE_PATH = path.join(__dirname, '../../../.trd-state/implement-trd-rework/implement.json');
+const FIXTURE_PATH = path.join(__dirname, '__fixtures__/implement-trd-rework/implement.json');
 
 // NOTE on test doubles: `mock-fs@5.2.0` (the devDependency named in the task) is broken under
 // Node 22 in this environment — a standalone repro showed `mockFs({...})` never returns
@@ -48,7 +48,7 @@ describe('CYCLE_ORDER', () => {
 });
 
 describe('load()', () => {
-  it('parses the real fixture (.trd-state/implement-trd-rework/implement.json)', () => {
+  it('parses the real fixture (__fixtures__/implement-trd-rework/implement.json)', () => {
     const state = load(FIXTURE_PATH);
     expect(state.trd_file).toBe('docs/TRD/implement-trd-rework.md');
     expect(state.tasks).toBeDefined();
@@ -83,6 +83,12 @@ describe('save()', () => {
 
     const reloaded = load(filePath);
     expect(reloaded).toEqual(state);
+  });
+
+  it('creates a missing parent folder on the first save', () => {
+    const filePath = path.join(tmpDir, 'new-slug', 'nested', 'implement.json');
+    save(filePath, { version: '1.0.0' });
+    expect(load(filePath)).toEqual({ version: '1.0.0' });
   });
 
   it('leaves no .tmp file behind on a successful write', () => {

@@ -27,6 +27,13 @@ const LIVE_EVIDENCE = path.join(__dirname, 'live-evidence.js');
 const RANK = path.join(__dirname, 'followup-rank.js');
 const AUTH_SENTENCE = 'A step listed in `.claude/rules/ship.md` is the owner\'s standing authorization for that act.';
 
+// Deploy-link token from a commit sha: custody.js rejects an all-digit token as a build number,
+// so extend the prefix to the first letter a-f (same helper as custody.test.js).
+function tokenOf(sha, n) {
+  const i = sha.search(/[a-f]/);
+  return i < 0 ? sha : sha.slice(0, Math.max(n, i + 1));
+}
+
 const TRD = 'docs/TRD/f.md';
 const TRD_TEXT = ['# F', '', '## Objectives', '', '| ID | Objective | Must pass |', '|----|-----------|-----------|', '| O1 | first | yes |', '', '## 4. Master Task List', '', '| Task ID | Description | Dependencies |', '|---------|-------------|--------------|', '| F-001 | build it | None |', ''].join('\n');
 const DEFINITION = [
@@ -677,7 +684,7 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
       process.env.STUB_STATE = 'MERGED';
       const merge = s.custody('check', '--state-dir', s.stateDir, '--link', 'merge', '--pr', '7', '--target', 'main', '--trd', TRD);
       expect(merge).toMatchObject({ ok: true, link: 'merge', observed: played.head });
-      const deploy = s.custody('check', '--state-dir', s.stateDir, '--link', 'deploy', '--identity-output', `build ${played.head.slice(0, 12)}`, '--trd', TRD);
+      const deploy = s.custody('check', '--state-dir', s.stateDir, '--link', 'deploy', '--identity-output', `build ${tokenOf(played.head, 12)}`, '--trd', TRD);
       expect(deploy).toMatchObject({ ok: true, link: 'deploy' });
     });
 

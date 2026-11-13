@@ -217,7 +217,11 @@ function promoteToTrd(trdPath, rows, opts = {}) {
    * then kept current as this call promotes its own ref-carrying rows below. */
   const existingObsKeys = new Set();
   const refToId = new Map();
-  const OBS_MARKER_RE = /\[(\S+) @ (\S+)\]\s*$/;
+  // Not end-anchored: a gap's `(observed: ...)` and an audit-build's "find and fix every
+  // instance" suffix are both appended AFTER the marker, and an anchored match missed it
+  // for those rows, re-promoting them on every run. The LAST marker wins, since a summary
+  // could itself quote one.
+  const OBS_MARKER_RE = /\[(\S+) @ (\S+)\](?!.*\[\S+ @ \S+\])/;
   // Split on UNESCAPED pipes only, keeping `\|` as written: a promoted summary is stored with
   // its pipes escaped (below), and a naive split would cut its description cell short, lose
   // the trailing `[<ref> @ <ts>]` marker, and re-promote the same observation on every run.
@@ -227,7 +231,7 @@ function promoteToTrd(trdPath, rows, opts = {}) {
     const cells = splitCells(l);
     if (col.desc >= 0 && cells[col.desc]) {
       const descCell = cells[col.desc];
-      seen.add(norm(descCell.split(' — promoted from')[0]));
+      seen.add(norm(descCell.split(/ — (?:promoted from|follow-up to)/)[0]));
       const m = OBS_MARKER_RE.exec(descCell);
       if (m) {
         const [, ref, ts] = m;

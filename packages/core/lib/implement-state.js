@@ -113,6 +113,9 @@ function save(filePath, state) {
   // so a lost phase advance leaves no trace, and load() throws on the truncated
   // read, which surfaces as STUCK on a state file nobody can explain.
   const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}`;
+  // The first save of a feature lands in a `.trd-state/<slug>/` that may not exist yet;
+  // without this the write throws ENOENT. Recursive mkdir is a no-op when it exists.
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
   try {
     fs.writeFileSync(tmpPath, JSON.stringify(state, null, 2), 'utf-8');
     fs.renameSync(tmpPath, filePath);

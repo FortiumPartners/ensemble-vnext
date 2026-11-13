@@ -184,6 +184,10 @@ describe('waived-defects', () => {
   test('a criterion the latest verification run proved met is retired, not filed', () => {
     const { root, stateDir } = setup();
     fs.writeFileSync(path.join(stateDir, 'verification-state.json'), JSON.stringify({ criteria: [{ id: 'C-1', status: 'met' }] }));
+    // gate() retires only when the state file is not older than the row's Date.now() ts; the
+    // filesystem clock can lag that by a tick, so pin the mtime clearly after it.
+    const later = new Date(Date.now() + 60000);
+    fs.utimesSync(path.join(stateDir, 'verification-state.json'), later, later);
     const s = stub();
     const r = wd.gate(stateDir, { root, runner: s.run });
     expect(r).toMatchObject({ ok: true, retired: [{ ref: 'C-1' }], filed: [] });
