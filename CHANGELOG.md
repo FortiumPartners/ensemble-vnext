@@ -12,6 +12,15 @@ the work is actually released.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`/ship-build --resume` no longer stops at custody when the PR head has moved (#98).** The merge
+  step now catches up with a moved head itself (new `merge-up.js sync-head` verb: fast-forward, or a
+  local merge when only run-record files differ), waits for CI on any head no step has judged, and
+  returns a new `moved` result that loops through `collect-findings` before merging. `wait-ci` and
+  `collect-findings` record the head they judged as `judgedHead`; a contract's `loop-on` may now list
+  several words.
+
 ## [4.17.7] - 2026-11-12
 
 **Every failure verification waives is now filed as a defect issue (#130).** Under `Blocking:

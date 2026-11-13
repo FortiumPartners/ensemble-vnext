@@ -48,7 +48,7 @@ what runs on the base branch.
 
 ## Result
 
-`passed`, `failed` or `no-checks`, with `data`: `{ failed: [...], flaky: [...] }`; a `failed` entry carries `capped: true` when the job is capped.
+`passed`, `failed` or `no-checks`, with `data`: `{ failed: [...], flaky: [...], judgedHead }`; a `failed` entry carries `capped: true` when the job is capped. `judgedHead` is the full id of the head the checks were read on (the PR's `headRefOid`, or the `commit` of the latest `pushed` result when there is no PR), recorded on every result so the merge step knows CI has judged that head.
 
 ## Waiting
 

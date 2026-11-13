@@ -73,7 +73,7 @@ step provides (`merge` needs `pr` from `open-pr`), a primitive sits under the wr
 
 A contract may declare a bounded recovery loop for one of its own results: `loop-on: <result>`
 (it must also be in `stops-on`), `loop-via: <primitives, in order>` (each `outward: no`) and
-`loop-rounds: <param>` (the parameter holding the bound). `merge` declares `loop-on: red`,
+`loop-rounds: <param>` (the parameter holding the bound). `merge` declares `loop-on: red, moved` (a contract may list several words, each also in `stops-on`),
 `loop-via: collect-findings, fix-findings, push, wait-ci` and `loop-rounds: rounds`.
 
 When `merge` records `red` (CI failed on a head nothing judged, so no merge ran), the sequencer
@@ -81,6 +81,17 @@ runs those four steps, with the params of the same primitives you listed earlier
 `merge` out again. The loop exists only if `ship.md` lists all four primitives before the merge
 (a `repeat` body counts) and `rounds` is above 0; the sequencer never adds a step you did not
 list. With no loop, `red` stops the run as before.
+
+**A moved head.** Before anything else `merge` runs `merge-up.js sync-head`, which fetches the PR
+branch and brings local up to its pushed tip: a fast-forward, or a local merge when the only
+local-only commits are run-record files. Commits by another writer on non-record files that are
+not on the branch are a conflict and stop the run; nothing is rebased or reset. `merge` waits for
+CI on every head that is not the one a step last judged (`wait-ci` and `collect-findings` record
+`judgedHead`; so does `merge` when it returns `red`). A red wait is `red`. A green wait on a head
+that moved by more than the base merged in returns `moved`: the loop collects findings on the new
+commits, fixes any, and hands `merge` out again, spending a round from the same `rounds` bound as
+`red`. With no round left, the custody gate re-proves what the new commits affect and the merge
+goes ahead pinned to the new head, with one line in ISSUES saying so.
 
 How this differs from `repeat`: a `repeat` re-runs its whole body, and `rounds` is the number of
 extra passes (rounds + 1 passes in all). The merge loop runs its body only after a `red`, and
@@ -116,7 +127,7 @@ outward step is subject to the [authorization gate](#the-outward-authorization-g
 | `collect-findings` | Gathers what CI and reviewers found, decides which the work must fix, and records it. Never fixes or files. Param `bar` (default `significant`). | no | needs `head`, provides `findings`; `repeat-until: clean` | `clean`, `found` |
 | `fix-findings` | Turns the open blocking findings into code through the recorded path; never pushes. A CI failure whose fix lies only in test files or CI config is fixed directly, without the reconcile build or a whole-branch review. Param `format` (the project's format/lint command). | no | needs `findings` | `fixed`, `nothing` |
 | `await-approval` | Parks the run until a human approves the PR. Param `trigger` (`github-actions` is the one value). | no | needs `pr` | `approved` |
-| `merge` | Merges the PR at the verified head and proves what merged is what was verified. Params `method` (`merge`, `squash`, `rebase`; default `merge`) and `rounds` (default 2; `0` turns the merge loop off). Waits for CI on a head nothing judged (for example after merging the base in); `red` there runs the merge loop. | yes | needs `pr`, provides `merged`; `stops-on: red`, `loop-on: red` | `merged`, `red` |
+| `merge` | Merges the PR at the verified head and proves what merged is what was verified. Params `method` (`merge`, `squash`, `rebase`; default `merge`) and `rounds` (default 2; `0` turns the merge loop off). First catches local up with the PR branch (`sync-head`); waits for CI on every head that is not the last judged one (a moved head, or after merging the base in); `red` there, or `moved` (green, but another writer's commits), runs the merge loop. | yes | needs `pr`, provides `merged`; `stops-on: red, moved`, `loop-on: red, moved` | `merged`, `red`, `moved` |
 | `release` | Runs the release or deploy command and proves the environment now runs the verified commit. Params `env`, `command`, `identity` (required). | yes | needs `head` | `released` |
 | `run` | Runs one command exactly as written in `ship.md` (a version bump, a tag, a store submission). Takes the rest of the line. | yes | none | `ran` |
 | `sync-design` | After a merge, brings each design's boards in step with the merged build. Never stops the run. | yes | needs `merged` | `synced`, `nothing`, `skipped` |
@@ -127,7 +138,7 @@ Sections: `run` is allowed under either heading; `sync-design`, `close-issue` an
 `file-followups` belong under `## After shipping`; the other nine under `## Ship`.
 
 Notes: outside a `repeat`, `wait-ci` recording `failed` stops the run on that step.
-`merge` recording `red` runs its loop instead (see [The merge loop](#the-merge-loop)).
+`merge` recording `red` or `moved` runs its loop instead (see [The merge loop](#the-merge-loop)).
 `await-approval` returns `wait` without an approval and never polls in-session. `fix-findings`
 never edits a lint finding by model: with no `format=` set, a lint row stops the step and says
 to set one with `/ship-setup`. `release` resolves its command in a fixed order and never

@@ -89,7 +89,7 @@ const STATE_FILE = 'shipped.json';
 const DEFAULT_ROUNDS = 2;
 
 /** The names `next` adds to a step's input; a contract may not declare a parameter by one. */
-const RESERVED_INPUT = ['work', 'final', 'laterNeeds', 'context'];
+const RESERVED_INPUT = ['work', 'final', 'laterNeeds', 'context', 'loop'];
 
 /**
  * The sentence `autonomy.md` must carry for outward steps to be authorized (TRD 3.10).
@@ -176,7 +176,9 @@ function validateLoop(c, contracts, errors) {
     errors.push(`${file}: loop-on, loop-via and loop-rounds go together`);
     return;
   }
-  if (!c.stopsOn.includes(c.loopOn)) errors.push(`${file}: loop-on "${c.loopOn}" must also be listed in stops-on`);
+  for (const w of c.loopOnAll) {
+    if (!c.stopsOn.includes(w)) errors.push(`${file}: loop-on "${w}" must also be listed in stops-on`);
+  }
   const rounds = c.params[c.loopRounds];
   if (!rounds) errors.push(`${file}: loop-rounds names "${c.loopRounds}", which is not a declared parameter`);
   // A default the policy line does not override must already be a usable bound; a bad one is
@@ -265,7 +267,10 @@ function loadPrimitives(dir = DEFAULT_CONTRACTS_DIR) {
       repeatUntil: fm['repeat-until'] && fm['repeat-until'] !== 'none' ? fm['repeat-until'] : null,
       // Step-level recovery loop (see the header): the result that starts it, the primitives it
       // runs, and the parameter that bounds it. Checked below, once every contract is loaded.
-      loopOn: fm['loop-on'] && fm['loop-on'] !== 'none' ? fm['loop-on'] : null,
+      // `loop-on` may list several result words; `loopOn` stays the first (readers and the
+      // saved snapshot keep a string) and `loopOnAll` is the whole list.
+      loopOn: listOf(fm['loop-on'])[0] || null,
+      loopOnAll: listOf(fm['loop-on']),
       loopVia: listOf(fm['loop-via']),
       loopRounds: fm['loop-rounds'] && fm['loop-rounds'] !== 'none' ? fm['loop-rounds'] : null,
       path: full,
@@ -864,7 +869,13 @@ function next(stateDir, opts = {}) {
     : entry.loopOf
       ? state.cursor.pass === entry.loopOf.loop.rounds
       : false;
+  // The loop this step owns, from the live contract: lets the contract's body know which results
+  // start a round and how many rounds remain (attempt p starts round p).
+  const loop = entry.step.loop
+    ? { on: contract.loopOnAll, roundsLeft: Math.max(0, entry.step.loop.rounds - state.cursor.pass + 1) }
+    : null;
   Object.assign(input, {
+    loop,
     work: state.work,
     final,
     laterNeeds: laterNeedsOf(state, entry, contracts),
@@ -954,7 +965,9 @@ function record(stateDir, { step, result, data, reason }, opts = {}) {
     } else {
       state.cursor = { step: owner.id, pass: round + 1 };
     }
-  } else if (entry.step.loop && result === entry.step.loop.on) {
+  } else if (entry.step.loop && contract.loopOnAll.includes(result)) {
+    // Matched against the LIVE contract, not the snapshot's single word, so a run started
+    // before a contract gained a loop-on word still loops on it.
     // Attempt p of the owner starts round p, while rounds remain.
     const l = entry.step.loop;
     if (state.cursor.pass <= l.rounds) {
