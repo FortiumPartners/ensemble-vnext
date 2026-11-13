@@ -1,0 +1,13 @@
+{
+  "feature": "resume-re-proves-a-moved-pr-head",
+  "trd": "docs/TRD/resume-re-proves-a-moved-pr-head.md",
+  "closedAt": "2026-11-13T18:54:33Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; the old-run seam case (FIX-004 case f) plays a merge path the current contract no longer takes, so O4's \"no judgedHead recorded\" path has no behavioural test; FIX-001 case (e) checks a git diff instead of running custody; a model session following the new contract prose is still unproven live",
+    "report": ".trd-state/resume-re-proves-a-moved-pr-head/audit-build-report.md",
+    "auditedCommit": "b4c6708ffe634bca0641edfee9d165cf7a1f658e",
+    "anchorCommit": "9f8461f96f602967a5f91894fb7f451730532891"
+  }
+}

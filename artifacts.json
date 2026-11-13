@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/2aqKFAmJJZRRHHveaQ9RiT",
     "updated_at": "2026-11-13T18:37:24.086Z",
     "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/resume-re-proves-a-moved-pr-head/audit-build-report.md",
+    "url": "https://claude.ai/artifact/4hNsxNt4kRJ3cakF6E2vUL",
+    "updated_at": "2026-11-13T18:54:44.308Z",
+    "command": "/audit-build"
   }
 }
