@@ -1,0 +1,141 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/resume-re-proves-a-moved-pr-head.md",
+  "trd_hash": "805813d088e0770e245e9497b7970fc355c47abef8c2097ab1505db2a48d3d2b",
+  "branch": "feature/0-resume-re-proves-a-moved-pr-head",
+  "strategy": "bug-fix",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "Add sync-head to merge-up.js (library function and CLI verb) with unit tests",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/merge-up.js",
+        "packages/core/lib/merge-up.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-13T18:08:31.720Z",
+      "completed_at": "2026-11-13T18:22:45.566Z",
+      "last_advanced": "2026-11-13T18:11:27.210Z"
+    },
+    "FIX-002": {
+      "description": "ship-sequencer.js: loop-on takes a list (loopOnAll), record matches the live contract's list, next adds the reserved loop input",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-sequencer.js",
+        "packages/core/lib/ship-sequencer.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-13T18:08:31.720Z",
+      "completed_at": "2026-11-13T18:22:45.566Z",
+      "last_advanced": "2026-11-13T18:11:27.212Z"
+    },
+    "FIX-003": {
+      "description": "Contract and command prose: ship-primitive-merge.md (step 0 sync-head, CI wait on every head that is not context.judgedHead, moved result and its data, judgedHead on red, loop-on: red, moved); ship-primitive-wait-ci.md and ship-primitive-collect-findings.md record judgedHead; ship-build.md Step 4 names loop among the input keys and both loop words; docs/guides/ship-build.md describes the moved-head path. ship-primitives.test.js pins the new prose",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/ship-primitive-merge.md",
+        "packages/core/contracts/ship-primitive-wait-ci.md",
+        "packages/core/contracts/ship-primitive-collect-findings.md",
+        "packages/core/contracts/ship-primitives.test.js",
+        "packages/core/commands/ship-build.md",
+        "docs/guides/ship-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-13T18:08:31.720Z",
+      "completed_at": "2026-11-13T18:22:45.566Z",
+      "last_advanced": "2026-11-13T18:11:27.212Z"
+    },
+    "FIX-004": {
+      "description": "Seam test in ship-build.seam.test.js: CI green on A, another session pushes B, resume, merge B",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/ship-build.seam.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-13T18:08:31.720Z",
+      "completed_at": "2026-11-13T18:22:45.566Z",
+      "last_advanced": "2026-11-13T18:11:27.212Z"
+    },
+    "FIX-005": {
+      "description": "Mirror every edited packages/core file into packages/full and .claude; CHANGELOG [Unreleased] entry; CLAUDE.md known-open check",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/lib/merge-up.js",
+        ".claude/lib/ship-sequencer.js",
+        "CHANGELOG.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-13T18:08:31.720Z",
+      "completed_at": "2026-11-13T18:22:45.566Z",
+      "last_advanced": "2026-11-13T18:11:27.212Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "4f976360e56e0e8608439d7e76ac3a3388d62c64",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-13T18:24:45.121Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "4f976360e56e0e8608439d7e76ac3a3388d62c64",
+    "last_checkpoint_timestamp": "2026-11-13T18:24:45.121Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/resume-re-proves-a-moved-pr-head.md § Reproduction",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "Jest, BATS, pytest and node installed; runs from the working tree"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI installed; not needed by this change"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh logged in as islayjames with admin on islayjames/ship-build-live-test (checked 2026-11-13)"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "verification.md marks it must not be touched"
+      }
+    }
+  }
+}
