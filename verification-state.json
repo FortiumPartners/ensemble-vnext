@@ -1,0 +1,143 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/resume-re-proves-a-moved-pr-head/evidence/seam-it1-tests.txt",
+      "reason": "Seam test (a) passed: real merge-up.js sync-head against a bare origin fast-forwards local to B (sync 'fast-forward', head B), then the custody gate returns 'go' and the pr-head check observes B; the same scenario played without the catch-up is refused by custody with no merge call. Matches ship-primitive-merge.md step 0.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/resume-re-proves-a-moved-pr-head/evidence/seam-it1-tests.txt",
+      "reason": "Seam tests (a) and (e) passed: the CI wait ran on B (ciHeads [B]) although B came from another session, and the only gh pr merge call follows that wait; in (e) the merge context was {head: B, judgedHead: A}, so a head merely observed still triggered the wait on B.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/resume-re-proves-a-moved-pr-head/evidence/seam-it1-tests.txt",
+      "reason": "Seam test (b) passed: with CI red on B the merge step returns red with data.head B and judgedHead B and the failing check named, and no gh pr merge call is made; (d) shows the run then enters the red-head loop's collect-findings.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/resume-re-proves-a-moved-pr-head/evidence/seam-it1-tests.txt",
+      "reason": "Seam tests (a), (c), (e) and (f) passed, each asserting the single merge call is '7 --merge --match-head-commit B' (not A). Evidence is the seam test with stubbed gh; no github-live-test merge record, but the pinned --match-head-commit B is what the criterion states.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/resume-re-proves-a-moved-pr-head/evidence/seam-it1-tests.txt",
+      "reason": "Seam test (c) passed: a non-base move on B returns moved, the loop's collect-findings is handed head B and records judgedHead B before the merge of B; seam test (a) passed: a base-only move (baseOnly true) is not handed to the loop and goes straight to the gate and merge with no findings round.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/resume-re-proves-a-moved-pr-head/evidence/seam-it1-tests.txt",
+      "reason": "Seam test (e) passed: wait-ci recorded judgedHead A, await-approval recorded head B, and the merge context read {head: B, judgedHead: A}, so B was treated as unjudged and waited on; (c) shows collect-findings recording judgedHead B. ship-primitive-wait-ci.md:51 and ship-primitive-collect-findings.md:62 declare judgedHead.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/resume-re-proves-a-moved-pr-head/evidence/fs7-scratch-transcript.txt",
+      "reason": "Scratch replay with a bare origin: local held an unpushed commit touching shipped src/c.js while the PR head moved to B; sync-head returned ok:false naming the conflict, local HEAD was unchanged and the commit still in git log, and per the merge contract an ok:false returns stop, so no gh pr merge is reached. Custody's refusal of a local-only shipped commit is shown by the passing seam test 'a commit made locally and never pushed stops the gate, naming the differing file'.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": "satisfied",
+  "causes": [],
+  "exercised": [
+    {
+      "iteration": 1,
+      "ids": [
+        "FS-1",
+        "FS-2",
+        "FS-3",
+        "FS-4",
+        "FS-5",
+        "FS-6",
+        "FS-7"
+      ]
+    }
+  ]
+}
