@@ -139,6 +139,19 @@ none
 
 ## Could Not Verify
 
-- Whether a live interactive `/refine-prd` session now produces recommended options. The prompt
-  states the rule, but obedience is model behaviour, which nothing here exercises (see
-  Verification Environment).
+As of the delivered-code audit, 2026-11-13. Confirmed built and tested, and so not listed here:
+the shared subsection in all four commands, every pointer at an asking site (including
+refine-verification's must-pass owner ruling), the `.claude/commands/` mirrors, and
+`refine-recommend-prose.test.js` passing, with `refine-design-prose.test.js`,
+`refine-verification-must-pass.test.js` and `verify-command-surface.test.js` still passing.
+
+- Whether a live interactive `/refine-prd`, `/refine-trd`, `/refine-verification` or
+  `/refine-design` session now produces recommended options. The prompt states the rule, but
+  obedience is model behaviour, which nothing in the audit exercises (see Verification
+  Environment). Out of scope for a code audit.
+- Fidelity to a product requirement. This change has no PRD (it comes from issue #59), so the
+  audit checked the delivered code against this TRD only; whether the TRD captures everything
+  the issue asks for was not checked.
+- Acceptance criterion (5)'s "full Jest and BATS batteries pass". The audit re-ran the four suites
+  named above, not the full batteries; the phase checkpoint recorded 7 suites failing for
+  environment reasons only, which nothing here re-examined.
