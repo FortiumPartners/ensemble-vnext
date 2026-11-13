@@ -51,20 +51,25 @@ The rule text, verbatim (wrapping may differ; the words may not):
 >
 > **Every question states a recommendation.** Each question in an `AskUserQuestion` call marks
 > one option "(Recommended)", lists it first, and gives a one-line reason for it in that
-> option's description. When no option is better than the others (the evidence supports each
-> reading equally, or the choice is purely the owner's preference), say so plainly in the
-> question text, and say why, rather than marking one at random.
+> option's description (a multi-select batch of findings marks each finding instead, below).
+> When no option is better than the others (the evidence supports each reading equally, or the
+> choice is purely the owner's preference), say so plainly in the question text, and say why,
+> rather than marking one at random.
 >
 > **Base the recommendation on what this command already does, not on taste.** For an open
-> question, recommend the author's recorded assumption unless evidence you can cite says
-> otherwise. For a finding, recommend what the non-interactive mode would do with it. A
-> recommendation is held to the same sourcing as a finding: "never strike on judgment" applies
-> to what you recommend, too.
+> question, recommend the author's recorded assumption, or the default this command names for
+> it, unless evidence you can cite says otherwise. For a finding, recommend what the
+> non-interactive mode would do with it. Where that mode would stop rather than decide (a
+> contradiction it reports as STUCK), or does nothing with the finding, there is no
+> recommendation to borrow: say so, as above. A recommendation is held to the same sourcing as a
+> finding: cite what supports it, never judgment alone.
 >
 > **In a multi-select batch of findings, the rule applies to each finding.** Mark
 > "(Recommended)" on every finding you recommend applying and list those first. A question
 > holds at most four options, so put at most four findings in one question, group them by
-> action, and split a larger batch across questions (up to four per call). The option's label
+> action, and split a larger batch across questions (up to four per call). A question also needs
+> at least two options, so ask a finding left alone in its group as its own apply-or-skip
+> question. The option's label
 > carries a short plain name and the id. Its description carries what the finding is, what
 > applying it changes, and why you do or do not recommend it.
 >

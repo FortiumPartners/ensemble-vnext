@@ -65,12 +65,31 @@ test('the subsection is identical in all four commands', () => {
   for (const n of NAMES) expect(subsection(raws[n])).toBe(first);
 });
 
+/** The interactive part of a phase only, so a pointer moved into the --auto text fails. */
+function interactive(raw, phaseHeading, phaseEnd, marker, markerEnd) {
+  const phase = raw.slice(raw.indexOf(phaseHeading));
+  const end = phase.search(phaseEnd);
+  return slice(end < 0 ? phase : phase.slice(0, end), marker, markerEnd);
+}
+
+const PHASE0 = ['## Phase 0: Answer the open questions', /\n(---|## Phase 1)/];
+const PHASE2 = ['### Phase 2: Apply', /\n### Phase 3/];
+
 describe('every asking site points at the rule', () => {
-  test.each(['refine-prd', 'refine-trd'])('%s Phase 0 Interactive', (n) => {
-    expect(slice(raws[n], '## Phase 0: Answer the open questions', /\n(---|## Phase 1)/)).toContain(POINTER);
+  test('refine-prd Phase 0 Interactive', () => {
+    const t = interactive(raws['refine-prd'], ...PHASE0, '**Interactive:**', /\n\n/);
+    expect(t).not.toBe('');
+    expect(t).toContain(POINTER);
+  });
+  test('refine-trd Phase 0 Interactive', () => {
+    const t = interactive(raws['refine-trd'], ...PHASE0, '### Interactive', /\n### /);
+    expect(t).not.toBe('');
+    expect(t).toContain(POINTER);
   });
   test.each(['refine-prd', 'refine-trd'])('%s Phase 2 Interactive', (n) => {
-    expect(slice(raws[n], '### Phase 2: Apply', /\n### Phase 3/)).toContain(POINTER);
+    const t = interactive(raws[n], ...PHASE2, '**Interactive:**', /\*\*Non-interactive:\*\*/);
+    expect(t).not.toBe('');
+    expect(t).toContain(POINTER);
   });
   test('refine-verification ### Interactive', () => {
     expect(slice(raws['refine-verification'], '### Interactive', /\n### /)).toContain(POINTER);
