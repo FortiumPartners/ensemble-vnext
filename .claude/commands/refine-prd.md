@@ -30,13 +30,46 @@ recorded every such gap in the PRD's `## Open Questions` section — that is thi
 **The autonomy exemption is conditional on mode.** Interactive mode's purpose is to ask;
 `--auto` obeys autonomy discipline and asks nothing.
 
+### Putting a question to the owner
+
+**Every question states a recommendation.** Each question in an `AskUserQuestion` call marks
+one option "(Recommended)", lists it first, and gives a one-line reason for it in that
+option's description (a multi-select batch of findings marks each finding instead, below).
+When no option is better than the others (the evidence supports each reading equally, or the
+choice is purely the owner's preference), say so plainly in the question text, and say why,
+rather than marking one at random.
+
+**Base the recommendation on what this command already does, not on taste.** For an open
+question, recommend the author's recorded assumption, or the default this command names for
+it, unless evidence you can cite says otherwise. For a finding, recommend what the
+non-interactive mode would do with it. Where that mode would stop rather than decide (a
+contradiction it reports as STUCK), or does nothing with the finding, there is no
+recommendation to borrow: say so, as above. A recommendation is held to the same sourcing as a
+finding: cite what supports it, never judgment alone.
+
+**In a multi-select batch of findings, the rule applies to each finding.** Mark
+"(Recommended)" on every finding you recommend applying and list those first. A question
+holds at most four options, so put at most four findings in one question, group them by
+action, and split a larger batch across questions (up to four per call). A question also needs
+at least two options, so ask a finding left alone in its group as its own apply-or-skip
+question. The option's label carries a short plain name and the id. Its description carries
+what the finding is, what applying it changes, and why you do or do not recommend it.
+
+**Explain each item in plain words, never by its id alone.** Write "the uptime target nothing
+in the source asks for (NFR-3)", not "NFR-3". The owner has to be able to decide from the
+question alone, without opening the artifact.
+
+This is the owner's rule (2026-11-04): "refine commands need to clearly state if there's a
+recommended path!" It exists because a batch of findings sent with no recommendations cost a
+second round of questions.
+
 ---
 
 ## Phase 0: Answer the open questions
 
 **Interactive:** put each open question to the user with `AskUserQuestion`. Real options, not
 a blank prompt — the author stated its assumption and what breaks if that is wrong, so offer
-both. Highest-consequence question first.
+both. Highest-consequence question first. Follow **Putting a question to the owner**, above.
 
 **`--auto` closes every question. It leaves nothing open.**
 
@@ -118,7 +151,8 @@ supersedes it and treat that as in-scope.
 
 ### Phase 2: Apply
 
-**Interactive:** present findings grouped by action, ask, apply the user's decisions.
+**Interactive:** present findings grouped by action, ask, apply the user's decisions. Follow
+**Putting a question to the owner**, above.
 **Non-interactive:** remove unsourced requirements and list them; report contradictions as
 STUCK.
 
