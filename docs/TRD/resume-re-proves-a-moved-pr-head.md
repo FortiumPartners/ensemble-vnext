@@ -154,6 +154,8 @@ none
 | FIX-003 | Contract and command prose: `ship-primitive-merge.md` (step 0 `sync-head`, CI wait on every head that is not `context.judgedHead`, `moved` result and its data, `judgedHead` on `red`, `loop-on: red, moved`); `ship-primitive-wait-ci.md` and `ship-primitive-collect-findings.md` record `judgedHead`; `ship-build.md` Step 4 names `loop` among the input keys and both loop words; `docs/guides/ship-build.md` describes the moved-head path. `ship-primitives.test.js` pins the new prose | O1, O2, O3 | FIX-001, FIX-002 | `ship-primitives.test.js` asserts: the merge contract runs `merge-up.js sync-head` before `decide` and passes `context.judgedHead`; waits for CI on a head that is not `context.judgedHead`; still matches `--match-head-commit <observed>` and never `<head>`; declares `moved` in `results`, `stops-on` and `loop-on`, with data `{ failed: [], flaky, head, judgedHead }`; no longer says CI is waited on only for a head this step pushed. `wait-ci` and `collect-findings` declare `judgedHead` in their result data. All contracts load through `loadPrimitives` with no errors |
 | FIX-004 | Seam test in `ship-build.seam.test.js`: CI green on A, another session pushes B, resume, merge B | O1, O2, O3, O4 | FIX-001, FIX-002, FIX-003 | The `gh` stub refuses `pr merge` whose `--match-head-commit` differs from origin's head with "Head branch was modified" (as GitHub does). `playMerge` follows the new contract (sync-head with the recorded `judgedHead`, CI wait on an unjudged head, gate, pr-head, merge); existing merge cases still pass. New cases: (a) base-only move: the CI wait ran on B (the stub logs which head `pr checks` read), and the merge log reads exactly `7 --merge --match-head-commit B`; the same start with the old play (no sync-head) ends in the custody `refused`; (b) CI red on B: `red` with `judgedHead` B, no merge call; (c) non-base move with a loop: `moved`, the loop hands out `collect-findings` with `context.head` B, then the merge again, which does not wait on B again and merges B; (d) the bar rule: a red head whose loop `collect-findings` records `clean` with `judgedHead` equal to it is merged with no second CI wait; (e) `await-approval` recorded `head: B` without judging it: the merge still syncs and waits on B; (f) a saved state with the old snapshot `loop.on: "red"` and no `judgedHead` anywhere still reaches `merged` on B |
 | FIX-005 | Mirror every edited `packages/core` file into `packages/full` and `.claude`; CHANGELOG `[Unreleased]` entry; CLAUDE.md known-open check | O1 | FIX-001, FIX-002, FIX-003, FIX-004 | `cmp` of each edited core file against its `packages/full` and `.claude` copy reports no difference; the full Jest battery shows no failing test file beyond the 7 that fail on this branch before the change (`status.test.js`, `design-bundle`, `design-render-walk`, `design-render`, and the `design-setup`, `ship-setup`, `verification-setup` skill tests); CHANGELOG `[Unreleased]` names #98 |
+| AMEND-001 | [test-gap] Seam case (f) and playMerge play the pre-897b51a7 path (moved result with no judgedHead recorded); no test plays the current contract's no-judgedHead path: CI wait on B, merge with --match-head-commit B, no moved, no round, no issues line. Add the judgedHead guard to playMerge's moved branch and rework case (f) to assert that path. — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/lib/ship-build.seam.test.js:531-537 (no ctx.judgedHead guard) and :933-959 (expect(first.moved).toBe(true), records moved, runs collect-findings); packages/core/contracts/ship-primitive-merge.md:108-112; only a prose pin at packages/core/contracts/ship-primitives.test.js:349) | amendment — no objective recorded | None | [test-gap] Seam case (f) and playMerge play the pre-897b51a7 path (moved result with no judgedHead recorded); no test plays the current contract's no-judgedHead path: CI wait on B, merge with --match-head-commit B, no moved, no round, no issues line. Add the judgedHead guard to playMerge's moved branch and rework case (f) to assert that path. no longer holds |
+| AMEND-002 | [test-gap] Criterion (e) requires that custody.js reconcile --head <tip> no longer refuses after a record-file-only local commit is merged with the tip; the unit test asserts only the git diff name list, never runs custody. — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/lib/merge-up.test.js:209-216 asserts g(local,'diff','--name-only',B,'HEAD') === '.trd-state/f/implement.json' with no custody.js reconcile call) | amendment — no objective recorded | None | [test-gap] Criterion (e) requires that custody.js reconcile --head <tip> no longer refuses after a record-file-only local commit is merged with the tip; the unit test asserts only the git diff name list, never runs custody. no longer holds |
 
 ## Task Grounding
 
@@ -169,7 +171,7 @@ none
 - **Reuse:** `validateLoop`, `attachLoop`, `record`'s `entry.step.loop && result === entry.step.loop.on` branch, `next`'s input assembly and `RESERVED_INPUT` [read]
 - **Replaces:** the snapshot-only single-word match in `record` [read]
 - **Follow:** the module is primitive-blind: no primitive or result word is named in code (header comment) [read]
-- **Careful:** keep `loopOn` a string and the snapshot's `loop.on` a string; `ship-sequencer.test.js:913` and `ship-primitives.test.js:300` read them. `laterNeedsOf` and `final` read `loop.rounds`; leave them. `input.loop.on` comes from the live contract, never the snapshot [read]
+- **Careful:** keep `loopOn` a string and the snapshot's `loop.on` a string; `ship-sequencer.test.js:911` and `ship-primitives.test.js:300` read them. `laterNeedsOf` and `final` read `loop.rounds`; leave them. `input.loop.on` comes from the live contract, never the snapshot [read]
 
 ### FIX-003
 - **Touches:** `packages/core/contracts/ship-primitive-merge.md`, `packages/core/contracts/ship-primitive-wait-ci.md`, `packages/core/contracts/ship-primitive-collect-findings.md`, `packages/core/contracts/ship-primitives.test.js`, `packages/core/commands/ship-build.md`, `docs/guides/ship-build.md`
@@ -192,14 +194,35 @@ none
 - **Follow:** copy core over the mirrors; never hand-edit a mirror [read]
 - **Careful:** CLAUDE.md has no known-open line for #98 [read]; leave its list alone unless the fix changes one
 
+### AMEND-001
+
+- **Touches:** `packages/core/lib/ship-build.seam.test.js`
+- **Reuse:** FIX-004's seam fixtures (`setup`, `playMerge`, `runToMerge`, the `gh` stub in the "merge step" describe) [read]
+- **Careful:** filled in by `/audit-build`'s fix run from the audit evidence. `playMerge` must follow `ship-primitive-merge.md`:108-112: with no `judgedHead` recorded, wait for CI on the new head once, merge pinned to it, return no `moved`, spend no loop round and add no issues line [read]
+
+### AMEND-002
+
+- **Touches:** `packages/core/lib/merge-up.test.js`
+- **Reuse:** FIX-001's real-git fixture (bare origin, stubbed `gh`) and `custody.js reconcile` as the custody tests call it [read]
+- **Careful:** filled in by `/audit-build`'s fix run from the audit evidence. Case (e) must run `custody.js reconcile --head <tip>` and assert it no longer refuses, not only the `git diff --name-only` list [read]
+
 ## Could Not Verify
 
+Updated by `/audit-build` on 2026-11-13. Five of five verifiers reported. What it found missing
+from the tests is in its readout, not here; this section lists only what it did not or could not
+check.
+
+- **No PRD exists for this work** (it is a defect fix from GitHub issue #98), so the audit checked
+  the delivered code against this TRD only. Whether the TRD's objectives faithfully and completely
+  capture what issue #98 asks for was not checked.
 - The Storybook incident itself (islayjames/storybook PRs #75 and #81) was not replayed; the
-  reproduction above is the same sequence in a scratch repo.
+  reproduction above is the same sequence in a scratch repo. Out of scope: the audit reads this
+  repository's code and tests and does not reach that repository.
 - Whether a model session follows the new contract prose is not proven by the seam test, which
   plays the lead. An optional live proof in islayjames/ship-build-live-test is allowed; its one PR
-  slot is held by PR #3.
+  slot was held by PR #3 when this TRD was written (not re-checked by the audit, which runs no live
+  session).
 - A run whose record predates `judgedHead` waits for CI once on its current head at the merge. If
   that head's CI failures had been accepted below the owner's findings bar before this fix, the wait
   reads them as `red` and sends them through the fix loop once more. Only runs in flight across the
-  upgrade can meet this.
+  upgrade can meet this. This is an accepted cost of the design, not a check the audit could run.
