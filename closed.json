@@ -1,0 +1,8 @@
+{
+  "feature": "narrow-reproof-scope",
+  "trd": "docs/TRD/narrow-reproof-scope.md",
+  "closedAt": "2026-11-16T12:23:57Z",
+  "closedBy": "owner",
+  "note": "Closed by the product PM as the owner's delegate (OWNER-CALL, not yet reviewed by the owner): accept the audit's caveats and close. D10: the code follows the investigation's same-directory rule; the code is kept. The TRD/docs mismatch is filed as issue #163 and is not fixed here. O2 custody stays as built (stricter than asked). O4 design-row covers stay as built. O9 coverage and the 7 discoveries are also in #163.",
+  "audit": null
+}
