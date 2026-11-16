@@ -1,0 +1,266 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-1/validate.txt",
+      "reason": "validate on the 14-board fixture (8 Core to-be/as-is, 4 core:false) returned no errors, exit 0.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-2/validate.txt",
+      "reason": "validate returned '9 Core boards; at most 8 may be Core: ...' for a 9-Core map (exit 0 but an error result, which the criterion allows).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-3/validate.txt",
+      "reason": "core:true on part board 12-parts and flow board 13-flow each rejected with an error naming the board.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-4/summary.txt",
+      "reason": "Legacy map: core report legacy:true; every generated default-state row is classed core (8 rows); other boards get no row under the unchanged row-selection rule.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-5/diff.txt",
+      "reason": "comparison-rows run twice on one map; the two 6215-byte outputs are identical.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-6/summary-richer.txt",
+      "reason": "Exactly one core row (Core board default state); loading, error, second-viewport board and non-Core board rows all evidence-only.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-7/summary.txt",
+      "reason": "12-row fixture: 8 core, 4 evidence-only.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-8/summary.txt",
+      "reason": "Definition table carries a Board class column per row, as implement-trd.md instructs the writer; the library reads it back as 8 core, 4 evidence-only.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-9/summary.txt",
+      "reason": "must-pass-coverage parses the definition in code and returns exactly the 4 evidence-only ids.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-10/only-evidence.out.json",
+      "reason": "Only evidence-only gaps -> exit-satisfied; control without evidenceOnly remediates; 39 jest tests pass.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-11/only-evidence-must-pass.out.json",
+      "reason": "exit-satisfied under both blocking all and blocking must-pass.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-12/control-evidenceOnly-empty.out.json",
+      "reason": "Control exits insufficient-coverage at 8/12; with the 4 ids evidence-only the same state exits satisfied.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-13/report.md",
+      "reason": "Report lists the evidence-only not_met row labelled 'evidence only, never blocks' with its screenshot embedded.",
+      "cause": null,
+      "provenAt": 1,
+      "image": "evidence/FS-13/home-loading-capture.png",
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-14/core-notmet-all.out.json",
+      "reason": "Default policy, one core row not_met: remediate, not satisfied.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-15/stalled-core-notmet-must-pass.out.json",
+      "reason": "Under must-pass policy a stalled core not_met row exits stalled with no nonBlocking list.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-16",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-16/r2/grep.txt",
+      "reason": "/refine-design (line 204) and /audit-design (line 73) state the full Core rule (at most 8, only to-be and as-is may be Core). /create-design states the cap of 8 (line 75) but nowhere states that only to-be and as-is boards may be Core; it says only that core is true on a Core to-be board, false on every as-is board and absent on a part (line 151), and is silent on flow boards. Both copies of create-design.md are identical, so the kind half of the rule is still missing from /create-design.",
+      "cause": "judged-failed",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": "build-defect",
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": "design-commands-missing-core-rule",
+      "awaiting": null
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-17/r3/titles.after.txt",
+      "reason": "design-map.js core-marks on a fixture canvas.json prefixed [Core] to the titles of the 8 Core boards and left the 6 non-Core boards (as-is, draft, old, mismatch, parts, flow) unchanged; titles.diff shows changes only on lines 1-8.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    }
+  ],
+  "gapsClosed": [
+    0,
+    1
+  ],
+  "outcome": null,
+  "causes": [
+    {
+      "key": "design-commands-missing-core-rule",
+      "representative": "FS-16",
+      "members": [
+        "FS-16"
+      ],
+      "status": "open",
+      "closedAt": null
+    }
+  ],
+  "exercised": [
+    {
+      "iteration": 1,
+      "ids": [
+        "FS-1",
+        "FS-2",
+        "FS-3",
+        "FS-4",
+        "FS-5",
+        "FS-6",
+        "FS-7",
+        "FS-8",
+        "FS-9",
+        "FS-10",
+        "FS-11",
+        "FS-12",
+        "FS-13",
+        "FS-14",
+        "FS-15",
+        "FS-16",
+        "FS-17"
+      ]
+    },
+    {
+      "iteration": 2,
+      "ids": [
+        "FS-16",
+        "FS-17"
+      ]
+    }
+  ]
+}

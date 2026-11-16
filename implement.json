@@ -292,6 +292,7 @@
         "status": "unusable",
         "reason": "verification.md §1: must not be touched"
       }
-    }
+    },
+    "outcome": "stalled"
   }
 }

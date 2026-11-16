@@ -1,0 +1,293 @@
+{
+  "feature": "core-boards-in-designs",
+  "prd": "docs/TRD/core-boards-in-designs.md § Intended Change",
+  "definitionPath": ".trd-state/core-boards-in-designs/success-definition.md",
+  "outcome": "stalled",
+  "reason": "iteration closed no gaps and no causes — remediation is not converging",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "Map validation accepts a `design-map.json` whose boards carry `\"core\": true` or `\"core\": false`, with no more than 8 Core boards, all of kind `to-be` or `as-is`",
+      "cites": "After s1: \"a board may carry `\"core\": true|false`; at most 8 are Core, and only `to-be` and `as-is` boards may be\"",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-1/validate.txt",
+      "reason": "validate on the 14-board fixture (8 Core to-be/as-is, 4 core:false) returned no errors, exit 0.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "statement": "Map validation rejects a `design-map.json` that marks more than 8 boards Core, and says the limit was exceeded",
+      "cites": "After s1: \"at most 8 are Core\"",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-2/validate.txt",
+      "reason": "validate returned '9 Core boards; at most 8 may be Core: ...' for a 9-Core map (exit 0 but an error result, which the criterion allows).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "statement": "Map validation rejects `\"core\": true` on a board that is neither `to-be` nor `as-is` (for example a `part` board or a `flow` board)",
+      "cites": "After s1: \"only `to-be` and `as-is` boards may be\"",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-3/validate.txt",
+      "reason": "core:true on part board 12-parts and flow board 13-flow each rejected with an error naming the board.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "statement": "A legacy map, one in which no board carries a `core` key, is read with every screen board treated as Core: the comparison-row generator classes the default-state frame of every screen board `core`",
+      "cites": "After s2: \"A map with no `core` key anywhere is a legacy map, and every screen board in it reads as Core\"",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-4/summary.txt",
+      "reason": "Legacy map: core report legacy:true; every generated default-state row is classed core (8 rows); other boards get no row under the unchanged row-selection rule.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "statement": "The design-comparison rows are produced by a CLI from the map, not written by a model, and the same map always yields the same rows",
+      "cites": "After s3: \"A deterministic CLI generates the comparison rows from the map\"; Today s2: \"with no code generating them\"",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-5/diff.txt",
+      "reason": "comparison-rows run twice on one map; the two 6215-byte outputs are identical.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "statement": "Every generated comparison row carries a class: `core` for the default-state frame of a Core board, and `evidence-only` for every other frame, including every frame of a non-Core board and a Core board's non-default states and second viewport",
+      "cites": "After s3: \"each carrying a class: `core` for the default-state frame of a Core board, `evidence-only` for every other frame\"; Today s3 names the other frames: \"an error state, a loading state, a second viewport\"",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-6/summary-richer.txt",
+      "reason": "Exactly one core row (Core board default state); loading, error, second-viewport board and non-Core board rows all evidence-only.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "statement": "A 12-board fixture design with 8 Core boards yields exactly 8 must-pass (`core`) and 4 `evidence-only` design-comparison criteria",
+      "cites": "Acceptance: \"a 12-board fixture design yields 8 must-pass and 4 evidence-only criteria\"",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-7/summary.txt",
+      "reason": "12-row fixture: 8 core, 4 evidence-only.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-8",
+      "statement": "The success definition written for a design-comparison check records each row's class, so a reader of the definition file can tell which rows are `core` and which are `evidence-only`",
+      "cites": "After s4: \"The success definition records the class per row\"",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-8/summary.txt",
+      "reason": "Definition table carries a Board class column per row, as implement-trd.md instructs the writer; the library reads it back as 8 core, 4 evidence-only.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-9",
+      "statement": "The verification loop gets the set of evidence-only criterion ids by reading the success-definition file in code, not from a model's reading",
+      "cites": "After s4: \"the verification loop reads the evidence-only ids from the definition file in code\"",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-9/summary.txt",
+      "reason": "must-pass-coverage parses the definition in code and returns exactly the 4 evidence-only ids.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-10",
+      "statement": "An `evidence-only` criterion ruled `not_met` is not an open gap: it is not handed to the Debug stage and does not make the loop iterate again",
+      "cites": "After s4: \"never fails a run on one\"",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-10/only-evidence.out.json",
+      "reason": "Only evidence-only gaps -> exit-satisfied; control without evidenceOnly remediates; 39 jest tests pass.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-11",
+      "statement": "A run whose only failures are `not_met` rulings on `evidence-only` criteria exits `satisfied`, under the default blocking policy as well as under `Blocking: must-pass only`",
+      "cites": "After s4: \"never fails a run on one\"; Today s2: \"Under the default blocking policy a `not_met` on any frame ... blocks `satisfied`\" (the behaviour this replaces)",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-11/only-evidence-must-pass.out.json",
+      "reason": "exit-satisfied under both blocking all and blocking must-pass.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-12",
+      "statement": "`evidence-only` criteria are left out of the coverage ratio, so unproven evidence-only rows cannot push a run below the coverage floor",
+      "cites": "domain-derived: the source says the loop \"never fails a run on one\" (After s4); a run whose coverage falls below the floor exits `insufficient-coverage`, so counting an unproven evidence-only row in the ratio would let it fail the run, which the source rules out",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-12/control-evidenceOnly-empty.out.json",
+      "reason": "Control exits insufficient-coverage at 8/12; with the 4 ids evidence-only the same state exits satisfied.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-13",
+      "statement": "An `evidence-only` frame is still captured and shown for review: its row appears in the verification report with its screenshot, even though its ruling cannot fail the run",
+      "cites": "domain-derived: the source keeps a generated row for every non-default frame (After s3) and records it in the success definition (After s4) rather than dropping it, and names its class \"evidence-only\"; a row that kept its place but captured nothing would provide no evidence, so the frame is still exercised and reported",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-13/report.md",
+      "reason": "Report lists the evidence-only not_met row labelled 'evidence only, never blocks' with its screenshot embedded.",
+      "cause": null,
+      "provenAt": 1,
+      "image": "evidence/FS-13/home-loading-capture.png",
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-14",
+      "statement": "A `core` design-comparison criterion is must-pass: under the default blocking policy (`Blocking: all`) a `not_met` ruling on it stops the run from exiting `satisfied`",
+      "cites": "After s4: \"a `core` row is must-pass\"; Today s2: \"Under the default blocking policy a `not_met` on any frame ... blocks `satisfied`\"",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-14/core-notmet-all.out.json",
+      "reason": "Default policy, one core row not_met: remediate, not satisfied.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-15",
+      "statement": "A `core` design-comparison criterion still blocks under `Blocking: must-pass only`: a `not_met` ruling on it stops the run from exiting `satisfied` and is not filed as a non-blocking defect",
+      "cites": "After s4: \"a `core` row is must-pass\"; Today s3: \"under `Blocking: must-pass only` none of them block\" (the behaviour this replaces)",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-15/stalled-core-notmet-must-pass.out.json",
+      "reason": "Under must-pass policy a stalled core not_met row exits stalled with no nonBlocking list.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-16",
+      "statement": "Each of the 3 design commands, `/create-design`, `/refine-design` and `/audit-design`, carries the Core rule: at most 8 Core boards, and only `to-be` and `as-is` boards may be Core",
+      "cites": "After s5: \"`/create-design`, `/refine-design` and `/audit-design` carry the Core rule\"; After s1 for the rule's content: \"at most 8 are Core, and only `to-be` and `as-is` boards may be\"",
+      "status": "not_met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-16/r2/grep.txt",
+      "reason": "/refine-design (line 204) and /audit-design (line 73) state the full Core rule (at most 8, only to-be and as-is may be Core). /create-design states the cap of 8 (line 75) but nowhere states that only to-be and as-is boards may be Core; it says only that core is true on a Core to-be board, false on every as-is board and absent on a part (line 151), and is silent on flow boards. Both copies of create-design.md are identical, so the kind half of the rule is still missing from /create-design.",
+      "cause": "judged-failed",
+      "provenAt": null,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "not_met"
+        }
+      ],
+      "blocker": "create-design.md never states that only to-be and as-is boards may be Core",
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": "build-defect",
+      "settled": null,
+      "causeKey": "design-commands-missing-core-rule",
+      "awaiting": null
+    },
+    {
+      "id": "FS-17",
+      "statement": "A lib step writes the Core marker into the `canvas.json` title of each Core board, and leaves the title of every non-Core board unmarked",
+      "cites": "After s5: \"a lib step writes the Core marker into each Core board's `canvas.json` title\"; that non-Core titles stay unmarked is domain-derived: a marker placed on every board would distinguish nothing",
+      "status": "met",
+      "artifact": ".trd-state/core-boards-in-designs/evidence/FS-17/r3/titles.after.txt",
+      "reason": "design-map.js core-marks on a fixture canvas.json prefixed [Core] to the titles of the 8 Core boards and left the 6 non-Core boards (as-is, draft, old, mismatch, parts, flow) unchanged; titles.diff shows changes only on lines 1-8.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "evidence gap"
+        },
+        {
+          "iteration": 2,
+          "result": "met"
+        }
+      ],
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "causeKey": null,
+      "awaiting": null
+    }
+  ],
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  },
+  "mustPass": [
+    "FS-1",
+    "FS-2",
+    "FS-3",
+    "FS-4",
+    "FS-5",
+    "FS-6",
+    "FS-7",
+    "FS-8",
+    "FS-9",
+    "FS-10",
+    "FS-11",
+    "FS-12",
+    "FS-13",
+    "FS-14",
+    "FS-15"
+  ],
+  "evidenceOnly": [],
+  "mustPassUncovered": [],
+  "causes": [
+    {
+      "key": "design-commands-missing-core-rule",
+      "representative": "FS-16",
+      "members": [
+        "FS-16"
+      ],
+      "status": "open",
+      "closedAt": null
+    }
+  ]
+}
