@@ -33,7 +33,12 @@ The caller gives the gate `work`, `context`, and which act it guards (`merge` or
 3. **Act on the result:**
    - `set`, `none` or `moved`: go on.
    - `reverify` (shipped source changed since the anchor and the listed must-pass criteria need
-     proof again): the head is already pushed, so a preview of it exists or is building. First
+     proof again): the head is already pushed, so a preview of it exists or is building. **State
+     the scope first**, per `.claude/contracts/rerun-scope.md` (`rerun-scope`): the anchor is the
+     custody anchor, `node .claude/lib/rerun-scope.js changed --anchor <custody anchor>` lists the
+     change, and the listed criteria are the related ones; put the `Rerun scope:` line in
+     `data.custody` for the readout. `custody.js` still sets the criteria list (changing that is
+     issue #153); this step only keeps it from being widened by reflex. Then
      take the start time with `date -u +%Y-%m-%dT%H:%M:%SZ` (UTC, taken BEFORE the call: a time
      taken after it makes the fresh proof file read as stale). Then run
      `/verify-build <work.trd> --criteria <ids> --no-fix --chained` (a synchronous Skill call; its

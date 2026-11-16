@@ -54,6 +54,13 @@
  * `floor: { contrast, target }`) give a verdict; with no floor each frame reports its lowest
  * contrast and smallest target and no verdict. A measure is data for the critic, never a gate.
  *
+ * REUSED (FIX-004). A contrast or target-size measure carries `reused: true` when its element has no
+ * `data-dc-tpl` attribute and sits inside `.sc-host-x`: the runtime stamps `data-dc-tpl` on every
+ * element a board draws and wraps each `x-import` in `.sc-host-x`, so this marks library internals
+ * and leaves hand-drawn children of an import "drawn". The flag is absent (not false) otherwise,
+ * and is part of the grouping key. Contrast skips an element inside a disabled control
+ * (`[disabled]`, `[aria-disabled="true"]`); target size does not.
+ *
  * Module option `offline` (used by the pinned-runtime tests): the runtime's two React CDN
  * requests are answered from the `react` / `react-dom` devDependencies and every other request
  * that does not go to the local server is aborted, so a test can never pass or fail on a CDN.
@@ -476,6 +483,10 @@ const MEASURE_SCRIPT = String.raw`function (args) {
     }
     return false;
   }
+  // Reuse (FIX-004): the runtime stamps data-dc-tpl on every element a board itself draws and wraps
+  // each x-import in div.sc-host-x, so an untagged element inside a host is a library internal.
+  // Hand-drawn children placed inside an import keep their tag and stay "drawn".
+  function reused(el) { return !el.hasAttribute('data-dc-tpl') && !!el.closest('.sc-host-x'); }
   function group(map, key, make) {
     if (map[key]) { map[key].count++; return; }
     map[key] = make(); map[key].count = 1; map.order.push(key);
@@ -500,6 +511,8 @@ const MEASURE_SCRIPT = String.raw`function (args) {
   // Contrast.
   var cg = groups(), unmeasured = null, lowest = null, measuredCount = 0;
   textEls.forEach(function (el) {
+    // A disabled control is exempt from contrast, so it is not measured at all.
+    if (el.closest('[disabled],[aria-disabled="true"]')) return;
     var fg = parse(getComputedStyle(el).color), bg = backdrop(el);
     if (!fg || !bg) {
       if (!unmeasured) unmeasured = { check: 'contrast', verdict: 'not-measured', value: null, count: 0, element: describe(el) };
@@ -512,10 +525,17 @@ const MEASURE_SCRIPT = String.raw`function (args) {
     if (typeof floor.contrast === 'number') {
       if (rt < floor.contrast) {
         var pair = Math.round(fg.r) + ',' + Math.round(fg.g) + ',' + Math.round(fg.b) + ' on ' + bg.r + ',' + bg.g + ',' + bg.b;
-        group(cg, pair, function () { return { check: 'contrast', verdict: 'below-floor', value: round(rt, 2), detail: pair, element: describe(el) }; });
+        var ru = reused(el);
+        // The flag is part of the key so a reused miss and a drawn miss never merge into one group.
+        group(cg, pair + (ru ? '|reused' : ''), function () {
+          var m = { check: 'contrast', verdict: 'below-floor', value: round(rt, 2), detail: pair, element: describe(el) };
+          if (ru) m.reused = true;
+          return m;
+        });
       }
     } else if (!lowest || rt < lowest.value) {
       lowest = { check: 'contrast', verdict: null, value: round(rt, 2), element: describe(el) };
+      if (reused(el)) lowest.reused = true;
     }
   });
   drain(cg, measures);
@@ -529,9 +549,17 @@ const MEASURE_SCRIPT = String.raw`function (args) {
   targets.forEach(function (el) {
     var r = el.getBoundingClientRect(), w = round(r.width, 1), h = round(r.height, 1), m = Math.min(w, h);
     if (typeof floor.target === 'number') {
-      if (m < floor.target) group(tg, w + 'x' + h, function () { return { check: 'target-size', verdict: 'below-floor', value: m, detail: w + 'x' + h, element: describe(el) }; });
+      if (m < floor.target) {
+        var tru = reused(el);
+        group(tg, w + 'x' + h + (tru ? '|reused' : ''), function () {
+          var t = { check: 'target-size', verdict: 'below-floor', value: m, detail: w + 'x' + h, element: describe(el) };
+          if (tru) t.reused = true;
+          return t;
+        });
+      }
     } else if (!smallest || m < smallest.value) {
       smallest = { check: 'target-size', verdict: null, value: m, detail: w + 'x' + h, element: describe(el) };
+      if (reused(el)) smallest.reused = true;
     }
   });
   drain(tg, measures);

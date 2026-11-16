@@ -376,6 +376,16 @@ They are reported for design, and the feature stays open.
   chained): the feature stays open;
   say so in STATE, and NEXT is the design work the readout names.
 
+**Before a re-audit, choose its scope.** Read `.claude/contracts/rerun-scope.md` (`rerun-scope`):
+the anchor is the `auditedCommit` of the last passing round, so
+`node .claude/lib/rerun-scope.js changed --anchor <auditedCommit>` lists what changed since.
+Only run records, docs outside the audited TRD and PRD, or framework files changed: scope `none`,
+the earlier verdict stands and the workflow is not dispatched. A narrow readable change: `targeted`,
+which is what `previous` below already asks of the verifiers. Wide, shared or unreadable: `full`,
+so omit `previous` and resample. When unsure, ask once with your default; under `--report-only`
+or any chained call, stop with `COMMAND STUCK` carrying the question and the default. DECISIONS
+carries the contract's one-line `Rerun scope:` statement.
+
 **On a re-audit** (the ledger already has a round), pass the workflow `previous`:
 `{ reportPath: ".trd-state/<feature>/audit-build-report.md", auditedCommit, index, trdHash }`,
 taking `auditedCommit` and `trdHash` from the last ledger round and `index` from

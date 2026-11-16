@@ -100,6 +100,17 @@ Next:   /audit-build docs/TRD/<feature>.md
 Run `notify-complete.sh` and `PushNotification` as for any STUCK (see "Completion signal"). A
 `/plan` TRD is shipped without the gate.
 
+### Rerun scope before a re-proof or CI rerun
+
+Before the custody gate re-proves anything, and before `wait-ci` reruns a job, read
+`.claude/contracts/rerun-scope.md` (`rerun-scope`) and state the scope: the anchor is the custody
+anchor for a re-proof and the head of the last green CI run for a CI rerun. List the change with
+`node .claude/lib/rerun-scope.js changed --anchor <anchor>`, choose `none`, `targeted` or `full`,
+and put the contract's one-line `Rerun scope:` statement in DECISIONS. The gate contract
+(`ship-custody-gate.md`) and `wait-ci` carry the step at their re-run points. When unsure, ask
+once with a default (interactive); on a resumed or chained run, stop with `COMMAND STUCK`
+carrying the question and the default.
+
 ## Step 2b: Resolve the owner's rule files
 
 ```bash
@@ -255,6 +266,14 @@ who was not in the session:
   (`<ref>:shipped.json` on the records ref, nothing to commit; the old git-common-directory file only if a ref write failed). When the merge step
   recorded `data.custody`, say which proofs were reused (`reused` ids) and which paths were
   excused (they came from the base).
+  - **CI time against the budget.** When a `wait-ci` result carries `wallSeconds` and
+    `budgetSeconds`, say it in one line with the budget beside it, in minutes to one decimal:
+    `CI took 11.2 min, budget 10 min`. Take the last `wait-ci` result's figures (on a resumed run,
+    from that step's last result in `<state-dir>/shipped.json`). When `data.over` is true, add one
+    ISSUES line naming the slowest jobs from `data.slowest` ("CI took 11.2 min against a 10 min
+    budget; slowest: e2e 10.7 min, unit 8.0 min") and, as its fix, the speed guidance in the
+    `ship-setup` skill's CI baseline section. **Over budget is reported, never a gate:** it does not
+    stop the ship, change a step's result or add a NEXT step. A `data.problem` is one ISSUES line too.
   - **Filed follow-ups are listed one by one, with their issue (AC-F5.8).** Each entry of the
     `file-followups` step's `data.filed` (as recorded; on a resumed run, the `data` of that
     step's last result in `<state-dir>/shipped.json`) gets its own line, in the order product, host, tooling, paperwork, not-verifiable

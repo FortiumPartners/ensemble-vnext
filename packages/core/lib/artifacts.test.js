@@ -326,3 +326,48 @@ describe('records-ref fallback', () => {
     expect(Object.keys(m).filter((k) => k !== 'version')).toEqual(['trd']);
   });
 });
+
+describe('previous_url', () => {
+  const A = 'https://claude.ai/artifact/aaa';
+  const B = 'https://claude.ai/artifact/bbb';
+  const e = (url) => ({ path: 'docs/a.md', ...(url === undefined ? {} : { url }) });
+
+  it('keeps the replaced URL when a non-empty URL changes', () => {
+    rec('design', e(A));
+    rec('design', e(B));
+    const entry = artifacts.read(stateDir).design;
+    expect(entry.url).toBe(B);
+    expect(entry.previous_url).toBe(A);
+  });
+
+  it('recording the new URL again leaves previous_url as it was and rewrites nothing', () => {
+    rec('design', e(A));
+    rec('design', e(B));
+    const before = raw();
+    rec('design', e(B));
+    expect(raw()).toBe(before);
+    expect(artifacts.read(stateDir).design.previous_url).toBe(A);
+  });
+
+  it('a first record and a same-URL record have no previous_url', () => {
+    rec('design', e(A));
+    expect(artifacts.read(stateDir).design).not.toHaveProperty('previous_url');
+    rec('design', e(A));
+    expect(artifacts.read(stateDir).design).not.toHaveProperty('previous_url');
+  });
+
+  it('a first URL after an empty one has no previous_url', () => {
+    rec('design', e(''));
+    rec('design', e(A));
+    expect(artifacts.read(stateDir).design).not.toHaveProperty('previous_url');
+  });
+
+  it('a record with url omitted keeps both url and previous_url', () => {
+    rec('design', e(A));
+    rec('design', e(B));
+    rec('design', e());
+    const entry = artifacts.read(stateDir).design;
+    expect(entry.url).toBe(B);
+    expect(entry.previous_url).toBe(A);
+  });
+});

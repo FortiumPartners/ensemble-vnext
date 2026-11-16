@@ -33,7 +33,8 @@ what runs on the base branch.
    often still empty, so poll it for up to 120s before returning `no-checks`.
 2. Wait (Waiting, below).
 3. If a check failed, re-run the failed jobs once (`gh run rerun <run-id> --failed`) and wait
-   again. For each job that then passes, take its name from `gh run view <run-id> --json jobs`
+   again. Failed jobs only: a full rerun needs `.claude/contracts/rerun-scope.md`
+   (`rerun-scope`) to have chosen `full` and said why in the readout. For each job that then passes, take its name from `gh run view <run-id> --json jobs`
    (never the workflow name `gh run list` returns) and record the flake:
    `node .claude/lib/flaky-ci.js record --state-dir <work.stateDir> --job <name> --run-id <id>`.
    It prints one JSON line with `count` and `capped`. Not capped: list the job in `data.flaky`.
@@ -46,9 +47,20 @@ what runs on the base branch.
    once), so resuming after a capped stop cannot turn the stop into a pass. `wait-ci` never
    files anything and never fixes anything; `collect-findings` reads the logs.
 
+4. Measure the CI wall time of the run the wait ended on. Once its jobs have finished (after the
+   rerun, when there was one), read `gh run view <run-id> --json jobs` and pipe it to
+   `node .claude/lib/ci-time.js measure --policy .claude/rules/ship.md`. It prints one JSON line
+   with `wallSeconds` (first job start to last job end, not the sum), `budgetSeconds` (the
+   `CI budget:` line in `ship.md`, default 600 and never above 900), `over`, and `slowest` (the
+   three longest jobs). Put `wallSeconds`, `budgetSeconds`, `over` and `slowest` in `data`. When
+   there are several runs for the head, measure the longest. A result with `"ok": false`, or with
+   `wallSeconds` null, leaves those fields out and is one note in the readout, never a failure.
+   **The budget is a report, not a gate:** `over: true` never changes the result and never stops
+   the ship.
+
 ## Result
 
-`passed`, `failed` or `no-checks`, with `data`: `{ failed: [...], flaky: [...], judgedHead }`; a `failed` entry carries `capped: true` when the job is capped. `judgedHead` is the full id of the head the checks were read on (the PR's `headRefOid`, or the `commit` of the latest `pushed` result when there is no PR), recorded on every result so the merge step knows CI has judged that head.
+`passed`, `failed` or `no-checks`, with `data`: `{ failed: [...], flaky: [...], judgedHead, wallSeconds, budgetSeconds, over, slowest }` (the last four from Do step 4, omitted when the run could not be timed); a `failed` entry carries `capped: true` when the job is capped. `judgedHead` is the full id of the head the checks were read on (the PR's `headRefOid`, or the `commit` of the latest `pushed` result when there is no PR), recorded on every result so the merge step knows CI has judged that head.
 
 ## Waiting
 

@@ -72,6 +72,12 @@ where it differs, then "keep". Skipping a topic leaves that part of the file unt
    effect once the file is on the default branch. On a yes, install it (see Writing); on a no,
    write the string without `trigger=github-actions` so nothing claims a trigger that is not
    there.
+5. **The CI budget.** Not a step; one line, `CI budget: <n> min`, under the `## CI budget`
+   heading of the template. Offer 10 minutes first, accept any whole or half number up to 15,
+   and **refuse a value above 15 with the reason**: past 15 minutes CI stops being a check people
+   wait for, so a longer one hides slow suites instead of fixing them. Ask once; "keep" leaves the
+   current line. `wait-ci` measures each run against it and `/ship-build` reports it; it never
+   blocks a merge. Asked last, whichever way the string was settled.
 
 Re-running on a filled file asks only what changed: a step the contracts now offer that the
 file does not use, a parameter a contract gained, or a value the file leaves blank. Everything
@@ -117,7 +123,7 @@ authority, not this list):
 
 Once every topic has an answer, write the whole file at once in the template's shape: the
 template's preamble kept verbatim, `## Ship` and `## After shipping` filled in the line format
-`N. <step> key=value key="quoted value"`, and the template's `## Examples (not run)` section
+`N. <step> key=value key="quoted value"`, the `## CI budget` section with its one `CI budget: <n> min` line (the owner's answer, or the template's 10 when none came in), and the template's `## Examples (not run)` section
 kept as it is. There is no preview step and no second confirmation. A part the interview did
 not change keeps its content verbatim.
 
@@ -155,7 +161,7 @@ runs even when the owner skipped every topic. Run it once, after Writing:
 node .claude/lib/ci-baseline.js check
 ```
 
-It prints one JSON line: `noCi`, `checks` (`summary`, `docsRecordSkip`, `recordCommitSkip`,
+It prints one JSON line: `noCi`, `checks` (`summary`, `docsRecordSkip`, `recordCommitSkip`, `supersededCancel`,
 each `pass`, `gap` or `unclear` with a `detail`), and the `gaps` and `unclear` lists (at most one entry per check). If it
 prints an `error` instead, ISSUES says the CI check could not run, quoting the error, and the
 skill carries on. With
@@ -176,8 +182,38 @@ job and says how to close it:
   `dorny/paths-filter` with `token: ''` and `base: ${{ github.event.before }}` after a
   `fetch-depth: 0` checkout, treating a PR's first push (no `before`) as changing everything.
 
+- **Superseded runs.** A `pull_request` workflow needs a top-level `concurrency:` with a `group`
+  and `cancel-in-progress: true` (group on `${{ github.workflow }}-${{ github.ref }}`), so a
+  newer push cancels the run it replaces instead of both burning CI minutes. Keep it off the
+  default branch (`cancel-in-progress: ${{ github.event_name == 'pull_request' }}`), where a
+  cancelled run leaves no result.
+
 An `unclear` is a mechanism the check could not read; say so and name it, never call it a pass
 or a gap. Closing any of these is the owner's own edit to their CI; this skill reports only.
+
+### Staying inside the CI budget
+
+Guidance, not a check, given with the CI baseline result whenever a gap or the owner's budget
+makes speed the question (the budget is topic 5; `wait-ci` measures against it). Say it in plain
+words, once, and write nothing:
+
+- **Shard heavy suites by duration, not by file count.** Jest `--shard=i/n` and Playwright
+  `--shard=i/n` split by file; for an even split feed them the previous run's timings (Playwright
+  `--last-failed` and a stored report, or a timings file for a splitter). The slowest job sets the
+  wall time, so balance the longest shard first.
+- **Merge coverage in one job.** Shards upload their raw coverage as artifacts; one small job
+  merges them (`nyc merge`, `c8`, `coverage combine`) and applies the threshold, so sharding does
+  not multiply coverage work or hide a gap.
+- **Cache dependencies and browsers.** `actions/setup-node` with `cache:`, and
+  `~/.cache/ms-playwright` keyed on the lockfile or Playwright version.
+- **Cancel superseded runs.** The `concurrency:` block the baseline check looks for.
+- **Skip heavy jobs for docs and run-record commits.** The job-level `if:` the baseline check
+  already looks for.
+- **Quarantine flaky tests, with a report the owner sees.** A test that fails then passes on rerun
+  moves to a quarantine tag or list that CI runs in a separate non-blocking job, and the move is
+  listed where the owner reads it. `packages/core/lib/flaky-ci.js` already counts flakes per job
+  across features and caps them at three; build on its record rather than keeping a second count,
+  and list each quarantined test in the next `/ship-build` readout.
 
 ## Never
 
@@ -195,7 +231,7 @@ or a gap. Closing any of these is the owner's own edit to their CI; this skill r
 
 Ends with the framework's standard four-section readout (STATE / DECISIONS / ISSUES / NEXT,
 `.claude/rules/command-status.md`). STATE lists the string written, step by step, whether the
-workflow was installed, what stayed unchanged, and the CI result ("CI baseline: N of 3 hold", or
+workflow was installed, the CI budget written, what stayed unchanged, and the CI result ("CI baseline: N of 4 hold", or
 "no GitHub Actions workflow found"). DECISIONS lists every default applied where
 no answer came in. ISSUES lists parse errors from the re-check, each CI-baseline gap and unclear with its fix, a `release` left out for want of
 a command, and a workflow written but not yet on the default branch (the owner must merge it,

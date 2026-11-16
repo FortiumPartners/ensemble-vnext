@@ -1185,8 +1185,25 @@ coverage %. Read .claude/rules/constitution.md's verification_level; if any task
 phase carries [LIVE] or the level is live-required/e2e-required, start the service and
 verify against a running instance — do not approve on mocked tests alone.
 Return status "pass" only when every acceptance criterion above is met.
+
+Battery rules (the command reads what you record; it does not take your word for it):
+- After each suite you run, record it: `node .claude/lib/test-baseline.js record-run
+  --state-dir .trd-state/{feature} --suite <unit|integration|e2e> --command "<the command>"
+  --status <pass|fail> --duration <seconds> --failures-file <one failing test id per line>`.
+  It stamps the exact tree the suite ran on, which is how the command knows not to run it again.
+- A suite that can outlast the 600 s Bash limit (see below) runs with `Bash({run_in_background:
+  true})` and a `timeout` above its runtime, and you wait on it with `Monitor`. Never run it in
+  the foreground: a result cut off at 600 s is lost and the suite runs again.
+- Failing tests already on the base branch are listed in `<baseline>`. A failure on that list is
+  "already failing on {base}": report it as such, do not diagnose it, and do not fail the gate
+  on it. A failure that is not on the list is new and fails the gate.
 </instructions>
+<baseline base="{base_branch}">{baseline failures per suite from
+`.trd-state/{feature}/test-battery.json`, or "none captured yet"}</baseline>
 ```
+
+The gate agent's `Bash` calls hit the same 600 s limit as the command's, which is why the
+background rule is in its prompt too.
 
 **`reviewPrompt` — REMOVED 2026-08-28 (plan item 14, owner ruling).** The gate no longer
 runs a per-phase code review, so this prompt is no longer assembled and
@@ -1253,8 +1270,53 @@ documented state-write owner.
 by ABSENCE; passing them as `filesChanged` fails the zero-of-N check, retries twice more, and
 reaches STUCK on work that was done correctly.
 
-**Run the deterministic phase-gate battery** (D8: the command runs the FULL battery here;
-the per-task battery in Step 3.5 was targeted).
+**Choose the rerun scope first.** Read `.claude/contracts/rerun-scope.md` (`rerun-scope`): the
+anchor is the tree the last green phase gate passed on (the task's own targeted checks, for the
+first phase), and `node .claude/lib/rerun-scope.js changed --anchor <commit>` lists the change.
+Put the contract's one-line `Rerun scope:` statement in the readout's DECISIONS. A
+`full` choice runs the battery below as written; a narrower choice runs the tests that exercise
+the changed files and says what it left out. The rules below
+(reuse, narrowing, background, baseline) are how the battery then runs. Unsure: ask once with a default (interactive); under `--chained` stop with
+`COMMAND STUCK` carrying the question and the default.
+
+**Run the deterministic phase-gate battery** (D8: the command runs the project-wide battery
+here; the per-task battery in Step 3.5 was targeted). The gate's `verify-app` already ran the
+suite once on this tree, so this step is a check on top of it, never a repeat of it. Four rules
+decide what actually runs, in this order:
+
+1. **Reuse, do not run twice.** Before a suite runs, ask
+   `node .claude/lib/test-baseline.js reuse --state-dir .trd-state/<feature> --suite <suite>`.
+   `reuse: true` means that suite already ran on exactly this tree (same commit, no edit since):
+   it is **not run again**, its recorded result stands, and the phase banner says so
+   (`phase gate: unit reused from verify-app, same tree, not run again`). A different tree, an
+   unrecorded suite or an unreadable tree runs it.
+2. **Narrow integration and e2e to the related tests.** Where the runner can, run only the tests
+   related to the files the phase changed: Jest `--findRelatedTests <files>`, `vitest related
+   <files>`, `pytest` on the test paths that import them. Run the full suite when the rerun-scope
+   choice above was `full`, when shared code changed (a shared helper, config, fixtures, a package
+   manifest or lockfile), or when the runner cannot narrow. Say which in the banner. Unit suites
+   run full: they are fast and a narrow unit run misses what a changed helper broke.
+3. **Long suites run in the background.** Ask `node .claude/lib/test-baseline.js background
+   --state-dir .trd-state/<feature> --suite <suite> --kind <unit|integration|e2e>`. When it says
+   `background: true` (the suite's last recorded duration is near the 600 s Bash limit, or none is
+   recorded and the suite is integration or e2e), run it with `Bash({run_in_background: true})`
+   and a `timeout` above its runtime (the `timeoutSeconds` it prints), then wait with `Monitor`
+   (or the background-completion notice). A foreground call is cut off at 600 s and the result is
+   lost. After every run, record it with `record-run` (suite, command, status, duration, failing
+   test ids) so the next gate can reuse it and size it.
+4. **A failure already on the base branch is not red.** The base branch's failing tests are the
+   **baseline**, captured once per feature, on the first phase gate: run the resolved suites on the
+   merge base (`git merge-base HEAD <base branch>`) in a temporary `git worktree`
+   (`git worktree add --detach <tmp> <merge-base>`, then `git worktree remove --force <tmp>`
+   after), and record each with `node .claude/lib/test-baseline.js record-baseline --state-dir
+   .trd-state/<feature> --suite <suite> --base <merge-base> --command "<cmd>" --duration <s>
+   --failures-file <ids>`. Later gates reuse it. If a suite is too slow to run twice, the first
+   gate's failures that also fail on the merge base become the baseline instead. After each suite,
+   `node .claude/lib/test-baseline.js compare --state-dir .trd-state/<feature> --suite <suite>
+   --failures-file <ids>` splits the failures: those in `baselineFailures` are reported as
+   "already failing on <base branch>" and not re-diagnosed; any in `newFailures` is a new failure
+   and the gate is red. `test-battery.json` is a run record: it goes to the records ref with the
+   checkpoint write (Step 5.3), never in a commit of its own.
 
 **Resolve the battery command for THIS project — do not assume one.** In priority order:
 
@@ -1283,8 +1345,13 @@ exist in this project"* and it proceeded anyway. **A prompt-based command masks 
 defects, because the executor adapts.** Passing runs are not evidence that a hardcoded path
 is correct — only that the model papered over it.
 
-**On phase success** (`status === "complete"` and the resolved battery green, or skipped):
-proceed to Step 5.
+**Red means a new failure.** A battery whose only failing tests are in the baseline (`compare`
+returned `red: false`) is not red, and neither is a gate whose `notes` blame only baseline
+failures: do not retry the phase for them.
+
+**On phase success** (`status === "complete"` and the resolved battery green, or skipped, or
+failing only on tests already failing on the base branch): proceed to Step 5, and list the
+baseline-only failures once in the checkpoint's notes as "already failing on <base branch>".
 
 **On phase failure** (`status === "failed"`, or a *resolved* battery red): the workflow does not
 retry itself (§3.4's Error Handling — retry policy is durable state and belongs to this

@@ -1518,3 +1518,51 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] With no node_modules, another worktree's `node_modules/.bin/jest` run with `--rootDir .` ran `verify-functional.test.js` (487 pass, <1s) and `functional-verification.test.js` (552 pass, ~15s). A probe copy of the workflow test must sit in a folder with its own `jest.config.js` (`module.exports={testEnvironment:'node'}`) and pass `--config` and `--rootDir`, else jest finds no config.
 - [ran] A real `custody.js reconcile` CLI driver over four temp repos (none, targeted, full, `shipped: all`) takes about 5s: `.trd-state/narrow-reproof-scope/evidence/regression-1/rg1-custody-driver.js <repo root>`. Branch-side commits show scope; `--base` merge-ups are excused (see the 2026-11-16 line above).
 - [read] FS-27's "otherwise origin/HEAD" is wider in the code: the open PR's base branch is tried between `--base` and origin/HEAD (test "the open PR's base branch is used when --base is absent").
+## Exercising the design commands live (2026-11-16 run, `fix-design-command-defects`)
+
+- [ran] A headless `claude --print` fixture session has NO `Artifact` tool, so `/refine-design`,
+  `/design-system --sync` and `/audit-design` cannot publish or read a canvas there (contract §1
+  step 2 then says publish off). Drive them through an interactive `claude --plugin-dir <abs
+  packages/full> --setting-sources project --permission-mode bypassPermissions` session in tmux
+  instead: it has `Artifact`. Accept the folder-trust prompt (Down, Enter) and the bypass prompt
+  (Down, Enter) once per slot path, then type the slash command.
+- [ran] `scaffold-project.sh --plugin-dir <dir>` needs an ABSOLUTE `--plugin-dir`; a relative
+  `packages/full` scaffolds an empty `.claude/` (0 commands, 0 libs) and `--refresh` then copies
+  nothing. Use `--force --plugin-dir /abs/packages/full <slot>` and `git init` the slot.
+- [ran] The `Artifact` read tool gives ONE error for a missing artifact and one the account cannot
+  open: "artifact not found — it may have been deleted, or it has not been shared with you". A
+  no-access case cannot be told apart from not-found, so a "no-access" criterion has no separate
+  fixture; a malformed URL gives a different error ("not an artifact URL: ...").
+- [ran] Design fixture that renders offline: boards in `docs/ui/<slug>/canvas/project/NN-x.dc.html`
+  with `file` in design-map.json as the bare file name (not `canvas/project/...`), a global library
+  `docs/ui/_design-system/<folder>/lib.js` setting `window.<Ns>` through `window.React`, and
+  `design_system.paths` non-empty. `node .claude/lib/design-render.js render --dir docs/ui/<slug>
+  --out "$(mktemp -d)" --floor-contrast 4.5 --floor-target 44` prints the measures (reused flag,
+  disabled-control exemption) in about 5s with no model session.
+- [ran] `artifacts.js record` keeps `previous_url` only when an entry with a different non-empty
+  URL already exists; a fixture with no prior `artifacts.json` entry shows none. Seed
+  `.trd-state/<slug>/artifacts.json` (and `_shared` for `design-system`) with the old URL first.
+- [read] `/refine-design` in this fixture republished a canvas for an "other" read error (a malformed
+  URL) as well as for not-found; see FS-10 evidence before assuming the not-found-only scope holds.
+
+## Exercising the design commands, regression pass 1 (2026-11-16, `fix-design-command-defects`)
+
+- [ran] Four fresh slots under `.trd-state/<feature>/evidence/regression-1/work/slot-<n>` were built from the old slots' fixture commits with `git -C <old slot> archive <commit> | tar -x -C <new slot>`, then `scaffold-project.sh --refresh --plugin-dir <abs>/packages/full <slot>` (about 2s each) and a seeded `.trd-state/demo/artifacts.json` plus `_shared/artifacts.json`. Re-running in a fresh slot avoids a map already rewritten by an earlier republish. Each new slot path needs the folder-trust and bypass prompts accepted once (Down, Enter each).
+- [ran] `/design-system --sync` writes its republished system entry to `.trd-state/_shared/artifacts.json` (kind `design-system`, `previous_url` kept), while `/refine-design` records its republished system under `.trd-state/demo/artifacts.json` and leaves the `_shared` entry at the old URL. Look in both files for FS-5-shaped evidence.
+- [ran] In the `/design-system --sync` readout the "both recorded artifacts came back not found" line sits in STATE, not DECISIONS; the `/refine-design` readout puts it in DECISIONS. A criterion naming DECISIONS for the system page needs the judge to read both.
+- [ran] `record-ref.js write` refused `--state-dir .trd-state/_shared` during `/design-system --sync` ("not a slug Forge reads"), so `_shared/artifacts.json` stays an uncommitted working-tree change in the fixture.
+- [ran] `artifacts.js record --path <p>` fails with "no file at <p>" unless the path exists relative to the current directory; run it from a scratch folder holding the file. The library has no `--previous-url` flag: `previous_url` is set automatically when a different non-empty URL replaces one, and carried over when the same URL is recorded again.
+
+## Exercising the design commands, regression pass 2 (2026-11-16, `fix-design-command-defects`)
+
+- [ran] Fresh slots again came from the FIRST commit of each regression-1 slot (`git log --reverse | head -1`, message "regression-1 fixture"), not its HEAD: `git -C <old slot> archive <first-commit> | tar -x -C <new slot>`, `git init`, `scaffold-project.sh --refresh --plugin-dir <abs>/packages/full <slot>`, commit. Slot 3 = no ruling (variant A, then design.md-ruling variant C by editing `.claude/rules/design.md` "Process rules" after A's state is committed); slot 4's fixture already holds the brief.md accepted-caveat line (variant B) and, after its audit, serves the no-feedback `/refine-design demo --auto` run. All four interactive sessions (`claude --plugin-dir <abs packages/full> --setting-sources project --permission-mode bypassPermissions` in tmux) finished in 1 to 3 minutes each; `/clear` between two commands in one session works.
+- [ran] Correction to the regression-1 note on where a republished design system is recorded: in this pass `/design-system --sync` wrote its system entry (new `url`, `previous_url`) to `.trd-state/demo/artifacts.json`, not `_shared/artifacts.json` (that stayed at the old URL). A `/refine-design` run that republished both artifacts recorded the system entry in `demo/artifacts.json` in one slot (slot-4) and NOT in another (slot-1, only the canvas entry): the model's recording step varies run to run, so FS-5 for the system needs a run whose artifacts.json shows it.
+- [ran] `design-render.js render` groups equal-style elements in one measure: the fixture's `#bbbbbb` caption and its "Why disabled" text appear as one contrast row (`count: 2`, element named for the first), and the disabled button plus the `aria-disabled` div as one target-size row (`count: 2`). The audit reports name only the first element of such a row, so a criterion about the second element is proven from the measure's `count`, not from the report text.
+- [ran] zsh in the Bash tool word-splits nothing: `for p in "1 abc"; do set -- $p` gives one argument, and a line starting `echo ====` fails with "= not found". Use separate variables and quote echo text.
+
+## Exercising the design commands, iteration 3 (2026-11-16, `fix-design-command-defects`, fix 8baac09d)
+
+- [ran] Three fresh slots under `.trd-state/<feature>/evidence/iter3/work/slot-<n>`: FIRST commit of a regression-2 slot via `git archive | tar -x`, `git init -b main`, `scaffold-project.sh --refresh --plugin-dir <abs>/packages/full <slot>`, then seed `.trd-state/demo/artifacts.json` and `_shared/artifacts.json` (design and design-system entries at the old URLs; `.trd-state/*` is gitignored so seeds stay uncommitted). Each interactive tmux session (`claude --plugin-dir <abs packages/full> --setting-sources project --permission-mode bypassPermissions`) needs Down+Enter twice (trust, bypass); a slash command typed with `send-keys` too early is queued, and a second Enter queues a duplicate: use `send-keys -l` for the text, then `C-m` once, and remove a queued copy with Up then C-u.
+- [ran] With 8baac09d vendored, both fixture runs with unreadable (404) canvas and system republished BOTH pages and recorded both: `/refine-design` wrote design and design-system entries (each with `previous_url`) to `.trd-state/demo/artifacts.json` (system entry path `system.json`, command `/refine-design`) but left `_shared/artifacts.json` at the old system URL; `/design-system --sync` updated `demo/` and `_shared/` both. Runs took 1 to 3 minutes.
+- [ran] FS-10 fixture (malformed canvas and system URLs in design-map.json and artifacts.json): `Artifact(read ...)` returned "not an artifact URL: ...", the run reached COMMAND COMPLETE with no publish call, design-map.json byte-identical to its committed copy, and artifacts.json only had `updated_at` touched (url unchanged, no `previous_url`).
+- [ran] The Artifact tool still gives one 404 for not-found and no-access, so FS-2 cannot be shown for no-access separately (owner ruling R1); the not-found run is the nearest evidence.
