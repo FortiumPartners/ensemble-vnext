@@ -103,6 +103,36 @@
       "started_at": "2026-11-16T19:34:38.150Z",
       "completed_at": "2026-11-16T20:22:30.316Z",
       "last_advanced": "2026-11-16T19:41:05.732Z"
+    },
+    "AMEND-001": {
+      "description": "AMEND-001",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/publish-switch-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T20:53:25.380Z",
+      "completed_at": "2026-11-16T20:55:01.349Z",
+      "last_advanced": "2026-11-16T20:54:57.270Z"
+    },
+    "AMEND-002": {
+      "description": "AMEND-002",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/publish-switch-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T20:53:25.380Z",
+      "completed_at": "2026-11-16T20:55:01.351Z",
+      "last_advanced": "2026-11-16T20:54:57.270Z"
     }
   },
   "checkpoints": [
@@ -113,11 +143,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T20:22:30.318Z"
+    },
+    {
+      "phase": 1,
+      "commit": "7fa766cd66633e7f4cee59f6772d6dbdcdccca2d",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T20:55:07.490Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "5cadb7b52e087347b9a7f480d593c22ab014d913",
-    "last_checkpoint_timestamp": "2026-11-16T20:22:30.318Z",
+    "last_healthy_checkpoint": "7fa766cd66633e7f4cee59f6772d6dbdcdccca2d",
+    "last_checkpoint_timestamp": "2026-11-16T20:55:07.490Z",
     "interrupted": false,
     "interrupt_reason": null
   },
