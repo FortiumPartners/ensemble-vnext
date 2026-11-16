@@ -142,6 +142,21 @@
       "commit": null,
       "started_at": null,
       "completed_at": null
+    },
+    "AMEND-001": {
+      "description": "Test a second record-ruling call",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/verification-runs.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T20:43:06.638Z",
+      "completed_at": "2026-11-16T20:46:16.417Z",
+      "last_advanced": "2026-11-16T20:46:09.360Z"
     }
   },
   "checkpoints": [
@@ -160,11 +175,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T20:26:35.095Z"
+    },
+    {
+      "phase": 3,
+      "commit": "3e51f474ecac0d4e0089a4e849bf9f7686f784bc",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T20:46:53.356Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "177d2898cc576f1ad20876888a0566e7c25daad6",
-    "last_checkpoint_timestamp": "2026-11-16T20:26:35.095Z",
+    "last_healthy_checkpoint": "3e51f474ecac0d4e0089a4e849bf9f7686f784bc",
+    "last_checkpoint_timestamp": "2026-11-16T20:46:53.356Z",
     "interrupted": false,
     "interrupt_reason": null
   },
