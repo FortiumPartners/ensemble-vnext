@@ -5,5 +5,17 @@
     "url": "",
     "updated_at": "2026-11-16T19:33:55.619Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/publish-artifacts-per-kind/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-16T20:23:14.595Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/publish-artifacts-per-kind/verification-report.md",
+    "url": "",
+    "updated_at": "2026-11-16T20:47:54.428Z",
+    "command": "/implement-trd"
   }
 }
