@@ -9,6 +9,7 @@
 | ID | Objective | Source | Must pass |
 |----|-----------|--------|-----------|
 | O1 | When a canvas recorded in `design-map.json`, or the Design System page recorded in `design_system.url`, is not found or not accessible from the current account, `/refine-design` and `/design-system --sync` publish a new one from the committed files, record the new URL, and carry on; they do not end STUCK | brief §2 (#150), owner 2026-11-16 | yes |
+| O1a | The no-access case of O1 (the Artifact tool says the recorded artifact exists but this account cannot open it, as opposed to not-found) republishes by the same rule; it shares one code path with not-found, which FS-1 and FS-3 prove, and cannot be exercised here | OWNER-CALL 2026-11-16, must-pass dropped for FS-2, filed as defect issue #160 | no |
 | O2 | The old URL is kept as `previous_url` when a canvas or system URL is replaced (map entries and `artifacts.json` entries), the DECISIONS line says so, and a republished canvas starts a fresh sync base | brief §2, owner decision "a republished canvas starts a fresh sync base" | yes |
 | O3 | Republishing happens only on not-found or no-access; any other read error behaves as today | owner decision under auto, 2026-11-16 | |
 | O4 | `/audit-design` separates a below-floor contrast or target miss on a component drawn by this design from one on a reused `x-import`ed component, and a hand-drawn miss stays ranked high | brief §4 (#152) | yes |
