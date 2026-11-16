@@ -45,7 +45,7 @@ describe('fixtures', () => {
   test('passing: ok with no gaps or unclear', () => {
     const r = run('passing.yml');
     expect(r.ok).toBe(true);
-    expect(status(r)).toEqual({ summary: 'pass', docsRecordSkip: 'pass', recordCommitSkip: 'pass' });
+    expect(status(r)).toEqual({ summary: 'pass', docsRecordSkip: 'pass', recordCommitSkip: 'pass', supersededCancel: 'pass' });
     expect(r.gaps).toEqual([]);
     expect(r.unclear).toEqual([]);
     expect(r.noCi).toBe(false);
@@ -54,19 +54,19 @@ describe('fixtures', () => {
   test('no-summary: summary gap only on the summary check', () => {
     const r = run('no-summary.yml');
     expect(r.ok).toBe(false);
-    expect(status(r)).toEqual({ summary: 'gap', docsRecordSkip: 'pass', recordCommitSkip: 'pass' });
+    expect(status(r)).toEqual({ summary: 'gap', docsRecordSkip: 'pass', recordCommitSkip: 'pass', supersededCancel: 'pass' });
     expect(gapChecks(r)).toEqual(['summary']);
   });
 
   test('no-path-filter: summary passes, jobs with no if: are gaps for b and c', () => {
     const r = run('no-path-filter.yml');
-    expect(status(r)).toEqual({ summary: 'pass', docsRecordSkip: 'gap', recordCommitSkip: 'gap' });
+    expect(status(r)).toEqual({ summary: 'pass', docsRecordSkip: 'gap', recordCommitSkip: 'gap', supersededCancel: 'pass' });
     expect(gapChecks(r)).toEqual(['docsRecordSkip', 'recordCommitSkip']);
   });
 
   test('full-suite-on-record-commits: dorny gate on pull_request without git mode is a gap for c only', () => {
     const r = run('full-suite-on-record-commits.yml');
-    expect(status(r)).toEqual({ summary: 'pass', docsRecordSkip: 'pass', recordCommitSkip: 'gap' });
+    expect(status(r)).toEqual({ summary: 'pass', docsRecordSkip: 'pass', recordCommitSkip: 'gap', supersededCancel: 'pass' });
     expect(gapChecks(r)).toEqual(['recordCommitSkip']);
   });
 
@@ -79,7 +79,7 @@ describe('fixtures', () => {
 
   test('summary with always() but no needs-result read is a gap', () => {
     const r = run('summary-no-result-read.yml');
-    expect(status(r)).toEqual({ summary: 'gap', docsRecordSkip: 'pass', recordCommitSkip: 'pass' });
+    expect(status(r)).toEqual({ summary: 'gap', docsRecordSkip: 'pass', recordCommitSkip: 'pass', supersededCancel: 'pass' });
     expect(r.gaps[0].message).toMatch(/results/);
   });
 
@@ -93,7 +93,7 @@ describe('fixtures', () => {
 
   test('dorny with base: event.before but the default token on pull_request is a gap for c', () => {
     const r = run('dorny-base-default-token.yml');
-    expect(status(r)).toEqual({ summary: 'pass', docsRecordSkip: 'pass', recordCommitSkip: 'gap' });
+    expect(status(r)).toEqual({ summary: 'pass', docsRecordSkip: 'pass', recordCommitSkip: 'gap', supersededCancel: 'pass' });
   });
 
   test("dorny token: '' plus base: event.before passes c", () => {
@@ -124,24 +124,52 @@ describe('fixtures', () => {
   test('an unparseable file is unclear for every check and never a pass or a crash', () => {
     const r = run('unparseable.yml');
     expect(r.ok).toBe(false);
-    for (const n of ['summary', 'docsRecordSkip', 'recordCommitSkip']) {
+    for (const n of ['summary', 'docsRecordSkip', 'recordCommitSkip', 'supersededCancel']) {
       expect(r.checks[n].status).toBe('unclear');
     }
-    expect(unclearChecks(r)).toEqual(['docsRecordSkip', 'recordCommitSkip', 'summary']);
+    expect(unclearChecks(r)).toEqual(['docsRecordSkip', 'recordCommitSkip', 'summary', 'supersededCancel']);
     expect(r.unclear[0].message).toContain('unparseable.yml');
   });
 
   test('an unparseable file next to a passing one downgrades every pass to unclear', () => {
     const r = run('passing.yml', 'unparseable.yml');
     expect(r.ok).toBe(false);
-    expect(Object.values(status(r))).toEqual(['unclear', 'unclear', 'unclear']);
+    expect(Object.values(status(r))).toEqual(['unclear', 'unclear', 'unclear', 'unclear']);
   });
 
-  test('no workflows: noCi with all three as gaps', () => {
+  test('no workflows: noCi with all four as gaps', () => {
     const r = cb.checkWorkflows([]);
     expect(r.noCi).toBe(true);
     expect(r.ok).toBe(false);
-    expect(gapChecks(r)).toEqual(['docsRecordSkip', 'recordCommitSkip', 'summary']);
+    expect(gapChecks(r)).toEqual(['docsRecordSkip', 'recordCommitSkip', 'summary', 'supersededCancel']);
+  });
+});
+
+describe('superseded-run cancellation check', () => {
+  test('a pull_request workflow with no concurrency is a gap on supersededCancel only', () => {
+    const r = run('no-cancel.yml');
+    expect(status(r)).toEqual({ summary: 'pass', docsRecordSkip: 'pass', recordCommitSkip: 'pass', supersededCancel: 'gap' });
+    expect(gapChecks(r)).toEqual(['supersededCancel']);
+    expect(r.gaps[0].message).toContain('cancel-in-progress');
+  });
+  test('cancel-in-progress: false is a gap', () => {
+    expect(run('cancel-false.yml').checks.supersededCancel.status).toBe('gap');
+  });
+  test('group plus cancel-in-progress: true passes', () => {
+    expect(run('passing.yml').checks.supersededCancel.status).toBe('pass');
+  });
+  test('an expression for cancel-in-progress counts as cancelling', () => {
+    const text = read('passing.yml').replace('cancel-in-progress: true', "cancel-in-progress: ${{ github.event_name == 'pull_request' }}");
+    const r = cb.checkWorkflows([{ file: 'ci.yml', text }]);
+    expect(r.checks.supersededCancel.status).toBe('pass');
+  });
+  test('no pull_request workflow: nothing is superseded, so pass', () => {
+    const text = 'name: Nightly\non:\n  schedule:\n    - cron: "0 3 * * *"\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n';
+    expect(cb.checkWorkflows([{ file: 'n.yml', text }]).checks.supersededCancel.status).toBe('pass');
+  });
+  test("this repository's ci.yml reports the key", () => {
+    const r = cb.checkDir(path.join(REPO, '.github', 'workflows'));
+    expect(['pass', 'gap']).toContain(r.checks.supersededCancel.status);
   });
 });
 
@@ -187,7 +215,7 @@ describe('CLI', () => {
     const out = JSON.parse(lines[0]);
     expect(out.ok).toBe(true);
     expect(out.workflows).toEqual(['ci.yml']);
-    expect(Object.keys(out.checks).sort()).toEqual(['docsRecordSkip', 'recordCommitSkip', 'summary']);
+    expect(Object.keys(out.checks).sort()).toEqual(['docsRecordSkip', 'recordCommitSkip', 'summary', 'supersededCancel']);
   });
 
   test('missing dir reports noCi', () => {

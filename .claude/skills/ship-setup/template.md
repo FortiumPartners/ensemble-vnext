@@ -17,6 +17,16 @@ Line format: `N. <primitive> key=value key="quoted value"`. A `repeat` takes ind
 
 ## After shipping
 
+## CI budget
+
+CI budget: 10 min
+
+How long this project's CI may take, first job start to last job end. `/ship-setup` offers 10
+and accepts up to 15; a longer budget is refused, because past 15 minutes CI stops being a
+check people wait for. `wait-ci` measures each run against it and the `/ship-build` readout
+reports it; it never blocks a merge. The sequencer reads only `## Ship` and `## After
+shipping`, so this section is ignored by it.
+
 ## Examples (not run)
 
 Nothing under this heading is read. Copy a string above and edit it, or run `/ship-setup`.

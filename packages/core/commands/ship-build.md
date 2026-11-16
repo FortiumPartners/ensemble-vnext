@@ -266,6 +266,14 @@ who was not in the session:
   (`<ref>:shipped.json` on the records ref, nothing to commit; the old git-common-directory file only if a ref write failed). When the merge step
   recorded `data.custody`, say which proofs were reused (`reused` ids) and which paths were
   excused (they came from the base).
+  - **CI time against the budget.** When a `wait-ci` result carries `wallSeconds` and
+    `budgetSeconds`, say it in one line with the budget beside it, in minutes to one decimal:
+    `CI took 11.2 min, budget 10 min`. Take the last `wait-ci` result's figures (on a resumed run,
+    from that step's last result in `<state-dir>/shipped.json`). When `data.over` is true, add one
+    ISSUES line naming the slowest jobs from `data.slowest` ("CI took 11.2 min against a 10 min
+    budget; slowest: e2e 10.7 min, unit 8.0 min") and, as its fix, the speed guidance in the
+    `ship-setup` skill's CI baseline section. **Over budget is reported, never a gate:** it does not
+    stop the ship, change a step's result or add a NEXT step. A `data.problem` is one ISSUES line too.
   - **Filed follow-ups are listed one by one, with their issue (AC-F5.8).** Each entry of the
     `file-followups` step's `data.filed` (as recorded; on a resumed run, the `data` of that
     step's last result in `<state-dir>/shipped.json`) gets its own line, in the order product, host, tooling, paperwork, not-verifiable
