@@ -229,6 +229,23 @@
       "commit": null,
       "started_at": null,
       "completed_at": null
+    },
+    "AMEND-001": {
+      "description": "state the full Core rule in /create-design (plan blocker B1)",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/create-design.md",
+        ".claude/commands/create-design.md",
+        "packages/core/commands/create-design-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T21:25:32.629Z",
+      "completed_at": "2026-11-16T21:26:33.908Z",
+      "last_advanced": "2026-11-16T21:26:20.197Z"
     }
   },
   "checkpoints": [
@@ -255,11 +272,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T20:54:12.034Z"
+    },
+    {
+      "phase": 3,
+      "commit": "fa9c74513672c7e7a259d4ce83c158e3b292676b",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T21:26:34.183Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "dff56ebeb03b1443c12aa9270a8ee4d1cc72c687",
-    "last_checkpoint_timestamp": "2026-11-16T20:54:12.034Z",
+    "last_healthy_checkpoint": "fa9c74513672c7e7a259d4ce83c158e3b292676b",
+    "last_checkpoint_timestamp": "2026-11-16T21:26:34.183Z",
     "interrupted": false,
     "interrupt_reason": null
   },
@@ -293,6 +318,15 @@
         "reason": "verification.md §1: must not be touched"
       }
     },
-    "outcome": "stalled"
+    "outcome": "stalled",
+    "fix": {
+      "plan": ".trd-state/core-boards-in-designs/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1
+      },
+      "rounds": [],
+      "stopped": false
+    }
   }
 }
