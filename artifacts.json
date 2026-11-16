@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "fix-brief": {
+    "path": "docs/plans/fix-narrow-reproof-scope/brief.md",
+    "url": "https://claude.ai/artifact/SqErw2ncXXiZuxs4xQ5tMe",
+    "updated_at": "2026-11-16T10:23:42.557Z",
+    "command": "/plan-fix"
+  },
+  "workplan-input": {
+    "path": "docs/plans/fix-narrow-reproof-scope/workplan-input.json",
+    "url": "",
+    "updated_at": "2026-11-16T10:25:12.196Z",
+    "command": "create-workplan"
+  }
+}
