@@ -25,6 +25,12 @@ describe('create-design command prose', () => {
     expect(fm).toContain('[--explore] [--style <pack>]');
   });
 
+  test('states the full Core rule: cap of 8 and only to-be/as-is boards', () => {
+    expect(text).toContain(
+      'The Core rule: at most 8 boards are Core, and only `to-be` and `as-is` boards may be Core (never a part or a flow board).'
+    );
+  });
+
   test('ends STUCK on a missing or unfilled design.md', () => {
     expect(text).toMatch(/`missing` or `unfilled` ends the command STUCK with "run `\/design-setup`"/);
   });

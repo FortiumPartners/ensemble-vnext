@@ -75,6 +75,7 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    main screen in its normal state; the workflow keeps at most 8 and the rest read `false`) and `core_left_out`
    (`{ name, why }`: the screens left out of the Core set, those over the cap of 8 included). The brief gains a
    `## Core boards` section naming both. Only `core === true` counts as Core; a missing `core` reads false.
+   The Core rule: at most 8 boards are Core, and only `to-be` and `as-is` boards may be Core (never a part or a flow board).
    Under `--style <pack>`, put `**Style pack:** <pack> (from --style)` as the first line of
    `brief.md`, replacing any such line already there, so later commands find it.
    **If the workflow is unavailable**, do the grounding and the brief yourself, then continue.
