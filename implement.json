@@ -125,6 +125,21 @@
       "started_at": "2026-11-16T09:05:38.363Z",
       "completed_at": "2026-11-16T09:33:29.406Z",
       "last_advanced": "2026-11-16T09:07:48.598Z"
+    },
+    "AMEND-001": {
+      "description": "FS-5 record both republished pages",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/design-commands.md",
+        "packages/core/commands/refine-design.md",
+        "packages/core/commands/design-system.md",
+        "packages/core/commands/design-unreadable-prose.test.js"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-16T10:52:45.278Z"
     }
   },
   "checkpoints": [
@@ -146,6 +161,23 @@
   "functional_verification": {
     "prd_resolved": true,
     "source_kind": "reproduction",
-    "prd_path": "docs/TRD/fix-design-command-defects.md § Reproduction"
+    "prd_path": "docs/TRD/fix-design-command-defects.md § Reproduction",
+    "fix": {
+      "plan": ".trd-state/fix-design-command-defects/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1
+      },
+      "rounds": [
+        {
+          "round": 0,
+          "tasksPromoted": 1,
+          "criteriaClosed": 2,
+          "criteriaOpen": 1,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
+    }
   }
 }

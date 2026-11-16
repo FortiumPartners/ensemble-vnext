@@ -1,538 +1,311 @@
 {
-  "iteration": 2,
+  "iteration": 1,
   "criteria": [
     {
       "id": "FS-1",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/transcript-refine-design-unreadable-canvas.txt",
-      "reason": "The fresh /refine-design --auto run read the recorded canvas and got 404 Not Found, republished a replacement canvas (WA91eGZpFVEXpt6fWFCMMk) from the committed docs/ui/demo/canvas/ files, carried on with the heading edit, and ended COMMAND COMPLETE, not STUCK. refine-design-map.json holds the new canvas URL.",
+      "reason": "Met in the prior round: unreadable canvas republished, run ended COMMAND COMPLETE.",
       "cause": null,
       "provenAt": 2,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "When the canvas URL recorded in design-map.json returns not-found from the current account, `/refine-design` publishes a new canvas from the committed files under `docs/ui/<slug>/canvas/`, records the new URL, carries on, and does not end COMMAND STUCK",
+      "cites": "#150 Expected; #150 Actual"
     },
     {
       "id": "FS-2",
       "status": "not_verifiable",
       "tier1": "pass",
-      "artifact": ".trd-state/fix-design-command-defects/evidence/live/probe-artifact-read-notfound-text.txt",
-      "reason": "No no-access fixture exists. The Artifact tool returns one combined error for a deleted artifact and for one not shared with this account, and no artifact owned by another account is available in the authorized environments. A genuine no-access read was never exercised.",
-      "cause": "capability-absent",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/iter3/transcript-slot1.txt",
+      "reason": "The run shown is the not-found case, not no-access: the recorded canvas read returned 404 Not Found, the command republished it (new canvas 8d56283qVwWbsgV4k6e96a, old URL kept as previous_url) and ended COMMAND COMPLETE. A genuine no-access read (403/Forbidden) cannot be produced here: the Artifact tool gives one 404 for deleted and not-shared artifacts alike, and no artifact owned by another account exists in any authorized environment (owner ruling R1). The no-access branch shares the not-found code path in the contract, but that is not proof of this criterion. Unblock by declaring an environment that can reach another account's artifact, an off-host proof on objective O1, or dropping must-pass for FS-2.",
+      "cause": "environment-unreachable",
       "provenAt": 1,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "kind": "not-checkable-here"
+      "kind": "not-checkable-here",
+      "settled": null,
+      "verificationDigest": "9315efccdb5797cb96a64739aa1cecad0b5d8669c8a6c3c075b1f0c95d534b99",
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-3",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/transcript-design-system-sync-unreadable.txt",
-      "reason": "The fresh /design-system --sync run read the recorded system and got 404 Not Found, rebuilt bundle.js into docs/ui/_design-system/acme/ and published a new Design System page (6PufCs7qCDGLLQXPDQTteQ) from that folder, reinstalled it on a replacement canvas, and ended COMMAND COMPLETE. dsys-design-map.json and dsys-system.json hold the new URL. Only the not-found read was exercised; no-access cannot be produced here (see FS-2).",
+      "reason": "Met in the prior round: unreadable system page republished, COMMAND COMPLETE.",
       "cause": null,
       "provenAt": 2,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "When the Design System page recorded in `design_system.url` returns not-found or no-access from the current account, `/design-system --sync` publishes a new Design System page from the committed files under `docs/ui/_design-system/<folder>/`, records the new URL, carries on, and does not end COMMAND STUCK",
+      "cites": "#150 Expected; #150 Actual"
     },
     {
       "id": "FS-4",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/refine-design-map.json",
-      "reason": "After the /refine-design republish, canvases[0].url is the new canvas and previous_url is the replaced ...c0de URL. dsys-design-map.json shows the same after /design-system --sync.",
+      "reason": "Met in the prior round: canvas entry keeps previous_url.",
       "cause": null,
       "provenAt": 2,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "After a canvas is republished, its design-map.json entry holds the new URL and keeps the replaced URL as `previous_url`",
+      "cites": "#150 Expected (\"record the new URL with the old one kept as previous_url (map entries …)\")"
     },
     {
       "id": "FS-5",
-      "status": "not_met",
+      "status": "met",
       "tier1": "pass",
-      "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/fs19-slot4-artifacts.json",
-      "reason": "Not consistently recorded. The contract requires artifacts.js record with the new url for each republished canvas or system. In the /refine-design run (slot 1) both canvas and system were replaced, but artifacts.json updated only the design (canvas) entry; the design-system entry still holds the old ...0d5 URL with no previous_url. In the /design-system --sync run (slot 2) both were replaced, but only the design-system entry was updated; the design (canvas) entry still holds the old ...c0de URL. Only the slot-4 run recorded both.",
-      "cause": "judged-failed",
-      "causeKey": "republish-artifacts-record-incomplete",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/iter3/artifacts-demo-slot2.json",
+      "reason": "After /design-system --sync republished both pages, the demo artifacts.json design entry holds new url EMkYSt56yRBT6yqJNTDi9e and design-system entry holds 6sk6srT85g55PbeX7VJHpS, each with the replaced URL as previous_url; the _shared copy matches. The /refine-design run (artifacts-demo-slot1.json) also records both entries with new url and previous_url. Note: that /refine-design run left _shared/artifacts.json at the old system URL; the contract records per feature and does not name _shared, so this does not fail the criterion.",
+      "cause": null,
+      "provenAt": 1,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "kind": "build-defect",
-      "regression": 2,
-      "provenAt": null
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-6",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/dsys-design-map.json",
-      "reason": "After /design-system --sync, design_system.url in design-map.json is the new system page and previous_url is the replaced ...0d5 URL; dsys-system.json records the same pair.",
+      "reason": "Met in the prior round: design_system.url and previous_url recorded.",
       "cause": null,
       "provenAt": 2,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "When the Design System page is republished, the place that records `design_system.url` holds the new URL and keeps the replaced URL as `previous_url`",
+      "cites": "#150 Expected (\"record the new URL with the old one kept as previous_url\")"
     },
     {
       "id": "FS-7",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/lib/fs7-artifacts-previous-url.txt",
-      "reason": "artifacts.js record with an old URL, then with a new URL, then get and read against a scratch folder: the entry holds the new url and previous_url equal to the old one, and a third record of the same URL keeps previous_url.",
+      "reason": "Met in the prior round: artifacts.js keeps previous_url.",
       "cause": null,
       "provenAt": 2,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "The library that writes artifacts.json entries accepts a `previous_url` and keeps it in the entry it writes (today `previous_url` exists nowhere in lib/)",
+      "cites": "#150 Lib; domain-derived: artifacts.json entries are written only through the project's artifact-record library helper, so the #150 Expected requirement that artifacts.json entries keep `previous_url` cannot be met unless that helper preserves the field"
     },
     {
       "id": "FS-8",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/transcript-refine-design-unreadable-canvas.txt",
-      "reason": "Both readouts now state the replacement in DECISIONS. /refine-design names the canvas and design system as republished with old and new URLs; /design-system --sync DECISIONS says the recorded canvas and system were unreadable (not-found) and republished from the committed copy, with old and new URLs for both. The previous defect (republish reported only in STATE) is gone.",
+      "reason": "Met in the prior round: DECISIONS states the replacement.",
       "cause": null,
       "provenAt": 2,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "When a canvas or the Design System page is replaced, the command's readout says so in its DECISIONS section",
+      "cites": "#150 Expected (\"say so in DECISIONS\")"
     },
     {
       "id": "FS-9",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/fs9-sync-base-check.txt",
-      "reason": "Before the republish the canvas entry had version 3, synced_at 2026-11-10 and files {}. After each republish the entry holds the new canvas version id, a new synced_at and the new file hashes, with the old canvas only as previous_url.",
+      "reason": "Met in the prior round: fresh sync base after republish.",
       "cause": null,
       "provenAt": 2,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "A republished canvas starts a fresh sync base: the sync base recorded after the republish belongs to the new canvas, not one carried over from the replaced URL",
+      "cites": "#150 Sync base"
     },
     {
       "id": "FS-10",
-      "status": "not_met",
+      "status": "met",
       "tier1": "pass",
-      "artifact": ".trd-state/fix-design-command-defects/evidence/live/run3/transcript-refine-design-other-error-no-republish-iter2.txt",
-      "reason": "Partial evidence only. The transcript shows the canvas read failing with 'not an artifact URL' and the run then editing the board heading with no Artifact publish or create call, which is the right behaviour so far, and the after-snapshots still hold the original URLs with no previous_url. But the capture stops while the visual critic is still running, before the command's commit-and-record step, which is where a publish would happen. The criterion's evidence calls for design-map.json and artifacts.json after the run, and the run had not finished (tmux session fs10 still waiting on the critic at 02:04). Nothing seen shows the build misbehaving, but the end state is unproven.",
-      "cause": "evidence-missing",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/iter3/transcript-slot3.txt",
+      "reason": "The canvas read failed with 'not an artifact URL'; the transcript's only Artifact call is that read, so nothing was published. The readout reports the malformed link as an ISSUES line. map-slot3.json keeps the original canvas and system URLs with no previous_url; artifacts-demo-slot3.json keeps the original URLs with no previous_url (only updated_at moved).",
+      "cause": null,
+      "provenAt": 1,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "kind": "evidence-gap",
-      "provenAt": null
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-11",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/audit-design-C-design-md-ruling-report.md",
-      "reason": "Every contrast and target-size miss is placed in one class: hand-drawn ones read 'drawn by hand in 01-home.dc.html', Acme.Card ones read '(reused component)', and the measured values mark the reused ones. Reports A and B make the same split.",
+      "reason": "Met in the prior round: drawn vs reused labelled.",
       "cause": null,
       "provenAt": 2,
       "image": "evidence/regression-2/shot-FS-11.png",
       "ui": true,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "`/audit-design` labels each below-floor contrast miss and each below-44px target-size miss as either drawn by this design or on a reused component unchanged through `x-import`",
+      "cites": "#152 Separate; #152 Actual"
     },
     {
       "id": "FS-12",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/audit-design-C-design-md-ruling-report.md",
-      "reason": "With a ruling recorded (design.md in report C, brief.md in report B), the hand-drawn caption contrast miss and 20px buttons stay [high]; also high in report A with no ruling.",
+      "reason": "Met in the prior round: hand-drawn misses stay high.",
       "cause": null,
       "provenAt": 2,
       "image": "evidence/regression-2/shot-FS-11.png",
       "ui": true,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "A below-floor contrast or target-size miss on an element drawn by this design is ranked high, including when a build-side caveat ruling is recorded for reused components",
+      "cites": "#152 Caveats (\"hand-drawn misses stay high\")"
     },
     {
       "id": "FS-13",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/audit-design-B-brief-ruling-report.md",
-      "reason": "With the accept ruling in brief.md Accessibility caveats, the reused Acme.Card contrast and 90x20 button misses are listed as 'low, known build-side caveat (reused component)', not as high findings.",
+      "reason": "Met in the prior round: brief.md ruling gives known build-side caveat.",
       "cause": null,
       "provenAt": 2,
       "image": "evidence/regression-2/shot-FS-11.png",
       "ui": true,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "With an accept or fix-in-build ruling recorded in brief.md `## Accessibility caveats`, `/audit-design` shows a below-floor miss on a reused, unchanged component as a known build-side caveat instead of a high finding",
+      "cites": "#152 Rulings; #152 Caveats"
     },
     {
       "id": "FS-14",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/audit-design-C-design-md-ruling-report.md",
-      "reason": "With the ruling only in the fixture design.md section 4 (brief.md caveats None), the reused Acme.Card misses are shown as low known build-side caveats citing the design.md process rule, not as high findings.",
+      "reason": "Met in the prior round: design.md ruling gives known build-side caveat.",
       "cause": null,
       "provenAt": 2,
       "image": "evidence/regression-2/shot-FS-11.png",
       "ui": true,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "With an accept or fix-in-build ruling recorded in design.md section 4, `/audit-design` shows a below-floor miss on a reused, unchanged component as a known build-side caveat instead of a high finding",
+      "cites": "#152 Rulings; #152 Caveats"
     },
     {
       "id": "FS-15",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/audit-design-A-no-ruling-report.md",
-      "reason": "With no ruling in brief.md or design.md, the reused misses are [high] findings asking for an accept-or-fix call, and the report says no finding is marked as a known build-side caveat.",
+      "reason": "Met in the prior round: no ruling, reused misses stay high.",
       "cause": null,
       "provenAt": 2,
       "image": "evidence/regression-2/shot-FS-11.png",
       "ui": true,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "With no ruling recorded in either brief.md or design.md section 4, a below-floor miss on a reused, unchanged component is not shown as a known build-side caveat",
+      "cites": "#152 Caveats (\"when such a ruling is recorded\")"
     },
     {
       "id": "FS-16",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/fs16-design-md-unchanged.txt",
-      "reason": "The fixture design.md sha256 is e5f59a71... both immediately before and after the /audit-design run that read the ruling from it.",
+      "reason": "Met in the prior round: design.md sha256 unchanged.",
       "cause": null,
       "provenAt": 2,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "`/audit-design` never edits design.md",
+      "cites": "#152 Rulings (\"never editing design.md\")"
     },
     {
       "id": "FS-17",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/lib/design-render-measures-fixture-board.json",
-      "reason": "The disabled button and aria-disabled div (both #bbbbbb, 1.92:1) have no contrast row in the measures, and none of the three audit reports has a contrast finding for them.",
+      "reason": "Met in the prior round: disabled controls have no contrast row.",
       "cause": null,
       "provenAt": 2,
       "image": "evidence/regression-2/shot-FS-11.png",
       "ui": true,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "A disabled control (one carrying the `disabled` attribute or `aria-disabled`) is not reported for a contrast miss",
+      "cites": "#152 Disabled (\"exempt from contrast only\")"
     },
     {
       "id": "FS-18",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/lib/design-render-measures-fixture-board.json",
-      "reason": "The disabled controls carry a below-44px target-size row (120x20, count 2) and report C lists 'Disabled ctl' as [high]. The non-reused p contrast row has count 2: the caption plus 'Why disabled: sign in first', so the explanatory text is measured. The reports name only the first element of the group (report B wrongly says the reason text was not flagged): a labelling weakness, not a missed measurement.",
+      "reason": "Met in the prior round: explanatory text measured, disabled target size reported.",
       "cause": null,
       "provenAt": 2,
       "image": "evidence/regression-2/shot-FS-11.png",
       "ui": true,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "Text explaining why a control is disabled is still measured for contrast, and a disabled control below 44px is still reported for target size",
+      "cites": "#152 Disabled (\"text explaining why is still measured, target size not exempt\")"
     },
     {
       "id": "FS-19",
       "status": "met",
       "tier1": "pass",
       "artifact": ".trd-state/fix-design-command-defects/evidence/regression-2/transcript-refine-design-no-feedback-caveats.txt",
-      "reason": "/refine-design --auto with no feedback redrew the board for the ordinary findings and left the Acme.Card import and lib.js (same sha256) untouched; the re-render leaves only the two library-card misses, and the readout says the brief already accepts both.",
+      "reason": "Met in the prior round: no-feedback refine skips caveat findings.",
       "cause": null,
       "provenAt": 2,
       "image": "evidence/regression-2/shot-FS-19.png",
       "ui": true,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "`/refine-design` run with no feedback skips findings marked as recorded build-side caveats: it does not act on them, while other findings are still worked",
+      "cites": "#152 Refine"
     }
   ],
   "gapsClosed": [
-    0,
     0
   ],
-  "outcome": "stuck",
-  "causes": [
-    {
-      "key": "design-system-republish-not-in-decisions",
-      "representative": "FS-8",
-      "members": [
-        "FS-8"
-      ],
-      "status": "closed",
-      "closedAt": 2
-    },
-    {
-      "key": "republish-artifacts-record-incomplete",
-      "representative": "FS-5",
-      "members": [
-        "FS-5"
-      ],
-      "status": "open",
-      "closedAt": null
-    }
-  ],
+  "outcome": "must-pass-unproven",
+  "causes": [],
   "exercised": [
     {
       "iteration": 1,
       "ids": [
-        "FS-1",
         "FS-2",
-        "FS-3",
-        "FS-4",
         "FS-5",
-        "FS-6",
-        "FS-7",
-        "FS-8",
-        "FS-9",
-        "FS-10",
-        "FS-11",
-        "FS-12",
-        "FS-13",
-        "FS-14",
-        "FS-15",
-        "FS-16",
-        "FS-17",
-        "FS-18",
-        "FS-19"
-      ]
-    },
-    {
-      "iteration": 2,
-      "ids": [
         "FS-10"
       ]
-    },
-    {
-      "iteration": 2,
-      "ids": [
-        "FS-1",
-        "FS-3",
-        "FS-4",
-        "FS-5",
-        "FS-6",
-        "FS-7",
-        "FS-8",
-        "FS-9",
-        "FS-11",
-        "FS-12",
-        "FS-13",
-        "FS-14",
-        "FS-15",
-        "FS-16",
-        "FS-17",
-        "FS-18",
-        "FS-19"
-      ],
-      "regression": 1
-    },
-    {
-      "iteration": 2,
-      "ids": [
-        "FS-1",
-        "FS-3",
-        "FS-4",
-        "FS-5",
-        "FS-6",
-        "FS-7",
-        "FS-8",
-        "FS-9",
-        "FS-11",
-        "FS-12",
-        "FS-13",
-        "FS-14",
-        "FS-15",
-        "FS-16",
-        "FS-17",
-        "FS-18",
-        "FS-19"
-      ],
-      "regression": 2
     }
-  ],
-  "regression": {
-    "rounds": [
-      {
-        "round": 1,
-        "iteration": 2,
-        "scope": [
-          {
-            "id": "FS-1",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-3",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-4",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-5",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-6",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-7",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-8",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-9",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-11",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-12",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-13",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-14",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-15",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-16",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-17",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-18",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-19",
-            "reason": "no-covers"
-          }
-        ],
-        "caught": [
-          "FS-8"
-        ],
-        "debug": {
-          "causes": [
-            "design-system-republish-not-in-decisions"
-          ],
-          "filesChanged": [
-            ".claude/commands/design-system.md",
-            ".claude/contracts/design-commands.md",
-            "packages/core/commands/design-system.md",
-            "packages/core/commands/design-unreadable-prose.test.js",
-            "packages/core/contracts/design-commands.md"
-          ]
-        }
-      },
-      {
-        "round": 2,
-        "iteration": 2,
-        "scope": [
-          {
-            "id": "FS-1",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-3",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-4",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-5",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-6",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-7",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-8",
-            "reason": "sent-to-debug"
-          },
-          {
-            "id": "FS-9",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-11",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-12",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-13",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-14",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-15",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-16",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-17",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-18",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-19",
-            "reason": "no-covers"
-          }
-        ],
-        "caught": [
-          "FS-5"
-        ]
-      }
-    ],
-    "notRewalked": [],
-    "unclaimedChanges": [
-      ".claude/commands/design-system.md",
-      ".claude/commands/refine-design.md",
-      ".claude/contracts/design-commands.md",
-      "packages/core/commands/design-system.md",
-      "packages/core/commands/design-unreadable-prose.test.js",
-      "packages/core/commands/refine-design.md",
-      "packages/core/contracts/design-commands.md"
-    ],
-    "gateBeforeEdits": false
-  }
+  ]
 }

@@ -8,14 +8,20 @@
   },
   "verification-report": {
     "path": ".trd-state/fix-design-command-defects/verification-report.md",
-    "url": "",
-    "updated_at": "2026-11-16T10:37:25.139Z",
-    "command": "/implement-trd"
+    "url": "https://claude.ai/artifact/R7vUdnXbBToPEe8yrjeZy4",
+    "updated_at": "2026-11-16T11:02:07.791Z",
+    "command": "/verify-build"
   },
   "verification-plan": {
     "path": ".trd-state/fix-design-command-defects/verification-plan.md",
     "url": "",
     "updated_at": "2026-11-16T10:38:49.937Z",
     "command": "/refine-verification"
+  },
+  "success-definition": {
+    "path": ".trd-state/fix-design-command-defects/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-16T11:02:07.844Z",
+    "command": "/verify-build"
   }
 }
