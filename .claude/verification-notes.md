@@ -1574,3 +1574,18 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [read] Correction (Debug pass, 2026-11-16): since that pass the refresh skips the write when its merge changes nothing, so a settings file already in refreshed form (scaffold a fixture first, then set only `ensemble.publishArtifacts` to `false` or `{"prd": true}`, any formatting) stays byte-for-byte identical under `cmp`. A bare `{"ensemble":{"publishArtifacts": false}}` still gains the version stamp and backfilled keys, so it is the wrong fixture for a byte-for-byte check. BATS: `bats -f "publishArtifacts: refresh keeps" packages/core/scripts/scaffold-project.test.sh`.
 - [ran] publish-artifacts-per-kind FS-9/FS-10: `scaffold-project.sh --refresh` on a bare `{"ensemble":{"publishArtifacts":false}}` file DOES change bytes (it backfills version/agents_dir/openPullRequest/records/env and reformats); the `publishArtifacts` value itself is untouched. The byte-identical claim holds only for a settings file already in refreshed form: refresh once to settle, then sha256/cmp across a second refresh (identical for `false` and `{"prd":true}`). `mkdir -p <dir>/.claude` before the first scaffold or no settings.json is made.
 - [ran] publish-artifacts-per-kind regression-1 (2026-11-16): `scaffold-project.sh --refresh --plugin-dir` needs an ABSOLUTE plugin dir (`$PWD/packages/full`); the relative `packages/full` exits 0 but leaves settings.json untouched, so a `setdefault` check reads a false "key not added". `artifacts.js record` needs the `--path` file to exist (run it from a temp dir holding the file), and the off line now reads `publish: off (off by default for <K>: pass --publish to publish it)` (earlier transcripts show the older `<K> is off by default;` wording).
+## Exercising the verification run cap (`cap-verification-runs-per-feature`)
+
+- [ran] The run-limit library is provable with no model session: build a throwaway root
+  (`mkdir -p $W/root/.claude $W/root/.trd-state/f`), then call
+  `node .claude/lib/verification-runs.js check|start|finish|request|record-ruling --state-dir <d> --root $W/root`
+  from bash (a zsh `V="node ..."` string variable does not word-split; use a shell function or a
+  bash script). `record-ruling` rows are visible in `discovered.jsonl`; `waived-defects.js gate`
+  in a root with no `stack.md` tracker reports each row under `failed` with a ready `title`/`body`
+  (error "no tracker declared"), which shows what would be filed.
+- [inferred] The command-level criteria (dispatch of the workflow, `--resume`, `--criteria`,
+  sweep files, the NEXT line in a readout) were not driven through a live headless session in
+  this pass; they were read from `packages/core/commands/{implement-trd,verify-build,refine-verification}.md`
+  (identical to `.claude/commands/`). A fixtures-slot session is the way to prove them live.
+
+- [ran] cap-verification-runs FS-10/FS-13 (2026-11-16): `scaffold-project.sh` needs the slot folder to EXIST first (`mkdir -p`), else "Target directory does not exist". A slot with a hand-seeded `demo` feature (`implement.json` holding two finished `runs`, a `success-definition.md`, an existing `verification-plan.md`) plus `--refresh --plugin-dir <abs>` ran `claude --print ... "/verify-build docs/TRD/demo.md"` (about 1 min) and `"/refine-verification docs/TRD/demo.md --auto"` (about 1 min) with no trust prompt; both ended `COMMAND STUCK` with the limit Reason, wrote `ruling-request.md`, left `runs` and the plan untouched. A headless session has no `Artifact` tool, so the ruling request is recorded in `artifacts.json` with an empty url, and the fixture has no `.claude/hooks/notify-complete.sh`. macOS has no `timeout` command; do not prefix it.

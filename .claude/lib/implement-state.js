@@ -79,6 +79,33 @@ function restoreFromRef(filePath, opts) {
 }
 
 /**
+ * Return `state` with `functional_verification.runs` unioned with the runs on disk, or `state`
+ * itself when the disk file is absent, unparseable or has no runs array. Never mutates `state`.
+ */
+function mergeDiskRuns(filePath, state) {
+  let diskRuns;
+  try {
+    const disk = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    diskRuns = disk && disk.functional_verification && disk.functional_verification.runs;
+  } catch {
+    return state;
+  }
+  if (!Array.isArray(diskRuns)) return state;
+  const fv = (state && state.functional_verification) || {};
+  const byN = new Map();
+  const incoming = Array.isArray(fv.runs) ? fv.runs : [];
+  for (const r of diskRuns.concat(incoming)) {
+    if (!r || typeof r !== 'object') continue;
+    const prev = byN.get(r.n);
+    // Disk entries go first, so an incoming entry replaces them unless the disk one is
+    // finished and the incoming one is not.
+    if (!prev || r.finished_at != null || prev.finished_at == null) byN.set(r.n, r);
+  }
+  const runs = [...byN.values()].sort((a, b) => a.n - b.n);
+  return { ...state, functional_verification: { ...fv, runs } };
+}
+
+/**
  * Write a state object to implement.json atomically (temp file + rename).
  *
  * Reuses the atomic-write body verbatim from `status.js`'s `advanceCyclePosition()`
@@ -94,11 +121,19 @@ function restoreFromRef(filePath, opts) {
  * that is NOT reused here — if that call site becomes a state mutation, it must go through
  * `save()` too, not keep its own bare `writeFileSync`.
  *
+ * Only for a file named `implement.json`, it first merges `functional_verification.runs` from
+ * the file on disk (union by `n`; per `n` an entry with a non-null `finished_at` wins, else the
+ * incoming one; sorted by `n`). A command holds `state` in memory across a long run and saves
+ * the whole object, so a stale copy would otherwise erase runs the run-limit CLI recorded.
+ * Nothing else is merged, an unreadable or absent file means no merge, and `state` is not
+ * mutated. Other files (`verification-state.json` etc.) are written exactly as given.
+ *
  * @param {string} filePath - Path to implement.json
  * @param {Object} state - State object to persist
  * @throws {Error} If the write fails (temp file is cleaned up before re-throwing)
  */
 function save(filePath, state) {
+  if (path.basename(filePath) === 'implement.json') state = mergeDiskRuns(filePath, state);
   // Per-writer temp path, NOT a shared `.tmp`. The temp+rename dance gives crash
   // atomicity either way, but a shared temp name gives no protection against the
   // SECOND writer -- which is the one this module's header names as existing by

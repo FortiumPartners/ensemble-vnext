@@ -26,6 +26,20 @@ the run passes the new `--publish` flag. Commands now ask `node .claude/lib/arti
 (#153, #154, #155). Quality is kept: a file or criterion nothing can be related to still widens to
 the full set.
 
+### Added
+
+- **Per-feature verification run limit.** A feature gets at most `ensemble.verificationRunLimit`
+  counted verification runs (any integer of at least 1, default 2; an invalid value stops the
+  command). At the limit `/verify-build`, `/implement-trd` and `/refine-verification` write
+  `ruling-request.md` for the product PM (ship, fix one named thing, or drop; what is shipped or
+  dropped is filed as a defect issue) instead of starting another run. Runs are counted by the new
+  `verification-runs.js` in `implement.json`; `--reset-state` clears the count, `setup-failure`
+  counts, runs before this release are not counted. Refine-verification TRD O4 is marked amended.
+
+### Not yet proven
+
+- The limit end to end in a live model session (VRL-T001) has not been run.
+
 ### Fixed
 
 - **Custody no longer doubts proofs over framework files, and narrows by directory (#153).**

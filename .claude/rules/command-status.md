@@ -232,7 +232,7 @@ Artifact({ file_path: "docs/TRD/<feature>.md", icon: "document",
 It holds `"version": 2` beside one `{path, url, updated_at, command}` entry per kind: `prd`,
 `trd`, `audit-prd`, `audit-trd`, `success-definition`, `verification-plan`,
 `verification-report`, `audit-build`, `report`, `design`, `audit-design`,
-and one key per verification-check skill. A re-run `get`s the entry and passes its url as `url:`.
+`ruling-request`, and one key per verification-check skill. A re-run `get`s the entry and passes its url as `url:`.
 With publishing off, still `record` the path and leave `url` empty.
 
 **The link goes above the `COMMAND COMPLETE` banner** (`📐 TRD: https://claude.ai/artifact/...`).

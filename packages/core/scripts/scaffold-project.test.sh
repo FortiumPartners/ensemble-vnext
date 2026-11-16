@@ -2999,6 +2999,31 @@ PY
     [ "$output" = "branch" ]
 }
 
+@test "verificationRunLimit: scaffold stamps 2; an owner's 4 survives --refresh; an absent key gains 2" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    run python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['ensemble']['verificationRunLimit'])" "$TEST_DIR/.claude/settings.json"
+    [ "$output" = "2" ]
+    python3 - "$TEST_DIR/.claude/settings.json" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p)); d["ensemble"]["verificationRunLimit"]=4; json.dump(d,open(p,"w"))
+PY
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    run python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['ensemble']['verificationRunLimit'])" "$TEST_DIR/.claude/settings.json"
+    [ "$output" = "4" ]
+    python3 - "$TEST_DIR/.claude/settings.json" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p)); del d["ensemble"]["verificationRunLimit"]; json.dump(d,open(p,"w"))
+PY
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    run python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['ensemble']['verificationRunLimit'])" "$TEST_DIR/.claude/settings.json"
+    [ "$output" = "2" ]
+}
+
 @test "git files: --refresh adds the scratch lines to an existing .gitignore and leaves the index unchanged" {
     local plugin_dir
     plugin_dir="$(_get_plugin_dir)"
