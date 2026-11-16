@@ -66,7 +66,11 @@ const DIRECTION = a.direction && typeof a.direction === 'object' ? a.direction :
 const DIRECTION_TEXT = typeof a.direction === 'string' ? a.direction : (DIRECTION.text || '')
 const LATITUDE = DIRECTION.latitude || 'refine'
 const STYLE_PACK = a.stylePack || ''
-const REUSED_BUILD_SIDE = !!(a.caveats && a.caveats.reused_build_side)
+const CAVEATS = (() => {
+  if (typeof a.caveats !== 'string') return a.caveats || {}
+  try { return JSON.parse(a.caveats) || {} } catch { return {} }
+})()
+const REUSED_BUILD_SIDE = CAVEATS.reused_build_side === true
 const RUBRIC = a.rubric || ''
 const FLOOR = a.floor || DIRECTION.floor || {}
 const DRIFT = a.drift === true || a.drift === 'true'
