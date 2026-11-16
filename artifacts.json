@@ -1,15 +1,9 @@
 {
   "version": 2,
-  "fix-brief": {
-    "path": "docs/plans/fix-design-command-defects/brief.md",
-    "url": "https://claude.ai/artifact/SrWhtYRXFZw8s6YABMmdZb",
-    "updated_at": "2026-11-16T08:33:16.202Z",
-    "command": "/plan-fix"
-  },
-  "workplan-input": {
-    "path": "docs/plans/fix-design-command-defects/workplan-input.json",
-    "url": "",
-    "updated_at": "2026-11-16T08:34:21.752Z",
-    "command": "create-workplan"
+  "trd": {
+    "path": "docs/TRD/fix-design-command-defects.md",
+    "url": "https://claude.ai/artifact/VWf8ABRrkrWq498HTqd8wD",
+    "updated_at": "2026-11-16T08:59:25.332Z",
+    "command": "/plan"
   }
 }
