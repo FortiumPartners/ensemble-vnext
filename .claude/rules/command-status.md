@@ -217,7 +217,7 @@ that drifts from it.
 `.trd-state/<feature>/artifacts.json`, is a run record: it leaves the worktree on the command's
 single records-ref write (see "Run records go to the records ref"), never in a commit of its own. It holds `"version": 2` beside one `{path, url, updated_at,
 command}` entry per kind: `prd`, `trd`, `audit-prd`, `audit-trd`, `success-definition`,
-`verification-plan`, `verification-report`, `audit-build`, `report`, `design`, `audit-design`, and
+`verification-plan`, `verification-report`, `audit-build`, `report`, `design`, `audit-design`, `ruling-request`, and
 one key per verification-check skill. On a later refine or re-verify, `get` the entry and pass its url as `url:` so the same
 link updates in place; otherwise it goes stale silently. With publishing off, still `record`
 the path and leave `url` empty.

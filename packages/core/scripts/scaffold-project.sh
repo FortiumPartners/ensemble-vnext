@@ -1656,6 +1656,9 @@ ensemble.setdefault("openPullRequest", "never")
 # Where a feature's records are written: "ref" (refs/ensemble/records/<slug>).
 # Informational; setdefault so an owner's "branch" survives every refresh.
 ensemble.setdefault("records", "ref")
+# Verification runs allowed per feature before a ruling is needed. setdefault,
+# never assignment: an owner who raised or lowered it keeps it across refreshes.
+ensemble.setdefault("verificationRunLimit", 2)
 data["ensemble"] = ensemble
 
 # The one env key this touches, and only when absent. The Stop-hook judge was
