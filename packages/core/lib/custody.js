@@ -782,7 +782,9 @@ function reconcile(args) {
     return out({
       action: 'moved', anchor: next.anchor.commit, differing: shipped,
       reason: rule === 'no-success-definition' ? 'moved: no success definition to re-verify against' : 'moved: only base-branch changes since the anchor',
-    });
+    }, rule === 'no-success-definition'
+      ? { scope: 'full', scopeReason: 'no success definition: nothing could be judged, so nothing was re-proved' }
+      : undefined);
   }
 
   // Only non-shipped classes changed, none promoted: nothing to re-prove, the anchor moves.

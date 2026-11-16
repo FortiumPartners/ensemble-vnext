@@ -488,6 +488,17 @@ describe('reconcile: change classes and ensemble.reproof', () => {
       reconcile(s.args());
       expect(s.readCustody().moves[0].rule).toBe('no-success-definition');
     });
+
+    test('with no success definition and shipped changes, the scope is full, never none (nothing could be judged)', () => {
+      const s = setup();
+      s.commit('work', { 'src/a.js': 'a2' });
+      reconcile(s.args());
+      s.commit('more work', { 'src/a.js': 'a3' });
+      const r = reconcile(s.args());
+      expect(r.action).toBe('moved');
+      expect(r.scope).toBe('full');
+      expect(r.scopeReason).toMatch(/no success definition/);
+    });
   });
 
   describe('a state written by the regression pass (one caught, one re-proven)', () => {
