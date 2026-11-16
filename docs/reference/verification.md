@@ -26,7 +26,7 @@ agent instructions are `packages/core/contracts/functional-verification.md` ("th
 
 | Entry point | When | What it adds | Source |
 |---|---|---|---|
-| `/implement-trd` Step 8 | Every build, unless `--no-verify` | Derive runs in the background at the start; the loop runs once, after the end-of-run review | `implement-trd.md` §3.6, Step 8 |
+| `/implement-trd` Step 8 | Every build, unless `--no-verify` | Derive runs in the background at the start; the loop runs once, after the end-of-run review and the code audit. A `satisfied` outcome is what lets the held-back close happen | `implement-trd.md` §3.6, Step 8 |
 | `/verify-build [--resume]` | Built with `--no-verify`, loop was interrupted (`--resume` continues it when its state file says `outcome: null`), or you changed something by hand | Derives the definition in the foreground if it is missing | `verify-build.md` Steps 1–5, "`--resume`" |
 | `/verify-build` with a fresh plan | After a run ended short and `/refine-verification` wrote a plan | Rounds of build-then-verify, unattended (the default whenever an unspent plan exists) | `verify-build.md` "The fix loop" |
 | `/verify-build docs/plan/<slug>.sweep.md [--chained]` | `/plan` split a finished spec into a sweep list and a core TRD; the sweep's fixes are checked before the core is built | Verifies the sweep file's criteria verbatim: no derive step, one iteration, no fix loop. `--chained` is used only by `/plan --implement` | `verify-build.md` Step 1, 3a "A sweep file", "`--chained`" |
@@ -422,7 +422,7 @@ with the returned outcome.
 
 | Outcome | Means | Where to go next |
 |---|---|---|
-| `satisfied` | Nothing open, and every must-pass criterion is met with no must-pass objective left without a criterion. The outcome line adds "(N of M not verifiable)" when some were never checked | `/audit-build` |
+| `satisfied` | Nothing open, and every must-pass criterion is met with no must-pass objective left without a criterion. The outcome line adds "(N of M not verifiable)" when some were never checked | Nothing to run: inside `/implement-trd` the feature closes if the audit passed (after `/verify-build`, the same close) |
 | `unbuilt` | Something asked for was never built; the loop stopped rather than debug absent code | `/refine-verification`, then `/verify-build` |
 | `stalled` | A debug round closed nothing | same |
 | `stuck` | The cap ran out with gaps open, or a `--resume` arrived with no budget left | same |

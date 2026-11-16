@@ -308,9 +308,9 @@ stateDiagram-v2
 proven", and the report says so. The usual fix is to tell the loop how to reach an environment
 it couldn't, not to write more code.
 
-**The audit closes the feature.** After verification, `/audit-build` reads the delivered code
+**The audit closes the feature.** Before verification, `/implement-trd` runs `/audit-build`, which reads the delivered code
 against the TRD and the PRD, and asks whether every requirement has both an implementation and
-a test that proves it. A passing audit closes the feature and, if you allow it, opens the pull
+a test that proves it. A passing audit, followed by a satisfied verification, closes the feature and, if you allow it, opens the pull
 request; it never merges. A feature never closes while a real defect is open. A re-audit runs
 only after a real product defect, checks only that defect and what changed since, and a feature
 gets at most three audits before closing becomes your call. A weak test is a gap to fix, not a

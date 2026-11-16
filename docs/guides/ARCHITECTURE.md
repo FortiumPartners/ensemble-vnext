@@ -150,7 +150,7 @@ you can. An agent can start the others, including the audits, `/verify-build` an
 `/refine-verification`, but a command's authorization still ends at its own banner: nothing
 chains into the next stage unless you asked for a chain.
 
-**One banner per run.** A few commands run another as one of their steps: `/audit-build` runs
+**One banner per run.** A few commands run another as one of their steps: `/implement-trd` runs `/audit-build --chained`; `/audit-build` runs
 `/implement-trd --reconcile --chained` to fix what it found; `/verify-build` does the same for its
 fix rounds; `/plan --implement` runs `/sweep --chained` and `/verify-build --chained`;
 `/sync-design` runs `/design-system --sync --chained`. The inner command prints no banner, and

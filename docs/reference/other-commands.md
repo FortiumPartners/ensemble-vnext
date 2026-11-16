@@ -183,7 +183,7 @@ At `medium` with kind `change` and open questions left after the audit, NEXT nam
 
 On a chained run the lead prints `plan()`'s `handoffLine`, calls
 `Skill({skill: "implement-trd", args: "docs/TRD/<slug>.md --verify"})`, and emits **no** banner
-or completion notify of its own: `/implement-trd` ends the run with its banner (see
+or completion notify of its own: `/implement-trd` (a default run, so it audits, verifies and closes the feature) ends the run with its banner (see
 [implement-trd](implement-trd.md)). Every non-chained path ends with
 `═══ COMMAND COMPLETE: /plan ═══` and one `notify-complete.sh` call.
 
@@ -273,6 +273,7 @@ pipeline so it is not picked up by a description match.
 | `--prd <path>` | the PRD to validate against; default `current.json`'s `prd` |
 | `--project <dir>` | the project the code lives in, when it is not this checkout |
 | `--report-only` | write the report and stop: nothing recorded, chained or closed |
+| `--chained --defer-close`, `--chained --close-deferred [--verified]` | Callers only (`/implement-trd`), never typed by hand. The first audits and records that it would close, without closing; the second performs that recorded close once verification allows it (`--verified` after a `satisfied` verification, so shipping can trust the head at close; without it, when `--no-verify` skipped verification). A TRD edited since the audit returns `stale`; no recorded close returns `nothing to close` |
 
 It answers three questions — does the code match the TRD's tasks (verification), the PRD's
 requirements (validation), and does every requirement have both an implementation **and** a
@@ -395,7 +396,7 @@ Source: `commands/ship-build.md`; `lib/ship-sequencer.js`; one contract per step
 `.claude/contracts/ship-primitive-<name>.md`. Fill the policy with the `ship-setup` skill, which
 writes `.claude/rules/ship.md`.
 
-`/audit-build` and `/close-feature` stop at an optional pull request. `/ship-build` is what comes
+`/implement-trd` (once its audit and verification allow it), `/audit-build` and `/close-feature` stop at an optional pull request. `/ship-build` is what comes
 after: it runs the steps you listed under `## Ship` in `ship.md`, in order (push, `open-pr`, CI
 wait, review rounds, `merge`, release, close the issue and file follow-ups). With no steps it
 only pushes. The sequencer (code) orders the steps, repeats a block, parks a run that waits on a

@@ -16,9 +16,11 @@ FULL PIPELINE (new feature)
 /create-trd            --> Technical Requirements Document
 /audit-trd             --> Verify the TRD against the PRD
 /refine-trd            --> (optional) Iterate on the TRD with feedback
-/implement-trd         --> Execute implementation (review runs INSIDE it)
-/audit-build           --> Verify delivered code against TRD and PRD; a passing audit
-                           closes the feature
+/implement-trd         --> Execute implementation (review, audit and verification run
+                           INSIDE it; both passing closes the feature)
+/audit-build           --> Re-audit delivered code against TRD and PRD, on its own or
+                           after an audit that did not pass; a standalone pass closes
+                           the feature
 /close-feature         --> Close a feature on your say-so: records it and clears its
                            in-flight state
 /ship-build            --> Ship what a closed feature left on the branch: runs the steps
@@ -161,7 +163,7 @@ or
 | `--continue` | Alias for `--resume` |
 | `--reconcile` | Re-attest delivered work against the TRD; re-open anything only claimed done |
 | `--verify` | Functional verification now runs **by default**; this flag is accepted explicitly and matters only paired with `--resume`, and only when the prior run's state file has `outcome: null` — it then re-enters that interrupted verification loop directly instead of re-running the whole phase loop |
-| `--no-verify` | Opt out of the functional-verification loop entirely |
+| `--no-verify` | Opt out of the functional-verification loop entirely; the audit still runs, and a passing audit then closes the feature |
 | `--include-deferred` | Dispatch deferred-by-design tasks (`[LIVE]` etc.) instead of setting them aside and reporting them |
 | `--reset-state` | Clear state and start fresh (requires confirmation) |
 
@@ -174,7 +176,9 @@ per phase:
   phase gate (verify-app + the project's deterministic battery) --> checkpoint + commit
 
 once, at the end of the run:
-  /code-review over the whole branch diff --> functional loop (default on; skip with --no-verify)
+  /code-review over the whole branch diff --> /audit-build (fixes what it finds)
+    --> functional loop (default on; skip with --no-verify) --> close the feature
+    when the audit passed and verification is satisfied
 ```
 
 **This loop is smaller than it was, deliberately.** The per-phase `code-simplifier` stage
@@ -193,7 +197,9 @@ task.
      or review agent
    - Phase gate: `verify-app` plus the project's deterministic battery
 3. Checkpoint + commit after each phase gate
-4. Once, after the final phase: `/code-review` over the whole branch diff
+4. Once, after the final phase: `/code-review` over the whole branch diff, then
+   `/audit-build` (it fixes what it finds), then functional verification; the feature
+   closes only if the audit passed and verification was `satisfied` (or skipped)
 5. Updates `.trd-state/<feature>/implement.json`
 
 ### /update-project

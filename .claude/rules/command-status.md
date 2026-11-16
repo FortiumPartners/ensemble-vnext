@@ -258,8 +258,8 @@ that's a bug.
 `/implement-trd` and deliberately emits no banner of its own, because the banner is the LAST
 line of the turn and an implementation run follows it — the run still terminates with a
 banner, carrying the chained command's name. The reverse also holds: `/implement-trd
---chained`, called by `/verify-build` (fixing is its default now, not a flag), emits none,
-and the caller's banner ends the run. Likewise `/plan --implement` on a sweep list chains
+--chained`, called by `/verify-build`, and `/audit-build --chained`, called by
+`/implement-trd`, emit none; the caller's banner ends the run. Likewise `/plan --implement` on a sweep list chains
 `/sweep` then `/verify-build`: `/sweep --chained` and `/verify-build --chained` emit none and
 skip `notify-complete.sh`, so the run ends on `/plan`'s or `/implement-trd`'s banner. So the invariant is **one banner per RUN, not one per
 command name** — a chaining command that emits none is correct.
