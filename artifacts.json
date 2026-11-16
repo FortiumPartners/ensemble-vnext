@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/narrow-reproof-scope.md",
+    "url": "https://claude.ai/artifact/2EPct7dp9eCUgRiUnMwcCT",
+    "updated_at": "2026-11-16T10:55:58.631Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/narrow-reproof-scope/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-16T10:59:12.358Z",
+    "command": "/implement-trd"
+  }
+}
