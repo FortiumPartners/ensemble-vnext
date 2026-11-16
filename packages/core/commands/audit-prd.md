@@ -20,7 +20,8 @@ Run the verification wave over a PRD and apply what survives checking.
 $ARGUMENTS
 ```
 
-If no path is given, use `current.prd` from `.trd-state/current.json`.
+Remove a standalone `--publish` token first (remember it for the publish step); it is never
+the path. If no path is given, use `current.prd` from `.trd-state/current.json`.
 
 ---
 
@@ -152,12 +153,15 @@ not part of the path or source). First read any stored URL: `node .claude/lib/ar
 publish the report FILE with `Artifact({ file_path: ".trd-state/<feature>/audit-prd-report.md",
 icon: "document", url: "<stored URL, if any>" })` and put the link ABOVE the banner; a failed
 publish is one STATE line, never STUCK. On `publish: off (…)`, make no publish call and name the
-local path. A resolver error reads as off plus one ISSUES line. Record passes `--url <returned
-URL>` only when a publish returned one, otherwise `--url ""`, which clears any link a past
-version left behind that would otherwise point at an old page:
+local path. A resolver error reads as off plus one ISSUES line. Record with the first line
+below on `publish: off` (or a resolver error): `--url ""` clears any link a past version left
+behind, which would otherwise point at an old page. On `publish: on`, use the second line with
+the URL the publish returned; when that publish failed, drop `--url` entirely so the stored
+link is kept and the next run updates it rather than minting a new page:
 
 ```bash
 node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind audit-prd --path .trd-state/<feature>/audit-prd-report.md --command /audit-prd --url ""
+node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind audit-prd --path .trd-state/<feature>/audit-prd-report.md --command /audit-prd --url "<returned URL>"
 ```
 
 There is no commit step. A failed write or record is one line in STATE; it never turns the run STUCK.

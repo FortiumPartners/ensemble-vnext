@@ -23,8 +23,9 @@ Implements AC-F5.9 and AC-F6.9. In this order:
    ```bash
    node .claude/lib/artifacts.js publish --kind design
    ```
-   (`/design-system` also runs it with `--kind design-system` for the system page, and uses
-   `--kind design` for each canvas it republishes or installs on.) It prints `publish: on` or
+   (Any run that publishes, republishes or installs the Design System page, `/design-system`,
+   `/create-design` and `/refine-design` included, also runs it with `--kind design-system` and
+   applies that answer to the system page alone; `--kind design` governs every canvas publish.) It prints `publish: on` or
    `publish: off (<reason>)`; this is the only reader of `ensemble.publishArtifacts`, so never
    parse the setting yourself. A non-zero exit, or output with no `publish:` line, is `publish:
    off` with the printed error as the reason; it ends the run STUCK per §5, never a quiet

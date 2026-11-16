@@ -37,7 +37,9 @@ requirements of its own.
 $ARGUMENTS
 ```
 
-1. `--resume` alone: go to "Resume" below.
+Remove a standalone `--publish` token first, remembering it; it is never part of the spec.
+
+1. `--resume` alone (after that removal): go to "Resume" below.
 2. An argument naming an existing file (ending `.md`) is the **brief**; its text is the spec.
    Anything else is the spec verbatim. Pass the owner's words through unedited.
 3. No spec and no `--resume`: end `COMMAND STUCK` with the reason "no prompt or brief given".

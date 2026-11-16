@@ -18,7 +18,8 @@ execution plan. Delegates to @technical-architect for technical planning.
 $ARGUMENTS
 ```
 
-If no path provided, resolve from `.trd-state/current.json` field `prd`.
+Remove a standalone `--publish` token first (remember it for the publish step); it is never
+the path. If no path provided, resolve from `.trd-state/current.json` field `prd`.
 Error if neither available.
 
 ### Design input (`--design docs/ui/<slug>`)

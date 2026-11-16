@@ -36,7 +36,7 @@ category: implementation
 > - `--implement` — after the last stage the work earns, chain into `/implement-trd`
 >   (functional verification runs by default). Honoured at every weight — this flag alone
 >   decides whether work begins; see "Implement, or stop", below.
-> - `--publish` — publish this run's document even where the kind is off by default (a standalone flag token; `ensemble.publishArtifacts: false` still wins). Passed on to `/implement-trd` (and any chained step) when present; it is not `--implement`.
+> - `--publish` — publish this run's document even where the kind is off by default (a standalone flag token; `ensemble.publishArtifacts: false` still wins). Passed on to `/implement-trd` (and to `/verify-build` in a sweep chain, never to `/sweep`) when present; it is not `--implement`.
 > - `--design docs/ui/<slug> --boards <ids>` — build one board (or a small set, comma-separated)
 >   of a design; only the named boards are used, and naming them approves any still in `draft`
 
@@ -1164,7 +1164,9 @@ node -e '
 
 3. **`sweep` and `verify`.** Run `Skill({ skill: chainSteps.<step>.skill, args:
    chainSteps.<step>.args })`; those args are the only calls that carry `--chained`. When this
-   run carried `--publish`, append it to the args of each `Skill()` call here and to `chainArgs`.
+   run carried `--publish`, append it to the `verify` step's args and to `chainArgs`, never to
+   `/sweep`'s: `/sweep` publishes nothing and reads every token it does not strip as part of the
+   issue list.
    - Before `/sweep`, record `git status --porcelain --untracked-files=all` and, for every path
      it lists, `git hash-object <path>` (a path that no longer exists records "absent"). Before
      `/verify-build`, record the time.

@@ -36,10 +36,12 @@ $ARGUMENTS
    remedy, so it skips the stale check. Run `node .claude/lib/design-map.js setup`; a `design.md`
    that is `missing` or `unfilled` ends the command STUCK with "run `/design-setup`". The product
    build is gated on `design.md`: read its section 1 and run nothing before it is filled.
-   **Read the publishing switch next** (contract section 1 step 2) and hold the answer. Run it with `--kind design-system` for the system and `--kind design` for each canvas. With
-   `publish: off` or no Artifact tool, steps 6 and 7 make no publish call at all (no Design
-   System artifact created or updated, nothing installed on a canvas), and the run ends
-   STUCK naming the publish step (contract section 5), never COMPLETE.
+   **Read the publishing switch next** (contract section 1 step 2) and hold both answers: run it
+   with `--kind design-system` (it governs step 6, the Design System artifact) and with `--kind
+   design` (it governs step 7, installing on each canvas). With either answer `publish: off`, or
+   no Artifact tool, steps 6 and 7 make no publish call at all (no Design System artifact
+   created or updated, nothing installed on a canvas), and the run ends STUCK naming the
+   publish step and the kind that read off (contract section 5), never COMPLETE.
 2. **Choose the route from `design.md`.**
    - Source of truth `figma`: use the Figma connector route, the Design System type's
      `from-design-tool.md`. The Figma MCP is reachable from this main session only, so do this

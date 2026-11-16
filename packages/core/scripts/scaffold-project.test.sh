@@ -854,7 +854,7 @@ EOF
     [[ "$output" == *"Added framework skill: verify-data-fidelity"* ]]
 }
 
-@test "publishArtifacts: refresh keeps an owner's false, and an owner's per-kind object, byte-identical" {
+@test "publishArtifacts: refresh keeps an owner's false, and an owner's per-kind object, unchanged in value and type" {
     local plugin_dir
     plugin_dir="$(_make_fixture_plugin_dir)"
     run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR/project"
