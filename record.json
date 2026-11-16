@@ -1,5 +1,5 @@
 {
-  "forge_feature_id": null,
-  "branch": "main",
+  "forge_feature_id": "e84758fc-d994-42e4-8e3b-0a4913701750",
+  "branch": "feature/1-fix-rerun-scope-rule",
   "slug": "fix-rerun-scope-rule"
 }

@@ -1,0 +1,81 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/fix-rerun-scope-rule.md",
+  "trd_hash": "45118a267f01535f6e37c4e2895dc27dec4ea704f5c9f4702a78c61ced88d4fd",
+  "branch": "feature/1-fix-rerun-scope-rule",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "RS-001": {
+      "description": "Add packages/core/lib/rerun-scope.js (changed --anchor) with a Jest test; mirror to .claude/lib/ and link in packages/full/lib/",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/rerun-scope.js",
+        "packages/core/lib/rerun-scope.test.js"
+      ],
+      "commit": "b2c187c389176e0cfa3063d3d92c8c6dafc7f7e8",
+      "started_at": "2026-11-16T11:33:06.214Z",
+      "completed_at": "2026-11-16T11:33:06.215Z"
+    },
+    "RS-002": {
+      "description": "Write packages/core/contracts/rerun-scope.md and rerun-scope.test.js; mirror to .claude/contracts/",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/rerun-scope.md",
+        "packages/core/contracts/rerun-scope.test.js"
+      ],
+      "commit": "b2c187c389176e0cfa3063d3d92c8c6dafc7f7e8",
+      "started_at": "2026-11-16T11:33:06.214Z",
+      "completed_at": "2026-11-16T11:33:06.215Z"
+    },
+    "RS-003": {
+      "description": "Add the scope step to the five commands, the custody gate and wait-ci; add the restarted-run rule to verify-build.md; mirror to .claude/commands/ and .claude/contracts/",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-build.md",
+        "packages/core/commands/refine-verification.md",
+        "packages/core/commands/audit-build.md",
+        "packages/core/commands/ship-build.md",
+        "packages/core/commands/implement-trd.md",
+        "packages/core/contracts/ship-custody-gate.md",
+        "packages/core/contracts/ship-primitive-wait-ci.md"
+      ],
+      "commit": "b2c187c389176e0cfa3063d3d92c8c6dafc7f7e8",
+      "started_at": "2026-11-16T11:33:06.214Z",
+      "completed_at": "2026-11-16T11:33:06.215Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "b2c187c389176e0cfa3063d3d92c8c6dafc7f7e8",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T11:33:06.215Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "b2c187c389176e0cfa3063d3d92c8c6dafc7f7e8",
+    "last_checkpoint_timestamp": "2026-11-16T11:33:06.215Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/fix-rerun-scope-rule.md ## Intended Change"
+  }
+}

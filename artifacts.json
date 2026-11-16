@@ -1,15 +1,9 @@
 {
   "version": 2,
-  "fix-brief": {
-    "path": "docs/plans/fix-rerun-scope-rule/brief.md",
-    "url": "https://claude.ai/artifact/DfioksPviDEMrtqPUiR2HE",
-    "updated_at": "2026-11-16T10:23:29.021Z",
-    "command": "/plan-fix"
-  },
-  "workplan-input": {
-    "path": "docs/plans/fix-rerun-scope-rule/workplan-input.json",
-    "url": "",
-    "updated_at": "2026-11-16T10:24:35.015Z",
-    "command": "create-workplan"
+  "trd": {
+    "path": "docs/TRD/fix-rerun-scope-rule.md",
+    "url": "https://claude.ai/artifact/E8adw8Av28fDwTEh3Vvg8K",
+    "updated_at": "2026-11-16T11:32:42.762Z",
+    "command": "/plan"
   }
 }
