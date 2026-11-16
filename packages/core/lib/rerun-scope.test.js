@@ -72,6 +72,14 @@ describe('changed', () => {
     expect(base).toBeTruthy();
   });
 
+  test('accepts a relative revision such as HEAD~1', () => {
+    commit('src/a.js', '1');
+    commit('docs/x.md', '1');
+    const r = rs.changed({ anchor: 'HEAD~1', cwd: dir });
+    expect(r.readable).toBe(true);
+    expect(r.counts.doc).toBe(1);
+  });
+
   test('refuses an anchor that is not a plain ref', () => {
     expect(rs.changed({ anchor: '--output=x', cwd: dir }).readable).toBe(false);
   });

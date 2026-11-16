@@ -58,8 +58,11 @@ function git(args, cwd) {
 function changed({ anchor, head = 'HEAD', trd = null, cwd = process.cwd() }) {
   const counts = Object.fromEntries(CLASSES.map((c) => [c, 0]));
   const fail = (reason) => ({ readable: false, anchor: String(anchor || ''), head, files: [], counts, reason });
-  if (!anchor || !/^[0-9a-zA-Z][0-9a-zA-Z._\/-]*$/.test(anchor)) return fail('no anchor given');
-  if (!/^[0-9a-zA-Z][0-9a-zA-Z._\/-]*$/.test(head)) return fail('head is not a plain ref');
+  // A plain ref or revision (sha, branch, HEAD~1, origin/main); never a leading `-` (an option).
+  const PLAIN_REF = /^[0-9a-zA-Z][0-9a-zA-Z._\/~^@-]*$/;
+  if (!anchor) return fail('no anchor given');
+  if (!PLAIN_REF.test(anchor)) return fail('anchor is not a plain ref');
+  if (!PLAIN_REF.test(head)) return fail('head is not a plain ref');
   const a = git(['rev-parse', '--verify', '--quiet', `${anchor}^{commit}`], cwd);
   if (!a.ok) return fail(`anchor ${anchor} is not a commit here`);
   const h = git(['rev-parse', '--verify', '--quiet', `${head}^{commit}`], cwd);
