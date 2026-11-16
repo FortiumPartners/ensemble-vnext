@@ -11,5 +11,11 @@
     "url": "",
     "updated_at": "2026-11-16T10:37:25.139Z",
     "command": "/implement-trd"
+  },
+  "verification-plan": {
+    "path": ".trd-state/fix-design-command-defects/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-11-16T10:38:49.937Z",
+    "command": "/refine-verification"
   }
 }
