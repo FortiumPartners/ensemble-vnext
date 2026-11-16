@@ -1688,7 +1688,8 @@ The audit runs its verifier wave, chains its own fix run (`/implement-trd --reco
 round ledger instead of performing it. It ends with one `[STATUS: /audit-build] RETURN → …`
 line. While that line is `re-audit needed`, make the same call again: **at most three calls in
 all** (1 + `MAX_REAUDITS`, which `audit-rounds.js` sets to 2 and does not export, so it is stated
-here). A third `re-audit needed` is read as `cap reached`. Then go to Step 8 whatever the last
+here). A third `re-audit needed` is read as `cap reached`, and `audit.return` below records it as
+`cap reached`. Then go to Step 8 whatever the last
 RETURN says.
 
 When the last RETURN is `passed, close deferred`, read the pending round's run id:

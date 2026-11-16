@@ -273,7 +273,7 @@ pipeline so it is not picked up by a description match.
 | `--prd <path>` | the PRD to validate against; default `current.json`'s `prd` |
 | `--project <dir>` | the project the code lives in, when it is not this checkout |
 | `--report-only` | write the report and stop: nothing recorded, chained or closed |
-| `--chained --defer-close`, `--chained --close-deferred [--verified]` | Callers only (`/implement-trd`), never typed by hand. The first audits and records that it would close, without closing; the second performs that recorded close once verification allows it (`--verified` after a `satisfied` verification, so shipping can trust the head at close; without it, when `--no-verify` skipped verification). A TRD edited since the audit returns `stale`; no recorded close returns `nothing to close` |
+| `--chained --defer-close`, `--chained --close-deferred [--verified]` | Callers only (`/implement-trd`; `/verify-build` passes the second), never typed by hand. The first audits and records that it would close, without closing; the second performs that recorded close once verification allows it (`--verified` after a `satisfied` verification, so shipping can trust the head at close; without it, when `--no-verify` skipped verification). A TRD edited since the audit returns `stale`; no recorded close returns `nothing to close` |
 
 It answers three questions — does the code match the TRD's tasks (verification), the PRD's
 requirements (validation), and does every requirement have both an implementation **and** a

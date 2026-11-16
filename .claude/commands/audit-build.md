@@ -507,7 +507,8 @@ printed above the RETURN line. When the audit workflow was unavailable (the suba
 the round has no run id, record the round with `runId: "fallback-<the round's ts>"` so the
 deferred-close line can name it. A re-audit whose rerun scope is `none` takes the `close` true
 path: the earlier passing verdict stands and the close is deferred, not performed. No workflow
-runs, so first record this run's round through `record` (its own `runId`, the last passing round's
+runs and there is no workflow run id, so first record this run's round through `record` (`runId:
+"none-<the round's ts>"`, never an earlier round's id, the last passing round's
 `verdict`, `auditedCommit` and `trdHash`, every count 0): the deferred-close line must have a round of
 its run id to fold into, or `pending-close` reads it as a round with no verdict and reports an `error`.
 

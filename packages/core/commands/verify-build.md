@@ -822,8 +822,9 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    (`stalled`, `stuck`, `unbuilt`, `insufficient-coverage` or `must-pass-unproven`) or anything
    buildable or blocked remains or any criterion carries `settled: 'definition-problem'`
    (D24; ISSUES names each), otherwise the held-back close of O4 (`pending-close`, then
-   `--chained --close-deferred --verified`, with its explicit-`--no-fix` and `--resume` rules and its
-   NEXT by RETURN); a `setup-failure` outcome is the
+   `--chained --close-deferred`, with its explicit-`--no-fix` and `--resume` rules and its
+   NEXT by RETURN; never with `--verified` here, because step 4 carries every `met` verdict
+   forward from an earlier round, so the run did not walk every criterion afresh); a `setup-failure` outcome is the
    exception and routes to the fix then `/verify-build` (above) — keyed to the outcome, so a
    `must-pass-unproven` run with nothing buildable still routes to `/refine-verification`. Exactly **one** `═══
    COMMAND COMPLETE: /verify-build ═══` banner for the whole run — never one per round —

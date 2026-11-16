@@ -2988,7 +2988,10 @@ describe('verify-build.md completes the held-back close (ABFV-B004)', () => {
   test('step 6 names the same close at its nothing-buildable point and routes the rest unchanged', () => {
     const t = step6();
     expect(t).toMatch(/otherwise the held-back close/);
-    expect(t).toMatch(/--chained --close-deferred --verified/);
+    // The fix loop carries `met` verdicts forward (step 4's synthesised resume), so it never
+    // walked every criterion afresh: its close call drops --verified (AMEND-002's rule).
+    expect(t).toMatch(/--chained --close-deferred`/);
+    expect(t).toMatch(/never with `--verified` here/);
     expect(t).not.toMatch(/otherwise `\/audit-build`/);
     expect(t).toMatch(/`\/refine-verification`, then `\/verify-build`/);
   });
