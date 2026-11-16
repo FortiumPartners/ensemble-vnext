@@ -1,0 +1,181 @@
+{
+ "requirements": [
+  {
+   "id": "O1",
+   "statement": "Custody treats framework and housekeeping files as not shipped code: .claude/** except .claude/rules/**, CLAUDE.md, .gitattributes, .gitignore. .claude/rules/** and application source stay shipped. (Must pass: no)",
+   "source": "TRD Objectives table O1; investigation O1 (issue #153). No PRD file exists under docs/PRD for this feature; the investigation is the TRD's named source.",
+   "served_by": [
+    "NRS-B001"
+   ]
+  },
+  {
+   "id": "O2",
+   "statement": "When a merge-up changes a shipped-class file that no covers record names, custody puts in doubt only the criteria whose covers share that file's directory. A file nothing can be related to still widens to every must-pass criterion. (Must pass: YES)",
+   "source": "TRD Objectives table O2; investigation O2 (issue #153)",
+   "served_by": [
+    "NRS-B001",
+    "NRS-T001"
+   ]
+  },
+  {
+   "id": "O3",
+   "statement": "Before re-proving, custody states what changed since the anchor and the scope chosen (none, targeted or full) with the reason; the gate contracts say so. (Must pass: no)",
+   "source": "TRD Objectives table O3; investigation O3 (issue #153)",
+   "served_by": [
+    "NRS-B001",
+    "NRS-D002"
+   ]
+  },
+  {
+   "id": "O4",
+   "statement": "Design criteria (ST-<board id> rows proved by verify-design-structure, DC-<frame stem> rows proved by verify-design-comparison) get covers built from docs/ui/<slug>/design-map.json: board route, the page file serving that route, and the files of the components the board names. A board that cannot be fully resolved stays without covers and is reported, never guessed. (Must pass: YES)",
+   "source": "TRD Objectives table O4; investigation O4 (issue #154, owner decision 2026-11-16)",
+   "served_by": [
+    "NRS-B002",
+    "NRS-B004",
+    "NRS-T001"
+   ]
+  },
+  {
+   "id": "O5",
+   "statement": "The verification regression pass re-checks a criterion that has no covers record only when a changed file relates to it, not on any Debug edit; the report says how many criteria were re-checked and why, per reason, and names the scope (none, targeted, full). (Must pass: no)",
+   "source": "TRD Objectives table O5; investigation O5 (issue #154)",
+   "served_by": [
+    "NRS-B003",
+    "NRS-B005",
+    "NRS-D001"
+   ]
+  },
+  {
+   "id": "O6",
+   "statement": "A must-pass criterion proven by a named CI job is re-proved by re-running that job (or the run's failed jobs), never by dispatching the whole workflow; a job also red on the base branch head is reported as baseline, not as a failure of this feature. (Must pass: no)",
+   "source": "TRD Objectives table O6; investigation O6 (issue #155)",
+   "served_by": [
+    "NRS-B003",
+    "NRS-B005",
+    "NRS-D001"
+   ]
+  },
+  {
+   "id": "O7",
+   "statement": "The TRD authoring contract does not let a TRD declare a criterion whose only proof is a full manual CI run; the commands that handle a voided, missing or red declared proof name the single-job re-run. (Must pass: no)",
+   "source": "TRD Objectives table O7; investigation O7 (issue #155)",
+   "served_by": [
+    "NRS-D001"
+   ]
+  },
+  {
+   "id": "O8",
+   "statement": "The vendored runtime under .claude/ and the packages/full distribution carry exactly the edited packages/core files (identical content). (Must pass: no)",
+   "source": "TRD Objectives table O8; constitution.md Architecture Invariants (Vendored Runtime) and investigation Grounding hazard",
+   "served_by": [
+    "NRS-I001"
+   ]
+  },
+  {
+   "id": "O9",
+   "statement": "Tests pass with unit coverage at or above 60% and integration coverage at or above 50% where integration tests apply. (Must pass: no)",
+   "source": "TRD Objectives table O9; constitution.md Quality Gates",
+   "served_by": []
+  }
+ ],
+ "tasks": [
+  {
+   "id": "NRS-B001",
+   "description": "custody.js: D1 classification, new relatedDirs, D3 directory narrowing in affectedIds, D4 scope/scopeReason/changed on reconcile results. Serves O1, O2, O3, D1-D4. Depends on: none.",
+   "touches": [
+    "packages/core/lib/custody.js",
+    "packages/core/lib/custody.test.js"
+   ]
+  },
+  {
+   "id": "NRS-B002",
+   "description": "New packages/core/lib/design-covers.js (designCovers) with design-covers.test.js. Serves O4, D5-D8. Depends on: none.",
+   "touches": [
+    "packages/core/lib/design-covers.js (new)",
+    "packages/core/lib/design-covers.test.js (new)"
+   ]
+  },
+  {
+   "id": "NRS-B003",
+   "description": "functional-verification.js: D13 base-head lookup, baseline status, jobId, CLI --base; D12 scope line in renderReport regression section. Serves O5, O6, D12, D13. Depends on: none.",
+   "touches": [
+    "packages/core/lib/functional-verification.js",
+    "packages/core/lib/functional-verification.test.js"
+   ]
+  },
+  {
+   "id": "NRS-B004",
+   "description": "live-evidence.js: design rows take covers from designCovers with source design-map (D8); recordCriterionCovers keeps the source; CLI record-criteria prints unresolved, derive-criteria writes them to stderr (D9). Serves O4, D8, D9. Depends on: NRS-B002.",
+   "touches": [
+    "packages/core/lib/live-evidence.js",
+    "packages/core/lib/live-evidence.test.js"
+   ]
+  },
+  {
+   "id": "NRS-B005",
+   "description": "verify-functional.js: new inline isCodeClass; D10 no-covers rule; D12 counts/scopeWord in regressionScope, the record and the log line; baseline added to OFF_HOST_STATUSES with jobId optional (D13); D14 settleOffHost reason text. Serves O5, O6, D10, D11, D12, D14. Depends on: NRS-B001, NRS-B003.",
+   "touches": [
+    "packages/core/workflows/verify-functional.js",
+    "packages/core/workflows/verify-functional.test.js"
+   ]
+  },
+  {
+   "id": "NRS-D001",
+   "description": "Verify-side wording (D15): verify-build.md and implement-trd.md off-host paragraphs name gh run rerun <run-id> --job <job-id> / --failed, forbid gh workflow run, send record-criteria's unresolved to ISSUES; contracts/trd-authoring.md Off-host proof paragraph forbids a criterion whose only proof is a full manual CI run. Serves O5, O6, O7, D10, D13, D15. Depends on: NRS-B003, NRS-B004, NRS-B005.",
+   "touches": [
+    "packages/core/commands/verify-build.md",
+    "packages/core/commands/implement-trd.md",
+    "packages/core/contracts/trd-authoring.md"
+   ]
+  },
+  {
+   "id": "NRS-D002",
+   "description": "Ship-side wording and sibling TRDs: ship-custody-gate.md prints changed, scope and scopeReason from the reconcile result at the end of step 2, before step 3's reverify re-proof (D15); ship-primitive-merge.md edited only if needed; docs/guides/ship-build.md; amendment markers in two sibling TRDs (re-prove-only-what-a-change-can-affect.md, one-full-regression-pass-at-the-end.md). Serves O3, D3, D10, D15. Depends on: NRS-B001.",
+   "touches": [
+    "packages/core/contracts/ship-custody-gate.md",
+    "docs/TRD/re-prove-only-what-a-change-can-affect.md",
+    "docs/TRD/one-full-regression-pass-at-the-end.md",
+    "packages/core/contracts/ship-primitive-merge.md (listed; edit only if a sentence there needs it)"
+   ]
+  },
+  {
+   "id": "NRS-T001",
+   "description": "Cross-seam test packages/core/lib/narrow-reproof.seam.test.js: a met ST-<board> must-pass criterion goes through record-criteria (NRS-B004) into the covers record, then custody.js reconcile (NRS-B001) returns reverify for a sibling file beside a board component file. Serves O2, O4. Depends on: NRS-B001, NRS-B004.",
+   "touches": [
+    "packages/core/lib/narrow-reproof.seam.test.js (new)"
+   ]
+  },
+  {
+   "id": "NRS-I001",
+   "description": "Re-check that every edited packages/core file matches its .claude/ copy (each task copies its own, D16) and re-copy any that drifted; CHANGELOG [Unreleased] entry naming #153, #154, #155; full battery. Serves O8, D16. Depends on: NRS-B001, NRS-B002, NRS-B003, NRS-B004, NRS-B005, NRS-D001, NRS-D002, NRS-T001.",
+   "touches": [
+    ".claude/lib/custody.js",
+    ".claude/lib/live-evidence.js",
+    ".claude/lib/functional-verification.js",
+    ".claude/lib/design-covers.js (new)",
+    ".claude/workflows/verify-functional.js",
+    ".claude/commands/verify-build.md",
+    ".claude/commands/implement-trd.md",
+    ".claude/contracts/trd-authoring.md",
+    ".claude/contracts/ship-custody-gate.md",
+    ".claude/contracts/ship-primitive-merge.md",
+    ".claude/contracts/functional-verification.md",
+    "packages/full/lib/design-covers.js (new symlink)",
+    "CHANGELOG.md"
+   ]
+  }
+ ],
+ "open_questions": [
+  "OQ-1 | Does a baseline off-host proof settle the criterion, or does it only change the reason? | Assumed: it only changes the reason; the criterion stays not_verifiable, as any non-green proof does (D14). O6 says reported as baseline, not as a failure of this feature, read as reporting, not proving. | Why it matters: settling it met would prove a criterion with a job that never succeeded. | If wrong: a must-pass criterion blocks a feature over a failure that is the base branch's; the fix is to let the blocking policy treat baseline as non-blocking.",
+  "OQ-2 | In the regression pass, should a code-class change in a directory no cover shares re-check no-covers criteria? | Assumed: yes; D10 re-checks a no-covers criterion on any code-class change, wider than investigation intended outcome 4 (see NG8). | Why it matters: the source's narrower rule could hide a regression in an uncovered directory. | If wrong: if the owner wants the source's narrowing, D10 gains 'and the file shares a directory with some recorded cover', accepting that risk.",
+  "OQ-3 | Should settleOffHost's rule 3 (debugTouchedCovers), which also re-checks no-covers ids on any Debug edit, take the D10 rule? | Assumed: no; out of scope (NG6) because the investigation names only regressionScope. | Why it matters: the two rules now differ for no-covers criteria. | If wrong: a docs-only Debug edit still voids a green off-host proof for a no-covers criterion; a follow-up applies D10 there.",
+  "OQ-4 | O4 lists board route among a design criterion's covers. Is the route itself a cover? | Assumed: no; a route is not a repository path. It is the key that finds the page file, which is the cover (D6). | Why it matters: a route string would be dropped as an absolute path by normalizeCoverPath anyway. | If wrong: nothing is lost unless a route file (a router config) is meant to be a cover too; then add the route-list file named in design.md section 3 to each board's covers.",
+  "OQ-5 | Which candidate paths does a route-list file line holding the route as a quoted literal yield? | Assumed: its other quoted literals containing / or . (D6). The investigation says to read those lines but not what to take from them. | Why it matters: a router that names a component, not a file, yields nothing and the board is unresolved. | If wrong: more boards stay unresolved than needed; the fix is a resolver for component names in those lines through section 2.",
+  "OQ-6 | Where are design maps looked up? | Assumed: every docs/ui/*/design-map.json, refusing a board id found in two (D8, D7). | Why it matters: a product with several designs sharing board ids gets no design covers. | If wrong: read the designs the TRD's Verification Artifacts section names instead."
+ ],
+ "could_not_verify": [
+  "Claim: gh run view <id> --json jobs returns a databaseId per job, usable as gh run rerun --job <id>. Why not checked: needs a real GitHub Actions run; gh run rerun --help supports it (NRS-B003 grounding) but no run was made. How to check: run gh run view <id> --json jobs against a real run in github-live-test.",
+  "Claim: gh run rerun <run-id> --job <job-id> re-runs one job without re-dispatching the workflow. Why not checked: same, needs a real run. How to check: one rerun in github-live-test."
+ ]
+}

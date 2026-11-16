@@ -154,6 +154,18 @@
       "started_at": null,
       "completed_at": "2026-11-16T11:37:23.267Z",
       "last_advanced": "2026-11-16T11:37:18.903Z"
+    },
+    "AMEND-001": {
+      "description": "O7 prose pin test",
+      "phase": 4,
+      "status": "success",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-11-16T12:19:17.278Z",
+      "cycle_position": "complete"
     }
   },
   "checkpoints": [
@@ -188,11 +200,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T11:37:23.443Z"
+    },
+    {
+      "phase": 4,
+      "commit": "95c30b3685b4a11a9cda8b646cf837ba7fd766ce",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T12:19:22.172Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "dd550f52dc316b70cc6ee2a41990233931acd942",
-    "last_checkpoint_timestamp": "2026-11-16T11:37:23.443Z",
+    "last_healthy_checkpoint": "95c30b3685b4a11a9cda8b646cf837ba7fd766ce",
+    "last_checkpoint_timestamp": "2026-11-16T12:19:22.172Z",
     "interrupted": false,
     "interrupt_reason": null
   },
