@@ -1,0 +1,54 @@
+<task id="VRL-B001">
+You are implementing ONE task of the TRD at docs/TRD/cap-verification-runs-per-feature.md (repo root /private/tmp/ensemble-vnext-feature-20-cap-verification-runs-per-feature; work only there).
+
+<objective>
+| VRL-B001 | New `packages/core/lib/verification-runs.js` (§3.1) with `verification-runs.test.js`; copy to `.claude/lib/verification-runs.js`; symlink `packages/full/lib/verification-runs.js` → `../../core/lib/verification-runs.js`. | O1, O2, O3, O4, O5, O6, O7, D1, D2, D4, D6, D9, D10, D11, D12, D13 | `jest` | None | `npx jest packages/core/lib/verification-runs.test.js` passes, each case in a temp `.trd-state/<f>/`: absent setting → limit 2; `5` → 5; `0`, `-1`, `"2"`, `2.5` → exit 2 naming `ensemble.verificationRunLimit`; two `start`/`finish` pairs then `start` → `allowed: false`, file unchanged; a `start` after an unfinished entry with `verification-state.json` `outcome: null` → `continued: true`, length unchanged; a `start` after an unfinished entry whose state file has an outcome → that entry closed as `abandoned` and counted (at 1 of 2 a new run is allowed, at 2 of 2 refused); `finish` with no unfinished entry → non-zero; `finish` reads `open` from a fixture `verification-state.json`; `rulingDue` true for `stalled` at 2 of 2, false for `stalled` at 1 of 2, false for `satisfied` at 2 of 2, true for `satisfied` with a `not_met` entry settled `definition-problem` at 2 of 2, true for `setup-failure` at 2 of 2; when `rulingDue`, the fixture report's `**Next**:` line names `ruling-request.md` and no other line changes; the request lists each open criterion's statement, cause and runs-open count (a criterion open in both runs shows 2), the three outcomes and their steps, and says "nothing is open" for an empty list; rendering twice with unchanged inputs gives identical text; `record-ruling ship` writes one `[non-blocking] ` row per open id and `waived-defects.listWaived` returns them; `fix --criterion X` waives all but X; `fix` with a non-open id → non-zero; `drop` rows carry `dropped by ruling`; `waived-defects.js` words an issue filed from a ruling row as waived by the PM's ruling (not as `Blocking: must-pass only`), and `waived-defects.test.js` passes with a case for it; `verification-runs` is in `scaffold-delivery.test.sh`'s delivered-module list; an existing `functional_verification` key (`prd_path`, `environments`) survives every write. `cmp` against `.claude/lib/verification-runs.js` reports no difference; `readlink packages/full/lib/verification-runs.js` is `../../core/lib/verification-runs.js`. |
+</objective>
+
+<grounding>
+### VRL-B001
+- **Touches:** `packages/core/lib/verification-runs.js` (new), `packages/core/lib/verification-runs.test.js` (new), `.claude/lib/verification-runs.js` (copy), `packages/full/lib/verification-runs.js` (new symlink, `../../core/lib/verification-runs.js`), `packages/core/lib/waived-defects.js` and `packages/core/lib/waived-defects.test.js` (an issue filed from a ruling row — summary reason `shipped as is by ruling …` / `dropped by ruling …` — is worded as waived by the PM's ruling, not by `Blocking: must-pass only`; `buildIssue`/`waiverLine` today state the must-pass-only waiver for every row) [read — grounding finding], `.claude/lib/waived-defects.js` (copy), `test/integration/tests/scaffold-delivery.test.sh` (add `verification-runs` to the `for m in trd-parser task-graph implement-state …` list in the test `delivered lib modules are real files that load`) [read — the list and its comment about `plan-weight` being "delivered only through packages/full/lib's per-file symlink"]. Greenfield otherwise: `packages/core/lib/` has no file that counts runs and `grep -rn "verificationRunLimit\|runLimit" packages/core/lib packages/core/commands packages/core/workflows` finds nothing [ran].
+- **Reuse:**
+  - `load(filePath, opts)` / `save(filePath, state)` in `packages/core/lib/implement-state.js` — the only sanctioned `implement.json` writer; `save()` already `mkdir -p`s the folder and writes by temp+rename [read]. `load()` throws ENOENT on a missing file after a `restoreFromRef` attempt, which runs `record-ref.ensure` (a fetch) unless `opts.local` is set; `status`/`check` should catch ENOENT as "count 0" and pass `{ local: true }` so a read-only check does no network call [read — `function load(filePath, opts = {})`, `restoreFromRef`].
+  - `recordNonBlockingFollowups(stateDir, nonBlocking, nowIso)` and `readDefinitionRows(definitionText)` in `packages/core/lib/functional-verification.js` (both in `module.exports`) [read]. `recordNonBlockingFollowups` takes `Array<string|{id, reason}>`, returns `{recorded, skipped, failed}`, writes `summary: "[non-blocking] <id>: <reason>"` with `foundBy: 'verify-functional'` hard-coded (OQ-7), and skips an id whose latest open row is already `[non-blocking]` [read]. The statement for a criterion is `row.cells['functional statement']` — the key `offHostProven` uses (`r.cells['functional statement'] ?? null`) [read]; do not reuse `waived-defects.js criterionFacts`' key list, which does not contain it.
+  - `listWaived(stateDir)` in `packages/core/lib/waived-defects.js` for the test's "rows are returned" assertion [read].
+  - Setting read: `readThresholds(repo)` in `packages/core/lib/docs-audit-assemble.js` — missing file → default, JSON parse failure → named error, `undefined`/`null` → default, otherwise `Number.isInteger` check with a message naming the setting [read].
+- **Replaces:** nothing — nothing in the tree counts runs. `verify-build.md`'s `cap: capArg ?? 3` is an iteration cap inside one run and stays [read].
+- **Follow:** CLI shape of `packages/core/lib/rerun-scope.js` (`main(argv)` returns an exit code, `emit(obj)` prints one JSON line, `if (require.main === module) process.exit(main(...))`) and its symlink commit `70a16a7b` (`packages/full/lib/ci-time.js`, `test-baseline.js` were added later because "the scaffold test counts packages/core/lib/*.js against what a fresh scaffold delivers" — `scaffold-project.test.sh` test `ITR-B014: fresh scaffold delivers .claude/lib/*.js matching packages/core/lib`) [read]. Flag parsing: `artifacts.js parseArgs` (`--name value` pairs, throws on an unknown positional) [read].
+- **Careful:**
+  - Whether a refusal is an exit code or JSON is not stated in TRD §3.1 (only `finish`-with-no-run and an invalid setting exit non-zero). Pick one and document it in the file header: the three command tasks (VRL-D001, VRL-D002, VRL-D003) all branch on it. The TRD's shape implies exit 0 with `allowed: false` [inferred].
+  - `open` in `finish` is "status !== 'met'" over `verification-state.json` `criteria`. In the code, a definition-problem entry has `status: 'not_met'` with `settled: 'definition-problem'` (`renderReport`: `settledGaps = criteria.filter((c) => c.status === 'not_met' && isSettledGap(c))`) [read], so TRD §3.1's "plus any `met` entry with `settled: 'definition-problem'`" is a state the workflow never produces. Build the fixture for the "`satisfied` with a definition-problem entry" test with `status: 'not_met'`. `not_verifiable`, `unbuilt` and the settled `regression-unchecked` entries are also non-`met`, so they land in `open` and a ship or drop ruling will file them too [read — `JUDGE` schema enum `settled: ['definition-problem','regression-unchecked',null]` in `verify-functional.js`].
+  - `offHostProven()` overlays `<state-dir>/reverify/verification-state.json` on the top-level state (the re-proof wins per id); TRD §3.1 reads only the top-level file. Decide whether `open` should overlay it; custody re-proofs are uncounted by D4 but can mark a criterion `met` [read].
+  - `start` on an absent `implement.json` seeds a bare object. Readers of `implement.json` expect `version, trd_file, trd_hash, phase_cursor, tasks` (`implement-trd.md` §2.3 State Validation) and `records-cutover.js isUnfinished` treats "has `implement.json`, no `closed.json`" as an in-flight feature [read]. `/verify-build` normally finds the file (it exists whenever `/implement-trd` ran, including `--no-verify` — `verify-build.md` says that is its primary case), so the seed path is rare; make it write only `{ functional_verification: { runs: [...] } }` and say so in the header.
+  - Every write goes through `save()`; `implement-state.js`'s header calls it "the only writer of implement.json semantics". Spawn nothing with a shell string (`CLAUDE.md` Security Considerations).
+  - Mirrors: `.claude/lib/` is a plain copy (`cmp` clean today for `implement-state.js`, `artifacts.js` [ran]); `packages/full/lib/*` are per-file symlinks and `scaffold-project.sh copy_libs` copies with `cp -L`, so a missing symlink means a scaffolded project never receives the library.
+  - Collides with no other task's files. `test/integration/tests/scaffold-delivery.test.sh` is edited by this task only: VRL-B003 uses that file's `refresh keeps an owner's openPullRequest and backfills never when absent` test as a shape reference and puts its own refresh case in `packages/core/scripts/scaffold-project.test.sh` (VRL-B003 Careful).
+
+</grounding>
+
+<decision>
+Read the TRD's §1.2 "Key Technical Decisions" (D1–D14) and §3 "Technical Specifications" before writing code; they are binding, including the corrections recorded in the changelog row 1.0.1/1.0.2. Two tasks of one change must not rediscover its design independently.
+</decision>
+
+<scope_boundaries>
+TRD §8 Non-Goals NG1–NG6 are hard limits. Touch only the files your grounding's Touches lists (plus their .claude/ mirror copies it names). Do NOT edit the TRD. Do NOT commit — the orchestrator commits at the phase checkpoint. Completed tasks so far: none.
+</scope_boundaries>
+
+<strategy_instructions>
+Strategy tdd: write the failing test first, in this same task, then the minimal implementation, then make it pass.
+</strategy_instructions>
+
+<check_battery>
+  <unit>npx jest &lt;the test files you added or changed&gt; (and npx jest packages/core/commands when you edit a command file)</unit>
+  <shell>shellcheck / bats on any .sh you change</shell>
+  <instruction>Run these against files you changed. On failure debug it yourself (5 Whys, fix, re-run) before returning; report "failed" only if still red after a genuine attempt. NEVER run a live, model-spending check (anything that starts claude sessions); report such a check "not run".</instruction>
+</check_battery>
+
+<discovered>
+If you find work this task does not cover, RECORD it and carry on: node -e 'require("./.claude/lib/discovered").record(".trd-state/cap-verification-runs-per-feature",{kind:"bug",foundBy:"VRL-B001",phase:1,summary:"...",file:"...",evidence:"..."})'. Do not fix it and do not spawn an agent for it.
+</discovered>
+
+<deliverables>
+Return status (success|failed), filesChanged (every path you created or edited, mirrors included), filesDeleted (if any), and a short summary including the test commands you ran and their results.
+</deliverables>
+</task>

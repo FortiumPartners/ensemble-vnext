@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "baseline": null,
+  "runs": {
+    "unit": {
+      "tree": "a68e70252e46597b5ae38e8999904b15432474f3+7f3f12a4ae13",
+      "status": "pass",
+      "command": "npx jest packages/core/lib/{verification-runs,implement-state,artifacts,waived-defects}.test.js",
+      "durationSeconds": 3,
+      "failures": [],
+      "at": "2026-11-16T20:11:33.692Z"
+    },
+    "integration": {
+      "tree": "a68e70252e46597b5ae38e8999904b15432474f3+7f3f12a4ae13",
+      "status": "pass",
+      "command": "bats packages/core/scripts/scaffold-project.test.sh; bats test/integration/tests/scaffold-delivery.test.sh",
+      "durationSeconds": 150,
+      "failures": [],
+      "at": "2026-11-16T20:11:33.883Z"
+    }
+  }
+}

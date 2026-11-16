@@ -1,0 +1,171 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/cap-verification-runs-per-feature.md",
+  "trd_hash": "6fc1b8ec7a9b34e07a17b98409441d6f3703c98aaec8b1fb1f6f254ad0e11abd",
+  "branch": "feature/20-cap-verification-runs-per-feature",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "VRL-B001": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/verification-runs.js",
+        "packages/core/lib/verification-runs.test.js",
+        ".claude/lib/verification-runs.js",
+        "packages/full/lib/verification-runs.js",
+        "packages/core/lib/waived-defects.js",
+        "packages/core/lib/waived-defects.test.js",
+        ".claude/lib/waived-defects.js",
+        "test/integration/tests/scaffold-delivery.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T20:00:32.585Z",
+      "completed_at": "2026-11-16T20:11:50.822Z",
+      "last_advanced": "2026-11-16T20:04:30.471Z"
+    },
+    "VRL-B002": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/implement-state.js",
+        "packages/core/lib/implement-state.test.js",
+        ".claude/lib/implement-state.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T20:00:32.585Z",
+      "completed_at": "2026-11-16T20:11:50.822Z",
+      "last_advanced": "2026-11-16T20:04:30.471Z"
+    },
+    "VRL-B003": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/templates/claude-directory/settings.json",
+        "packages/full/.claude/settings.json",
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/lib/artifacts.js",
+        "packages/core/lib/artifacts.test.js",
+        ".claude/lib/artifacts.js",
+        "packages/core/templates/claude-directory/rules/command-status.md",
+        ".claude/rules/command-status.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T20:00:32.585Z",
+      "completed_at": "2026-11-16T20:11:50.822Z",
+      "last_advanced": "2026-11-16T20:04:30.471Z"
+    },
+    "VRL-D001": {
+      "phase": 2,
+      "status": "in_progress",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-11-16T20:12:01.886Z",
+      "completed_at": null
+    },
+    "VRL-D002": {
+      "phase": 2,
+      "status": "in_progress",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-11-16T20:12:01.886Z",
+      "completed_at": null
+    },
+    "VRL-D003": {
+      "phase": 2,
+      "status": "in_progress",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-11-16T20:12:01.886Z",
+      "completed_at": null
+    },
+    "VRL-D004": {
+      "phase": 2,
+      "status": "in_progress",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-11-16T20:12:01.886Z",
+      "completed_at": null
+    },
+    "VRL-T001": {
+      "phase": 3,
+      "status": "deferred",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "3931d54efcc1cce3f0d64be6e3000244dd91de2b",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T20:12:01.875Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "3931d54efcc1cce3f0d64be6e3000244dd91de2b",
+    "last_checkpoint_timestamp": "2026-11-16T20:12:01.875Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/plan/cap-verification-runs-per-feature.investigation.md",
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI and scaffold-project.sh present"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized (note: daily new-artifact limit reached today)"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login on this host"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched (verification.md §1)"
+      }
+    }
+  }
+}
