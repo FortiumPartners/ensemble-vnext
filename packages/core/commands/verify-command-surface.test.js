@@ -2679,3 +2679,109 @@ describe('O7 CI re-run wording', () => {
     expect(t).toContain('never `gh workflow run`, which starts a full manual CI run');
   });
 });
+
+// ---------------------------------------------------------------------------
+// ABFV-B002 (audit-before-functional-verification): /audit-build gains two caller-only modes,
+// `--chained --defer-close` (audit, record the close on the ledger) and `--chained
+// --close-deferred` (perform it later). Standalone /audit-build is unchanged (O4).
+// ---------------------------------------------------------------------------
+describe('audit-build caller-only modes (ABFV-B002)', () => {
+  const raw = read(path.join(REPO, 'packages/core/commands/audit-build.md'));
+  const ab = flat(raw);
+  const between = (text, start, end) => {
+    const from = text.indexOf(start);
+    expect(from).toBeGreaterThan(-1);
+    const to = end === undefined ? text.length : text.indexOf(end, from + start.length);
+    expect(to).toBeGreaterThan(from);
+    return text.slice(from, to);
+  };
+  const modes = () => between(ab, '## Caller-only modes', '## Readout');
+  const deferMode = () => between(modes(), '### `--chained --defer-close`', '### `--chained --close-deferred`');
+  const closeMode = () => between(modes(), '### `--chained --close-deferred`', undefined);
+
+  test('the argument-hint names --chained, --defer-close, --close-deferred and --verified', () => {
+    const hint = raw.split('\n').find((l) => l.startsWith('argument-hint:'));
+    for (const f of ['--chained', '--defer-close', '--close-deferred', '--verified']) expect(hint).toContain(f);
+  });
+
+  test('User Input says both modes are for callers only and parses them', () => {
+    expect(between(ab, '## User Input', '## What this command is for')).toMatch(/for callers only, never typed by hand/);
+  });
+
+  test.each([
+    'RETURN → passed, close deferred',
+    'RETURN → re-audit needed',
+    'RETURN → cap reached',
+    'RETURN → open: ',
+    'RETURN → STUCK: ',
+    'RETURN → closed; PR ',
+    'RETURN → nothing to close',
+    'RETURN → stale: the TRD changed since the audit',
+    'RETURN → STUCK: close refused: ',
+  ])('the RETURN line "%s" is present', (line) => {
+    expect(modes()).toContain(`[STATUS: /audit-build] ${line}`);
+  });
+
+  test('--defer-close: trd-hash after the fix run RETURN and the anchorCommit wait, then closeDeferred through record', () => {
+    const t = deferMode();
+    expect(t).toMatch(/trd-hash[^.]*after the fix run's RETURN line and the `anchorCommit` wait/);
+    expect(t).toContain('closeDeferred');
+    expect(t).toMatch(/audit-rounds\.js record/);
+  });
+
+  test('--defer-close skips the gate, the close step and the PR', () => {
+    const t = deferMode();
+    expect(t).toMatch(/skips? the waived-defect gate, the close step, the unsynced-boards check and the pull request/);
+  });
+
+  test('step 4 close-true bullet carries the deferred branch', () => {
+    const step4 = between(ab, '**4. Close, or re-audit.**', '- `reaudit` true');
+    expect(step4).toContain('`--chained --defer-close`');
+    expect(step4).toContain('closeDeferred');
+  });
+
+  test('the PR paragraph and step 4 each say what --defer-close skips', () => {
+    expect(between(ab, '**Open the pull request.**', '## Caller-only modes')).toMatch(/`--defer-close` opens no PR/);
+  });
+
+  test('--close-deferred reads pending-close with audit.runId, checks trd-hash, closes by audit', () => {
+    const t = closeMode();
+    expect(t).toContain('pending-close');
+    expect(t).toContain('audit.runId');
+    expect(t).toContain('trd-hash');
+    expect(t).toContain('--closed-by audit');
+    expect(t).toContain('closedBy: "audit"');
+    expect(t).toMatch(/`--verified`.{0,200}`git rev-parse HEAD`/);
+    expect(t).toContain('pull-request.js ensure');
+    expect(t).toMatch(/stale/);
+    expect(t).toMatch(/nothing to close/);
+  });
+
+  test('--close-deferred dispatches no workflow', () => {
+    expect(closeMode()).not.toContain('Workflow(');
+  });
+
+  test('the new text writes no records and sends no completion notification', () => {
+    expect(modes()).not.toContain('record-ref.js write');
+    expect(modes()).not.toContain('notify-complete.sh');
+  });
+
+  test('--chained exits read RETURN → STUCK: trd-guard, gate refusal, rerun scope', () => {
+    expect(between(ab, '## Guarding the TRD edit', '## Writing the audit report')).toMatch(/Under `--chained`[^.]*RETURN → STUCK: the audit's TRD edit deleted/);
+    expect(modes()).toMatch(/RETURN → STUCK: close refused/);
+    expect(between(ab, '**Before a re-audit, choose its scope.**', '**On a re-audit**')).toMatch(/under `--chained`[^.]*RETURN → STUCK: <the question>; default: <the default>/i);
+  });
+
+  test('Output discipline says neither mode emits a banner or notification', () => {
+    expect(between(ab, '## Output discipline', '## Autonomous-execution discipline')).toMatch(/Under `--chained` \(either mode\), emit no banner/);
+  });
+
+  test('step 2 counts rounds readRounds returns, not ledger lines', () => {
+    expect(ab).not.toMatch(/`round` is the number of ledger lines/);
+    expect(ab).toMatch(/`round` is the number of rounds `readRounds` returns since the last close, counting this one/);
+  });
+
+  test('the mirror is byte-identical', () => {
+    expect(read(path.join(REPO, '.claude/commands/audit-build.md'))).toBe(raw);
+  });
+});
