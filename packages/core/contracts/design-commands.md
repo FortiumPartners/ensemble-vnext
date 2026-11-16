@@ -197,7 +197,7 @@ and end STUCK naming the publish step:
 ```
 ═══ COMMAND STUCK: /<command> ═══
 Reason: publish step not run: <the reason after `publish: off`, e.g. publishArtifacts is false, or set false for design in publishArtifacts, or publish setting could not be read: <stderr>> (or: no Artifact tool in this session)
-Next:   turn the kind on in .claude/settings.json (`"design": true` under ensemble.publishArtifacts, or remove the `false`), or run from an interactive session, then re-run /<command>
+Next:   turn the kind on in .claude/settings.json (`"design": true`, or `"design-system": true` when that kind read off, under ensemble.publishArtifacts, or remove the `false`), or run from an interactive session, then re-run /<command>
 ```
 
 Make no publish call at all for the kind in such a run: a run that published anything with the switch off,

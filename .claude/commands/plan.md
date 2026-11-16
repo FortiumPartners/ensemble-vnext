@@ -1164,8 +1164,8 @@ node -e '
 
 3. **`sweep` and `verify`.** Run `Skill({ skill: chainSteps.<step>.skill, args:
    chainSteps.<step>.args })`; those args are the only calls that carry `--chained`. When this
-   run carried `--publish`, append it to the `verify` step's args and to `chainArgs`, never to
-   `/sweep`'s: `/sweep` publishes nothing and reads every token it does not strip as part of the
+   run carried `--publish`, append it to the `verify` step's args and to the `implement` step's
+   args (step 7), never to `/sweep`'s: `/sweep` publishes nothing and reads every token it does not strip as part of the
    issue list.
    - Before `/sweep`, record `git status --porcelain --untracked-files=all` and, for every path
      it lists, `git hash-object <path>` (a path that no longer exists records "absent"). Before
@@ -1222,7 +1222,9 @@ node -e '
    returned by the action or passed back as `carriedFlag`, goes in the readout's ISSUES.
 7. **`implement`.** Run the `implement` step's `Skill()` and emit nothing after it. When the
    action carries a `flag`, append `--sweep-flag "<flag>"` to the args of that `Skill()` call, so
-   `/implement-trd` can show the owner that the swept fixes went in unverified.
+   `/implement-trd` can show the owner that the swept fixes went in unverified. When this run carried
+   `--publish`, append it to those args too (`chainArgs` is `null` in the sweep chain, so this is
+   the only place it reaches `/implement-trd`).
 
 **`--implement` is the only thing that starts work, and it is honoured at every weight.**
 There is no weight at which the flag is refused; there is no weight at which it is implied.

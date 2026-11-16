@@ -38,9 +38,11 @@ $ARGUMENTS
    build is gated on `design.md`: read its section 1 and run nothing before it is filled.
    **Read the publishing switch next** (contract section 1 step 2) and hold both answers: run it
    with `--kind design-system` (it governs step 6, the Design System artifact) and with `--kind
-   design` (it governs step 7, installing on each canvas). With either answer `publish: off`, or
-   no Artifact tool, steps 6 and 7 make no publish call at all (no Design System artifact
-   created or updated, nothing installed on a canvas), and the run ends STUCK naming the
+   design` (it governs step 7, installing on each canvas), and apply each answer to its own
+   step only (contract section 1 step 2). With `--kind design-system` off, or no Artifact tool,
+   steps 6 and 7 make no publish call at all (no Design System artifact created or updated, and
+   so nothing to install on a canvas). With only `--kind design` off, step 6 still publishes the
+   Design System artifact and step 7 installs nothing. Either way the run ends STUCK naming the
    publish step and the kind that read off (contract section 5), never COMPLETE.
 2. **Choose the route from `design.md`.**
    - Source of truth `figma`: use the Figma connector route, the Design System type's
@@ -67,8 +69,9 @@ $ARGUMENTS
    first, then publish; third refusal ends STUCK). Create it with `type_url` and `title` and no
    files, then publish to its `url`. `project/design-system.json` (with `createdOnFiles`) goes in
    the LAST call, `project/README.md` is mandatory, and `components/Cover/preview.html` is
-   written last. One call holds at most 255 paths. **With `publish: off` (step 1) or no
-   Artifact tool, skip this step and step 7 entirely**: contract section 5 applies. Steps 3-5
+   written last. One call holds at most 255 paths. **With `--kind design-system` reading
+   `publish: off` (step 1) or no Artifact tool, skip this step and step 7 entirely**: contract section 5 applies.
+   (With only `--kind design` off, run this step and skip step 7.) Steps 3-5
    and 8 still run on disk (record `url` empty or as already recorded), then end with
    `COMMAND STUCK: /design-system`, Reason "publish step not run: <the reason the switch printed>". Under `--chained`, the RETURN line says `not published` instead.
    If the read of the recorded system artifact (or of a canvas to install on) fails, apply

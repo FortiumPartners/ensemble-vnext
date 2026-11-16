@@ -92,7 +92,9 @@ describe('publish pass-through on chained commands', () => {
   test('plan: generic chain and the verify step append --publish when this run carried it, never to /sweep', () => {
     const t = cmd('plan.md');
     expect(t).toMatch(/Skill\(\{ skill: chainSkill, args: chainArgs \}\)` \(append `--publish` to `chainArgs` when this run carried it\)/);
-    expect(t).toMatch(/When this run carried `--publish`, append it to the `verify` step's args and to `chainArgs`, never to `\/sweep`'s/);
+    expect(t).toMatch(/When this run carried `--publish`, append it to the `verify` step's args and to the `implement` step's args \(step 7\), never to `\/sweep`'s/);
+    // The sweep chain's implement step reads chainSteps.implement.args, not chainArgs (null there).
+    expect(t).toMatch(/append `--sweep-flag "<flag>"`[^]*When this run carried `--publish`, append it to those args too/);
   });
 
   test('the matcher fails when the --publish token is removed from a chain line', () => {
