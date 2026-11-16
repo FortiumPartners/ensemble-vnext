@@ -1,0 +1,13 @@
+{
+  "feature": "publish-artifacts-per-kind",
+  "trd": "docs/TRD/publish-artifacts-per-kind.md",
+  "closedAt": "2026-11-16T20:59:13Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; no test pins `--publish` being passed on when one command chains another (plan, verify-build and audit-build into implement-trd); no test pins the `--url \"\"` link-clearing for most publishing commands; docs/reference/authoring.md still says the audit-prd/audit-trd reports are never published",
+    "report": ".trd-state/publish-artifacts-per-kind/audit-build-report.md",
+    "auditedCommit": "1c42ec29db315a180ae296fc8608651eef4c9b06",
+    "anchorCommit": "9e6a01173bf41de83c563545415998e23514287b"
+  }
+}

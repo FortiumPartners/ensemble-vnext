@@ -17,5 +17,11 @@
     "url": "",
     "updated_at": "2026-11-16T20:47:54.428Z",
     "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/publish-artifacts-per-kind/audit-build-report.md",
+    "url": "",
+    "updated_at": "2026-11-16T20:59:20.780Z",
+    "command": "/audit-build"
   }
 }
