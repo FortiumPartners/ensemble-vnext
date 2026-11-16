@@ -1,6 +1,6 @@
 # TRD: Narrow re-proof scope
 
-**Version**: 1.0.1
+**Version**: 1.0.3
 **Status**: Draft
 **Created**: 2026-11-16
 **Last Updated**: 2026-11-16
@@ -17,6 +17,7 @@
 | 1.0.0 | 2026-11-16 | Initial TRD creation from the narrow-reproof-scope investigation | @technical-architect |
 | 1.0.1 | 2026-11-16 | `/audit-trd`: root-path rule settled for D2 (grounding agreed); D9 keeps `unresolved` always and updates one test; D13/D14 add `baseline` to the workflow validator and name no rerun for `missing`/`pending`; D15 prints scope at gate step 2, before the re-proof; D16 has each task mirror its own files; stale `relatedDirs`/§1.1/D12/TR4/OQ-2 text corrected; NRS-D001/D002 take the stale guide, contract and reference docs; NG7/NG8 record D3 and D10 narrowing less than O2/O5, pending owner confirmation; Could Not Verify rewritten | @technical-architect |
 | 1.0.2 | 2026-11-16 | Implementation note (OWNER-CALL): functional verification, working from the issue's own wording (success criteria FS-22 and FS-23), put back the same-directory clause that D10 had dropped. As built, `no-covers` re-checks an uncovered criterion only when a code-class change shares a directory with some recorded cover in the run, or when no cover is recorded anywhere. D10 and NG8 above describe the earlier, wider rule; the code and its tests follow the issue. The adversarial review's concern stands: an uncovered criterion whose files sit in a directory no cover names is not re-checked. | /implement-trd |
+| 1.0.3 | 2026-11-16 | `/audit-build`: Could Not Verify rewritten to the delivered state; header version brought up to the changelog (it still read 1.0.1). No objective, decision, acceptance criterion or task changed. | /audit-build |
 
 ## Objectives
 
@@ -257,6 +258,7 @@ Unit tests ship inside each B task.
 | Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
 |---------|-------------|--------|--------|--------------|---------------------|
 | NRS-I001 | Re-check that every edited `packages/core` file matches its `.claude/` copy (each task made its own copy, D16) and re-copy any that drifted after a later task; CHANGELOG `[Unreleased]` entry naming #153, #154, #155; full battery. | O8, D16 | | NRS-B001, NRS-B002, NRS-B003, NRS-B004, NRS-B005, NRS-D001, NRS-D002, NRS-T001 | `cmp` of each edited core file against its `.claude/` copy and its `packages/full` path reports no difference; `readlink packages/full/lib/design-covers.js` is `../../core/lib/design-covers.js`; the full Jest battery shows no failing test file beyond those failing on `main` before the change; CHANGELOG `[Unreleased]` names #153, #154 and #155. |
+| AMEND-001 | [test-gap] No Jest test pins the O7 prose: "full manual CI run" in trd-authoring.md and the `gh run rerun --job` wording in verify-build.md / implement-trd.md — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/contracts/trd-authoring.md:165-166; packages/core/commands/verify-build.md:335-337; packages/core/commands/implement-trd.md:2011-2013) | amendment — no objective recorded |  | None | A Jest test in `packages/core/commands/verify-command-surface.test.js` fails if `trd-authoring.md` loses "full manual CI run" or the `gh run rerun <run-id> --job <job-id>` sentence, or if `verify-build.md` or `implement-trd.md` loses the `gh run rerun <run-id> --job <job-id>` / "never `gh workflow run`" wording; `npx jest packages/core/commands/verify-command-surface.test.js` passes. |
 
 ## 5. Execution Plan
 
@@ -482,6 +484,12 @@ read it as "this task copies it; NRS-I001 re-checks it".
 - **Follow:** `flaky-ci.test.js`, `design-render.test.js` ~:457 and `owner-rules.wiring.test.js` ~:47 each pin "identical `.claude/lib` copy, `packages/full/lib` is a symlink" for their module; `design-covers.test.js` (NRS-B002) should carry the same block; it passes in NRS-B002 because that task adds the `.claude/lib` copy and the symlink (D16).
 - **Careful:** (1) Mirror parity tests live inside earlier tasks' own acceptance commands, which is why D16 (as amended by the audit) has each task copy its own files; this task only re-checks them: `functional-verification.test.js` "mirror parity" ("the two copies are byte-identical", compares `.claude/lib/functional-verification.js`), `verify-functional.test.js` ~:5858 "is byte-identical to the .claude/workflows/ copy", `record-criteria-prose.test.js` "mirrors are byte copies", `ship-primitives.test.js` ~:69 [read]. NRS-B003, B005, D001 and D002 acceptance commands run those files. (2) `live-evidence.js` lazily requires `./trd-parser` and (after NRS-B004) `design-covers.js`, which requires `design-map.js` and `trd-parser.js`; all exist in `.claude/lib` [ran ls], so the new file needs no other copy. (3) `record-criteria-prose.test.js` "the CLI line, run against a copy of a finished feature" runs `.claude/lib/live-evidence.js record-criteria`, so it exercises the mirror, not core; it asserts `out.recorded` and ignores extra keys, so the new `unresolved` key is safe [read]. (4) This task collides with every other task's files in the sense that each `.claude/` copy mirrors one of theirs; it is already last. CHANGELOG is touched by no other task. (5) `[Unreleased]` entry must name #153, #154, #155 and say which of the three each narrowing closes (custody class and directory narrowing: #153; design covers and regression `no-covers`: #154; single-job rerun and baseline: #155) [read: TRD Objectives]. (6) The full-battery criterion "no failing test file beyond those failing on `main` before the change" needs a baseline run on `main` first: this machine already fails environment-only suites (recent checkpoint commit messages on `packages/full/lib` name 4 to 7 environment-only failing suites; `discovered.test.js` is excluded by `jest.config.ci.js`) [read].
 
+### AMEND-001
+
+- **Touches:** `packages/core/commands/verify-command-surface.test.js`
+- **Follow:** the existing prose-pinning tests in that file (e.g. the VCON-B009 and D15 paragraph assertions) read the command files with `fs.readFileSync` and assert on substrings [read].
+- **Careful:** the test adds assertions only; it changes no prose. Agent: backend-implementer (the parser keyword-matched "CI" to cicd-specialist, but the work is writing a Jest test).
+
 ## Open Questions
 
 | ID | Question | What I assumed | Why it matters | If I'm wrong |
@@ -495,15 +503,16 @@ read it as "this task copies it; NRS-I001 re-checks it".
 
 ## Could Not Verify
 
-State after `/audit-trd` on 2026-11-16 (5 of 5 verifiers reported; source checked:
-`docs/plan/narrow-reproof-scope.investigation.md`). Three earlier rows were settled and removed:
-the `gh` stub question is answered (it serves `run view` from one file whatever the run id,
-`functional-verification.test.js` ~5213, so NRS-B003 extends it); "no Jest test pins the D15
-paragraphs" was false (`verify-command-surface.test.js` pins them at ~280, ~292 and ~2573, and
-NRS-D001 already says so); `design-map.js setup()` reads the template from the project
-(`design-map.js` ~426-439), confirmed.
+State after `/audit-build` on 2026-11-16 (5 of 5 verifiers reported; source checked:
+`docs/plan/narrow-reproof-scope.investigation.md`). What the audit found wrong is in its readout,
+not here; this section lists only what it could not check. It measured the unit coverage of the four
+changed libraries itself (Jest over `custody`, `design-covers`, `live-evidence`,
+`functional-verification` and the seam test: 79.6% of lines overall, 70% to 99% per file, above the
+60% floor), so that is no longer open.
 
 | Claim | Why this audit did not check it | How I'd check it |
 |-------|-------------------------------|------------------|
-| `gh run view <id> --json jobs` returns a `databaseId` per job, usable as `gh run rerun --job <id>` | needs a real GitHub Actions run; `gh run rerun --help` supports it (NRS-B003 grounding) but no run was made | run `gh run view <id> --json jobs` against a real run in `github-live-test` |
+| `gh run view <id> --json jobs` returns a `databaseId` per job, usable as `gh run rerun --job <id>` | needs a real GitHub Actions run; `gh run rerun --help` supports it (NRS-B003 grounding), and every test runs against a fake `gh` | run `gh run view <id> --json jobs` against a real run in `github-live-test` |
 | `gh run rerun <run-id> --job <job-id>` re-runs one job without re-dispatching the workflow | same: needs a real run | one rerun in `github-live-test` |
+| A job red on HEAD and red on a real base-branch head is reported `baseline` | the `baseline` lookup (D13) is proven only against the fake `gh` in `functional-verification.test.js`; no real base-branch run was read | a PR in `github-live-test` whose base branch carries the same red job, then `functional-verification.js off-host-proofs` on its head |
+| Unit coverage of `verify-functional.js` (O9) | the tests load the workflow as script text (`test-harness.js readScript`), so Jest's coverage instrumentation never sees it; the number cannot be read this way | instrument the source the harness evaluates and run `verify-functional.test.js` under coverage |

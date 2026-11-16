@@ -36,6 +36,9 @@ const CLAUDE_PLAN = path.join(REPO, '.claude/commands/plan.md');
 const CORE_TASK = path.join(REPO, 'packages/core/commands/task.md');
 const CLAUDE_TASK = path.join(REPO, '.claude/commands/task.md');
 
+const CORE_TRD_AUTHORING = path.join(REPO, 'packages/core/contracts/trd-authoring.md');
+const FULL_TRD_AUTHORING = path.join(REPO, 'packages/full/contracts/trd-authoring.md');
+
 const read = (p) => fs.readFileSync(p, 'utf8');
 // Prose wraps at ~80 columns, so a phrase that reads as one sentence to a human can straddle
 // a line break in the source. Flatten before matching a multi-word phrase so a cosmetic
@@ -2643,5 +2646,36 @@ describe('blocking policy wiring in implement-trd.md and verify-build.md', () =>
   test('.claude copies stay identical', () => {
     expect(read(CLAUDE_IMPLEMENT)).toBe(read(CORE_IMPLEMENT));
     expect(read(CLAUDE_VERIFY_BUILD)).toBe(read(CORE_VERIFY_BUILD));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// O7: a red CI proof is re-run (single job or --failed), never restarted with
+// `gh workflow run`. Pins the wording so losing it fails this suite.
+// ---------------------------------------------------------------------------
+
+describe('O7 CI re-run wording', () => {
+  const authoring = [
+    ['core trd-authoring.md', CORE_TRD_AUTHORING],
+    ['full trd-authoring.md', FULL_TRD_AUTHORING],
+  ];
+  const commands = [
+    ['core verify-build.md', CORE_VERIFY_BUILD],
+    ['.claude verify-build.md', CLAUDE_VERIFY_BUILD],
+    ['core implement-trd.md', CORE_IMPLEMENT],
+    ['.claude implement-trd.md', CLAUDE_IMPLEMENT],
+  ];
+
+  test.each(authoring)('%s names a full manual CI run and the single-job re-run', (_n, p) => {
+    const t = flat(read(p));
+    expect(t).toContain('full manual CI run');
+    expect(t).toContain('re-run alone with `gh run rerun <run-id> --job <job-id>`');
+  });
+
+  test.each(commands)('%s re-runs a red proof, never gh workflow run', (_n, p) => {
+    const t = flat(read(p));
+    expect(t).toContain('`gh run rerun <run-id> --job <job-id>`');
+    expect(t).toContain('`gh run rerun <run-id> --failed` when `jobId` is null');
+    expect(t).toContain('never `gh workflow run`, which starts a full manual CI run');
   });
 });
