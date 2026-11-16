@@ -1,0 +1,151 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/fix-design-command-defects.md",
+  "trd_hash": "46fdf2756c3660180591fd070f0d6855fa6cd60263f585bb3fdec98f3aa4fa3e",
+  "branch": "feature/0-fix-design-command-defects",
+  "strategy": "bug-fix",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "artifacts.js: keep the replaced URL as previous_url when record changes a non-empty URL to a different one; carry the field through normaliseEntry; an unchanged URL adds nothing; a later record with no --url keeps both url and previous_url",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/artifacts.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T09:05:38.362Z",
+      "completed_at": "2026-11-16T09:33:29.405Z",
+      "last_advanced": "2026-11-16T09:07:48.598Z"
+    },
+    "FIX-002": {
+      "description": "design-map.js: add republished(dir, { kind, old, new }) and CLI verb republished --dir D --kind canvas|system --new U [--old U]. For a canvas: set the entry's url to the new one, previous_url to the old, repoint every boards[].canvas equal to the old URL, clear version, synced_at, files and the legacy synced_version (which design-mirror.js check falls back to). For system: set design_system.url and previous_url. validate must still pass",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/design-map.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T09:05:38.363Z",
+      "completed_at": "2026-11-16T09:33:29.406Z",
+      "last_advanced": "2026-11-16T09:07:48.598Z"
+    },
+    "FIX-003": {
+      "description": "Prose rule \"Unreadable recorded artifact\" in contract §1 (new paragraph after step 4) and a pointer in §3 and §4; design-system.md steps 6-8 and refine-design.md (where it reads the canvas) point at it. The rule (not for /audit-design, not with publish: off): republish only when the read returns not-found or no-access, from docs/ui/<slug>/canvas/ or docs/ui/_design-system/<folder>/; call design-map.js republished and artifacts.js record; add a DECISIONS line naming the old and new URL; never STUCK for this cause; any other read error unchanged",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/design-commands.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T09:05:38.363Z",
+      "completed_at": "2026-11-16T09:33:29.406Z",
+      "last_advanced": "2026-11-16T09:07:48.598Z"
+    },
+    "FIX-004": {
+      "description": "design-render.js measure script: mark reused: true on a contrast or target measure whose element has no data-dc-tpl and sits inside .sc-host-x; include reused in the grouping key so reused and drawn misses never merge; skip contrast for an element inside a disabled control; document the new field in the header. audit-design.js MEASURE_SCHEMA gains reused: { type: 'boolean' } so the visual critic's verbatim relay keeps it",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/design-render.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T09:05:38.363Z",
+      "completed_at": "2026-11-16T09:33:29.406Z",
+      "last_advanced": "2026-11-16T09:07:48.598Z"
+    },
+    "FIX-005": {
+      "description": "design-map.js: add caveats(dir) and CLI verb caveats --dir docs/ui/<slug>: returns { items, reused_build_side, sources } from brief.md ## Accessibility caveats bullets and a design.md section 4 line naming reused or library components as build-side; reads only; absent file or heading returns an empty result",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/design-map.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T09:05:38.363Z",
+      "completed_at": "2026-11-16T09:33:29.406Z",
+      "last_advanced": "2026-11-16T09:07:48.598Z"
+    },
+    "FIX-006": {
+      "description": "audit-design.js and audit-design.md: the command runs design-map.js caveats and passes caveats in the workflow args; the record-it hint names ## Accessibility caveats in brief.md exactly; visualFindings ranks per the Decision (drawn high; reused with recorded ruling low + known_caveat: true + \"known build-side caveat\"; reused unrecorded high with the record-it hint); the report lists the known caveats under VISUAL FINDINGS with the \"known build-side caveat\" wording",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/audit-design.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T09:05:38.363Z",
+      "completed_at": "2026-11-16T09:33:29.406Z",
+      "last_advanced": "2026-11-16T09:07:48.598Z"
+    },
+    "FIX-007": {
+      "description": "refine-design.md no-feedback rule: a VISUAL FINDINGS line marked \"known build-side caveat\" is not an open finding; it is skipped, and STATE says how many were skipped",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/refine-design.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T09:05:38.363Z",
+      "completed_at": "2026-11-16T09:33:29.406Z",
+      "last_advanced": "2026-11-16T09:07:48.598Z"
+    },
+    "FIX-008": {
+      "description": "Sync the vendored copies: every changed file under packages/core/ copied to its .claude/ counterpart, as commit 73f6dac1 did",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/lib/artifacts.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T09:05:38.363Z",
+      "completed_at": "2026-11-16T09:33:29.406Z",
+      "last_advanced": "2026-11-16T09:07:48.598Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "c28443673e921ae113044cb2ef395fa488eab283",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T09:33:30.226Z"
+    }
+  ],
+  "recovery": {
+    "interrupted": false,
+    "last_healthy_checkpoint": "c28443673e921ae113044cb2ef395fa488eab283",
+    "last_checkpoint_timestamp": "2026-11-16T09:33:30.226Z",
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/fix-design-command-defects.md § Reproduction"
+  }
+}
