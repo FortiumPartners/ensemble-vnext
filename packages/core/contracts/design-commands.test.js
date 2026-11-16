@@ -58,7 +58,7 @@ describe('design-commands contract', () => {
     [2, ['AC-F3.6', 'local render pass']],
     [3, ['AC-F6.8', 'designSystems', 'canvas.json']],
     [4, ['AC-F5.6', 'design-mirror.js refused', 'third refusal']],
-    [5, ['NFR-2', 'publishArtifacts', 'STUCK', 'publish step']],
+    [5, ['NFR-2', 'publishArtifacts', 'STUCK', 'publish step', '"design": true']],
     [6, ['NFR-6', 'O-SEC3', 'data']],
     [8, ['AC-F5.7', 'Not judged', 'Comparative', 'edits nothing']],
     [7, ['NFR-5', 'STATE', 'DECISIONS', 'ISSUES', 'NEXT', '/design-system --sync']],
@@ -107,7 +107,10 @@ describe('design-commands contract', () => {
   test('the publishing switch is read before any Artifact call and governs the whole run (NFR-2)', () => {
     const s1 = section(1).replace(/\s+/g, ' ');
     expect(s1).toMatch(/Read the publishing switch, before any Artifact call, every run/);
-    expect(s1).toContain('publishArtifacts===false');
+    expect(s1).toContain('node .claude/lib/artifacts.js publish --kind design');
+    expect(s1).toContain('--kind design-system');
+    expect(s1).not.toContain('publishArtifacts===false');
+    expect(s1).toMatch(/non-zero exit, or output with no `publish:` line, is `publish: off`/);
     expect(section(5)).toMatch(/Make no publish call at all/);
   });
 

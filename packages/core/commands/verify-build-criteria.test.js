@@ -22,7 +22,7 @@ describe('verify-build.md --criteria (D13)', () => {
   });
 
   test('argument-hint carries --criteria <ids>', () => {
-    expect(read(CORE).split('\n')[4]).toMatch(/^argument-hint:.*\[--criteria <ids>\] \[--chained\]"/);
+    expect(read(CORE).split('\n')[4]).toMatch(/^argument-hint:.*\[--criteria <ids>\] \[--publish\] \[--chained\]"/);
   });
 
   test('the flag and its value are stripped before the path is read', () => {

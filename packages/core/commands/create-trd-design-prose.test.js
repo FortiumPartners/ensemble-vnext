@@ -85,7 +85,7 @@ describe('trd-authoring.md "Design as a source"', () => {
 
 describe('create-trd.md --boards (DORCH-B006)', () => {
   test('argument-hint and the strip sentence name --boards', () => {
-    expect(cmd).toContain('argument-hint: "[path-to-prd] [--design docs/ui/<slug> [--boards <ids>]]"');
+    expect(cmd).toContain('argument-hint: "[path-to-prd] [--publish] [--design docs/ui/<slug> [--boards <ids>]]"');
     expect(cmd).toContain('`--boards <ids>`) are not part of the PRD path: remove each flag **and its value**');
   });
   test('named boards are checked with buildable and held --ids', () => {

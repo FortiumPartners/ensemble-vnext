@@ -2,7 +2,7 @@
 name: create-trd
 description: Take an existing PRD and create Technical Requirements Document with architecture, task breakdown, and execution plan
 version: 2.0.0
-argument-hint: "[path-to-prd] [--design docs/ui/<slug> [--boards <ids>]]"
+argument-hint: "[path-to-prd] [--publish] [--design docs/ui/<slug> [--boards <ids>]]"
 # Expensive, and its description matches how a user would phrase the task —
 # so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
 disable-model-invocation: true
@@ -18,7 +18,8 @@ execution plan. Delegates to @technical-architect for technical planning.
 $ARGUMENTS
 ```
 
-If no path provided, resolve from `.trd-state/current.json` field `prd`.
+Remove a standalone `--publish` token first (remember it for the publish step); it is never
+the path. If no path provided, resolve from `.trd-state/current.json` field `prd`.
 Error if neither available.
 
 ### Design input (`--design docs/ui/<slug>`)
@@ -1213,8 +1214,10 @@ it is in the readout line rather than leaving the reader to check.
 ## Usage
 
 ```
-/create-trd [path-to-prd]
+/create-trd [path-to-prd] [--publish]
 ```
+
+`--publish` — publish this run's document even where the kind is off by default (a standalone flag token; `ensemble.publishArtifacts: false` still wins).
 
 Path is optional if `.trd-state/current.json` has PRD reference.
 
@@ -1255,14 +1258,14 @@ The implementation phase:
 ### Artifact link (see `.claude/rules/command-status.md`)
 
 First read any stored URL: `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind trd`
-(empty output means none). Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the TRD with
+(empty output means none). Ask first: `node .claude/lib/artifacts.js publish --kind trd` (add `--requested` when this run's arguments carry `--publish`). On `publish: on`, publish the TRD with
 `Artifact({ file_path: "docs/TRD/<feature>.md", icon: "document" })` — the markdown FILE, never a
 rendering of it — passing the stored URL as `url:` when there is one. Emit the link ABOVE the
-banner. A failed publish is one line of prose and nothing more; it never blocks the banner.
+banner. A failed publish is one line of prose and nothing more; it never blocks the banner. On `publish: off (…)`, make no publish call and name the local path. A resolver error (a non-zero exit, or output with no `publish:` line) reads as `publish: off`, never as on, plus one ISSUES line: "publish setting could not be read: <stderr>".
 
 **Then ALWAYS record the document, whether or not publishing is on** (this sits outside the
 publish switch): `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind trd --path docs/TRD/<feature>.md --command /create-trd`,
-adding `--url <returned URL>` only when a publish returned one. No command writes `artifacts.json` by hand.
+adding `--url <returned URL>` only when a publish returned one (on `publish: off`, pass `--url ""`). No command writes `artifacts.json` by hand.
 
 **End your final turn with the banner — last line of output, nothing after it:**
 

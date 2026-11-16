@@ -135,8 +135,24 @@ function criterionFacts(stateDir, ref, summary) {
 const STAYS_OPEN = 'This issue stays open until someone decides not to fix it; no Ensemble step closes it.';
 const CLOSED_BY = ['audit', 'owner'];
 
-/** The body's waiver line, worded for how the feature was closed (`audit` or `owner`). */
-function waiverLine(closedBy) {
+/**
+ * A row `verification-runs.js record-ruling` wrote: `[non-blocking] <id>: shipped as is by ruling <date>`
+ * or `dropped by ruling <date>`. Returns 'ship' | 'drop' | null.
+ */
+function rulingOf(summary) {
+  const m = String(summary || '').match(/^\[non-blocking\] [^:]+: (shipped as is|dropped) by ruling /);
+  return m ? (m[1] === 'dropped' ? 'drop' : 'ship') : null;
+}
+
+/**
+ * The body's waiver line, worded for how the feature was closed (`audit` or `owner`). A ruling row
+ * was waived by the product PM's ruling, not by `Blocking: must-pass only`, so it says that.
+ */
+function waiverLine(closedBy, ruling = null) {
+  if (ruling) {
+    const act = ruling === 'drop' ? 'Dropped' : 'Shipped as is';
+    return `${act} by the product PM's ruling after the verification run limit was reached. ${STAYS_OPEN}`;
+  }
   const policy = '`Blocking: must-pass only` (verification.md §5c)';
   return closedBy === 'owner'
     ? `Waived under ${policy} when the feature was closed by its owner. ${STAYS_OPEN}`
@@ -149,7 +165,9 @@ function buildIssue(stateDir, row, { closedBy = 'audit' } = {}) {
   const impl = readJson(path.join(stateDir, 'implement.json')) || {};
   const title = `Defect: ${row.ref} ${f.statement || f.failure}`.replace(/\s+/g, ' ').slice(0, 120);
   const body = [
-    `Criterion ${row.ref} failed verification; it is not must-pass, so it did not block.`,
+    rulingOf(row.summary)
+      ? `Criterion ${row.ref} was still failing verification when the run limit was reached; the product PM ruled on it.`
+      : `Criterion ${row.ref} failed verification; it is not must-pass, so it did not block.`,
     '',
     `**Criterion:** ${f.statement || '(statement not found in success-definition.md)'}`,
     `**Failure:** ${f.failure}`,
@@ -159,7 +177,7 @@ function buildIssue(stateDir, row, { closedBy = 'audit' } = {}) {
     `**Branch:** ${impl.branch || '(not recorded)'}`,
     `**Ledger row:** \`${discovered.ledgerPath(stateDir)}\` ts \`${row.ts}\``,
     '',
-    waiverLine(closedBy),
+    waiverLine(closedBy, rulingOf(row.summary)),
   ].join('\n');
   return { title, body };
 }

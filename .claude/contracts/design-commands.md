@@ -21,12 +21,21 @@ Implements AC-F5.9 and AC-F6.9. In this order:
    `/design-setup`".
 2. **Read the publishing switch, before any Artifact call, every run:**
    ```bash
-   node -e 'let on=true;try{const s=JSON.parse(require("fs").readFileSync(".claude/settings.json","utf8"));on=!(s.ensemble&&s.ensemble.publishArtifacts===false)}catch(e){}console.log(on?"publish: on":"publish: off")'
+   node .claude/lib/artifacts.js publish --kind design
    ```
-   `publish: off`, or no Artifact tool in this session, means §5 governs the whole run: no
-   publish call of any kind (no new canvas, no board, no `canvas.json`, no system install, no
-   Design System artifact). Reads (`read`, `list`) are still allowed. Hold this answer for the
-   run; never re-decide it at the publish step.
+   (Any run that publishes, republishes or installs the Design System page, `/design-system`,
+   `/create-design` and `/refine-design` included, also runs it with `--kind design-system` and
+   applies that answer to the system page alone; `--kind design` governs every canvas publish.) It prints `publish: on` or
+   `publish: off (<reason>)`; this is the only reader of `ensemble.publishArtifacts`, so never
+   parse the setting yourself. A non-zero exit, or output with no `publish:` line, is `publish:
+   off`, never on, with the reason "publish setting could not be read: <stderr>"; in a design
+   command that ends the run STUCK per §5 (the reason on its `Reason:` line), never a quiet
+   publish. `publish: off`, or no Artifact tool in this session, means §5 governs the whole
+   run: no publish call of any kind for that kind (no new canvas, no board, no `canvas.json`,
+   no system install, no Design System artifact). Reads (`read`, `list`) are still allowed.
+   A kind that reads off also records its stored link as empty
+   (`node .claude/lib/artifacts.js record ... --url ""`). Hold this answer for the run; never
+   re-decide it at the publish step.
 3. Read the Design type's live material through the canvas url. When the map records no
    canvas, create it first (with publishing off, do not create one and record no canvas).
    **Renders always use the pinned runtime, `.claude/lib/dc-runtime.js`** (`design-render.js`
@@ -181,17 +190,17 @@ against it.
 ## 5. No artifact access, or publishing off
 
 Implements NFR-2. When the Artifact tool is unavailable (no artifact access: `claude -p`,
-the Agent SDK, CI) or `ensemble.publishArtifacts` is `false` (read at §1 step 2, never
+the Agent SDK, CI) or the publishing switch reads `publish: off` for the kind (§1 step 2, never
 assumed): write the repository copy and renders, commit, record the path with an empty url,
 and end STUCK naming the publish step:
 
 ```
 ═══ COMMAND STUCK: /<command> ═══
-Reason: publish step not run: ensemble.publishArtifacts is false (or: no Artifact tool in this session)
-Next:   set ensemble.publishArtifacts to true in .claude/settings.json, or run from an interactive session, then re-run /<command>
+Reason: publish step not run: <the reason after `publish: off`, e.g. publishArtifacts is false, or set false for design in publishArtifacts, or publish setting could not be read: <stderr>> (or: no Artifact tool in this session)
+Next:   turn the kind on in .claude/settings.json (`"design": true`, or `"design-system": true` when that kind read off, under ensemble.publishArtifacts, or remove the `false`), or run from an interactive session, then re-run /<command>
 ```
 
-Make no publish call at all in such a run: a run that published anything with the switch off,
+Make no publish call at all for the kind in such a run: a run that published anything with the switch off,
 or ended COMPLETE, is the defect this section exists to prevent.
 
 This supersedes the "failure is never fatal" rule in `command-status.md` for design commands

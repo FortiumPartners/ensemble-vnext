@@ -197,52 +197,48 @@ entering the pull request. This is the one place the rule is stated.
 
 ## Artifact links
 
-A command that produces a document — a PRD, a TRD, a verification report — publishes it as an
-**artifact**: a private page on claude.ai the owner can click into, and later share if they
-choose. **On by default**; turn off per project with `ensemble.publishArtifacts: false` in
-`.claude/settings.json`. A document you have to go find in the tree is a document that does
-not get read — the link is the point of producing one.
+A command that produces a document publishes it as an **artifact**, a private claude.ai page:
+the link is what gets a document read.
 
-**Publish the FILE, don't render it:**
+**Ask the resolver; never read the setting yourself.** Before any publish call, run
+`node .claude/lib/artifacts.js publish --kind <kind>` (add `--requested` when the run's
+arguments carry `--publish`). It prints `publish: on` or `publish: off (<reason>)` and is the
+only reader of `ensemble.publishArtifacts`. Off: no publish call, no link; the stored link is
+recorded empty (`record ... --url ""`) so a stale page is never republished. A resolver error
+reads as off, with one ISSUES line.
+
+**`ensemble.publishArtifacts`** in `.claude/settings.json` (a published page may stay cached
+outside after deletion, so turning it off is a real decision):
+
+| Value | Meaning |
+|---|---|
+| `true` (shipped) or absent | per-kind defaults, so a later default change reaches every project: on for `trd`, `report`, `design`, `design-system`; off for every other kind (`prd`, the audits, `verification-report`, check pages, `docs-audit`) |
+| `false` | every publish off, including a `--publish` request |
+| an object, e.g. `{ "prd": true, "trd": false }` | per-kind booleans over the defaults; an unnamed kind keeps its default |
+
+`--publish` (`/create-prd --publish`) turns that run's kind on, even one off by default or per
+kind, never past a top-level `false`. `scaffold-project.sh` backfills the key with `setdefault`,
+so an owner's `false` or object survives every rebase.
+
+**Publish the FILE, don't render it** (Markdown is one call at any size; Mermaid renders):
 ```
 Artifact({ file_path: "docs/TRD/<feature>.md", icon: "document",
            description: "<one sentence>", url: "<stored URL, if this is an update>" })
 ```
-Markdown publishes directly — one tool call regardless of document size, Mermaid fences
-render as diagrams natively, and the artifact stays the document rather than a paraphrase
-that drifts from it.
 
 **Store the URL and redeploy to it.** Record each artifact with the one lib helper, `node
 .claude/lib/artifacts.js record|get|read`; no command writes the JSON by hand. The manifest,
-`.trd-state/<feature>/artifacts.json`, is a run record: it leaves the worktree on the command's
-single records-ref write (see "Run records go to the records ref"), never in a commit of its own. It holds `"version": 2` beside one `{path, url, updated_at,
-command}` entry per kind: `prd`, `trd`, `audit-prd`, `audit-trd`, `success-definition`,
-`verification-plan`, `verification-report`, `audit-build`, `report`, `design`, `audit-design`, and
-one key per verification-check skill. On a later refine or re-verify, `get` the entry and pass its url as `url:` so the same
-link updates in place; otherwise it goes stale silently. With publishing off, still `record`
-the path and leave `url` empty.
+`.trd-state/<feature>/artifacts.json`, is a run record, sent on the records-ref write.
+It holds `"version": 2` beside one `{path, url, updated_at, command}` entry per kind: `prd`,
+`trd`, `audit-prd`, `audit-trd`, `success-definition`, `verification-plan`,
+`verification-report`, `audit-build`, `report`, `design`, `audit-design`,
+`ruling-request`, and one key per verification-check skill. A re-run `get`s the entry and passes its url as `url:`.
+With publishing off, still `record` the path and leave `url` empty.
 
-**The link goes above the `COMMAND COMPLETE` banner, never after it** (the banner is the last
-line of the turn):
-```
-📐 TRD: https://claude.ai/artifact/...
-═══ COMMAND COMPLETE: /create-trd ═══
-```
-
-**Failure is never fatal.** If the tool is unavailable or the publish fails, say so in one
-line and carry on — the document on disk is the deliverable, the artifact a convenience. A
-command must not go STUCK, retry, or lose its banner over a failed link.
-
-**Turning it off is a real decision, not a discovery.** Publishing sends the document to an
-external service, where it may be cached or indexed even after deletion; artifacts are
-private to the owner on publish, which is what makes on-by-default reasonable. Set
-`{ "ensemble": { "publishArtifacts": false } }` and it's honored everywhere — commands skip
-the publish step and emit no link. `scaffold-project.sh` backfills the key with `setdefault`,
-so an owner's `false` survives every rebase; no upgrade may quietly reverse it.
-
-**Never publish a document that contains a credential.** `verification.md` already requires
-recording where credentials live rather than their values; with publishing on by default,
-that's what stands between a pasted token and a hosted page.
+**The link goes above the `COMMAND COMPLETE` banner** (`📐 TRD: https://claude.ai/artifact/...`).
+**Failure is never fatal:** one line, then carry on; never STUCK, retry or a lost banner over a
+link. **Never publish a document holding a credential** (`verification.md`
+records where credentials live, never their values).
 
 ---
 

@@ -618,8 +618,9 @@ order:
 audit report, `/task` output, or a design canvas) publishes it as a private page on claude.ai
 and prints the link above the banner. Later refinements update the same link, so it never
 points at a superseded version. Every document's path and link are recorded in
-`.trd-state/<feature>/artifacts.json`, whether or not it was published. To turn publishing off,
-set `"ensemble": { "publishArtifacts": false }` in `.claude/settings.json`. A failed publish is
+`.trd-state/<feature>/artifacts.json`, whether or not it was published. Which kinds publish is
+set per kind by `ensemble.publishArtifacts` in `.claude/settings.json` (TRDs, `/task` reports and
+design rounds by default; any other document with `--publish`); `false` turns every publish off. A failed publish is
 one line in the output and never stops the command, except for the design commands (§2a).
 
 **Completion notifications.** Long-running commands (`/implement-trd`, `/audit-build`,

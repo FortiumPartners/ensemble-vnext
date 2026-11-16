@@ -2,7 +2,7 @@
 name: audit-build
 description: Pipeline stage after /implement-trd. Runs the delivered-code audit wave against a TRD and its PRD (traceability is the headline check), writes the audit report, and chains /implement-trd --reconcile for tasks found unbuilt unless --report-only. A passing audit closes the feature.
 version: 1.0.0
-argument-hint: "[path-to-trd] [--prd <path>] [--project <dir>] [--report-only]"
+argument-hint: "[path-to-trd] [--prd <path>] [--project <dir>] [--report-only] [--publish]"
 # MODEL-INVOCABLE as of 2026-10-21, owner-requested ("verify and audit steps need to be model
 # invocable"), the same change /plan received on 2026-09-26. The flag guarded one thing,
 # accidental selection by description match, and the remedy is now in the description: it
@@ -145,8 +145,10 @@ For chainable gaps, the command records each as a discovery and runs the fix as 
 run (steps in "After the workflow returns", below):
 
 ```
-Skill({ skill: "implement-trd", args: "<trd-path> --reconcile --chained" })
+Skill({ skill: "implement-trd", args: "<trd-path> --reconcile --chained [--publish]" })
 ```
+
+(`--publish` goes in the args only when this run carried it.)
 
 `--chained` makes the fix run end with one RETURN line instead of its own banner, so this
 command owns the run's single banner (`implement-trd.md` §3.7).
@@ -323,7 +325,7 @@ ids and the `index`) so a deferred task never reaches the fix run. A `note` (a f
 `deferred` item or an `other` item (a question for the owner) is reported, never turned into a
 build task:
 `require("./.claude/lib/discovered").record(".trd-state/<feature>", { kind: "gap", foundBy: "audit-build", blocksFeature: true, phase: 1, summary: "[<class>] <item summary>", evidence: "<item evidence>" })`,
-then run `Skill({ skill: "implement-trd", args: "<trd-path> --reconcile --chained" })`. The fix
+then run `Skill({ skill: "implement-trd", args: "<trd-path> --reconcile --chained [--publish]" })` (add `--publish` only when this run carried it). The fix
 run ends with a `[STATUS: /implement-trd] RETURN →` line; anything it reports as not built is a
 caveat. **Uncovered items (`covered: false`) are never recorded for the fix run or chained.**
 They are reported for design, and the feature stays open.
@@ -422,7 +424,10 @@ default branch, do not commit**: the owner decides what lands there. A failed co
 in STATE, never STUCK.
 
 **Publish it** (`.claude/rules/command-status.md` "Artifact links"; same publish-and-remember
-shape as `implement-trd.md` §9.0a). First read any stored URL:
+shape as `implement-trd.md` §9.0a). Ask first: `node .claude/lib/artifacts.js publish --kind
+audit-build` (add `--requested` when this run's arguments carry `--publish`, a standalone flag
+token). On `publish: on`, publish; on `publish: off (…)`, make no publish call and name the local
+path. A resolver error (a non-zero exit, or output with no `publish:` line) reads as `publish: off`, never as on, plus one ISSUES line: "publish setting could not be read: <stderr>". Read any stored URL first:
 `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind audit-build` (empty
 output means none).
 
@@ -433,7 +438,7 @@ Artifact({ file_path: ".trd-state/<feature>/audit-build-report.md",
 
 **Then ALWAYS record the report, whether or not publishing is on** (outside the publish switch):
 `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind audit-build --path .trd-state/<feature>/audit-build-report.md --command /audit-build`,
-adding `--url <returned URL>` only when a publish returned one. This keeps the next audit
+adding `--url <returned URL>` only when a publish returned one (on `publish: off`, pass `--url ""`). This keeps the next audit
 updating the same link instead of minting a second one. No command writes `artifacts.json` by hand.
 The manifest is a record too: it is not committed, and the write below carries it.
 
@@ -444,7 +449,7 @@ ref before its RETURN line), and after `closed.json`, the report, `audit-rounds.
 `node .claude/lib/record-ref.js write --state-dir .trd-state/<feature> --command /audit-build --step "<audit round and verdict>"`.
 Its outcome is one STATE line (written, or why not); it is never a gate and never STUCK.
 
-**With publishing off (`ensemble.publishArtifacts: false`) or a failed
+**With `publish: off` or a failed
 publish, STATE names the local report path instead of a link — one line, never STUCK, never
 retried.** STATE always names the report path; add the link above it only when one was made.
 

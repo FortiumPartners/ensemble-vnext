@@ -76,6 +76,86 @@ describe('load()', () => {
 });
 
 describe('save()', () => {
+  describe('functional_verification.runs merge (implement.json only)', () => {
+    const run = (n, finished) => ({ n, finished_at: finished ? '2026-11-16T00:00:00Z' : null });
+    const onDisk = (name, obj) => {
+      const f = path.join(tmpDir, name);
+      fs.writeFileSync(f, JSON.stringify(obj));
+      return f;
+    };
+    const written = (f) => JSON.parse(fs.readFileSync(f, 'utf-8'));
+
+    it('keeps disk runs when the incoming object has no functional_verification', () => {
+      const f = onDisk('implement.json', { functional_verification: { runs: [run(1, true), run(2, true)] } });
+      save(f, { version: '1.0.0' });
+      expect(written(f).functional_verification.runs).toHaveLength(2);
+    });
+
+    it('restores a stale shorter list to the longer disk list', () => {
+      const f = onDisk('implement.json', { functional_verification: { runs: [run(1, true), run(2, true)] } });
+      save(f, { functional_verification: { prd_resolved: true, runs: [run(1, true)] } });
+      const out = written(f).functional_verification;
+      expect(out.runs.map((r) => r.n)).toEqual([1, 2]);
+      expect(out.prd_resolved).toBe(true);
+    });
+
+    it('keeps the finished entry when the same n differs', () => {
+      const f = onDisk('implement.json', { functional_verification: { runs: [run(1, true), run(2, true)] } });
+      save(f, { functional_verification: { runs: [run(1, true), run(2, false)] } });
+      expect(written(f).functional_verification.runs[1].finished_at).not.toBeNull();
+    });
+
+    it('keeps the incoming finished entry over an unfinished disk one', () => {
+      const f = onDisk('implement.json', { functional_verification: { runs: [run(1, false)] } });
+      save(f, { functional_verification: { runs: [run(1, true)] } });
+      expect(written(f).functional_verification.runs[0].finished_at).not.toBeNull();
+    });
+
+    it('keeps a longer incoming list', () => {
+      const f = onDisk('implement.json', { functional_verification: { runs: [run(1, true), run(2, true)] } });
+      save(f, { functional_verification: { runs: [run(3, false), run(1, true), run(2, true)] } });
+      expect(written(f).functional_verification.runs.map((r) => r.n)).toEqual([1, 2, 3]);
+    });
+
+    it('writes the incoming object as is when the disk file is absent or unparseable', () => {
+      const f = path.join(tmpDir, 'implement.json');
+      save(f, { a: 1 });
+      expect(written(f)).toEqual({ a: 1 });
+      fs.writeFileSync(f, 'not json {');
+      save(f, { b: 2 });
+      expect(written(f)).toEqual({ b: 2 });
+    });
+
+    it('merges no other key: the incoming tasks entry wins', () => {
+      const f = onDisk('implement.json', { tasks: { T: { status: 'pending' }, U: {} }, functional_verification: { runs: [run(1, true)] } });
+      save(f, { tasks: { T: { status: 'success' } } });
+      const out = written(f);
+      expect(out.tasks).toEqual({ T: { status: 'success' } });
+      expect(out.functional_verification.runs).toHaveLength(1);
+    });
+
+    it('does not add functional_verification when the disk has no runs array', () => {
+      const f = onDisk('implement.json', { functional_verification: { prd_resolved: true } });
+      save(f, { tasks: {} });
+      expect(written(f)).toEqual({ tasks: {} });
+    });
+
+    it('reads nothing from disk for a file not named implement.json', () => {
+      const f = onDisk('verification-state.json', { functional_verification: { runs: [run(1, true)] } });
+      const incoming = { outcome: null };
+      save(f, incoming);
+      expect(fs.readFileSync(f, 'utf-8')).toBe(JSON.stringify(incoming, null, 2));
+    });
+
+    it('does not mutate the incoming object', () => {
+      const f = onDisk('implement.json', { functional_verification: { runs: [run(1, true)] } });
+      const incoming = { functional_verification: { runs: [] } };
+      const snapshot = JSON.stringify(incoming);
+      save(f, incoming);
+      expect(JSON.stringify(incoming)).toBe(snapshot);
+    });
+  });
+
   it('writes JSON that round-trips through load()', () => {
     const filePath = path.join(tmpDir, 'implement.json');
     const state = { version: '1.0.0', tasks: { 'T-1': { status: 'pending' } } };

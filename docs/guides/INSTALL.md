@@ -203,14 +203,20 @@ All of these live under the `ensemble` key in `.claude/settings.json`. A rebase 
 a missing `publishArtifacts` or `openPullRequest` with its default and never overwrites a value
 you set.
 
-- **Documents are published as private claude.ai pages by default** (`publishArtifacts`,
-  default `true`). PRDs, TRDs, verification and audit reports and design canvases get a link you
-  can open and later share. To turn it off — no upgrade will turn it back on:
+- **Documents are published as private claude.ai pages, per kind** (`publishArtifacts`,
+  shipped value `true`, meaning "the per-kind defaults"). By default TRDs, `/task` reports and
+  design rounds get a link you can open and later share; PRDs, audit reports and verification
+  reports do not, unless a run passes `--publish`. The value takes three shapes, and no upgrade
+  will change one you set:
   ```json
+  { "ensemble": { "publishArtifacts": true } }
   { "ensemble": { "publishArtifacts": false } }
+  { "ensemble": { "publishArtifacts": { "prd": true, "trd": false } } }
   ```
-  With it off, every command still records each document's path, and the design commands end
-  STUCK at their publish step, because for them the canvas is the design.
+  `false` turns every publish off, even for a run that passes `--publish`. The object layers
+  per-kind booleans over the defaults; a kind it does not name keeps its default. With a kind
+  off, every command still records each document's path, and the design commands end STUCK at
+  their publish step, because for them the canvas is the design.
 - **Pull requests** (`openPullRequest`, `never` or `auto`; shipped default `never`). With
   `auto`, a passing `/audit-build` or `/close-feature` pushes the branch and opens a pull
   request, or updates the open one. Nothing ever merges one; that stays with you.

@@ -90,6 +90,30 @@ node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>
 
 Any outcome but `present` or `restored` means no record: carry on as today. A `failed` outcome is one ISSUES line, "records ref could not be fetched".
 
+**Then check the feature's verification run limit, in both modes, before anything below is
+read.** This is the first step after the records are restored: it comes before Derive, before
+`**Next run scope**` is computed and, under `--auto`, before the `product-manager` agent is
+spawned, so a declined run spends no agent. It asks nothing in either mode.
+
+```bash
+node .claude/lib/verification-runs.js check --state-dir .trd-state/<feature>
+```
+
+The CLI prints one JSON object. `allowed: true` (or `continuing: true`): carry on to the
+table below. `allowed: false` is a refusal, not an error (exit 0): the feature has used its
+runs (`ensemble.verificationRunLimit`, default 2), and a plan would only set up a run that
+will not start. **Decline, and write no `verification-plan.md`:**
+
+1. Render the request: `node .claude/lib/verification-runs.js request --state-dir .trd-state/<feature> --command /refine-verification`. It writes `.trd-state/<feature>/ruling-request.md` and prints its path; the framework writes it, this command never words it.
+2. Record it: `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind ruling-request --path .trd-state/<feature>/ruling-request.md --command /refine-verification --url "<returned URL>"`, passing `--url` only when step 3 returned one (on `publish: off`, `--url ""`). A failed record is one ISSUES line, never a second STUCK.
+3. Ask `node .claude/lib/artifacts.js publish --kind ruling-request` (add `--requested` when this run carried `--publish`); a resolver error reads as off, plus one ISSUES line. On `publish: on`, publish the FILE `ruling-request.md` as an artifact (`Artifact({ file_path, icon: "document", description, url })`), passing the stored URL from `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind ruling-request` as `url:` when there is one. A failed publish is one line and never blocks the banner. This concerns the ruling request only: the plan is still never published.
+4. Write the records ref once, as in the Readout, with `--step "run limit declined"`.
+5. End `═══ COMMAND STUCK: /refine-verification ═══` with `Reason: verification run limit reached (<n> of <limit> runs)` and `Next:` the path of `ruling-request.md` (and its link), where the owner picks ship, fix one named thing, or drop. Then `notify-complete.sh "refine-verification" "stuck" "<reason>"`.
+
+**The limit wins over the `satisfied` sentence below.** At the limit the run is declined
+whatever the latest outcome was, a `satisfied` run included; the request then says nothing is
+open. The sentence below applies only to a feature still under its limit.
+
 | Input | Where it comes from | Required / optional |
 |---|---|---|
 | Latest verification report, with its Diagnosis block (a `setup-failure` report has none; its `**Setup**:` lines are the diagnosis) | `.trd-state/<feature>/verification-report.md` | required |
@@ -222,6 +246,10 @@ removes an `Off-host proof` cell.
 
 ## Writes
 
+- **Except at the run limit** (see Inputs): no `verification-plan.md` is written, and the PRD
+  and TRD are not touched. The decline's only writes are `.trd-state/<feature>/ruling-request.md`
+  (through `verification-runs.js request`), its `artifacts.json` entry and the records ref.
+
 - `.trd-state/<feature>/verification-plan.md`, in exactly this shape and these section names
   (`## Blockers`, `## Slices`, `## Owner rulings`, `## Accepted as not verifiable`,
   `## Extra checks`, `## Stop rule`) — written once the open items are answered, or straight
@@ -303,6 +331,9 @@ removes an `Off-host proof` cell.
   for one comes up.
 - **Never starts `/verify-build`.** Writing the plan is this command's whole job; running it is
   the owner's own next invocation.
+- **Never writes a plan at the run limit.** Once the feature has used its verification runs,
+  the command declines with the ruling request instead (Inputs); it does not draft a plan the
+  next `/verify-build` would refuse to run.
 
 ---
 
@@ -315,7 +346,9 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 verifiable` row — before anything else, so the owner sees the whole plan without opening the
 file. Then the rest of STATE: the plan's path, the blocker and slice counts.
 
-**NEXT** is `/verify-build`, naming the plan path. After a `setup-failure` run, the step before it
+**NEXT** is `/verify-build`, naming the plan path, except at the run limit: there NEXT is
+the ruling request's path, the banner is `COMMAND STUCK` and the records-ref write uses
+`--step "run limit declined"` (Inputs). After a `setup-failure` run, the step before it
 is the environment fix, as plain text.
 
 Before the banner (and before a `COMMAND STUCK` banner), after `verification-plan.md` is on

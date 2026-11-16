@@ -854,6 +854,36 @@ EOF
     [[ "$output" == *"Added framework skill: verify-data-fidelity"* ]]
 }
 
+@test "publishArtifacts: refresh keeps an owner's false, and an owner's per-kind object, byte-for-byte unchanged" {
+    local plugin_dir
+    plugin_dir="$(_make_fixture_plugin_dir)"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+
+    local v
+    for v in 'false' '{"prd": true, "trd": false}'; do
+        PUB="$v" python3 -c '
+import json, os, sys
+p = sys.argv[1]
+d = json.load(open(p))
+d["ensemble"]["publishArtifacts"] = json.loads(os.environ["PUB"])
+json.dump(d, open(p, "w"), indent=2)
+' "$TEST_DIR/project/.claude/settings.json"
+        cp "$TEST_DIR/project/.claude/settings.json" "$TEST_DIR/settings.before"
+        run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+        [ "$status" -eq 0 ]
+        # A refresh with nothing to stamp or backfill leaves the bytes alone.
+        cmp "$TEST_DIR/settings.before" "$TEST_DIR/project/.claude/settings.json"
+        export PUB="$v"
+        run python3 -c '
+import json, os, sys
+got =json.load(open(sys.argv[1]))["ensemble"]["publishArtifacts"]
+sys.exit(0 if got == json.loads(os.environ["PUB"]) and type(got) is type(json.loads(os.environ["PUB"])) else 1)
+' "$TEST_DIR/project/.claude/settings.json"
+        [ "$status" -eq 0 ]
+    done
+}
+
 @test "Framework skills: --refresh replaces a stale copy" {
     local plugin_dir
     plugin_dir="$(_make_fixture_plugin_dir)"
@@ -2967,6 +2997,31 @@ PY
     [ "$status" -eq 0 ]
     run python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['ensemble']['records'])" "$TEST_DIR/.claude/settings.json"
     [ "$output" = "branch" ]
+}
+
+@test "verificationRunLimit: scaffold stamps 2; an owner's 4 survives --refresh; an absent key gains 2" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    run python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['ensemble']['verificationRunLimit'])" "$TEST_DIR/.claude/settings.json"
+    [ "$output" = "2" ]
+    python3 - "$TEST_DIR/.claude/settings.json" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p)); d["ensemble"]["verificationRunLimit"]=4; json.dump(d,open(p,"w"))
+PY
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    run python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['ensemble']['verificationRunLimit'])" "$TEST_DIR/.claude/settings.json"
+    [ "$output" = "4" ]
+    python3 - "$TEST_DIR/.claude/settings.json" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p)); del d["ensemble"]["verificationRunLimit"]; json.dump(d,open(p,"w"))
+PY
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    run python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['ensemble']['verificationRunLimit'])" "$TEST_DIR/.claude/settings.json"
+    [ "$output" = "2" ]
 }
 
 @test "git files: --refresh adds the scratch lines to an existing .gitignore and leaves the index unchanged" {
