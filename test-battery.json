@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "baseline": null,
+  "runs": {
+    "unit": {
+      "tree": "278761733f0a21ccbfbcfa8da04c1a6299dd669f+ee16246cf883",
+      "status": "pass",
+      "command": "npx jest",
+      "durationSeconds": 137,
+      "failures": [],
+      "at": "2026-11-16T20:42:16.361Z"
+    }
+  }
+}
