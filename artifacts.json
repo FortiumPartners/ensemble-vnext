@@ -5,5 +5,11 @@
     "url": "https://claude.ai/artifact/VWf8ABRrkrWq498HTqd8wD",
     "updated_at": "2026-11-16T08:59:25.332Z",
     "command": "/plan"
+  },
+  "verification-report": {
+    "path": ".trd-state/fix-design-command-defects/verification-report.md",
+    "url": "",
+    "updated_at": "2026-11-16T10:37:25.139Z",
+    "command": "/implement-trd"
   }
 }

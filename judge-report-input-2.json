@@ -1,0 +1,540 @@
+{
+  "feature": "fix-design-command-defects",
+  "prd": "docs/TRD/fix-design-command-defects.md § Reproduction",
+  "definitionPath": ".trd-state/fix-design-command-defects/success-definition.md",
+  "outcome": "exit-stalled",
+  "reason": "iteration closed no gaps and no causes — remediation is not converging",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/transcript-refine-design-unreadable-canvas.txt",
+      "reason": "Transcript shows /refine-design reading the recorded canvas (404 Not Found), creating a new canvas 25XaFeiAn2bgNj6DhSNRDY from the committed copy, and ending COMMAND COMPLETE (no STUCK). run2/refine-design-map.json holds the new URL.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "When the canvas URL recorded in design-map.json returns not-found from the current account, `/refine-design` publishes a new canvas from the committed files under `docs/ui/<slug>/canvas/`, records the new URL, carries on, and does not end COMMAND STUCK",
+      "cites": "#150 Expected; #150 Actual",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-2",
+      "status": "not_verifiable",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/probe-artifact-read-notfound-text.txt",
+      "reason": "No no-access fixture exists. The Artifact tool returns one combined error for a deleted artifact and for one not shared with this account, and no artifact owned by another account is available in the authorized environments. A genuine no-access read was never exercised.",
+      "cause": "capability-absent",
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": "not-checkable-here",
+      "settled": null,
+      "verificationDigest": "",
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "When the canvas URL recorded in design-map.json returns no-access from the current account, `/refine-design` publishes a new canvas from `docs/ui/<slug>/canvas/`, records the new URL, carries on, and does not end COMMAND STUCK",
+      "cites": "#150 Expected; #150 Actual",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_verifiable"
+        }
+      ],
+      "blocker": "No no-access fixture exists. The Artifact tool returns one combined error for a deleted artifact and for one not shared with this account, and no artifact owned by another account is available in the authorized environments. A genuine no-access read was never exercised."
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/transcript-design-system-sync-unreadable.txt",
+      "reason": "/design-system --sync read design_system.url (404), created Design System artifact 5aFpAmptQAN7hsuosFM2WK from docs/ui/_design-system/acme, reinstalled it on a replacement canvas and ended COMMAND COMPLETE. run2/dsys-design-map.json records the new URL.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "When the Design System page recorded in `design_system.url` returns not-found or no-access from the current account, `/design-system --sync` publishes a new Design System page from the committed files under `docs/ui/_design-system/<folder>/`, records the new URL, carries on, and does not end COMMAND STUCK",
+      "cites": "#150 Expected; #150 Actual",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/run2/refine-design-map.json",
+      "reason": "The canvas entry holds the new URL, previous_url is the failed ...c0de URL, and the board points at the new canvas.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "After a canvas is republished, its design-map.json entry holds the new URL and keeps the replaced URL as `previous_url`",
+      "cites": "#150 Expected (\"record the new URL with the old one kept as previous_url (map entries …)\")",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/run2/refine-artifacts.json",
+      "reason": "The design entry holds the new url with previous_url ...c0de. The design-system entry in dsys-artifacts-shared.json holds the new url with previous_url ...d5.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "After a canvas or Design System page is republished, its artifacts.json entry holds the new URL and keeps the replaced URL as `previous_url`",
+      "cites": "#150 Expected (\"… and artifacts.json entries\")",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/run2/dsys-design-map.json",
+      "reason": "design_system in design-map.json holds the new url and previous_url ...d5. system.json has the new url without previous_url.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "When the Design System page is republished, the place that records `design_system.url` holds the new URL and keeps the replaced URL as `previous_url`",
+      "cites": "#150 Expected (\"record the new URL with the old one kept as previous_url\")",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/lib/fs7-artifacts-previous-url.txt",
+      "reason": "artifacts.js record run twice: the entry holds NEW-URL and keeps previous_url OLD-URL.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "The library that writes artifacts.json entries accepts a `previous_url` and keeps it in the entry it writes (today `previous_url` exists nowhere in lib/)",
+      "cites": "#150 Lib; domain-derived: artifacts.json entries are written only through the project's artifact-record library helper, so the #150 Expected requirement that artifacts.json entries keep `previous_url` cannot be met unless that helper preserves the field",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/transcript-refine-design-unreadable-canvas.txt",
+      "reason": "The /refine-design DECISIONS line names the old and new canvas links. The /design-system --sync DECISIONS line states both artifacts were republished; its new links appear above STATE.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "When a canvas or the Design System page is replaced, the command's readout says so in its DECISIONS section",
+      "cites": "#150 Expected (\"say so in DECISIONS\")",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/run2/fs9-sync-base-check.txt",
+      "reason": "After the republish, design-mirror.js check against the new URL and version returns unchanged. Against the replaced URL it finds no canvas, so no sync base carried over.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "A republished canvas starts a fresh sync base: the sync base recorded after the republish belongs to the new canvas, not one carried over from the replaced URL",
+      "cites": "#150 Sync base",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-10",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/run3/transcript-refine-design-other-error-no-republish-iter2.txt",
+      "reason": "Partial evidence only. The transcript shows the canvas read failing with 'not an artifact URL' and the run then editing the board heading with no Artifact publish or create call, which is the right behaviour so far, and the after-snapshots still hold the original URLs with no previous_url. But the capture stops while the visual critic is still running, before the command's commit-and-record step, which is where a publish would happen. The criterion's evidence calls for design-map.json and artifacts.json after the run, and the run had not finished (tmux session fs10 still waiting on the critic at 02:04). Nothing seen shows the build misbehaving, but the end state is unproven.",
+      "cause": "evidence-missing",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": "evidence-gap",
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "A canvas or Design System page read that fails with any error other than not-found or no-access does not trigger a republish: no new artifact is published, the recorded URL is unchanged, and no `previous_url` is written",
+      "cites": "#150 Scope",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met (judged-failed: republished on a malformed-URL read)"
+        },
+        {
+          "iteration": 2,
+          "result": "not_met (evidence-missing: capture ended before the run finished)"
+        }
+      ],
+      "blocker": "Partial evidence only. The transcript shows the canvas read failing with 'not an artifact URL' and the run then editing the board heading with no Artifact publish or create call, which is the right behaviour so far, and the after-snapshots still hold the original URLs with no previous_url. But the capture stops while the visual critic is still running, before the command's commit-and-record step, which is where a publish would happen. The criterion's evidence calls for design-map.json and artifacts.json after the run, and the run had not finished (tmux session fs10 still waiting on the critic at 02:04). Nothing seen shows the build misbehaving, but the end state is unproven."
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/audit-design-A-no-ruling-report.md",
+      "reason": "Report A places drawn misses on board-file lines and names the Acme.Card misses as reused (tagged [reused component]). Reports B and C label the reused misses KNOWN BUILD-SIDE CAVEAT (reused component).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "`/audit-design` labels each below-floor contrast miss and each below-44px target-size miss as either drawn by this design or on a reused component unchanged through `x-import`",
+      "cites": "#152 Separate; #152 Actual",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/audit-design-C-design-md-ruling-report.md",
+      "reason": "Hand-drawn contrast and target-size misses rank high in reports A, B and C, whether or not a ruling is recorded.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "A below-floor contrast or target-size miss on an element drawn by this design is ranked high, including when a build-side caveat ruling is recorded for reused components",
+      "cites": "#152 Caveats (\"hand-drawn misses stay high\")",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/audit-design-B-brief-ruling-report.md",
+      "reason": "With the ruling in brief.md, both reused Acme.Card misses appear as low KNOWN BUILD-SIDE CAVEAT findings, not high.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "With an accept or fix-in-build ruling recorded in brief.md `## Accessibility caveats`, `/audit-design` shows a below-floor miss on a reused, unchanged component as a known build-side caveat instead of a high finding",
+      "cites": "#152 Rulings; #152 Caveats",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/audit-design-C-design-md-ruling-report.md",
+      "reason": "With the ruling only in design.md section 4 (caveats-C-before.json: brief items [], reused_build_side from design.md), both reused misses appear as low known build-side caveats.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "With an accept or fix-in-build ruling recorded in design.md section 4, `/audit-design` shows a below-floor miss on a reused, unchanged component as a known build-side caveat instead of a high finding",
+      "cites": "#152 Rulings; #152 Caveats",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/audit-design-A-no-ruling-report.md",
+      "reason": "With no ruling anywhere, the reused misses are high findings with a hint to record a ruling, and no caveat label.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "With no ruling recorded in either brief.md or design.md section 4, a below-floor miss on a reused, unchanged component is not shown as a known build-side caveat",
+      "cites": "#152 Caveats (\"when such a ruling is recorded\")",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/design-md-sha-after-C.txt",
+      "reason": "The sha256 of the fixture design.md is the same before and after the /audit-design run.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "`/audit-design` never edits design.md",
+      "cites": "#152 Rulings (\"never editing design.md\")",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/lib/design-render-measures-fixture-board.json",
+      "reason": "The render measures and all three audit reports hold no contrast miss for either the disabled control or the aria-disabled control. The screenshot shows both drawn in light grey.",
+      "cause": null,
+      "provenAt": 1,
+      "image": "evidence/live/shot-board-01-home-fixture-fs17-fs18.png",
+      "ui": true,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "A disabled control (one carrying the `disabled` attribute or `aria-disabled`) is not reported for a contrast miss",
+      "cites": "#152 Disabled (\"exempt from contrast only\")",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/audit-design-C-design-md-ruling-report.md",
+      "reason": "Report C ranks the 'Why disabled' text (2.32:1) as a high contrast finding and the 120x20 disabled button as a high target-size finding.",
+      "cause": null,
+      "provenAt": 1,
+      "image": "evidence/live/shot-board-01-home-fixture-fs17-fs18.png",
+      "ui": true,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "Text explaining why a control is disabled is still measured for contrast, and a disabled control below 44px is still reported for target size",
+      "cites": "#152 Disabled (\"text explaining why is still measured, target size not exempt\")",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-design-command-defects/evidence/live/transcript-refine-design-no-feedback-caveats.txt",
+      "reason": "With no feedback, /refine-design fixed the ordinary findings and left the two recorded caveats alone. The re-render keeps only the two reused Acme.Card misses, and the library card is unchanged in the screenshot.",
+      "cause": null,
+      "provenAt": 1,
+      "image": "evidence/live/shot-board-01-home-after-refine-fs19.png",
+      "ui": true,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "`/refine-design` run with no feedback skips findings marked as recorded build-side caveats: it does not act on them, while other findings are still worked",
+      "cites": "#152 Refine",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    }
+  ],
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  },
+  "mustPass": [
+    "FS-1",
+    "FS-2",
+    "FS-3",
+    "FS-4",
+    "FS-5",
+    "FS-6",
+    "FS-7",
+    "FS-8",
+    "FS-9",
+    "FS-11",
+    "FS-12",
+    "FS-13",
+    "FS-14",
+    "FS-15",
+    "FS-16"
+  ],
+  "mustPassUncovered": [],
+  "causes": [
+    {
+      "key": "republish-on-other-read-error",
+      "representative": "FS-10",
+      "members": [
+        "FS-10"
+      ],
+      "status": "open",
+      "closedAt": null
+    }
+  ]
+}
