@@ -1618,12 +1618,15 @@ print(json.load(open('$plugin_manifest')).get('version', ''))
 
     # Rewrite atomically: a half-written settings.json breaks every hook.
     if python3 - "$settings" "$version" "$strict" <<'PY'
-import json, os, sys, tempfile, collections
+import copy, json, os, sys, tempfile, collections
 from datetime import datetime, timezone
 
 path, version, strict = sys.argv[1], sys.argv[2], sys.argv[3] == "strict"
 with open(path) as fh:
     data = json.load(fh, object_pairs_hook=collections.OrderedDict)
+# Kept to compare against below: a merge that changes nothing leaves the file's
+# bytes alone, so an owner's own formatting, key order and values all survive.
+original = copy.deepcopy(data)
 
 # Merge — never replace. The template ships skills_dir/rules_dir/state_dir/
 # docs_dir/prd_dir/trd_dir here, and /rebase-project writes rebased_at and
@@ -1645,9 +1648,11 @@ if strict:
         if old_version != version:
             ensemble["previous_version"] = old_version
 ensemble.setdefault("agents_dir", ".claude/agents")
-# Backfill for projects scaffolded before the key existed, matching the
-# shipped default. setdefault, never assignment: an owner who turned this
-# OFF must not have it turned back on by a refresh.
+# Backfill for projects scaffolded before the key existed. True means "the
+# per-kind default" (artifacts.js PUBLISH_DEFAULTS decides which kinds
+# publish); it is not a blanket on. setdefault, never assignment: an owner's
+# false (every publish off) and an owner's object (per-kind choices such as
+# {"prd": true, "trd": false}) both survive every refresh unchanged.
 ensemble.setdefault("publishArtifacts", True)
 # Same backfill rule for the PR-at-cycle-end switch: shipped default "never".
 # setdefault, never assignment: an owner who chose "auto" must keep it
@@ -1671,6 +1676,11 @@ if not isinstance(env, dict):
     env = collections.OrderedDict()
 env.setdefault("CLAUDE_CODE_STOP_HOOK_BLOCK_CAP", "1")
 data["env"] = env
+
+# Nothing to stamp or backfill (OrderedDict equality is order-sensitive, so a
+# key added anywhere still counts): leave the file byte-for-byte as it is.
+if data == original:
+    sys.exit(0)
 
 directory = os.path.dirname(path) or "."
 # Preserve the original mode: mkstemp creates 0600, and os.replace would carry

@@ -51,7 +51,7 @@ describe('refine-verification.md run-limit check', () => {
   test('the decline calls request, records and publishes the ruling request', () => {
     expect(inputs).toContain('verification-runs.js request');
     expect(inputs).toContain('--kind ruling-request');
-    expect(inputs).toContain('publishArtifacts');
+    expect(inputs).toContain('artifacts.js publish --kind ruling-request');
   });
 
   test('the D8 reason line is present', () => {

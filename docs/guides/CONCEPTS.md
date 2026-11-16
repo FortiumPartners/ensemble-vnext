@@ -80,8 +80,9 @@ the same link rather than making a new one, and every link is recorded in
 `.trd-state/<feature>/artifacts.json`. The file in the repository is the deliverable; the link
 is a convenience, so a failed publish is one line in the output, never a stopped command
 (design commands are the one exception, because there the canvas is the design). Publishing is
-on by default and is turned off with `ensemble.publishArtifacts: false` in
-`.claude/settings.json`.
+set per kind with `ensemble.publishArtifacts` in `.claude/settings.json`: TRDs, `/task` reports
+and design rounds publish by default, other documents (PRDs, audit and verification reports)
+publish when you pass `--publish`, and `false` turns every publish off.
 
 **Where you'll meet it:** `docs/PRD/`, `docs/TRD/`, `.trd-state/`
 ([PROCESS.md §2](PROCESS.md#2-the-core-flow), [§7](PROCESS.md#7-where-state-lives)).

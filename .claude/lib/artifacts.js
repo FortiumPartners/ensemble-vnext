@@ -26,6 +26,14 @@
  *   node .claude/lib/artifacts.js record --state-dir D --kind K --path P --command C [--url U]
  *   node .claude/lib/artifacts.js get    --state-dir D --kind K   # URL + newline, or nothing
  *   node .claude/lib/artifacts.js read   --state-dir D            # normalised JSON
+ *   node .claude/lib/artifacts.js publish --kind K [--requested] [--settings P]
+ *                                         # "publish: on" or "publish: off (<reason>)"
+ *
+ * PUBLISH DECISION. `ensemble.publishArtifacts` in settings is read ONLY here; command prompts
+ * call the `publish` verb and act on its answer. The value is `false` (every publish off),
+ * `true` or absent (the per-kind defaults in PUBLISH_DEFAULTS), or an object of per-kind
+ * booleans layered over those defaults. `false` beats a run-time request; a request beats a
+ * per-kind `false`. A kind not named in PUBLISH_DEFAULTS is off unless requested.
  */
 
 const fs = require('fs');
@@ -42,6 +50,14 @@ const KINDS = [
   'verification-plan', 'verification-report', 'audit-build', 'report',
   'design', 'audit-design', 'ruling-request',
 ];
+
+/**
+ * Whether each kind publishes when the setting is `true` or absent. Kinds not listed here
+ * (prd, the audits, verification-report, check-skill pages, ...) are off unless requested.
+ */
+const PUBLISH_DEFAULTS = Object.freeze({
+  trd: true, report: true, design: true, 'design-system': true,
+});
 
 const manifestPath = (stateDir) => path.join(stateDir, FILE);
 
@@ -186,11 +202,47 @@ function record(stateDir, kind, entry, { root = process.cwd(), now = () => new D
   return next;
 }
 
+/**
+ * Read `ensemble.publishArtifacts` from a settings file. A missing or malformed file reads as
+ * `undefined` (the defaults): publishing is a convenience, so a broken settings file must not
+ * stop a command -- unlike the manifest, which is never silently replaced.
+ */
+function readPublishSetting(settingsPath) {
+  try {
+    const data = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    return data && data.ensemble ? data.ensemble.publishArtifacts : undefined;
+  } catch (e) {
+    return undefined;
+  }
+}
+
+/**
+ * Should this kind publish? `settings` is the `ensemble.publishArtifacts` value; `requested`
+ * is the run's `--publish`. Non-boolean object values are ignored. Throws on an invalid kind.
+ *
+ * @example publishDecision('prd', { settings: { prd: true } })  // { publish: true, reason: 'setting' }
+ */
+function publishDecision(kind, { settings, requested = false } = {}) {
+  if (typeof kind !== 'string' || kind === 'version' || !KIND_RE.test(kind)) {
+    throw new Error(`invalid kind: ${JSON.stringify(kind)} (a lower-case slug other than "version")`);
+  }
+  if (settings === false) return { publish: false, reason: 'publishArtifacts is false' };
+  if (requested) return { publish: true, reason: 'requested with --publish' };
+  const perKind = settings && typeof settings === 'object' && !Array.isArray(settings)
+    && own(settings, kind) && typeof settings[kind] === 'boolean' ? settings[kind] : undefined;
+  if (perKind !== undefined) {
+    return { publish: perKind, reason: `set ${perKind} for ${kind} in publishArtifacts` };
+  }
+  if (own(PUBLISH_DEFAULTS, kind)) return { publish: true, reason: 'on by default' };
+  return { publish: false, reason: `off by default for ${kind}: pass --publish to publish it` };
+}
+
 function parseArgs(argv) {
   const flags = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (!a.startsWith('--')) throw new Error(`unexpected argument: ${a}`);
+    if (a === '--requested') { flags.requested = true; continue; } // flag-only
     if (i + 1 >= argv.length) throw new Error(`${a} needs a value`);
     flags[a.slice(2)] = argv[++i];
   }
@@ -200,6 +252,13 @@ function parseArgs(argv) {
 function main(argv) {
   const [verb, ...rest] = argv;
   const f = parseArgs(rest);
+  if (verb === 'publish') {
+    if (!f.kind) throw new Error('--kind is required');
+    const settings = readPublishSetting(f.settings || path.join('.claude', 'settings.json'));
+    const d = publishDecision(f.kind, { settings, requested: f.requested === true });
+    process.stdout.write(d.publish ? 'publish: on\n' : `publish: off (${d.reason})\n`);
+    return;
+  }
   if (!f['state-dir']) throw new Error('--state-dir is required');
   switch (verb) {
     case 'read':
@@ -215,7 +274,7 @@ function main(argv) {
       record(f['state-dir'], f.kind, { path: f.path, url: f.url, command: f.command });
       return;
     default:
-      throw new Error('usage: artifacts.js read|get|record --state-dir D [--kind K --path P --command C --url U]');
+      throw new Error('usage: artifacts.js read|get|record --state-dir D [--kind K --path P --command C --url U] | publish --kind K [--requested] [--settings P]');
   }
 }
 
@@ -228,4 +287,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { KINDS, read, get, record };
+module.exports = { KINDS, PUBLISH_DEFAULTS, read, get, record, publishDecision, readPublishSetting };

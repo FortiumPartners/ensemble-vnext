@@ -2,7 +2,7 @@
 name: verify-build
 description: Run the functional verification loop on its own — does the delivered software do what the PRD says, checked with artifacts
 version: 1.0.0
-argument-hint: "[trd-path] [--resume] [--cap N] [--no-fix] [--fix [plan-path]] [--criteria <ids>] [--chained]"
+argument-hint: "[trd-path] [--resume] [--cap N] [--no-fix] [--fix [plan-path]] [--criteria <ids>] [--publish] [--chained]"
 category: verification
 ---
 
@@ -15,6 +15,11 @@ $ARGUMENTS
 ```
 
 If no TRD path is given, resolve from `.trd-state/current.json`'s `trd`.
+
+`--publish` is a standalone flag token: strip it before reading the path. It asks for the
+verification report and check pages to be published even where `ensemble.publishArtifacts`
+leaves that kind off by default (`false` still wins). Pass it on to every `/implement-trd` chain
+below when this run carried it.
 
 `--chained` is **for callers only** (`/plan --implement` on a sweep list, and `/ship-build`'s
 re-verification, each of which runs this command as one step of its own run). Strip it from the
@@ -772,7 +777,7 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    plan's `**Written**` timestamp as `record()`'s `nowIso` so a re-run of `--fix` on the same
    plan never re-promotes a blocker. Without `blocksFeature: true` nothing promotes and the
    chained build has nothing to build. Then chain
-   `Skill({ skill: "implement-trd", args: "<trd> --reconcile --chained" })` to build them, then
+   `Skill({ skill: "implement-trd", args: "<trd> --reconcile --chained [--publish]" })` to build them, then
    verify (step 4, below, with its synthesised `resume`). (There is no "no plan" case inside
    this loop any more — a run with no plan, and no `--fix`, never enters it; see the no-plan
    branch under the section above.)
@@ -812,7 +817,7 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    this round, skip to step 6.**
 
 3. **Round k ≥ 1 — build.** Chain `Skill({ skill: "implement-trd", args: "<trd> --reconcile
-   --chained" })` **exactly once per round** — ONE fix batch covering every row step 2
+   --chained [--publish]" })` **exactly once per round** — ONE fix batch covering every row step 2
    recorded, never one build per criterion. On `RETURN → chained by /verify-build: <n> of <m> tasks built…`,
    continue to step 4. On `RETURN → STUCK: <reason>`, first run `node .claude/lib/verification-runs.js finish
    --state-dir .trd-state/<feature> --outcome <the latest verification-state.json outcome>` (a STUCK run
@@ -830,7 +835,8 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    read as an already-exhausted budget and return `stuck` at once. Because those `met` entries
    arrive as settled, **this round re-verifies only criteria still open**: a criterion already
    `met` is carried forward with its original `provenAt` and is not exercised again. Publish the report and each
-   selected check's page to their stored URLs (read with `artifacts.js get`; the "Artifact link" section,
+   selected check's page as the resolver answers (`artifacts.js publish --kind verification-report`, and per skill
+   `--kind <skill>`; on `publish: off` make no call) to their stored URLs (read with `artifacts.js get`; the "Artifact link" section,
    below — the same mechanism, run again each round, not a second one), then read comments on
    each published check page (§8.1b step 5) so the next round's step 3b selection carries them
    and this step's filter un-settles any criterion they comment on.
@@ -850,7 +856,7 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    when it prints `rulingDue`, NEXT below names the ruling request in place of `/refine-verification`.
    Build the `## Fix run` section with `node
    .claude/lib/functional-verification.js render-fix-summary` (D10) and append it to
-   `verification-report.md`, republish it under the same stored URL (the "Artifact link" section, below). Its `criteria` input is
+   `verification-report.md`, republish it under the same stored URL when `artifacts.js publish --kind verification-report` answers `publish: on` (the "Artifact link" section, below). Its `criteria` input is
    **every criterion not `met`** in the latest state file, each with a non-empty `stopReason`
    composed from the first of these that applies: `setup failure: <problem>` (this round's
    verify outcome was `setup-failure` and the criterion is still open; `<problem>` is the
@@ -890,25 +896,26 @@ applies:** the run ends with the one `RETURN` line from "`--chained`", above —
 
 ### Artifact link (see `.claude/rules/command-status.md`)
 
-Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the verification report (identical to
+Ask first: `node .claude/lib/artifacts.js publish --kind verification-report` (add `--requested`
+when this run's arguments carry `--publish`). On `publish: on`, publish the verification report (identical to
 `/implement-trd` §9.0a — read that section and follow it, including its fresh listing and the
 images the report embeds; the `--no-verify` clause there does not apply here) — the markdown
 FILE, never a rendering of it — passing the stored URL (`node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind verification-report`; empty output means none) as `url:` when there is one.
 
-**Then, under the same switch, publish each selected check's page** (identical to
+**Then, per skill, not once for all: `node .claude/lib/artifacts.js publish --kind <skill>` (add `--requested` when this run carried `--publish`). On `publish: on`, publish each selected check's page** (identical to
 `/implement-trd` §9.0a — read that section and follow it): one call per skill with a `files`
 map for its images, passing its stored URL (`node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind <skill>`) as `url:` when there is one. A page over 255 files goes up in several calls to the same
-URL (TR4). With publishing off, name each page's local path instead.
+URL (TR4). On `publish: off (…)`, make no publish call and name the local path instead. A resolver error (a non-zero exit, or output with no `publish:` line) reads as `publish: off`, never as on, plus one ISSUES line: "publish setting could not be read: <stderr>".
 
 **Then ALWAYS record the report and each page on disk, whether or not publishing is on** (outside
 the publish switch): `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind verification-report --path .trd-state/<feature>/verification-report.md --command /verify-build`
 and, per page, `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind <skill> --path <pagesDir>/<skill>/index.html --command /verify-build`,
-adding `--url <returned URL>` only when a publish returned one. No command writes `artifacts.json` by hand.
+adding `--url <returned URL>` only when a publish returned one (on `publish: off`, pass `--url ""`). No command writes `artifacts.json` by hand.
 
 **When a ruling request was written (step 1b's refusal, or `finish` printing `rulingDue: true`),
-publish it the same way** (the markdown FILE `.trd-state/<feature>/ruling-request.md`, stored URL from
+publish it the same way** under its own kind (`node .claude/lib/artifacts.js publish --kind ruling-request`, adding `--requested` when this run carried `--publish`; on `publish: on`, the markdown FILE `.trd-state/<feature>/ruling-request.md`, stored URL from
 `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind ruling-request` as `url:`) and record it, outside the
-publish switch: `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind ruling-request --path .trd-state/<feature>/ruling-request.md --command /verify-build`.
+publish switch: `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind ruling-request --path .trd-state/<feature>/ruling-request.md --command /verify-build`, adding `--url <returned URL>` only when a publish returned one (on `publish: off`, pass `--url ""`).
 
 Emit the link ABOVE the banner. A failed publish — the report's or any check page's — is one
 line of prose and nothing more; it never blocks the banner.
