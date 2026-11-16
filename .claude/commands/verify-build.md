@@ -497,7 +497,7 @@ node .claude/lib/audit-rounds.js pending-close '{"stateDir":".trd-state/<feature
 A missing `audit.runId`, or a `pending` of null, is no pending close; an `error` is also no pending
 close, plus one ISSUES line naming the ledger and the error. With a pending close, call
 `Skill({ skill: "audit-build", args: "<trd> --chained --close-deferred --verified" })`
-(`--verified` because this run just proved every commit up to the head), then NEXT follows its one
+(`--verified` only when this run walked every criterion afresh, so it just proved every commit up to the head; a `--resume` or targeted run carried `met` verdicts forward from an earlier loop whose evidence may predate later commits, so it calls without `--verified` and `/ship-build`'s custody check re-proves what it did not see), then NEXT follows its one
 `[STATUS: /audit-build] RETURN →` line:
 
 - `closed; PR …`: the feature is closed. NEXT is shipping: `/ship-build`, the PR in words and

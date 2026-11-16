@@ -546,11 +546,14 @@ node .claude/lib/audit-rounds.js pending-close '{"stateDir":".trd-state/<feature
    write nothing and end `RETURN → stale: the TRD changed since the audit`.
 3. Otherwise run step 4's `close` true branch from the round's `verdict` and `auditedCommit` and
    the line's `close.report` and `close.caveats`: the waived-defect gate with `--closed-by audit`
-   (a refusal writes no close record, opens no PR, appends nothing to the ledger and ends
+   (a refusal writes no close record, opens no PR, appends nothing to the ledger, consumes nothing and ends
    `RETURN → STUCK: close refused: <each failed row's criterion and error>`), then the close step with
    `closedBy: "audit"` (its step 0 and step 4 skipped, as step 4 already says). With `--verified`
    (verification proved every commit up to the head), `audit.anchorCommit` is the full output of
-   `git rev-parse HEAD` at close time; without it, the line's `close.anchorCommit`. Then the unsynced-boards
+   `git rev-parse HEAD` at close time; without it, the line's `close.anchorCommit`. Once `closed.json` is written,
+   consume the deferred round so the close stays spent even if `closed.json` is later deleted to reopen the feature:
+   `node .claude/lib/audit-rounds.js consume-close '{"stateDir":".trd-state/<feature>","runId":"<audit.runId>"}'`
+   (it appends a fold line to the ledger, adds no round). Then the unsynced-boards
    check and the PR with `pull-request.js ensure`, as above.
 4. Skip the TRD commit and the publish (the `--defer-close` run made them) and "Write the records,
    once, last": the caller makes the one records write, and it carries `closed.json`. End

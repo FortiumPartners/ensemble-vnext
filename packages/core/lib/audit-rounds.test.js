@@ -302,6 +302,59 @@ describe('deferred close on the ledger', () => {
     expect(A.pendingClose(dir, { runId: 'r1' }).runId).toBe('r1');
   });
 
+  describe('consumeClose', () => {
+    const closeAndReopen = () => {
+      const f = path.join(dir, 'closed.json');
+      fs.writeFileSync(f, JSON.stringify({ closedAt: '2026-10-01T00:05:00Z' }));
+      return f;
+    };
+    test('a consumed deferred close stays spent after closed.json is deleted', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1));
+      A.consumeClose(dir, 'r1');
+      const f = closeAndReopen();
+      expect(A.pendingClose(dir)).toBeNull();
+      fs.unlinkSync(f);
+      expect(A.pendingClose(dir)).toBeNull();
+      expect(A.pendingClose(dir, { runId: 'r1' })).toBeNull();
+    });
+    test('without consumeClose, deleting closed.json revives the deferred close (the defect)', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1));
+      fs.unlinkSync(closeAndReopen());
+      expect(A.pendingClose(dir)).not.toBeNull();
+    });
+    test('adds no round, with or without closed.json', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1));
+      A.consumeClose(dir, 'r1');
+      expect(A.readRounds(dir)).toHaveLength(1);
+      const f = closeAndReopen();
+      expect(A.readRounds(dir)).toHaveLength(0);
+      fs.unlinkSync(f);
+      expect(A.readRounds(dir)).toHaveLength(1);
+      expect(A.readRounds(dir)[0]).toMatchObject({ closeDeferred: false });
+      expect(typeof A.readRounds(dir)[0].closeConsumedAt).toBe('string');
+    });
+    test('does not count toward the cap after a close', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1)); A.consumeClose(dir, 'r1');
+      closeAndReopen();
+      A.record(dir, R(2, { ts: '2026-10-01T00:09:00Z' }));
+      expect(A.readRounds(dir)).toHaveLength(1);
+    });
+    test('throws for an unknown run id and appends nothing', () => {
+      A.record(dir, R(1));
+      expect(() => A.consumeClose(dir, 'nope')).toThrow(/no round/);
+      expect(fs.readFileSync(path.join(dir, 'audit-rounds.jsonl'), 'utf8').trim().split('\n')).toHaveLength(1);
+    });
+    test('consume-close CLI works', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1));
+      const r = spawnSync('node', [path.join(__dirname, 'audit-rounds.js'), 'consume-close'], { input: JSON.stringify({ stateDir: dir, runId: 'r1' }), encoding: 'utf8' });
+      expect(r.status).toBe(0);
+      expect(JSON.parse(r.stdout)).toEqual({ ok: true });
+      expect(A.pendingClose(dir)).toBeNull();
+      const bad = spawnSync('node', [path.join(__dirname, 'audit-rounds.js'), 'consume-close'], { input: JSON.stringify({ stateDir: dir }), encoding: 'utf8' });
+      expect(bad.status).toBe(1);
+    });
+  });
+
   describe('pending-close CLI', () => {
     const run = (input) => {
       const r = spawnSync('node', [path.join(__dirname, 'audit-rounds.js'), 'pending-close'], { input: JSON.stringify(input), encoding: 'utf8' });

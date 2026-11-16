@@ -2328,7 +2328,7 @@ the feature (not under `--chained`, which has no Step 9 readout). Read `.trd-sta
 
 - Step 8 ran and its outcome is `satisfied`, with no criterion carrying
   `settled: 'definition-problem'` (such a run routes to `/refine-verification`, so it cannot close);
-  call with `--verified`:
+  call with `--verified`, except on the `--resume --verify` path (the loop re-entered from `verification-state.json` carries `met` verdicts whose evidence may predate later commits), which calls without `--verified` so custody re-proves them:
   `Skill({ skill: "audit-build", args: "<trd> --chained --close-deferred --verified" })`
 - `--no-verify` was set, so Step 8 was skipped by request; call without `--verified`, so
   `/ship-build`'s custody check re-proves what only the audit saw:

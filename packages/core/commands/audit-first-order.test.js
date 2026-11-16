@@ -110,3 +110,14 @@ describe('RETURN outcomes the callers branch on exist in audit-build.md', () => 
     }
   });
 });
+
+// AMEND-002: carried-forward verdicts never anchor the close at HEAD.
+describe('held-back close drops --verified when verdicts were carried forward', () => {
+  const read = (f) => fs.readFileSync(path.join(__dirname, f), 'utf8').replace(/\s+/g, ' ');
+  test('verify-build.md: a --resume or targeted run closes without --verified', () => {
+    expect(read('verify-build.md')).toMatch(/a `--resume` or targeted run carried `met` verdicts forward.{0,200}calls without `--verified`/);
+  });
+  test('implement-trd.md: the --resume --verify path closes without --verified', () => {
+    expect(read('implement-trd.md')).toMatch(/except on the `--resume --verify` path.{0,200}calls without `--verified`/);
+  });
+});

@@ -177,6 +177,20 @@ function pendingClose(stateDir, { runId } = {}) {
 }
 
 /**
+ * Mark a deferred close as performed, durably, in the ledger itself. pendingClose reads
+ * `closed.json` only indirectly (readRounds drops rounds older than its `closedAt`), so a close
+ * is "spent" only while that file exists; delete it to reopen the feature and the old deferred
+ * round would reappear and close on an audit that never saw the new code. The fold line carries
+ * the ORIGINAL round's ts, so the closedAt filter drops it exactly when it drops its round and it
+ * never becomes a stray post-close round counting toward the re-audit cap.
+ */
+function consumeClose(stateDir, runId) {
+  const round = runId ? readRounds(stateDir, { all: true }).find((r) => r.runId === runId) : undefined;
+  if (!round) throw new Error(`consumeClose: no round with run id ${JSON.stringify(runId)}`);
+  record(stateDir, { runId, closeDeferred: false, closeConsumedAt: new Date().toISOString(), ts: round.ts });
+}
+
+/**
  * @returns {{chain:boolean, reaudit:boolean, close:boolean, capReached:boolean, caveats:string[]}}
  */
 /** True for the VERDICT line's "do not proceed until <named>" form, however it was passed. */
@@ -297,15 +311,19 @@ function cli(argv) {
       if (missing.length) return { pending: null, error: `pending close is missing ${missing.join(', ')}` };
       return { pending: any };
     }
+    case 'consume-close':
+      if (!input.stateDir || !input.runId) throw new Error('consume-close needs stateDir and runId');
+      consumeClose(input.stateDir, input.runId);
+      return { ok: true };
     case 'record':
       if (!input.stateDir || !input.round) throw new Error('record needs stateDir and round');
       record(input.stateDir, input.round);
       return { ok: true };
-    default: throw new Error('usage: audit-rounds.js tally|decide|classify|stale-wake|record|trd-hash|trd-snapshot|trd-guard|pending-close [json]');
+    default: throw new Error('usage: audit-rounds.js tally|decide|classify|stale-wake|record|trd-hash|trd-snapshot|trd-guard|pending-close|consume-close [json]');
   }
 }
 
-module.exports = { classify, tally, record, readRounds, pendingClose, decide, isDoNotProceed, staleWake, trdHash, trdHeadings, missingHeadings };
+module.exports = { classify, tally, record, readRounds, pendingClose, consumeClose, decide, isDoNotProceed, staleWake, trdHash, trdHeadings, missingHeadings };
 
 if (require.main === module) {
   try {
