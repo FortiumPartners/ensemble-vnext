@@ -4,7 +4,7 @@
   "trd_hash": "c590cf8abc0eb0b6bc5c9b7c496d79dcd9177db0a737ee4d84f0475b8ab71928",
   "branch": "feature/1-fix-narrow-reproof-scope",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 3,
   "tasks": {
     "NRS-B001": {
       "description": "custody.js: D1 classification, new relatedDirs, D3 directory narrowing in affectedIds, D4 scope/scopeReason/changed on reconcile results. One task: all of it is in one file and the scope fields are produced by the narrowing itself.",
@@ -60,31 +60,41 @@
     "NRS-B004": {
       "description": "live-evidence.js: design rows take covers from designCovers with source design-map (D8); recordCriterionCovers keeps the source; CLI record-criteria prints unresolved, derive-criteria writes them to stderr (D9).",
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/lib/live-evidence.js",
+        "packages/core/lib/live-evidence.test.js",
+        ".claude/lib/live-evidence.js"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-11-16T11:15:36.065Z",
+      "last_advanced": "2026-11-16T11:13:09.315Z"
     },
     "NRS-B005": {
       "description": "verify-functional.js: new inline isCodeClass; D10 no-covers rule; D12 counts/scopeWord in regressionScope, the record and the log line; 'baseline' added to OFF_HOST_STATUSES with jobId optional in the validator (D13); D14 settleOffHost reason text. One task: one file, and the isCodeClass parity table sits beside the existing globToRegex parity block.",
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        ".claude/workflows/verify-functional.js"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-11-16T11:15:36.065Z",
+      "last_advanced": "2026-11-16T11:13:09.315Z"
     },
     "NRS-D001": {
       "description": "Verify-side wording (D15): packages/core/commands/verify-build.md and implement-trd.md off-host paragraphs name gh run rerun <run-id> --job <job-id> / --failed, forbid gh workflow run, and send record-criteria's unresolved to ISSUES; packages/core/contracts/trd-authoring.md Off-host proof paragraph forbids a criterion whose only proof is a full manual CI run and prefers a local or single-job proof. Also brings the restated rules in line (D15): packages/core/contracts/functional-verification.md (~498, no-covers \"no covers record and a debugger changed something\") and docs/reference/verification.md (~309, the same no-covers clause; ~498 and ~526, the off-host-proofs flags and status list, which gain --base and baseline) state the D10 and D13 rules. Copies each edited packages/core file over its .claude/ copy (D16).",
       "phase": 3,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
@@ -96,19 +106,24 @@
     "NRS-D002": {
       "description": "Ship-side wording and sibling TRDs: ship-custody-gate.md prints changed, scope and scopeReason from the reconcile result at the end of step 2, before step 3's reverify re-proof (D15; ship-primitive-merge.md has no report step and defers to the gate, so it is edited only if a sentence there needs it); docs/guides/ship-build.md (~368-369, \"A changed shipped path that no criterion's record names also puts every must-pass criterion in doubt\") states the D3 rule; the amendment marker (bold AMENDED <date> by <doc> <decision>, original wording kept) in docs/TRD/re-prove-only-what-a-change-can-affect.md (unclaimed-path guard) and docs/TRD/one-full-regression-pass-at-the-end.md (D5 no-covers) saying the rule was narrowed on 2026-11-16 by this TRD's D3 / D10. Copies each edited contract over its .claude/contracts/ copy (D16).",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/contracts/ship-custody-gate.md",
+        ".claude/contracts/ship-custody-gate.md",
+        "docs/guides/ship-build.md"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-11-16T11:15:36.065Z",
+      "last_advanced": "2026-11-16T11:13:09.315Z"
     },
     "NRS-T001": {
       "description": "Cross-seam test, packages/core/lib/narrow-reproof.seam.test.js: in a temp git repo with a filled design.md and a design map, a met ST-<board> must-pass criterion goes through record-criteria (NRS-B004) into the covers record, then custody.js reconcile (NRS-B001) after a commit adding a sibling file beside one of the board's component files returns reverify naming that criterion with scope: targeted, and after a commit changing only .claude/commands/x.md moves with scope: none. Neither task owns the seam between the covers record and custody.",
       "phase": 3,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
@@ -138,11 +153,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T11:11:00.062Z"
+    },
+    {
+      "phase": 2,
+      "commit": "37ab0c7f5383051474465123a9b7237219cc109e",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T11:17:51.321Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "c9422bc23f44d17f0674b7b3218a4618e4e2248c",
-    "last_checkpoint_timestamp": "2026-11-16T11:11:00.062Z",
+    "last_healthy_checkpoint": "37ab0c7f5383051474465123a9b7237219cc109e",
+    "last_checkpoint_timestamp": "2026-11-16T11:17:51.321Z",
     "interrupted": false,
     "interrupt_reason": null
   },
