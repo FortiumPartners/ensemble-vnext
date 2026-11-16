@@ -166,7 +166,7 @@ const hasCoreKey = (b) => !!b && typeof b === 'object' && Object.prototype.hasOw
 /** The boards the cap counts: explicit `core: true` on a board that is not superseded. */
 const markedCore = (boards) => boards.filter((b) => hasCoreKey(b) && b.core === true && b.status !== 'superseded');
 
-/** The Core rules of validate(): a bad value, a core key on a part or flow, too many Core boards. */
+/** The Core rules of validate(): a bad value, a core key on any board that is not to-be or as-is (a part, a flow, or one with no kind), too many Core boards. */
 function coreErrors(map) {
   const errors = [];
   const boards = Array.isArray(map && map.boards) ? map.boards : [];
@@ -174,7 +174,7 @@ function coreErrors(map) {
     if (!hasCoreKey(b)) continue;
     const name = b.id ? b.id : '(no id)';
     if (typeof b.core !== 'boolean') errors.push(`board ${name}: core must be true or false`);
-    if (b.kind && !CORE_KINDS.includes(b.kind)) errors.push(`board ${name}: core is allowed only on to-be and as-is boards`);
+    if (!CORE_KINDS.includes(b.kind)) errors.push(`board ${name}: core is allowed only on to-be and as-is boards`);
   }
   const marked = markedCore(boards);
   if (marked.length > CORE_CAP) {

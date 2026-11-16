@@ -694,6 +694,10 @@ describe('Core boards', () => {
       expect(e).toMatch(/board x: core must be true or false/);
       expect(e).toMatch(/board n: core must be true or false/);
     });
+    it('rejects a core key on a board with no kind (only to-be and as-is may be Core)', () => {
+      const e = dm.validate(mapOf([board({ id: 'k', kind: undefined, core: true })])).join('\n');
+      expect(e).toMatch(/board k: core is allowed only on to-be and as-is boards/);
+    });
   });
 
   describe('isCore, coreBoards, coreReport', () => {

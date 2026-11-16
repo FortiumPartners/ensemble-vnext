@@ -927,9 +927,14 @@ function mustPassCoverageFromFiles(trdPath, definitionPath) {
   const coreCriteria = [];
   const evidenceOnly = [];
   const classIssues = [];
+  // A repeated id is classed once (its first classed row), so no list carries it twice and a
+  // duplicated row cannot land in both `criteria` and `evidenceOnly`.
+  const classed = new Set();
   for (const r of rows) {
     const value = String(r.cells['board class'] ?? '').replace(/\*\*|`/g, '').trim().toLowerCase();
     if (value === '') continue;
+    if (classed.has(r.id)) continue;
+    classed.add(r.id);
     if (value === 'core') {
       // A Core row that also names an objective is already must-pass, and not "only because" of its class.
       if (!named.has(r.id)) {
