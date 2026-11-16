@@ -186,7 +186,7 @@ describe('CI baseline step', () => {
 
   test('readout puts the result in STATE and each gap or unclear in ISSUES', () => {
     const readout = body.slice(body.indexOf('## Readout'));
-    expect(readout).toMatch(/CI baseline: N of 3 hold/);
+    expect(readout).toMatch(/CI baseline: N of 4 hold/);
     expect(readout).toMatch(/gap[\s\S]*unclear[\s\S]*ISSUES|ISSUES[\s\S]*gap/);
   });
 

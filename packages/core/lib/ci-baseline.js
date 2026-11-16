@@ -1,17 +1,19 @@
 'use strict';
 
 /**
- * ci-baseline.js -- reads a project's GitHub Actions workflows and reports whether three CI
+ * ci-baseline.js -- reads a project's GitHub Actions workflows and reports whether four CI
  * properties hold that /ship-build's churn-free shipping depends on. It REPORTS; it never edits
  * a workflow and writes nothing.
  *
- * The three checks (names are the keys of `checks` in the result):
+ * The four checks (names are the keys of `checks` in the result):
  *   summary          one always-run job that gates on every other job's result, in a workflow
  *                    with no trigger-level path filter, so a required check never sits pending.
  *   docsRecordSkip   every heavy job is skipped on a docs-only and on a record-only change set,
  *                    by a JOB-level condition (dorny/paths-filter output), not a trigger filter.
  *   recordCommitSkip a custody / ship-record commit pushed onto an open PR does not run the
  *                    heavy jobs.
+ *   supersededCancel a pull_request workflow carries `concurrency:` with a group and
+ *                    `cancel-in-progress: true`, so a newer push cancels the run it supersedes.
  * Each is `pass`, `gap` (CI is wrong for this) or `unclear` (a mechanism this reader cannot
  * evaluate: reported, never guessed as a pass and never nagged as a gap).
  *
@@ -523,7 +525,25 @@ function analyse(file, text) {
   const gates = ids.filter((id) => role[id] === 'summary');
   const gate = gates.reduce((a, id) => (a === null || asList(jobs[id].needs).length > asList(jobs[a].needs).length ? id : a), null);
   for (const id of gates) if (id !== gate) role[id] = 'heavy';
-  return { file, triggers, scope, jobs, role, ids };
+  return { file, triggers, scope, jobs, role, ids, concurrency: wf.concurrency };
+}
+
+/** Check (d): a push to an open PR cancels the run it supersedes, so CI time is not spent twice. */
+function checkCancel(wfs) {
+  const pr = wfs.filter((w) => w.triggers.pull_request && w.scope.includes('pull_request'));
+  if (!pr.length) {
+    return { status: 'pass', detail: 'No workflow runs on pull requests, so no run is superseded.', messages: [] };
+  }
+  const messages = [];
+  for (const w of pr) {
+    const c = w.concurrency;
+    const cancels = isMap(c) && c.group !== undefined && c['cancel-in-progress'] !== undefined && String(c['cancel-in-progress']).trim().toLowerCase() !== 'false';
+    if (!cancels) {
+      messages.push(`${w.file} has no top-level concurrency: with a group and cancel-in-progress: true, so every push to a pull request leaves the superseded run burning CI minutes; add concurrency: { group: ${'${{ github.workflow }}-${{ github.ref }}'}, cancel-in-progress: true } (keep it off the default branch, where a cancelled run leaves no result).`);
+    }
+  }
+  if (messages.length) return { status: 'gap', detail: messages.join(' '), messages };
+  return { status: 'pass', detail: `${pr.map((w) => w.file).join(', ')} cancel the run a newer push supersedes.`, messages: [] };
 }
 
 function checkSummary(wfs) {
@@ -703,7 +723,7 @@ function checkGates(wfs) {
  * @returns {{ok: boolean, noCi: boolean, workflows: string[], checks: object, gaps: Array, unclear: Array}}
  */
 function checkWorkflows(files) {
-  const names = ['summary', 'docsRecordSkip', 'recordCommitSkip'];
+  const names = ['summary', 'docsRecordSkip', 'recordCommitSkip', 'supersededCancel'];
   const result = { ok: false, noCi: false, workflows: files.map((f) => f.file), checks: {}, gaps: [], unclear: [] };
   if (!files.length) {
     const msg = 'No GitHub Actions workflow was found (.github/workflows/*.yml|yaml); other CI systems are not read.';
@@ -734,7 +754,9 @@ function checkWorkflows(files) {
     summary: { ...s, gaps: s.status === 'gap' ? s.messages : [], unclear: [] },
     docsRecordSkip: g.docsRecordSkip,
     recordCommitSkip: g.recordCommitSkip,
+    supersededCancel: { ...checkCancel(parsed), gaps: [], unclear: [] },
   };
+  parts.supersededCancel.gaps = parts.supersededCancel.status === 'gap' ? parts.supersededCancel.messages : [];
   for (const n of names) {
     const p = parts[n];
     let { status, detail } = p;
