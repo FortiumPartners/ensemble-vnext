@@ -161,7 +161,9 @@ example `Jest (hooks)`), otherwise its key. Write it
 on must-pass objectives only; on any other it is ignored and reported. A criterion is proven by
 the job only when **every** must-pass objective its `Must pass` cell names carries the same job.
 Only the TRD's author, or the owner through `/refine-verification`, writes it: the success
-definition gains no column and no deriver writes one.
+definition gains no column and no deriver writes one. Do not declare a criterion whose only proof
+is a full manual CI run (a workflow started by hand with `gh workflow run`); prefer a local proof
+or a single CI job, which can be re-run alone with `gh run rerun <run-id> --job <job-id>`.
 
 ```markdown
 | ID | Objective | Source | Must pass | Off-host proof |

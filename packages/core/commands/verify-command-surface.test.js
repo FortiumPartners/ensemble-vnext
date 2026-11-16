@@ -2557,8 +2557,8 @@ describe('implement-trd.md §8.3 derives criterionCovers with derive-criteria (R
     expect(derive()).toMatch(/A non-zero exit passes `\{\}` and is one ISSUES line, never STUCK/);
   });
 
-  test('an unmappable criterion is absent and re-walked; {} widens, never narrows', () => {
-    expect(derive()).toMatch(/is absent and is re-walked whenever a Debug pass changed anything/);
+  test('an unmappable criterion is absent and re-walked only on a code-class change; {} widens, never narrows', () => {
+    expect(derive()).toMatch(/is absent and is re-walked only when a Debug pass changed\s+a code-class file/);
     expect(derive()).toMatch(/`\{\}` widens the regression pass's scope, it never narrows it/);
   });
 
