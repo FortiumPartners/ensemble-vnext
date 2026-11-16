@@ -28,7 +28,8 @@ Implements AC-F5.9 and AC-F6.9. In this order:
    applies that answer to the system page alone; `--kind design` governs every canvas publish.) It prints `publish: on` or
    `publish: off (<reason>)`; this is the only reader of `ensemble.publishArtifacts`, so never
    parse the setting yourself. A non-zero exit, or output with no `publish:` line, is `publish:
-   off` with the printed error as the reason; it ends the run STUCK per §5, never a quiet
+   off`, never on, with the reason "publish setting could not be read: <stderr>"; in a design
+   command that ends the run STUCK per §5 (the reason on its `Reason:` line), never a quiet
    publish. `publish: off`, or no Artifact tool in this session, means §5 governs the whole
    run: no publish call of any kind for that kind (no new canvas, no board, no `canvas.json`,
    no system install, no Design System artifact). Reads (`read`, `list`) are still allowed.
@@ -195,7 +196,7 @@ and end STUCK naming the publish step:
 
 ```
 ═══ COMMAND STUCK: /<command> ═══
-Reason: publish step not run: <the reason after `publish: off`, e.g. ensemble.publishArtifacts is false, or ensemble.publishArtifacts.design is false> (or: no Artifact tool in this session)
+Reason: publish step not run: <the reason after `publish: off`, e.g. publishArtifacts is false, or set false for design in publishArtifacts, or publish setting could not be read: <stderr>> (or: no Artifact tool in this session)
 Next:   turn the kind on in .claude/settings.json (`"design": true` under ensemble.publishArtifacts, or remove the `false`), or run from an interactive session, then re-run /<command>
 ```
 

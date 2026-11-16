@@ -226,15 +226,15 @@ function publishDecision(kind, { settings, requested = false } = {}) {
   if (typeof kind !== 'string' || kind === 'version' || !KIND_RE.test(kind)) {
     throw new Error(`invalid kind: ${JSON.stringify(kind)} (a lower-case slug other than "version")`);
   }
-  if (settings === false) return { publish: false, reason: 'ensemble.publishArtifacts is false' };
+  if (settings === false) return { publish: false, reason: 'publishArtifacts is false' };
   if (requested) return { publish: true, reason: 'requested with --publish' };
   const perKind = settings && typeof settings === 'object' && !Array.isArray(settings)
     && own(settings, kind) && typeof settings[kind] === 'boolean' ? settings[kind] : undefined;
   if (perKind !== undefined) {
-    return { publish: perKind, reason: `ensemble.publishArtifacts.${kind} is ${perKind}` };
+    return { publish: perKind, reason: `set ${perKind} for ${kind} in publishArtifacts` };
   }
   if (own(PUBLISH_DEFAULTS, kind)) return { publish: true, reason: 'on by default' };
-  return { publish: false, reason: `${kind} is off by default; pass --publish to publish it` };
+  return { publish: false, reason: `off by default for ${kind}: pass --publish to publish it` };
 }
 
 function parseArgs(argv) {

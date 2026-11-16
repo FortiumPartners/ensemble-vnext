@@ -253,7 +253,7 @@ First read any stored URL: `node .claude/lib/artifacts.js get --state-dir .trd-s
 (empty output means none). Ask first: `node .claude/lib/artifacts.js publish --kind prd` (add `--requested` when this run's arguments carry `--publish`). On `publish: on`, publish the refined PRD with
 `Artifact({ file_path: "docs/PRD/<feature>.md", icon: "document" })` — the markdown FILE, never a
 rendering of it — passing the stored URL as `url:` when there is one. Emit the link ABOVE the
-banner. A failed publish is one line of prose and nothing more; it never blocks the banner. On `publish: off (…)`, make no publish call and name the local path. A resolver error reads as off plus one ISSUES line.
+banner. A failed publish is one line of prose and nothing more; it never blocks the banner. On `publish: off (…)`, make no publish call and name the local path. A resolver error (a non-zero exit, or output with no `publish:` line) reads as `publish: off`, never as on, plus one ISSUES line: "publish setting could not be read: <stderr>".
 
 **Then ALWAYS record the document, whether or not publishing is on** (this sits outside the
 publish switch): `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind prd --path docs/PRD/<feature>.md --command /refine-prd`,

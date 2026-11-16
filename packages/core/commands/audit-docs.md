@@ -136,7 +136,7 @@ Ask first (see "Artifact links" in `.claude/rules/command-status.md`): `node
 .claude/lib/artifacts.js publish --kind docs-audit` (add `--requested` when this run's arguments
 carry `--publish`, a standalone flag token). On `publish: on`, publish the FILE, never a
 rendering of it; on `publish: off (…)`, make no publish call and name the local change-set path.
-A resolver error reads as off plus one ISSUES line. The change
+A resolver error (a non-zero exit, or output with no `publish:` line) reads as `publish: off`, never as on, plus one ISSUES line: "publish setting could not be read: <stderr>". The change
 set is a committed file on the review branch, not the checked-out one, so read it from there:
 `git show <branch>:<changeSet>` into `$WORK/change-set.md`, then:
 

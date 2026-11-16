@@ -153,7 +153,7 @@ not part of the path or source). First read any stored URL: `node .claude/lib/ar
 publish the report FILE with `Artifact({ file_path: ".trd-state/<feature>/audit-prd-report.md",
 icon: "document", url: "<stored URL, if any>" })` and put the link ABOVE the banner; a failed
 publish is one STATE line, never STUCK. On `publish: off (…)`, make no publish call and name the
-local path. A resolver error reads as off plus one ISSUES line. Record with the first line
+local path. A resolver error (a non-zero exit, or output with no `publish:` line) reads as `publish: off`, never as on, plus one ISSUES line: "publish setting could not be read: <stderr>". Record with the first line
 below on `publish: off` (or a resolver error): `--url ""` clears any link a past version left
 behind, which would otherwise point at an old page. On `publish: on`, use the second line with
 the URL the publish returned; when that publish failed, drop `--url` entirely so the stored

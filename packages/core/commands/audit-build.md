@@ -427,7 +427,7 @@ in STATE, never STUCK.
 shape as `implement-trd.md` §9.0a). Ask first: `node .claude/lib/artifacts.js publish --kind
 audit-build` (add `--requested` when this run's arguments carry `--publish`, a standalone flag
 token). On `publish: on`, publish; on `publish: off (…)`, make no publish call and name the local
-path. A resolver error reads as off plus one ISSUES line. Read any stored URL first:
+path. A resolver error (a non-zero exit, or output with no `publish:` line) reads as `publish: off`, never as on, plus one ISSUES line: "publish setting could not be read: <stderr>". Read any stored URL first:
 `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind audit-build` (empty
 output means none).
 

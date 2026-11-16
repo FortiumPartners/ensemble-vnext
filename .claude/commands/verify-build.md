@@ -815,7 +815,7 @@ FILE, never a rendering of it — passing the stored URL (`node .claude/lib/arti
 **Then, per skill, not once for all: `node .claude/lib/artifacts.js publish --kind <skill>` (add `--requested` when this run carried `--publish`). On `publish: on`, publish each selected check's page** (identical to
 `/implement-trd` §9.0a — read that section and follow it): one call per skill with a `files`
 map for its images, passing its stored URL (`node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind <skill>`) as `url:` when there is one. A page over 255 files goes up in several calls to the same
-URL (TR4). On `publish: off (…)`, make no publish call and name the local path instead. A resolver error reads as off plus one ISSUES line.
+URL (TR4). On `publish: off (…)`, make no publish call and name the local path instead. A resolver error (a non-zero exit, or output with no `publish:` line) reads as `publish: off`, never as on, plus one ISSUES line: "publish setting could not be read: <stderr>".
 
 **Then ALWAYS record the report and each page on disk, whether or not publishing is on** (outside
 the publish switch): `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind verification-report --path .trd-state/<feature>/verification-report.md --command /verify-build`

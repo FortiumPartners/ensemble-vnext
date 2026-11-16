@@ -39,7 +39,7 @@ describe('publish switch prose', () => {
   test.each(files.map((f) => [f.name, f.text]))('%s never reads the old boolean', (name, text) => {
     // Two things are not a read of the setting: "`ensemble.publishArtifacts: false` still wins"
     // (the rule for a --publish request) and a STUCK `Reason:` line that quotes the resolver's
-    // own printed reason (the resolver prints "ensemble.publishArtifacts is false"). Strip both.
+    // own printed reason (the resolver prints "publishArtifacts is false"). Strip both.
     const stripped = text
       .split('\n').filter((l) => !/^Reason:/.test(l)).join('\n')
       .replace(/\s+/g, ' ')

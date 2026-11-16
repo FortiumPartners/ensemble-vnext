@@ -169,8 +169,7 @@ Ask once, before the first output: `node .claude/lib/artifacts.js publish --kind
 `--requested` when this run's arguments carry `--publish`). The one answer covers every output
 (`report`, `report-2`, ...). On `publish: on`, publish each file with the `Artifact` tool and pass
 the returned URL back with `--url`. On `publish: off (…)`, make no publish call, still `record`
-the path with `--url ""`, and name the local path. A resolver error reads as off plus one ISSUES
-line. **A failed publish is never fatal**: one line in ISSUES, carry on. Never
+the path with `--url ""`, and name the local path. A resolver error (a non-zero exit, or output with no `publish:` line) reads as `publish: off`, never as on, plus one ISSUES line: "publish setting could not be read: <stderr>". **A failed publish is never fatal**: one line in ISSUES, carry on. Never
 publish a document that holds a credential.
 
 An output path comes from the prompt, so it is free text: quote it, and if it contains a quote

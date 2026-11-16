@@ -30,9 +30,9 @@ audit-prd and audit-trd reports never publish.
 **After**:
 
 1. `node .claude/lib/artifacts.js publish --kind <K> [--requested] [--settings <path>]` prints
-   exactly `publish: on` or `publish: off (<reason>)` and exits 0. Reasons: `ensemble.publishArtifacts
-   is false`, `<K> is off by default; pass --publish to publish it`, `ensemble.publishArtifacts.<K>
-   is false`. A missing or unreadable settings file resolves to the default.
+   exactly `publish: on` or `publish: off (<reason>)` and exits 0. Reasons: `publishArtifacts is
+   false`, `off by default for <K>: pass --publish to publish it`, `set false for <K> in
+   publishArtifacts`. A missing or unreadable settings file resolves to the default.
 2. Resolution, in order: setting `false` → off (always, `--requested` included); `--requested`
    → on; object naming `K` with a boolean → that value; otherwise `PUBLISH_DEFAULTS[K]`, which
    is `true` for `trd`, `report`, `design`, `design-system` and absent (off) for everything else.

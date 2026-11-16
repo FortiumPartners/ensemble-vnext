@@ -451,6 +451,21 @@ describe('readPublishSetting and the publish CLI', () => {
     expect(r.stdout).toMatch(/^publish: off \(/);
   });
 
+  it('prints the three off reasons in the TRD wording, exactly', () => {
+    write('{"ensemble":{"publishArtifacts":true}}');
+    expect(run('--kind', 'prd', '--settings', settingsFile()).stdout)
+      .toBe('publish: off (off by default for prd: pass --publish to publish it)\n');
+    expect(run('--kind', 'no-such-kind', '--settings', settingsFile()).stdout)
+      .toBe('publish: off (off by default for no-such-kind: pass --publish to publish it)\n');
+    write('{"ensemble":{"publishArtifacts":false}}');
+    for (const args of [['--kind', 'trd'], ['--kind', 'trd', '--requested'], ['--kind', 'prd', '--requested']]) {
+      expect(run(...args, '--settings', settingsFile()).stdout).toBe('publish: off (publishArtifacts is false)\n');
+    }
+    write('{"ensemble":{"publishArtifacts":{"trd":false}}}');
+    expect(run('--kind', 'trd', '--settings', settingsFile()).stdout)
+      .toBe('publish: off (set false for trd in publishArtifacts)\n');
+  });
+
   it('defaults --settings to .claude/settings.json under cwd, and survives a malformed one', () => {
     fs.mkdirSync(path.join(root, '.claude'));
     fs.writeFileSync(path.join(root, '.claude', 'settings.json'), '{"ensemble":{"publishArtifacts":false}}');

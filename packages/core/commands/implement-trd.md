@@ -2446,8 +2446,7 @@ Artifact({ file_path: ".trd-state/<feature>/verification-report.md", icon: "chec
 publish switch, but inside the `--no-verify` gate: no Step 8, no report, nothing to record):
 `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind verification-report --path .trd-state/<feature>/verification-report.md --command /implement-trd`,
 adding `--url <returned URL>` only when a publish returned one (on `publish: off (…)`, make no
-publish call, name the local path and pass `--url ""`; a resolver error reads as off plus one
-ISSUES line). That is what lets a later
+publish call, name the local path and pass `--url ""`; a resolver error (a non-zero exit, or output with no `publish:` line) reads as `publish: off`, never as on, plus one ISSUES line: "publish setting could not be read: <stderr>"). That is what lets a later
 `/verify-build` update the same link rather than minting a second one that competes with it.
 No command writes `artifacts.json` by hand.
 
