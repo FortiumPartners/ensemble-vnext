@@ -106,6 +106,10 @@ describe('start / check', () => {
     expect(r1).toMatchObject({ allowed: true, continued: false, count: 2 });
     expect(impl(one.dir).functional_verification.runs[0].outcome).toBe('abandoned');
 
+    const withOpen = fixture({ runs: [run(1, { outcome: null, finished_at: null })], vstate: { outcome: 'stalled', criteria: [{ id: 'C-1', status: 'not_met' }] } });
+    vr.start(withOpen.dir, { command: '/verify-build', scope: 'full', root: withOpen.root });
+    expect(impl(withOpen.dir).functional_verification.runs[0].open).toEqual(['C-1']);
+
     const two = fixture({ runs: [run(1), run(2, { outcome: null, finished_at: null })], vstate: { outcome: 'stalled', criteria: [] } });
     const before = fs.readFileSync(path.join(two.dir, 'implement.json'), 'utf8');
     expect(vr.start(two.dir, { command: '/verify-build', scope: 'full', root: two.root })).toMatchObject({ allowed: false, count: 2 });
@@ -156,6 +160,16 @@ describe('finish', () => {
     fs.mkdirSync(path.join(dir, 'reverify'));
     fs.writeFileSync(path.join(dir, 'reverify', 'verification-state.json'), JSON.stringify({ criteria: [{ id: 'C-1', status: 'met' }] }));
     expect(vr.finish(dir, { outcome: 'satisfied', root }).run.open).toEqual([]);
+  });
+
+  test('a re-proof older than the latest run does not hide what that run found', () => {
+    const { root, dir } = fixture({ runs: [open1()], vstate });
+    fs.mkdirSync(path.join(dir, 'reverify'));
+    const rv = path.join(dir, 'reverify', 'verification-state.json');
+    fs.writeFileSync(rv, JSON.stringify({ criteria: [{ id: 'C-1', status: 'met' }] }));
+    const old = new Date(Date.now() - 60_000);
+    fs.utimesSync(rv, old, old);
+    expect(vr.finish(dir, { outcome: 'stalled', root }).run.open).toEqual(['C-1']);
   });
 
   test.each([

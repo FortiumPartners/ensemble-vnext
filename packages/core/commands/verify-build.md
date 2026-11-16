@@ -146,6 +146,9 @@ Reason: verification run limit reached (<n> of <limit> runs)
 Next:   rule on .trd-state/<feature>/ruling-request.md (<link, when published>)
 ```
 
+   Then, on the same turn, `.claude/hooks/notify-complete.sh "verify-build" "stuck" "verification run limit reached"`
+   (it closes the command's run record, as on every other STUCK ending).
+
 ### 2. Preflight the environment
 
 **Identical to `/implement-trd` §3.6a — read that section and follow it.** No criteria exist

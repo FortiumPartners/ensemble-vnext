@@ -284,7 +284,7 @@ hardening pass. Both were removed on 2026-08-28; the reasoning is in §7.1.
 Step 8 makes a single workflow call. It does not run a loop itself. The steps run in this
 order: §8.1 (or §8.2 when resuming), then §8.1b, then §8.1a, then §8.3, then §8.4.
 
-Before dispatching the workflow, the lead asks `verification-runs.js` whether the feature is under its run limit (`ensemble.verificationRunLimit`, shipped default 2) and records the run when it starts and finishes. At the limit it starts nothing: it writes `.trd-state/<f>/ruling-request.md` and ends `COMMAND STUCK` naming it. An invalid setting also ends `COMMAND STUCK`. `--reset-state` clears the count. Details: [verification.md](verification.md#the-per-feature-run-limit).
+Before dispatching the workflow, the lead asks `verification-runs.js` whether the feature is under its run limit (`ensemble.verificationRunLimit`, shipped default 2) and records the run when it starts and finishes. At the limit it starts no verification run: it writes `.trd-state/<f>/ruling-request.md`, reports the verification as `not run: verification run limit reached` and names the request in NEXT; the tasks are still built and the banner is the one the build's other work dictates, not `COMMAND STUCK`. An invalid setting also ends `COMMAND STUCK`. `--reset-state` clears the count. Details: [verification.md](verification.md#the-per-feature-run-limit).
 
 | Step | What happens | Kind |
 |---|---|---|

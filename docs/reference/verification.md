@@ -62,9 +62,10 @@ escalate to the owner.
 
 - **What counts as a run.** The first dispatch of the verification workflow over a feature's own
   definition, by `/implement-trd` or `/verify-build`. A `--resume` of an interrupted run is the same
-  run. A run that ended `setup-failure` counts. A custody re-proof is not a run. A targeted
-  re-check of named criteria is recorded with scope `targeted` and counts. Runs made before the
-  feature shipped this limit are not counted.
+  run. A run that ended `setup-failure` counts. A run whose rerun scope is `targeted` (open
+  criteria plus those the change can reach) is recorded with scope `targeted` and counts. Not
+  counted: a custody re-proof (`--criteria`, its one retry included), a sweep file, and rerun
+  scope `none`. Runs made before the feature shipped this limit are not counted.
 - **`--reset-state`** clears the count, because it deletes `implement.json` where the runs are kept.
 - **At the limit.** `check` and `start` answer `allowed: false` (exit 0, nothing written) and the
   command writes `.trd-state/<f>/ruling-request.md` instead of starting a run or a plan. The same file

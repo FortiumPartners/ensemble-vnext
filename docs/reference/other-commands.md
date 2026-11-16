@@ -573,7 +573,7 @@ A feature gets a limited number of counted verification runs: `ensemble.verifica
 `.claude/settings.json`, any integer of at least 1, shipped default 2 (an invalid value stops the
 command). At the limit `/verify-build`, `/implement-trd` and `/refine-verification` start nothing and
 write `.trd-state/<feature>/ruling-request.md` for the product PM: ship as is, fix one named
-thing, or drop what is open, each filed as a defect issue. `--reset-state` clears the count. Full
+thing, or drop what is open; whatever is shipped or dropped is filed as a defect issue. `--reset-state` clears the count. Full
 rules: [verification](verification.md#the-per-feature-run-limit).
 
 ---

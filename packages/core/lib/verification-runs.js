@@ -27,7 +27,8 @@
  *
  * `open` (per run, set by `finish`) = ids whose status is not `met` in `verification-state.json`
  * overlaid by `reverify/verification-state.json` (the re-proof wins per id, as `offHostProven`
- * does: a custody re-proof is not counted as a run but can close a criterion). A definition
+ * does: a custody re-proof is not counted as a run but can close a criterion), but only while the
+ * re-proof file is at least as new as the main one (a later counted run supersedes it). A definition
  * problem is stored as `status: 'not_met'` with `settled: 'definition-problem'`, so it is in.
  *
  * LIMIT. `ensemble.verificationRunLimit` in `<root>/.claude/settings.json`: integer >= 1; absent
@@ -111,10 +112,28 @@ function readJson(p) {
   }
 }
 
-/** Criteria of verification-state.json overlaid by reverify/ (re-proof wins per id), in order. */
+const mtimeOf = (p) => {
+  try {
+    return fs.statSync(p).mtimeMs;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Criteria of verification-state.json overlaid by reverify/ (re-proof wins per id), in order.
+ * The overlay applies only while the re-proof is the later file: a counted run started after a
+ * custody re-proof rewrites verification-state.json, and a stale re-proof must not hide what
+ * that newer run found (or keep open what it proved).
+ */
 function currentCriteria(stateDir) {
   const byId = new Map();
-  const files = [path.join(stateDir, 'verification-state.json'), path.join(stateDir, 'reverify', 'verification-state.json')];
+  const main = path.join(stateDir, 'verification-state.json');
+  const reverify = path.join(stateDir, 'reverify', 'verification-state.json');
+  const mainAt = mtimeOf(main);
+  const reverifyAt = mtimeOf(reverify);
+  const files = [main];
+  if (reverifyAt !== null && (mainAt === null || reverifyAt >= mainAt)) files.push(reverify);
   for (const f of files) {
     const s = readJson(f);
     for (const c of s && Array.isArray(s.criteria) ? s.criteria : []) if (c && c.id) byId.set(c.id, c);
@@ -183,9 +202,11 @@ function start(stateDir, { command, scope, root, nowIso } = {}) {
     if (stateInterrupted(stateDir)) {
       return { allowed: true, continued: true, run: last, count: runs.length, limit, runs };
     }
-    // Ended after the workflow returned without `finish`: it counts, as abandoned.
+    // Ended after the workflow returned without `finish`: it counts, as abandoned. Its `open` is
+    // read as `finish` would have, so the request's "open in N runs" counts this run too.
     last.outcome = 'abandoned';
     last.finished_at = nowIso || new Date().toISOString();
+    last.open = openCriteria(stateDir).map((c) => c.id);
   }
   if (runs.length >= limit) return { allowed: false, continued: false, run: null, count: runs.length, limit, runs };
   const run = {
@@ -402,6 +423,9 @@ function main(argv) {
     if (cmd === 'start') return emit(start(stateDir, { command: opt.command, scope: opt.scope, root }));
     if (cmd === 'finish') return emit(finish(stateDir, { outcome: opt.outcome, root }));
     if (cmd === 'request') return emit(renderRulingRequest(stateDir, { command: opt.command, root }));
+    // Validate the setting before the ruling is written, so the re-render below cannot fail
+    // with exit 2 after the ruling and its waived rows have already landed.
+    readLimit(root);
     const r = recordRuling(stateDir, { outcome: opt.outcome, criterion: opt.criterion, by: opt.by });
     // Keep an existing request in step with the ruling it now shows.
     if (fs.existsSync(path.join(stateDir, REQUEST_FILE))) renderRulingRequest(stateDir, { root });
