@@ -12,6 +12,31 @@ the work is actually released.
 
 ## [Unreleased]
 
+**Re-proof scope is narrowed three ways**, so a change re-proves what it can affect and no more
+(#153, #154, #155). Quality is kept: a file or criterion nothing can be related to still widens to
+the full set.
+
+### Fixed
+
+- **Custody no longer doubts proofs over framework files, and narrows by directory (#153).**
+  `.claude/**` (except `.claude/rules/**`), `CLAUDE.md`, `.gitattributes` and `.gitignore` are not
+  shipped code. When a merge-up changes a shipped file no covers record names, only the criteria
+  whose covers share that file's directory are put in doubt; an unrelatable file still widens to
+  every must-pass criterion. Custody now states what changed and the scope chosen (`none`,
+  `targeted` or `full`) with the reason before it re-proves.
+- **Design criteria get covers, and the regression pass stops re-checking everything (#154).**
+  `ST-<board>` and `DC-<frame>` criteria get covers built from `docs/ui/<slug>/design-map.json`
+  (the page file serving the board's route and the files of the components it names; a board that
+  cannot be fully resolved stays uncovered and is reported, never guessed). The regression pass
+  re-checks a criterion with no covers only when a changed code-class file relates to it, and the
+  report says how many were re-checked, why, and the scope.
+- **A named CI job is re-run, not the whole workflow (#155).** A must-pass criterion proven by a
+  CI job is re-proved by re-running that job (or the run's failed jobs). A job also red on the base
+  branch head is reported as `baseline`, not as a failure of this feature (the criterion stays
+  `not_verifiable`). The TRD authoring contract no longer allows a criterion whose only proof is a
+  full manual CI run, and the commands that handle a voided, missing or red proof name the
+  single-job re-run.
+
 ## [4.17.8] - 2026-11-13
 
 Three fixes. **`/ship-build --resume` catches up with a moved PR head** instead of ending STUCK and
