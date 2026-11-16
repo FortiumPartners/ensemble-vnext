@@ -66,3 +66,82 @@ describe('publish switch prose', () => {
     expect(sites.filter((x) => !x.asks).map((x) => x.where)).toEqual([]);
   });
 });
+
+// A command that chains another hands its `--publish` on, or the chained run silently
+// publishes nothing (TRD Decision: plan -> implement-trd, verify-build -> implement-trd --chained,
+// audit-build -> implement-trd --reconcile). `[--publish]` in an args string is the optional
+// token: the surrounding prose must say it goes in only when THIS run carried it.
+describe('publish pass-through on chained commands', () => {
+  const cmd = (n) => flat(read(path.join(REPO, 'packages/core/commands', n)));
+  const hasToken = (line) => /(?:^|[\s\[`])--publish\b/.test(line);
+  const IMPLEMENT_CHAIN = /Skill\(\{ skill: "implement-trd", args: "<trd(?:-path)?> --reconcile --chained \[--publish\]" \}\)/g;
+
+  test('audit-build: both implement-trd chain lines carry [--publish], conditioned on this run', () => {
+    const t = cmd('audit-build.md');
+    expect(t.match(IMPLEMENT_CHAIN)).toHaveLength(2);
+    expect(t).toMatch(/`--publish` goes in the args only when this run carried it/);
+    expect(t).toMatch(/\(add `--publish` only when this run carried it\)/);
+  });
+
+  test('verify-build: both implement-trd chain lines carry [--publish]', () => {
+    const t = cmd('verify-build.md');
+    // The round-k line wraps in the source; flat() joins it.
+    expect(t.match(IMPLEMENT_CHAIN)).toHaveLength(2);
+  });
+
+  test('plan: generic chain and the verify step append --publish when this run carried it, never to /sweep', () => {
+    const t = cmd('plan.md');
+    expect(t).toMatch(/Skill\(\{ skill: chainSkill, args: chainArgs \}\)` \(append `--publish` to `chainArgs` when this run carried it\)/);
+    expect(t).toMatch(/When this run carried `--publish`, append it to the `verify` step's args and to `chainArgs`, never to `\/sweep`'s/);
+  });
+
+  test('the matcher fails when the --publish token is removed from a chain line', () => {
+    const line = 'Skill({ skill: "implement-trd", args: "<trd-path> --reconcile --chained [--publish]" })';
+    expect(IMPLEMENT_CHAIN.test(line)).toBe(true);
+    IMPLEMENT_CHAIN.lastIndex = 0;
+    expect(IMPLEMENT_CHAIN.test(line.replace(' [--publish]', ''))).toBe(false);
+    IMPLEMENT_CHAIN.lastIndex = 0;
+    expect(hasToken('append `--publish` to chainArgs')).toBe(true);
+    expect(hasToken('append it to chainArgs')).toBe(false);
+  });
+});
+
+// A kind whose resolver prints `publish: off` makes no publish call but still records its path
+// with an empty url, so a stale page is never republished (TRD Decision: 'A switched-off kind
+// clears its stored link (--url "")'). Checked per publish site: a section that calls
+// `artifacts.js record` AND either asks the resolver (`artifacts.js publish`) or makes the
+// `Artifact({ file_path` call. Some commands (verify-build, task, the design contract) state the
+// publish in prose without a literal Artifact call, so the resolver ask counts as a site too.
+describe('every publish site clears the stored link when its kind is off', () => {
+  const EMPTY_URL = /--url\s+""/;
+  const sites = [];
+  for (const f of files) {
+    for (const s of sections(f.text)) {
+      const t = flat(s);
+      if (!/Artifact\(\{\s*file_path|artifacts\.js\s+publish\b/.test(t) || !/artifacts\.js\s+record\b/.test(t)) continue;
+      sites.push({ file: f.name, where: `${f.name} :: ${s.split('\n')[0]}`, text: t });
+    }
+  }
+
+  test('the scan finds the publish sites, and covers the named commands and the design contract', () => {
+    const covered = new Set(sites.map((x) => x.file));
+    for (const n of ['create-prd', 'refine-prd', 'create-trd', 'refine-trd', 'plan', 'verify-build',
+      'task', 'audit-build', 'audit-prd', 'audit-trd', 'implement-trd']) {
+      expect(covered).toContain(`packages/core/commands/${n}.md`);
+    }
+    expect(covered).toContain('packages/core/contracts/design-commands.md');
+    // audit-docs has no artifacts.js record step, and refine-verification never publishes (it only
+    // records with --url "", asserted in verify-command-surface.test.js), so neither is a site.
+    expect(covered).not.toContain('packages/core/commands/audit-docs.md');
+  });
+
+  test('each site states the off case records --url ""', () => {
+    expect(sites.filter((x) => !EMPTY_URL.test(x.text)).map((x) => x.where)).toEqual([]);
+  });
+
+  test('the matcher fails when the --url "" sentence is removed', () => {
+    const sentence = 'When it reads `publish: off`, make no publish call and record with `--url ""`.';
+    expect(EMPTY_URL.test(sentence)).toBe(true);
+    expect(EMPTY_URL.test(sentence.replace(/ and record with `--url ""`/, ''))).toBe(false);
+  });
+});
