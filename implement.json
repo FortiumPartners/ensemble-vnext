@@ -4,7 +4,7 @@
   "trd_hash": "46619b9a0c3e7c6e96e5be8e1bba1dd01bbe5bbd420450fc7dd7d1ccd0e3b6dc",
   "branch": "feature/10-audit-before-functional-verification",
   "strategy": "tdd",
-  "phase_cursor": 3,
+  "phase_cursor": 4,
   "tasks": {
     "ABFV-B001": {
       "description": "In packages/core/lib/audit-rounds.js, per §3.1: make readRounds fold a later ledger line carrying the same non-empty runId into its round; add pendingClose(stateDir, { runId }) and the pending-close CLI verb; extend the header comment, the usage string and module.exports. Jest tests in audit-rounds.test.js. Copy the file to .claude/lib/audit-rounds.js. No write verb: the deferred-close line is written through the existing record",
@@ -43,49 +43,61 @@
     "ABFV-B003": {
       "description": "Edit packages/core/commands/implement-trd.md per §3.3: usage header, User Input, Execution Model (tail line and its FUNCTIONAL VERIFICATION paragraph), §1.5 (D12), §3.7, §6's state-file schema (audit, D19), Step 7 intro, new §7.3 (D4's wait, call, re-audit loop and skips; D19's write), Step 9's close check and call (D5, D18), its RETURN handling (D9), its STATE audit line, its NEXT (D10) and the PR paragraph; copy to .claude/commands/implement-trd.md. Rewrite the four tests in verify-command-surface.test.js that assert today's order, and add pins for §7.3 and Step 9",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
       "commit": null,
       "started_at": "2026-11-16T20:49:14.825Z",
-      "completed_at": null
+      "completed_at": "2026-11-16T20:59:29.959Z",
+      "last_advanced": "2026-11-16T20:59:20.326Z"
     },
     "ABFV-B004": {
       "description": "Edit packages/core/commands/verify-build.md per §3.4: readout rule O4 and the fix loop's step 6 take D11's close at exactly the two \"otherwise /audit-build\" points, with its explicit---no-fix and --resume rules and its NEXT by RETURN; copy to .claude/commands/verify-build.md. Change renderReport's satisfied Next line in packages/core/lib/functional-verification.js per §3.5, copy it to .claude/lib/functional-verification.js, and rewrite its three pins in functional-verification.test.js. Rewrite the verify-build.md pin \"satisfied branch: NEXT names /audit-build\" in verify-command-surface.test.js and add pins for the fix loop's step 6",
       "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/lib/functional-verification.js",
+        ".claude/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T20:49:14.825Z",
+      "completed_at": "2026-11-16T20:59:29.960Z",
+      "last_advanced": "2026-11-16T20:59:20.335Z"
+    },
+    "ABFV-D001": {
+      "description": "Update every statement of the end-of-run order to audit-first and close-after-verification: CLAUDE.md (Development Workflow block), README.md, .claude/rules/process.md and packages/core/templates/process.md.template, packages/core/templates/CLAUDE.md.template, docs/guides/{PROCESS,QUICK-REFERENCE,CONCEPTS,README,ARCHITECTURE}.md, docs/guides/ship-build.md (the closed-feature gate and the custody anchor, per D18), docs/reference/{implement-trd,verification,README,other-commands}.md (including /plan --implement's chain, which now audits and closes), and FRAMEWORK_HINT in packages/router/hooks/router.py with its copy .claude/hooks/router.py (§3.5); add one sentence to .claude/rules/command-status.md's Enforcement section naming /implement-trd → /audit-build --chained, copied to packages/core/templates/claude-directory/rules/command-status.md; and any further file the grep below finds",
+      "phase": 4,
       "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": "2026-11-16T20:49:14.825Z",
-      "completed_at": null
-    },
-    "ABFV-D001": {
-      "description": "Update every statement of the end-of-run order to audit-first and close-after-verification: CLAUDE.md (Development Workflow block), README.md, .claude/rules/process.md and packages/core/templates/process.md.template, packages/core/templates/CLAUDE.md.template, docs/guides/{PROCESS,QUICK-REFERENCE,CONCEPTS,README,ARCHITECTURE}.md, docs/guides/ship-build.md (the closed-feature gate and the custody anchor, per D18), docs/reference/{implement-trd,verification,README,other-commands}.md (including /plan --implement's chain, which now audits and closes), and FRAMEWORK_HINT in packages/router/hooks/router.py with its copy .claude/hooks/router.py (§3.5); add one sentence to .claude/rules/command-status.md's Enforcement section naming /implement-trd → /audit-build --chained, copied to packages/core/templates/claude-directory/rules/command-status.md; and any further file the grep below finds",
-      "phase": 4,
-      "status": "pending",
-      "cycle_position": "implement",
-      "current_problem": null,
-      "retry_count": 0,
-      "files_changed": [],
-      "commit": null,
-      "started_at": null,
+      "started_at": "2026-11-16T21:03:06.561Z",
       "completed_at": null
     },
     "ABFV-T001": {
       "description": "Add packages/core/commands/audit-first-order.test.js. Slicing implement-trd.md by headings: the ### 7.3 section sits between ### 7.2 and ## Step 8 and holds the --chained --defer-close call; the ### 8.3 section holds the Workflow({ name: \"verify-functional\" call; the ## Step 9: Completion section (to ### 9.0a) holds the --chained --close-deferred call; and the three headings come in that order. In every Skill({ skill: \"audit-build\" call in implement-trd.md and verify-build.md, --chained immediately precedes the mode; every flag those calls pass appears in audit-build.md's argument-hint; every [STATUS: /audit-build] RETURN → outcome either caller branches on appears, by its fixed prefix, among audit-build.md's RETURN lines",
       "phase": 4,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-11-16T21:03:06.561Z",
       "completed_at": null
     },
     "ABFV-T002": {
@@ -117,13 +129,21 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T20:49:14.825Z"
+    },
+    {
+      "phase": 3,
+      "commit": "9cc4659cf892925c501f63c1959774854b4c76d0",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T21:03:06.560Z"
     }
   ],
   "recovery": {
     "interrupted": false,
     "interrupt_reason": null,
-    "last_healthy_checkpoint": "06f224dee30ae6f3ea11bee27878ddb0c0005664",
-    "last_checkpoint_timestamp": "2026-11-16T20:49:14.825Z"
+    "last_healthy_checkpoint": "9cc4659cf892925c501f63c1959774854b4c76d0",
+    "last_checkpoint_timestamp": "2026-11-16T21:03:06.560Z"
   },
   "functional_verification": {
     "prd_resolved": true,
