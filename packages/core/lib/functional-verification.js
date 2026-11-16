@@ -987,24 +987,96 @@ function uncommittedPaths(cwd) {
 }
 
 /**
+ * What CI says about one declared job on one commit: the newest run of the workflow whose head is
+ * `commit`, then that run's job by name. Used for HEAD and, when HEAD's job is red, for the base
+ * branch head (D13), so both read CI the same way.
+ *
+ * @returns {{status: 'green'|'red'|'pending'|'missing'|'error', run: object, job: object|null, reason: string}}
+ */
+function lookupJobOnCommit(d, commit, cwd) {
+  const wf = path.basename(d.workflow);
+  const words = `job ${d.job} of ${wf}`;
+  const out = (status, reason, run = {}, job = null) => ({ status, run, job, reason });
+  const list = runCmd('gh', ['run', 'list', `--workflow=${wf}`, `--commit=${commit}`,
+    '--json', 'databaseId,status,conclusion,url,headSha,createdAt'], cwd);
+  let runs;
+  try { runs = JSON.parse(list.out); } catch { runs = null; }
+  if (!list.ok || !Array.isArray(runs)) return out('error', `gh run list failed: ${(list.err || 'unparseable output').trim()}`);
+  const run = runs
+    .filter((r) => r && r.headSha === commit)
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0];
+  if (!run) return out('missing', `no run of ${wf} exists for ${commit.slice(0, 7)}`);
+  if (!Number.isInteger(run.databaseId) || run.databaseId <= 0) return out('error', 'gh returned a run without a usable id');
+  if (run.status !== 'completed') return out('pending', `the run of ${wf} had not finished`, run);
+  const view = runCmd('gh', ['run', 'view', String(run.databaseId), '--json', 'jobs'], cwd);
+  let jobs;
+  try { jobs = JSON.parse(view.out).jobs; } catch { jobs = null; }
+  if (!view.ok || !Array.isArray(jobs)) return out('error', `gh run view failed: ${(view.err || 'unparseable output').trim()}`, run);
+  const job = jobs.find((j) => j && j.name === d.job);
+  if (!job) return out('missing', `the run has no job named ${d.job}`, run);
+  if (job.status !== 'completed') return out('pending', `${words} had not finished`, run, job);
+  if (job.conclusion === 'success') return out('green', `${words} succeeded on ${commit.slice(0, 7)}`, run, job);
+  return out('red', `${words} concluded ${job.conclusion || 'unknown'}`, run, job);
+}
+
+/**
+ * The commit a red job is compared against (D13): the merge base of HEAD and the base ref, never
+ * the moving tip. The ref is `base` when given, else the open PR's base branch, else
+ * `origin/HEAD`. Null (no baseline check) when no ref resolves, or when the merge base is HEAD
+ * itself: a run on the base branch would otherwise read every red job as baseline.
+ */
+function resolveBaseCommit(base, commit, cwd) {
+  const candidates = [];
+  const add = (ref) => { if (ref && !ref.startsWith('-')) candidates.push(ref); };
+  if (base) {
+    add(base);
+  } else {
+    const pr = runCmd('gh', ['pr', 'view', '--json', 'baseRefName'], cwd);
+    let name = null;
+    try { name = JSON.parse(pr.out).baseRefName; } catch { /* no open PR */ }
+    if (pr.ok && typeof name === 'string' && name) { add(`origin/${name}`); add(name); }
+    if (candidates.length === 0) {
+      const sym = runCmd('git', ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], cwd);
+      if (sym.ok) add(sym.out.trim());
+    }
+  }
+  for (const ref of candidates) {
+    // --verify and ^{commit} so a ref that is not a commit is never accepted (custody.js resolveRef does the same).
+    const sha = runCmd('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], cwd);
+    if (!sha.ok) continue;
+    const mb = runCmd('git', ['merge-base', commit, sha.out.trim()], cwd);
+    if (!mb.ok) continue;
+    const baseCommit = mb.out.trim();
+    return baseCommit && baseCommit !== commit ? baseCommit : null;
+  }
+  return null;
+}
+
+/**
  * Looks up each declaration's CI job on `HEAD` with `gh` and checks the working tree (D5).
- * `custody.js` is required here, not at the top: it requires this module at load for
+ * A job red on HEAD is looked up again on the base branch head (D13): red there too is
+ * `baseline`, not this feature's failure. `base` is a ref name; see `resolveBaseCommit` for the
+ * fallbacks. `custody.js` is required here, not at the top: it requires this module at load for
  * `BUILD_TOKEN`, so a top-level require is a cycle.
  *
- * @returns {Array<{id, workflow, job, status: 'green'|'red'|'pending'|'missing'|'dirty'|'error',
- *   runId: number|null, url: string|null, commit: string, reason: string}>}
+ * @returns {Array<{id, workflow, job, status: 'green'|'red'|'pending'|'missing'|'dirty'|'error'|'baseline',
+ *   runId: number|null, jobId: number|null, url: string|null, commit: string, reason: string}>}
  */
-function lookupOffHostProofs({ declared, covers = {}, cwd = process.cwd(), trdPath = null }) {
+function lookupOffHostProofs({ declared, covers = {}, cwd = process.cwd(), trdPath = null, base = null }) {
   const { coverMatcher, classifyPath, trdRelative } = require('./custody');
   const headRes = runCmd('git', ['rev-parse', 'HEAD'], cwd);
   const commit = headRes.ok ? headRes.out.trim() : '';
   const changed = headRes.ok ? uncommittedPaths(cwd) : null;
   const trdRel = trdRelative(trdPath, cwd);
-  const build = (d, status, reason, run = {}) => ({
+  const build = (d, status, reason, run = {}, job = null) => ({
     id: d.id, workflow: d.workflow, job: d.job, status,
-    runId: Number.isInteger(run.databaseId) ? run.databaseId : null, url: run.url || null, commit, reason,
+    runId: Number.isInteger(run.databaseId) ? run.databaseId : null,
+    jobId: job && Number.isInteger(job.databaseId) ? job.databaseId : null,
+    url: run.url || null, commit, reason,
   });
-  const jobWords = (d) => `job ${d.job} of ${path.basename(d.workflow)}`;
+  // Resolved once, and only when some job is red on HEAD (a green job costs no extra gh call).
+  let baseCommit;
+  const baseOf = () => (baseCommit === undefined ? (baseCommit = resolveBaseCommit(base, commit, cwd)) : baseCommit);
 
   return declared.map((d) => {
     if (!commit || changed === null) return build(d, 'error', `could not read the git state: ${headRes.ok ? 'git status failed' : headRes.err.trim()}`);
@@ -1015,26 +1087,16 @@ function lookupOffHostProofs({ declared, covers = {}, cwd = process.cwd(), trdPa
     if (touched.length > 0) {
       return build(d, 'dirty', `uncommitted change to ${touched[0]}${touched.length > 1 ? ` and ${touched.length - 1} more` : ''}, which CI never saw`);
     }
-    const list = runCmd('gh', ['run', 'list', `--workflow=${path.basename(d.workflow)}`, `--commit=${commit}`,
-      '--json', 'databaseId,status,conclusion,url,headSha,createdAt'], cwd);
-    let runs;
-    try { runs = JSON.parse(list.out); } catch { runs = null; }
-    if (!list.ok || !Array.isArray(runs)) return build(d, 'error', `gh run list failed: ${(list.err || 'unparseable output').trim()}`);
-    const run = runs
-      .filter((r) => r && r.headSha === commit)
-      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0];
-    if (!run) return build(d, 'missing', `no run of ${path.basename(d.workflow)} exists for ${commit.slice(0, 7)}`);
-    if (!Number.isInteger(run.databaseId) || run.databaseId <= 0) return build(d, 'error', 'gh returned a run without a usable id');
-    if (run.status !== 'completed') return build(d, 'pending', `the run of ${path.basename(d.workflow)} had not finished`, run);
-    const view = runCmd('gh', ['run', 'view', String(run.databaseId), '--json', 'jobs'], cwd);
-    let jobs;
-    try { jobs = JSON.parse(view.out).jobs; } catch { jobs = null; }
-    if (!view.ok || !Array.isArray(jobs)) return build(d, 'error', `gh run view failed: ${(view.err || 'unparseable output').trim()}`, run);
-    const job = jobs.find((j) => j && j.name === d.job);
-    if (!job) return build(d, 'missing', `the run has no job named ${d.job}`, run);
-    if (job.status !== 'completed') return build(d, 'pending', `${jobWords(d)} had not finished`, run);
-    if (job.conclusion === 'success') return build(d, 'green', `${jobWords(d)} succeeded on ${commit.slice(0, 7)}`, run);
-    return build(d, 'red', `${jobWords(d)} concluded ${job.conclusion || 'unknown'}`, run);
+    const head = lookupJobOnCommit(d, commit, cwd);
+    if (head.status !== 'red') return build(d, head.status, head.reason, head.run, head.job);
+    const baseSha = baseOf();
+    if (baseSha) {
+      const onBase = lookupJobOnCommit(d, baseSha, cwd);
+      if (onBase.status === 'red') {
+        return build(d, 'baseline', `${head.reason}, and it is red on the base branch head ${baseSha.slice(0, 7)} too`, head.run, head.job);
+      }
+    }
+    return build(d, 'red', head.reason, head.run, head.job);
   });
 }
 
@@ -2117,6 +2179,13 @@ function renderReport(input) {
     for (const r of regressionRounds) {
       lines.push(`### Round ${escapeCell(r.round)} (iteration ${escapeCell(r.iteration)})`);
       lines.push('');
+      // `scopeWord` and `counts` are written by verify-functional.js (D12); a round without them renders as before.
+      if (typeof r.scopeWord === 'string' && r.scopeWord) {
+        const counts = r.counts && typeof r.counts === 'object' && !Array.isArray(r.counts) ? Object.entries(r.counts) : [];
+        const total = counts.reduce((n, [, v]) => n + (Number.isInteger(v) ? v : 0), 0);
+        lines.push(`Scope: ${escapeCell(r.scopeWord)} — re-checked ${total}${counts.length > 0 ? `: ${counts.map(([k, v]) => `${escapeCell(k)} ${escapeCell(v)}`).join(', ')}` : ''}`);
+        lines.push('');
+      }
       const scope = listOf(r.scope).filter((e) => e && typeof e === 'object');
       if (scope.length === 0) {
         lines.push('Re-checked: _none._');
@@ -2886,10 +2955,10 @@ module.exports = {
 //        returned; prints {batches, remove, rejected})
 //   node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>
 //       (reads both files itself — not a JSON payload; prints {criteria, uncovered, unknown})
-//   node functional-verification.js off-host-proofs --trd <TRD path> --definition <definition path> [--covers <json file>] [--ids <id,id,...>]
+//   node functional-verification.js off-host-proofs --trd <TRD path> --definition <definition path> [--covers <json file>] [--ids <id,id,...>] [--base <ref>]
 //       (reads both files itself; prints {proofs, ignored}, one proof per declared CI job with a
-//        status of green, red, pending, missing, dirty or error; exit 1 for a missing flag or an
-//        unreadable input)
+//        status of green, red, pending, missing, dirty, baseline or error; each carries runId and
+//        jobId; exit 1 for a missing flag, a --base starting with `-`, or an unreadable input)
 //   node functional-verification.js off-host-proven --state-dir <dir>
 //       (prints [{id, statement, workflow, job, runId, url, commit}] for criteria proven off host)
 //   node functional-verification.js preclassify --file <payload> --verification <path> [--design-map <path> ...]
@@ -2912,7 +2981,7 @@ if (require.main === module) {
         "  node functional-verification.js decide-fix-round '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js render-fix-summary '<input-json>'|--file <path>|-\n" +
         '  node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>\n' +
-        '  node functional-verification.js off-host-proofs --trd <TRD path> --definition <definition path> [--covers <json file>] [--ids <id,id,...>]\n' +
+        '  node functional-verification.js off-host-proofs --trd <TRD path> --definition <definition path> [--covers <json file>] [--ids <id,id,...>] [--base <ref>]\n' +
         '  node functional-verification.js off-host-proven --state-dir <dir>\n' +
         '  node functional-verification.js record-nonblocking --state-dir <dir> (--payload <json> | --file <json file>)\n' +
         '  node functional-verification.js report-publish-plan --report <path> [--published-file <path>]\n' +
@@ -3053,7 +3122,10 @@ if (require.main === module) {
     // when gh is absent (each entry then reads `error`); exit 1 only for bad input.
     const trdPath = flag('--trd');
     const definitionPath = flag('--definition');
-    if (!trdPath || !definitionPath) {
+    // `flag` hides a value starting `--`; a single dash is caught here so a ref can never read as an option to git.
+    const baseIdx = rest.indexOf('--base');
+    const baseFlag = baseIdx === -1 ? null : rest[baseIdx + 1];
+    if (!trdPath || !definitionPath || (baseIdx !== -1 && (!baseFlag || baseFlag.startsWith('-')))) {
       usage();
     } else {
       let decl;
@@ -3068,7 +3140,7 @@ if (require.main === module) {
       const idsFlag = flag('--ids');
       const only = idsFlag ? new Set(idsFlag.split(',').map((x) => x.trim()).filter(Boolean)) : null;
       const declared = only ? decl.declared.filter((d) => only.has(d.id)) : decl.declared;
-      console.log(JSON.stringify({ proofs: lookupOffHostProofs({ declared, covers, trdPath }), ignored: decl.ignored }));
+      console.log(JSON.stringify({ proofs: lookupOffHostProofs({ declared, covers, trdPath, base: baseFlag }), ignored: decl.ignored }));
     }
   } else if (subcommand === 'record-nonblocking') {
     const stateDir = flag('--state-dir');

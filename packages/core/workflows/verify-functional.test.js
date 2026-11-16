@@ -4738,6 +4738,66 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
       expect(labelsOf(nothing.agent, 'judge')).toHaveLength(2);
     });
 
+    it.each([
+      ['a doc', 'docs/x.md'],
+      ['a test', 'src/a.test.ts'],
+      ['a framework file', '.claude/commands/x.md'],
+      ['a lockfile', 'package-lock.json'],
+      ['a CI config', '.github/workflows/ci.yml'],
+      ['another feature record', '.trd-state/other/implement.json'],
+    ])('D10: a no-covers criterion is not re-checked when Debug changed only %s', async (_label, file) => {
+      const { agent, logs } = await journey(reproven, { args: { criterionCovers: {} }, files: [file] });
+      expect(regressionExercises(agent)).toHaveLength(0);
+      expect(logs.join('\n')).toMatch(/regression pass has nothing to re-check/);
+    });
+
+    it('D10: a no-covers criterion is re-checked when Debug changed any code-class file, even beside a doc', async () => {
+      const { logs } = await journey(reproven, { args: { criterionCovers: {} }, files: ['docs/x.md', 'src/a/new.ts'] });
+      expect(reasonsIn(logs)[1]).toBe('FS-1 (no-covers), FS-2 (no-covers)');
+    });
+
+    it('IC item 4: a no-covers criterion is re-checked when the code change shares a directory with a recorded cover', async () => {
+      const { logs } = await journey(reproven, { args: { criterionCovers: { 'FS-1': ['src/a/x.js'] } }, files: ['src/a/new.js'] });
+      expect(reasonsIn(logs)[1]).toBe('FS-2 (no-covers)');
+    });
+
+    it('IC item 4: a no-covers criterion is not re-checked when the code change shares a directory with no recorded cover', async () => {
+      const { agent, logs } = await journey(reproven, { args: { criterionCovers: { 'FS-1': ['src/a/x.js'] } }, files: ['src/z/new.js'] });
+      expect(regressionExercises(agent)).toHaveLength(0);
+      expect(logs.join('\n')).toMatch(/regression pass has nothing to re-check/);
+    });
+
+    it('IC item 4: with no cover recorded anywhere, the same code change still re-checks every no-covers criterion', async () => {
+      const { logs } = await journey(reproven, { args: { criterionCovers: {} }, files: ['src/z/new.js'] });
+      expect(reasonsIn(logs)[1]).toBe('FS-1 (no-covers), FS-2 (no-covers)');
+    });
+
+    it('IC item 4: a directory or glob cover relates a new file inside its directory; a repo-root file is related to no cover', async () => {
+      const dirCover = await journey(reproven, { args: { criterionCovers: { 'FS-1': ['src/a/'] } }, files: ['src/a/new.js'] });
+      expect(reasonsIn(dirCover.logs)[1]).toBe('FS-1 (covers-changed), FS-2 (no-covers)');
+      const globCover = await journey(reproven, { args: { criterionCovers: { 'FS-1': ['src/b/*.ts'] } }, files: ['src/b/new.js'] });
+      expect(reasonsIn(globCover.logs)[1]).toBe('FS-2 (no-covers)');
+      const root = await journey(reproven, { args: { criterionCovers: { 'FS-1': ['index.js'] } }, files: ['main.js'] });
+      expect(regressionExercises(root.agent)).toHaveLength(0);
+    });
+
+    it('D12: the round record carries counts per reason and the scope word, and the log line prints the scope after not re-walked', async () => {
+      const { result, logs } = await journey(reproven, { args: { criterionCovers: { 'FS-1': ['src/a.js'], 'FS-2': ['src/z.js'] } }, files: ['src/a.js'] });
+      expect(result.regression.rounds[0]).toMatchObject({ counts: { 'covers-changed': 1 }, scopeWord: 'targeted' });
+      expect(logs.join('\n')).toMatch(/not re-walked: FS-2, FS-3; Scope: targeted — re-checked 1: covers-changed 1/);
+    });
+
+    it('D12: changes-unknown reads full', async () => {
+      const { result, logs } = await journey(reproven, { debug: debugReporting({}) });
+      expect(result.regression.rounds[0]).toMatchObject({ counts: { 'changes-unknown': 2 }, scopeWord: 'full' });
+      expect(logs.join('\n')).toMatch(/Scope: full — re-checked 2: changes-unknown 2/);
+    });
+
+    it('D12: a pass with nothing to re-check says none', async () => {
+      const { logs } = await journey(reproven, { args: { criterionCovers: {} }, files: ['docs/x.md'] });
+      expect(logs.join('\n')).toMatch(/Scope: none — re-checked 0/);
+    });
+
     it('a changed path under the state folder is dropped by the script, so it puts no no-covers criterion in scope', async () => {
       const { agent, logs } = await journey(reproven, { args: { criterionCovers: {} }, files: ['.trd-state/example/dispatch.jsonl', './.trd-state/example/judge-x.json'] });
       expect(regressionExercises(agent)).toHaveLength(0);
@@ -4965,6 +5025,27 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
         const { logs } = await journey(reproven, { args: { criterionCovers: { 'FS-1': [cover], 'FS-2': ['unrelated/none.js'] } }, files: [file] });
         const inScope = /re-checks FS-1 \(covers-changed\)/.test(logs.join('\n'));
         expect(inScope).toBe(coverMatcher(cover)(file));
+      });
+    });
+
+    describe('D11: the inline isCodeClass agrees with custody.js classifyPath', () => {
+      const { classifyPath } = require('../lib/custody');
+      const paths = [
+        'src/a/new.ts', 'src/a.js', 'lib/x.py', 'packages/core/lib/custody.js', '.claude/rules/ship.md', '.claude/rules/constitution.md',
+        '.claude/commands/x.md', '.claude/lib/custody.js', '.claude/agents/a.md', '.claude/settings.json',
+        'docs/x.md', 'docs/guides/y.md', 'doc/x.md', 'README.md', 'CHANGELOG.md', 'readme.txt', 'LICENSE', 'NOTICE.rst',
+        'CLAUDE.md', 'packages/x/CLAUDE.md', '.gitattributes', '.gitignore', 'sub/.gitignore',
+        'src/a.test.ts', 'src/a.spec.tsx', 'tests/test_a.py', 'a_test.py', 'x_test.go', 'FooTest.java', 'FooTests.cs', 'a_spec.rb', 'a_test.exs', 'x.bats', 'a.test.sh',
+        'src/__tests__/a.js', 'src/__fixtures__/a.json', 'src/__mocks__/a.js',
+        '.github/workflows/ci.yml', '.github/actions/x/action.yml', '.circleci/config.yml', '.buildkite/p.yml', '.gitlab-ci.yml', 'Jenkinsfile', 'sub/Jenkinsfile',
+        'package-lock.json', 'sub/yarn.lock', 'Cargo.lock', 'go.sum', 'package.json', 'pyproject.toml',
+        '.claude/verification-notes.md', 'OWNER-CALLS.md', 'sub/OWNER-CALLS.md', '.trd-state', '.trd-state/f/implement.json', '.trd-statex/a.js',
+        '.github/CODEOWNERS', 'documents/a.md',
+      ];
+      it.each(paths.map((p) => [p]))('%s', async (file) => {
+        const { logs } = await journey(reproven, { args: { criterionCovers: {} }, files: [file] });
+        const inScope = /re-checks FS-1 \(no-covers\)/.test(logs.join('\n'));
+        expect(inScope).toBe(classifyPath(file) === 'shipped');
       });
     });
 
@@ -5214,8 +5295,8 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
         expect(sync).toHaveLength(1);
         expect(result.regression).toEqual({
           rounds: [
-            { round: 1, iteration: 2, scope: [{ id: 'FS-1', reason: 'covers-changed', files: ['src/a.js'] }], caught: ['FS-1'], debug: { causes: ['regressed'], filesChanged: ['src/a.js'] } },
-            { round: 2, iteration: 2, scope: [{ id: 'FS-1', reason: 'sent-to-debug' }, { id: 'FS-3', reason: 'no-covers' }], caught: [] },
+            { round: 1, iteration: 2, scope: [{ id: 'FS-1', reason: 'covers-changed', files: ['src/a.js'] }], counts: { 'covers-changed': 1 }, scopeWord: 'targeted', caught: ['FS-1'], debug: { causes: ['regressed'], filesChanged: ['src/a.js'] } },
+            { round: 2, iteration: 2, scope: [{ id: 'FS-1', reason: 'sent-to-debug' }, { id: 'FS-3', reason: 'no-covers' }], counts: { 'sent-to-debug': 1, 'no-covers': 1 }, scopeWord: 'targeted', caught: [] },
           ],
           notRewalked: ['FS-2'],
           unclaimedChanges: [],
@@ -5430,6 +5511,61 @@ describe('verify-functional: off-host proof of a not-checkable must-pass criteri
       expect(fs2(result).reason).toContain(`is ${status}`);
       expect(fs2(result).reason).toContain('for a reason');
       expect(result.mustPass.unproven).toEqual([{ id: 'FS-2', status: 'not_verifiable' }]);
+    });
+
+    describe('D13, D14: what a non-green proof says', () => {
+      const reasonFor = async (proof, extra = {}) => {
+        const { result } = await run([unproven([metC('FS-1'), nc()])], { args: { offHostProofs: [{ ...GREEN, url: null, ...proof }] }, ...extra });
+        return fs2(result);
+      };
+
+      it('red with a run id and a job id names the single-job rerun and forbids gh workflow run', async () => {
+        const entry = await reasonFor({ status: 'red', jobId: 99 });
+        expect(entry.reason).toMatch(/^.*declared off-host proof ci\.yml#read-aloud is red/);
+        expect(entry.reason).toContain('gh run rerun 4242 --job 99');
+        expect(entry.reason).toContain('never `gh workflow run`');
+      });
+
+      it('red with a null or absent job id names --failed', async () => {
+        for (const jobId of [null, undefined]) {
+          const entry = await reasonFor({ status: 'red', jobId });
+          expect(entry.reason).toContain('gh run rerun 4242 --failed');
+          expect(entry.reason).not.toContain('--job');
+        }
+      });
+
+      it('red with no run id says to push and wait, and names no rerun', async () => {
+        const entry = await reasonFor({ status: 'red', runId: null, jobId: 99 });
+        expect(entry.reason).not.toContain('gh run rerun');
+        expect(entry.reason).toMatch(/push and wait/);
+      });
+
+      it.each(['missing', 'pending'])('%s names no gh run rerun and says to wait for, or push to start, the run', async (status) => {
+        const entry = await reasonFor({ status, runId: 4242, jobId: 99 });
+        expect(entry.reason).not.toContain('gh run rerun');
+        expect(entry.reason).toMatch(/wait for the run to finish, or push to start one/);
+        expect(entry.reason).toContain(`is ${status}`);
+      });
+
+      it('a baseline proof passes the validator, says it is red on the base branch head and leaves the criterion not_verifiable', async () => {
+        const { result } = await run([unproven([metC('FS-1'), nc()])], { args: { offHostProofs: [{ ...GREEN, status: 'baseline', url: null, jobId: 99 }] } });
+        expect(result.outcome).toBe('must-pass-unproven');
+        expect(fs2(result)).toMatchObject({ status: 'not_verifiable' });
+        expect(fs2(result)).not.toHaveProperty('proof');
+        expect(fs2(result).reason).toContain('is baseline');
+        expect(fs2(result).reason).toContain('red on the base branch head');
+        expect(fs2(result).reason).not.toContain('gh run rerun');
+      });
+
+      it('a green proof voided by Debug says to push and wait for CI first', async () => {
+        const { result } = await run([remediate([bd('FS-1'), nc()]), unproven([metC('FS-1'), nc()])], { args: { criterionCovers: { 'FS-2': ['src/other.js'] } } });
+        expect(fs2(result).reason).toContain('changed by Debug');
+        expect(fs2(result).reason).toMatch(/push and wait for CI/);
+      });
+
+      it('a jobId of the wrong type is not a validator error (it is read only for reason text)', async () => {
+        await expect(reasonFor({ status: 'red', jobId: 'x' })).resolves.toBeDefined();
+      });
     });
 
     it('no declared proof leaves must-pass-unproven, and the reason is untouched', async () => {

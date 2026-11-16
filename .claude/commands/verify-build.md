@@ -353,6 +353,11 @@ dispatch and each fix round's step 4, which re-runs this Step 4 dispatch. Put ea
 entry in ISSUES. A sweep file has no TRD: pass `[]`. A non-zero exit passes `[]` and is one ISSUES
 line, never STUCK. Under `--criteria` the call is restricted with `--ids <the named ids>` (the
 same restriction applied to `mustPassIds`), and the retry recomputes it with `--ids <retry set>`.
+A red proof is re-run, never started over: `gh run rerun <run-id> --job <job-id>` (the entry's `runId` and
+`jobId`), or `gh run rerun <run-id> --failed` when `jobId` is null; never `gh workflow run`, which starts a
+full manual CI run. An entry reading `baseline` is red on the base branch head too: it is not this
+feature's failure and it does not prove the criterion. After a Debug edit, push and wait for the run CI
+starts; the earlier run belongs to an earlier commit.
 
 ```javascript
 Workflow({ name: "verify-functional", args: {
@@ -434,7 +439,8 @@ only the criteria whose files the change touched, and reads those files from thi
 node .claude/lib/live-evidence.js record-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md
 ```
 
-It writes `<state-dir>/evidence/criterion-covers.json` and prints `{"recorded":[...],"none":[...]}`.
+It writes `<state-dir>/evidence/criterion-covers.json` and prints `{"recorded":[...],"none":[...],"unresolved":[...]}`.
+Put each `unresolved` entry (a criterion whose covers it could not settle) in ISSUES, never STUCK.
 A failure is one ISSUES line, never STUCK: the verification outcome stands without it.
 
 **Record the follow-ups the blocking policy let through, after each workflow return** (the first

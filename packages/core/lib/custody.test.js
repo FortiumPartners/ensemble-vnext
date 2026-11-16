@@ -106,7 +106,19 @@ describe('classifyPath (D10)', () => {
     ['.trd-state/f/audit-build-report.md', 'ignored'],
     ['docs/TRD/f.md', 'ignored'],
     ['.claude/verification-notes.md', 'ignored'],
-    ['.claude/other.md', 'shipped'],
+    ['.claude/other.md', 'docs'],
+    ['.claude/commands/plan.md', 'docs'],
+    ['.claude/workflows/x.js', 'docs'],
+    ['.claude/settings.json', 'docs'],
+    ['.claude/rules/constitution.md', 'shipped'],
+    ['src/app.ts', 'shipped'],
+    ['CLAUDE.md', 'docs'],
+    ['packages/x/CLAUDE.md', 'docs'],
+    ['.gitattributes', 'docs'],
+    ['.gitignore', 'docs'],
+    ['sub/.gitignore', 'docs'],
+    ['.claude/lib/x.test.js', 'test-only'],
+    ['OWNER-CALLS.md', 'ignored'],
     ['docs/TRD/other.md', 'docs'],
     ['docs/guides/x.md', 'docs'],
     ['doc/x.txt', 'docs'],
@@ -476,6 +488,17 @@ describe('reconcile: change classes and ensemble.reproof', () => {
       reconcile(s.args());
       expect(s.readCustody().moves[0].rule).toBe('no-success-definition');
     });
+
+    test('with no success definition and shipped changes, the scope is full, never none (nothing could be judged)', () => {
+      const s = setup();
+      s.commit('work', { 'src/a.js': 'a2' });
+      reconcile(s.args());
+      s.commit('more work', { 'src/a.js': 'a3' });
+      const r = reconcile(s.args());
+      expect(r.action).toBe('moved');
+      expect(r.scope).toBe('full');
+      expect(r.scopeReason).toMatch(/no success definition/);
+    });
   });
 
   describe('a state written by the regression pass (one caught, one re-proven)', () => {
@@ -616,16 +639,98 @@ describe('reconcile: change classes and ensemble.reproof', () => {
       expect(r).toMatchObject({ action: 'reverify', ids: ['FS-1'], reused: ['FS-2'] });
     });
 
-    test('a change to a file no record names re-proves A and B', () => {
+    test('a new file beside both records\' files (same directory) re-proves A and B, targeted', () => {
       const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
       s.commit('fix', { 'src/c.js': 'c' });
-      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'], scope: 'targeted' });
+    });
+
+    describe('D3: an unnamed ADDED file narrows to the criteria beside it', () => {
+      const dirs = () => twoCriteria({ recA: ['src/a/x.ts'], recB: ['src/b/y.ts'], extra: { 'src/a/x.ts': 'x', 'src/b/y.ts': 'y' } });
+
+      test('a file added beside A\'s cover re-proves A only, scope targeted', () => {
+        const s = dirs();
+        s.commit('add', { 'src/a/new.ts': 'n' });
+        const r = reconcile(s.args());
+        expect(r).toMatchObject({ action: 'reverify', ids: ['FS-1'], reused: ['FS-2'], scope: 'targeted' });
+        expect(r.scopeReason).toMatch(/1 of 2/);
+        expect(r.changed).toEqual([{ path: 'src/a/new.ts', class: 'shipped' }]);
+      });
+
+      test('a file added where no cover sits widens to both, scope full, naming the path', () => {
+        const s = dirs();
+        s.commit('add', { 'lib/z.ts': 'z' });
+        const r = reconcile(s.args());
+        expect(r).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'], scope: 'full' });
+        expect(r.scopeReason).toMatch(/lib\/z\.ts/);
+      });
+
+      test('a root-level added file (tsconfig.json) never narrows: scope full', () => {
+        const s = dirs();
+        s.commit('add', { 'tsconfig.json': '{}' });
+        expect(reconcile(s.args())).toMatchObject({ ids: ['FS-1', 'FS-2'], scope: 'full' });
+      });
+
+      test('a root-level cover does not relate a root-level added file either', () => {
+        const s = twoCriteria({ recA: ['index.js'], recB: ['src/b/y.ts'], extra: { 'index.js': 'i', 'src/b/y.ts': 'y' } });
+        s.commit('add', { 'other.js': 'o' });
+        expect(reconcile(s.args())).toMatchObject({ ids: ['FS-1', 'FS-2'], scope: 'full' });
+      });
+
+      test('a glob cover relates the directory of its literal prefix', () => {
+        const s = twoCriteria({ recA: ['src/a/**/*.ts'], recB: ['src/b/y.ts'], extra: { 'src/b/y.ts': 'y' } });
+        s.commit('add', { 'src/a/new.json': 'n' });
+        expect(reconcile(s.args())).toMatchObject({ ids: ['FS-1'], reused: ['FS-2'], scope: 'targeted' });
+      });
+
+      test('a MODIFIED file no record names still widens to both, scope full', () => {
+        const s = dirs();
+        s.commit('edit', { 'src/b.js': 'b3' }); // tracked since init, named by neither record
+        const r = reconcile(s.args());
+        expect(r).toMatchObject({ ids: ['FS-1', 'FS-2'], scope: 'full' });
+        expect(r.scopeReason).toMatch(/src\/b\.js/);
+      });
+
+      test('a DELETED file no record names widens to both, scope full', () => {
+        const s = dirs();
+        git(s.repo, 'rm', '-q', 'src/b.js');
+        s.commit('rm');
+        expect(reconcile(s.args())).toMatchObject({ ids: ['FS-1', 'FS-2'], scope: 'full' });
+      });
     });
 
     test('shipped: all re-proves B when only A\'s file changed', () => {
       const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'], reproof: { shipped: 'all' } });
       s.commit('fix', { 'src/a.js': 'a3' });
-      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'] });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', ids: ['FS-1', 'FS-2'], scope: 'full', scopeReason: 'ensemble.reproof.shipped is all' });
+    });
+
+    test('a change to .claude/commands/x.md only moves the anchor (tier-none), scope none', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      s.commit('cmd', { '.claude/commands/plan.md': 'p' });
+      const r = reconcile(s.args());
+      expect(r).toMatchObject({ action: 'moved', scope: 'none', changed: [{ path: '.claude/commands/plan.md', class: 'docs' }] });
+      expect(s.readCustody().moves[0].rule).toBe('tier-none');
+    });
+
+    test('a change to .claude/rules/constitution.md is still shipped code', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      s.commit('rule', { '.claude/rules/constitution.md': 'c' });
+      expect(reconcile(s.args())).toMatchObject({ action: 'reverify', scope: 'full' });
+    });
+
+    test('a promoted path reports scope full naming it', () => {
+      const s = twoCriteria({ reproof: { docs: 'reprove' } });
+      s.commit('docs', { 'docs/g.md': 'g' });
+      expect(reconcile(s.args())).toMatchObject({ scope: 'full', scopeReason: 'docs/g.md is promoted by ensemble.reproof' });
+    });
+
+    test('a change that touches no criterion reports scope none with changed classes', () => {
+      const s = twoCriteria({ recA: ['src/a.js'], recB: ['src/b.js'] });
+      s.commit('t', { 'src/a.test.js': 't', 'README.md': 'r2' });
+      const r = reconcile(s.args());
+      expect(r).toMatchObject({ action: 'moved', scope: 'none' });
+      expect(r.changed).toEqual(expect.arrayContaining([{ path: 'src/a.test.js', class: 'test-only' }, { path: 'README.md', class: 'docs' }]));
     });
 
     test('a no-record criterion is still re-proved by any shipped change (fallback unchanged)', () => {

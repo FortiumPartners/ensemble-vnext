@@ -494,8 +494,8 @@ the script re-checks the criteria that something done in this run may have broke
 It works out the scope itself from the debugger's `filesChanged` (below) and each criterion's
 covered files: a settled `met` criterion is re-checked when a changed file falls inside what it
 covers (`covers-changed`), when a debugger could not say what it changed (`changes-unknown`), or
-when it has no covers record and a debugger changed something after the criterion was proven
-(`no-covers`); each member awaiting a closed cause is re-checked too (`cause-member`). A criterion
+when it has no covers record and a counting record names at least one code-class file
+(`no-covers`; docs, test, framework, CI-config and lockfile edits do not count); each member awaiting a closed cause is re-checked too (`cause-member`). A criterion
 whose covered files did not change keeps its proof and is not walked again. Each re-checked
 criterion is captured afresh into `regression-<round>/` under the evidence directory: an artifact
 from earlier in the run predates the fix and does not count. A re-checked criterion that now

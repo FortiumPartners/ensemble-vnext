@@ -26,7 +26,10 @@ The caller gives the gate `work`, `context`, and which act it guards (`merge` or
    ```
    `merge` passes `--head <PR headRefOid>` and `--base origin/<base>`. `release` omits `--head`
    (the local `HEAD` is judged) and passes `--base origin/<context.base>` only when an earlier
-   PR step gave a `base`. Read the one JSON line it prints.
+   PR step gave a `base`. Read the one JSON line it prints, and put its `changed` paths (each with
+   its class), `scope` (`none`, `targeted` or `full`) and `scopeReason` in `data.custody` now, one
+   readout line, before step 3's re-proof runs. `scope` and `changed` are absent on a `refused`
+   result returned before the anchor was compared with the head.
 3. **Act on the result:**
    - `set`, `none` or `moved`: go on.
    - `reverify` (shipped source changed since the anchor and the listed must-pass criteria need

@@ -2051,9 +2051,9 @@ to decide which met criteria a Debug edit could have broken:
 node .claude/lib/live-evidence.js derive-criteria --state-dir <state-dir> --trd <trd> --definition <state-dir>/success-definition.md
 ```
 
-It prints `{"<id>": ["<path>", ...]}` for every criterion it can map; a criterion it cannot map
-(a check-derived row among them) is absent and is re-walked whenever a Debug pass changed
-anything. A non-zero exit passes `{}` and is one ISSUES line, never STUCK: `{}` widens the
+It prints `{"<id>": ["<path>", ...]}` for every criterion it can map (check-derived rows
+included); a criterion it cannot map is absent and is re-walked only when a Debug pass changed
+a code-class file. A non-zero exit passes `{}` and is one ISSUES line, never STUCK: `{}` widens the
 regression pass's scope, it never narrows it. Write the derive output to a file
 (`<state-dir>/criterion-covers.json`), or `{}` on a non-zero exit so an earlier run's covers are
 never read; the next call reads it with `--covers`.
@@ -2075,6 +2075,11 @@ refused, with its reason) in ISSUES. A non-zero exit passes `[]` and is one ISSU
 STUCK: `[]` only leaves the criterion unproven, it never proves one. `gh run list --commit=<HEAD>`
 finds a run only when HEAD was pushed and CI ran; at the end of this command HEAD is usually
 local, so an entry reading `missing` is expected, not a defect, and the criterion stays unproven.
+A red proof is re-run, never started over: `gh run rerun <run-id> --job <job-id>` (the entry's `runId` and
+`jobId`), or `gh run rerun <run-id> --failed` when `jobId` is null; never `gh workflow run`, which starts a
+full manual CI run. An entry reading `baseline` is red on the base branch head too: it is not this
+feature's failure and it does not prove the criterion. After a Debug edit, push and wait for the run CI
+starts; the earlier run belongs to an earlier commit.
 
 ```javascript
 Workflow({ name: "verify-functional", args: {
@@ -2165,9 +2170,10 @@ node .claude/lib/live-evidence.js record-criteria --state-dir <state-dir> --trd 
 ```
 
 It reads `<state-dir>/verification-state.json`, writes
-`<state-dir>/evidence/criterion-covers.json` and prints `{"recorded":[...],"none":[...]}`; a
-criterion with no record falls back to custody's conservative path. A failure is one ISSUES line,
-never STUCK: the verification outcome stands without it.
+`<state-dir>/evidence/criterion-covers.json` and prints `{"recorded":[...],"none":[...],"unresolved":[...]}`; a
+criterion with no record falls back to custody's conservative path. Put each `unresolved` entry in
+ISSUES, never STUCK. A failure is one ISSUES line, never STUCK: the verification outcome stands
+without it.
 
 **Carry `nonBlocking`** (`Array<{ id, reason }>`; present only when the blocking policy converted
 a stall into `satisfied`, else absent or `[]`) into Step 9's block, and when it is non-empty

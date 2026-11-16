@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
-const { deriveCriterionCovers, recordCriterionCovers, readCriterionCovers, criterionCoversPath, record, read, readFresh, manifestPath, main, MAX_LINE_BYTES, COVERS_HASH_BYTES } = require('./live-evidence');
+const { deriveCriterionCovers, deriveCriterionCoversReport, recordCriterionCovers, readCriterionCovers, criterionCoversPath, record, read, readFresh, manifestPath, main, MAX_LINE_BYTES, COVERS_HASH_BYTES } = require('./live-evidence');
 
 let dir; let state; let artifact; let src;
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
@@ -279,7 +279,7 @@ describe('criterion covers', () => {
     expect(readCriterionCovers(state).size).toBe(0);
   });
 
-  test('CLI records only met ids and prints {recorded, none}', () => {
+  test('CLI records only met ids and prints {recorded, none, unresolved}', () => {
     fs.mkdirSync(state, { recursive: true });
     fs.writeFileSync(path.join(state, 'verification-state.json'), JSON.stringify({
       criteria: [{ id: 'C-1', status: 'met' }, { id: 'C-2', status: 'unmet' }, { id: 'C-4', status: 'met' }],
@@ -292,8 +292,114 @@ describe('criterion covers', () => {
       code = main(['record-criteria', '--state-dir', state, '--trd', trd, '--definition', def], { write: (c) => chunks.push(c) }, { write: () => {} });
     } finally { process.chdir(cwd); }
     expect(code).toBe(0);
-    expect(JSON.parse(chunks.join(''))).toEqual({ recorded: ['C-1'], none: ['C-4'] });
+    expect(JSON.parse(chunks.join(''))).toEqual({ recorded: ['C-1'], none: ['C-4'], unresolved: [] });
     expect([...readCriterionCovers(state).keys()]).toEqual(['C-1']);
+  });
+
+  describe('design rows (D8, D9)', () => {
+    const TEMPLATE = path.join(__dirname, '..', '..', '..', '.claude', 'skills', 'design-setup', 'template.md');
+    const DESIGN_MD = `# Design
+
+## 2. Per platform
+
+| Platform | Board component kind | Tokens source | Component library paths | Viewport sizes |
+|----------|----------------------|---------------|-------------------------|----------------|
+| web | real | tokens.css | src/ui | 390x844 |
+
+## 3. How to reach a screen
+
+| Field | Value |
+|-------|-------|
+| Route list (file, command or URL list) | \`/ -> app/page\` |
+`;
+    const put = (rel, text = 'x') => {
+      fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+      fs.writeFileSync(path.join(dir, rel), text);
+    };
+    const boards = (list) => put('docs/ui/trips/design-map.json', JSON.stringify({ boards: list }));
+    const b = (o) => ({ id: '01-home', kind: 'to-be', platform: 'web', route: '/', status: 'draft', components: ['FixtureWeb.Card'], ...o });
+    const DESIGN_DEF = `# Definition
+
+| ID | Statement | Must pass | Derivation |
+|----|-----------|-----------|------------|
+| C-1 | does one | O1 | task |
+| ST-01-home | structure | O1 | \`check:verify-design-structure\` |
+| DC-01-home--empty | comparison | O1 | check:verify-design-comparison |
+| ST-02-gone | structure | O1 | check:verify-design-structure |
+`;
+    beforeEach(() => {
+      put('.claude/skills/design-setup/template.md', fs.readFileSync(TEMPLATE, 'utf8'));
+      put('.claude/rules/design.md', DESIGN_MD);
+      put('app/page.tsx'); put('src/ui/Card.tsx');
+      boards([b()]);
+      fs.writeFileSync(def, DESIGN_DEF);
+    });
+    const report = (ids) => deriveCriterionCoversReport({ trdPath: trd, definitionPath: def, ids, cwd: dir });
+
+    test('ST- and DC- rows take the board covers with source design-map; task rows are unchanged', () => {
+      const r = report(['C-1', 'ST-01-home', 'DC-01-home--empty']);
+      expect(r.covers.get('ST-01-home')).toEqual({ covers: ['app/page.tsx', 'src/ui/Card.tsx'], source: 'design-map' });
+      expect(r.covers.get('DC-01-home--empty')).toEqual({ covers: ['app/page.tsx', 'src/ui/Card.tsx'], source: 'design-map' });
+      expect(r.covers.get('C-1')).toEqual({ covers: ['lib/a.js', 'lib/a.test.js'], source: 'touches' });
+      expect(r.unresolved).toEqual([]);
+    });
+
+    test('deriveCriterionCovers still returns the Map alone', () => {
+      expect(deriveCriterionCovers({ trdPath: trd, definitionPath: def, ids: ['ST-01-home'], cwd: dir }).get('ST-01-home').source).toBe('design-map');
+    });
+
+    test('an unresolved board gets no covers and is reported with its reason', () => {
+      const r = report(['ST-02-gone']);
+      expect(r.covers.has('ST-02-gone')).toBe(false);
+      expect(r.unresolved).toEqual([{ id: 'ST-02-gone', reason: 'no board for the row' }]);
+    });
+
+    test('a definition with no Derivation column has no design rows', () => {
+      fs.writeFileSync(def, '# D\n\n| ID | Statement | Must pass |\n|----|-----------|-----------|\n| ST-01-home | s | O1 |\n');
+      const r = report(['ST-01-home']);
+      expect(r.unresolved).toEqual([]);
+      // Treated as an ordinary row: task covers via O1, never design-map.
+      expect(r.covers.get('ST-01-home').source).not.toBe('design-map');
+    });
+
+    test('recordCriterionCovers keeps design-map as the source', () => {
+      recordCriterionCovers(state, report(['ST-01-home']).covers);
+      const file = JSON.parse(fs.readFileSync(criterionCoversPath(state), 'utf8'));
+      expect(file.criteria['ST-01-home'].source).toBe('design-map');
+    });
+
+    const run = (args) => {
+      const cwd = process.cwd();
+      process.chdir(dir);
+      const chunks = []; const errs = [];
+      let code;
+      try { code = main(args, { write: (c) => chunks.push(c) }, { write: (c) => errs.push(c) }); } finally { process.chdir(cwd); }
+      return { code, out: chunks.join(''), err: errs.join('') };
+    };
+
+    test('record-criteria records the resolved board and lists the unresolved one with its reason', () => {
+      fs.mkdirSync(state, { recursive: true });
+      fs.writeFileSync(path.join(state, 'verification-state.json'), JSON.stringify({
+        criteria: [{ id: 'ST-01-home', status: 'met' }, { id: 'ST-02-gone', status: 'met' }],
+      }));
+      const r = run(['record-criteria', '--state-dir', state, '--trd', trd, '--definition', def]);
+      expect(r.code).toBe(0);
+      const out = JSON.parse(r.out);
+      expect(out.recorded).toEqual(['ST-01-home']);
+      expect(out.unresolved).toEqual([{ id: 'ST-02-gone', reason: 'no board for the row' }]);
+      expect(out.recorded).not.toContain('ST-02-gone');
+      expect(readCriterionCovers(state).has('ST-02-gone')).toBe(false);
+    });
+
+    test('derive-criteria keeps the {id: covers} stdout and names the unresolved row on stderr', () => {
+      const r = run(['derive-criteria', '--state-dir', state, '--trd', trd, '--definition', def]);
+      expect(r.code).toBe(0);
+      const out = JSON.parse(r.out);
+      expect(out['ST-01-home']).toEqual(['app/page.tsx', 'src/ui/Card.tsx']);
+      expect(out['ST-02-gone']).toBeUndefined();
+      expect(r.err).toMatch(/ST-02-gone/);
+      expect(r.err).toMatch(/no board for the row/);
+    });
   });
 
   test('ids: [] returns an empty map, ids: null means every id in the definition', () => {

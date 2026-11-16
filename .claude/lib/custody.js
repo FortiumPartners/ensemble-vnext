@@ -19,8 +19,10 @@
  *              `.circleci/**`, `Jenkinsfile`, ...)
  *   deps       dependency LOCKFILES (exact basename). Manifests (`package.json`, `pyproject.toml`)
  *              carry scripts and entry points, so they stay `shipped`
- *   docs       first segment `docs` or `doc`, or a README/CHANGELOG/LICENSE-style basename; never
- *              every `*.md` (a `.md` under `packages/core/commands/` is product)
+ *   docs       first segment `docs` or `doc`, a README/CHANGELOG/LICENSE-style basename, or a
+ *              framework or housekeeping path: `.claude/**` outside `.claude/rules/`, and any
+ *              `CLAUDE.md`, `.gitattributes` or `.gitignore`; never every `*.md` (a `.md` under
+ *              `packages/core/commands/` is product). `.claude/rules/**` stays shipped
  *   shipped    everything else
  * Two commits are equal (`compare`) when every differing path is `ignored` or `test-only`: docs, deps and ci-config
  * paths still make the pr-head, merge and deploy links and the `--head` guard fail, because a
@@ -86,6 +88,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { posix } = path;
 const { spawnSync } = require('child_process');
 const { BUILD_TOKEN } = require('./functional-verification');
 const liveEvidence = require('./live-evidence');
@@ -133,6 +136,7 @@ const LOCKFILES = new Set([
   'Pipfile.lock', 'poetry.lock', 'uv.lock', 'Gemfile.lock', 'go.sum', 'Cargo.lock', 'composer.lock',
   'mix.lock', 'pubspec.lock', 'Podfile.lock', 'packages.lock.json',
 ]);
+const HOUSEKEEPING_BASENAME = new Set(['CLAUDE.md', '.gitattributes', '.gitignore']);
 const DOC_BASENAME = /^(README|CHANGELOG|LICENSE|CONTRIBUTING|CODE_OF_CONDUCT|AUTHORS|NOTICE)(\.(md|markdown|txt|rst|adoc))?$/i;
 
 /** @returns {'ignored'|'test-only'|'ci-config'|'deps'|'docs'|'shipped'} for a repo-relative, forward-slash path. */
@@ -147,6 +151,9 @@ function classifyPath(p, trdRel) {
   if (LOCKFILES.has(base)) return 'deps';
   if (segments.length > 1 && (segments[0] === 'docs' || segments[0] === 'doc')) return 'docs';
   if (DOC_BASENAME.test(base)) return 'docs';
+  // Framework and housekeeping files are not shipped code (D1); `.claude/rules/**` is policy and stays shipped.
+  if (segments.length > 1 && segments[0] === '.claude' && segments[1] !== 'rules') return 'docs';
+  if (HOUSEKEEPING_BASENAME.has(base)) return 'docs';
   return 'shipped';
 }
 
@@ -438,6 +445,15 @@ function partitionChanges(names, rs, trdRel, anchor, head, cwd) {
 // Affected must-pass criteria (3.5)
 // ---------------------------------------------------------------------------
 
+/**
+ * Paths ADDED between two commits (`--diff-filter=A`, no rename detection), as a Set. A failed diff
+ * gives an empty set, so every unnamed path then reads as modified and widens (the safe side).
+ */
+function addedPaths(anchor, head, cwd) {
+  const r = run('git', ['diff', '--no-renames', '--diff-filter=A', '--name-only', '-z', anchor, head], cwd);
+  return new Set(r.ok ? r.raw.split('\0').filter(Boolean) : []);
+}
+
 function readJson(p) {
   try {
     return JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -453,16 +469,21 @@ function readJson(p) {
  * it); every uncovered must-pass objective counts too (it never had a proof).
  *
  * Covers per id: live-evidence artifact covers -> the criterion-covers record -> none. Everything is
- * in doubt (a) with `shipped: 'all'`, (b) when a path was `promoted` (tier `reprove`: no covers record
- * names a lockfile or a workflow, so matching would make the promotion a no-op), or (c) when a
- * non-excused shipped path is named by no record of any criterion (Touches lists what a task planned
- * to edit, not everything a criterion depends on: an unclaimed file is where a record could
- * under-cover). Otherwise a criterion with covers is affected when a changed path is on its list; one
- * with none counts as affected whenever a shipped path differs (OQ-2), but not for a base-only change
- * (`shipped` empty), and only when verification-state records it `met`. `reused` is the rest.
- * @returns {{ids: string[], reused: string[]}|{error: string}}
+ * in doubt (a) with `shipped: 'all'`, or (b) when a path was `promoted` (tier `reprove`: no covers
+ * record names a lockfile or a workflow, so matching would make the promotion a no-op). Otherwise a
+ * criterion with covers is affected when a changed path is on its list; one with none counts as
+ * affected whenever a shipped path differs (OQ-2), but not for a base-only change (`shipped` empty),
+ * and only when verification-state records it `met`. `reused` is the rest.
+ *
+ * A non-excused shipped path that NO record names (Touches lists what a task planned to edit, not
+ * everything a criterion depends on) is narrowed only when it was ADDED since the anchor (`added`):
+ * it puts in doubt the criteria whose covers sit in its directory (`relatedDirs`). An unnamed path
+ * that was modified or deleted, an added path beside no cover, and a repo-root path widen to every
+ * must-pass criterion, as before: another criterion's code may import it.
+ * @returns {{ids: string[], reused: string[], scope: 'none'|'targeted'|'full', scopeReason: string}|{error: string}}
+ *   `scope` is `full` when a widening rule decided the set, else `targeted` (non-empty) or `none`.
  */
-function affectedIds({ stateDir, trdPath, definitionPath, shipped, excused, promoted = [], shippedAll = false, cwd }) {
+function affectedIds({ stateDir, trdPath, definitionPath, shipped, excused, promoted = [], shippedAll = false, added = new Set(), cwd }) {
   const cli = path.join(__dirname, 'functional-verification.js');
   const r = run(process.execPath, [cli, 'must-pass-coverage', '--trd', trdPath, '--definition', definitionPath], cwd);
   if (!r.ok) return { error: `must-pass-coverage failed: ${r.err || r.out}` };
@@ -474,7 +495,8 @@ function affectedIds({ stateDir, trdPath, definitionPath, shipped, excused, prom
   }
   const criterionIds = new Set(cov.criteria || []);
   const ids = [...new Set([...(cov.criteria || []), ...(cov.uncovered || []).map((u) => u.id)])];
-  if (shippedAll || promoted.length > 0) return { ids, reused: [] };
+  if (shippedAll) return { ids, reused: [], scope: 'full', scopeReason: 'ensemble.reproof.shipped is all' };
+  if (promoted.length > 0) return { ids, reused: [], scope: 'full', scopeReason: `${promoted[0]} is promoted by ensemble.reproof` };
 
   const top = run('git', ['rev-parse', '--show-toplevel'], cwd);
   const root = fs.realpathSync(top.ok ? top.out : cwd);
@@ -496,9 +518,24 @@ function affectedIds({ stateDir, trdPath, definitionPath, shipped, excused, prom
     // that found it not met. Only a criterion verification-state records as met keeps its record.
     return proven.has(id) ? recorded.get(id) : undefined; // undefined: no usable record
   };
-  const matchersById = new Map(ids.map((id) => { const c = coversOf(id); return [id, c && c.map(coverMatcher)]; }));
+  const coversById = new Map(ids.map((id) => [id, coversOf(id)]));
+  const matchersById = new Map(ids.map((id) => { const c = coversById.get(id); return [id, c && c.map(coverMatcher)]; }));
   const allMatchers = [...matchersById.values()].filter(Boolean).flat();
-  if (shipped.some((p) => !allMatchers.some((m) => m(p)))) return { ids, reused: [] };
+
+  // D3: a shipped path no record names. Only an ADDED one can be narrowed, to the criteria whose
+  // covers sit in its directory; anything else widens to the full set.
+  const sideBySide = new Set(); // ids put in doubt by an unclaimed added path
+  for (const p of shipped.filter((q) => !allMatchers.some((m) => m(q)))) {
+    if (!added.has(p)) {
+      return { ids, reused: [], scope: 'full', scopeReason: `${p} was modified or deleted and no recorded cover names it` };
+    }
+    const dir = posix.dirname(p);
+    const related = dir === '.' ? [] : ids.filter((id) => (coversById.get(id) || []).some((c) => relatedDirs(c).includes(dir)));
+    if (related.length === 0) {
+      return { ids, reused: [], scope: 'full', scopeReason: dir === '.' ? `${p} is at the repo root, which no cover can sit beside` : `${p} shares a directory with no recorded cover` };
+    }
+    related.forEach((id) => sideBySide.add(id));
+  }
 
   const changed = [...shipped, ...excused];
   const affected = ids.filter((id) => {
@@ -506,9 +543,35 @@ function affectedIds({ stateDir, trdPath, definitionPath, shipped, excused, prom
     // No covers record: only a base-only change keeps a criterion's proof, and only one it was met
     // with; an objective no criterion names, or a criterion never met, has no proof to keep.
     if (!matchers) return !criterionIds.has(id) || !proven.has(id) || shipped.length > 0;
-    return changed.some((p) => matchers.some((m) => m(p)));
+    return sideBySide.has(id) || changed.some((p) => matchers.some((m) => m(p)));
   });
-  return { ids: affected, reused: ids.filter((id) => !affected.includes(id)) };
+  const scope = affected.length === 0 ? 'none' : 'targeted';
+  const scopeReason = affected.length === 0
+    ? 'no must-pass criterion covers or sits beside a changed path'
+    : `${affected.length} of ${ids.length} must-pass criteria cover or sit beside a changed path`;
+  return { ids: affected, reused: ids.filter((id) => !affected.includes(id)), scope, scopeReason };
+}
+
+/**
+ * D2: the directories a cover relates a changed path to, so a NEW file beside covered files counts as
+ * related. A cover ending in `/` is the directory itself; a glob gives the directory of its literal
+ * prefix (the segments before the first one holding `* ? [ {`); any other cover gives its dirname and
+ * itself (it may name a directory without a trailing slash). Pure string work. A result of `.` means
+ * the repo root, which `affectedIds` never matches: root files are unrelatable.
+ * @example relatedDirs('src/a/x.ts') // ['src/a', 'src/a/x.ts']; relatedDirs('src/{a,b}/*.ts') // ['src']
+ */
+function relatedDirs(cover) {
+  if (/[*?[{]/.test(cover)) {
+    const literal = [];
+    for (const seg of cover.split('/')) {
+      if (/[*?[{]/.test(seg)) break;
+      literal.push(seg);
+    }
+    return [literal.join('/') || '.'];
+  }
+  const dir = cover.replace(/\/+$/, '');
+  if (cover.endsWith('/')) return [dir || '.'];
+  return [posix.dirname(cover), dir];
 }
 
 /**
@@ -569,7 +632,10 @@ function resolveRef(ref, cwd) {
  *   `base`: ref whose already-merged changes are excused (see header). `head`: the commit judged
  *   instead of local HEAD. `setOnly`: set an absent anchor, never compare or move.
  * @returns {{action: 'set'|'none'|'moved'|'reverify'|'refused', anchor: string, ids?: string[],
- *            reused?: string[], differing?: string[], excused?: string[], mergeBases?: {old: string, new: string}, reason: string}}
+ *            reused?: string[], differing?: string[], excused?: string[], mergeBases?: {old: string, new: string}, reason: string,
+ *            scope?: 'none'|'targeted'|'full', scopeReason?: string, changed?: Array<{path: string, class: string}>}}
+ *   `scope`, `scopeReason` and `changed` are on every result that compared the anchor with the head;
+ *   they are absent on a `refused` result returned before that comparison.
  */
 function reconcile(args) {
   const { stateDir, trdPath = null, reason, reverifiedPath, cwd = process.cwd() } = args;
@@ -668,7 +734,14 @@ function reconcile(args) {
   const shipped = cmp.differing; // every differing class but ignored and test-only; what the owner sees
   const excused = cmp.excused;
   // `excused` and `mergeBases` appear only when a base was given, so a no-flag run reports exactly what it always did.
-  const out = (o) => (args.base ? { ...o, excused, ...(mergeBases ? { mergeBases } : {}) } : o);
+  // Every result that compared the anchor with the head also reports what changed and how much it
+  // puts in doubt (D4): `changed` is each non-ignored path with its class, `scope` is none|targeted|full.
+  const changed = cmp.names.map((p) => ({ path: p, class: classifyPath(p, trdRel) })).filter((c) => c.class !== 'ignored');
+  const NO_SCOPE = { scope: 'none' };
+  const out = (o, sc = NO_SCOPE) => {
+    const scoped = { ...o, scope: sc.scope, scopeReason: sc.scopeReason || o.reason, changed };
+    return args.base ? { ...scoped, excused, ...(mergeBases ? { mergeBases } : {}) } : scoped;
+  };
 
   // Tiers: partition ALL changed paths (test-only included, which `differing` drops) by class.
   const { classes, promoted, tierOf } = partitionChanges(cmp.names, rs, trdRel, anchor, head, cwd);
@@ -709,7 +782,9 @@ function reconcile(args) {
     return out({
       action: 'moved', anchor: next.anchor.commit, differing: shipped,
       reason: rule === 'no-success-definition' ? 'moved: no success definition to re-verify against' : 'moved: only base-branch changes since the anchor',
-    });
+    }, rule === 'no-success-definition'
+      ? { scope: 'full', scopeReason: 'no success definition: nothing could be judged, so nothing was re-proved' }
+      : undefined);
   }
 
   // Only non-shipped classes changed, none promoted: nothing to re-prove, the anchor moves.
@@ -725,30 +800,32 @@ function reconcile(args) {
 
   const aff = affectedIds({
     stateDir, trdPath: trdFile, definitionPath: path.resolve(cwd, definitionPath),
-    shipped: shippedDiff, excused: shippedExcused, promoted, shippedAll: rs.shipped === 'all', cwd,
+    shipped: shippedDiff, excused: shippedExcused, promoted, shippedAll: rs.shipped === 'all',
+    added: addedPaths(anchor, head, cwd), cwd,
   });
-  if (aff.error) return out({ action: 'refused', anchor, differing: shipped, reason: aff.error });
+  if (aff.error) return out({ action: 'refused', anchor, differing: shipped, reason: aff.error }, { scope: 'full', scopeReason: `could not judge: ${aff.error}` });
+  const sc = { scope: aff.scope, scopeReason: aff.scopeReason };
   if (aff.ids.length === 0) {
     const next = move(stateDir, custody, head, noneAffectedRule, []);
     return out({
       action: 'moved', anchor: next.anchor.commit, differing: shipped, reused: aff.reused,
       reason: fresh ? 'moved: no must-pass criterion is affected' : 'moved: only base-branch changes, no must-pass criterion is affected',
-    });
+    }, sc);
   }
   if (!reverifiedPath) {
-    return out({ action: 'reverify', anchor, ids: aff.ids, reused: aff.reused, differing: shipped, reason: `${aff.ids.length} must-pass criteria need re-verification` });
+    return out({ action: 'reverify', anchor, ids: aff.ids, reused: aff.reused, differing: shipped, reason: `${aff.ids.length} must-pass criteria need re-verification` }, sc);
   }
   const re = readJson(reverifiedPath);
   if (!re || !Array.isArray(re.criteria)) {
-    return out({ action: 'refused', anchor, ids: aff.ids, reused: aff.reused, differing: shipped, reason: `cannot read re-verification state ${reverifiedPath}` });
+    return out({ action: 'refused', anchor, ids: aff.ids, reused: aff.reused, differing: shipped, reason: `cannot read re-verification state ${reverifiedPath}` }, sc);
   }
   const statusOf = new Map(re.criteria.map((c) => [c.id, c.status]));
   const notMet = aff.ids.filter((id) => statusOf.get(id) !== 'met');
   if (notMet.length > 0) {
-    return out({ action: 'refused', anchor, ids: notMet, reused: aff.reused, differing: shipped, reason: `not met after re-verification: ${notMet.join(', ')}` });
+    return out({ action: 'refused', anchor, ids: notMet, reused: aff.reused, differing: shipped, reason: `not met after re-verification: ${notMet.join(', ')}` }, sc);
   }
   const next = move(stateDir, custody, head, 'reverified', aff.ids);
-  return out({ action: 'moved', anchor: next.anchor.commit, ids: aff.ids, reused: aff.reused, differing: shipped, reason: 'moved: affected criteria re-verified' });
+  return out({ action: 'moved', anchor: next.anchor.commit, ids: aff.ids, reused: aff.reused, differing: shipped, reason: 'moved: affected criteria re-verified' }, sc);
 }
 
 // ---------------------------------------------------------------------------
