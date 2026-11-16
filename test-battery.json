@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "baseline": {
+    "base": "68ec58f9026e8470b96474ec1d8d4aba41953f0f",
+    "capturedAt": "2026-11-16T20:22:22.414Z",
+    "suites": {
+      "unit": {
+        "command": "npx jest",
+        "durationSeconds": 241,
+        "failures": [
+          "packages/core/hooks/status.test.js",
+          "packages/core/lib/__tests__/style-packs.test.js",
+          "packages/core/lib/ci-baseline.test.js",
+          "packages/core/lib/ci-workflow-jest-job.test.js",
+          "packages/core/lib/design-bundle.test.js",
+          "packages/core/lib/design-render-walk.test.js",
+          "packages/core/lib/design-render.test.js",
+          "packages/skills/design-grounding/__tests__/skill-md.test.js",
+          "packages/skills/design-setup/__tests__/skill-md.test.js",
+          "packages/skills/designing-on-canvas/__tests__/skill-md.test.js",
+          "packages/skills/framework-detector/__tests__/detect-framework.test.js",
+          "packages/skills/frontend-design/__tests__/skill-md.test.js",
+          "packages/skills/ship-setup/__tests__/skill-md.test.js",
+          "packages/skills/verification-setup/__tests__/skill-md.test.js",
+          "packages/skills/verify-data-fidelity/__tests__/skill-md.test.js",
+          "packages/skills/verify-design-comparison/__tests__/skill-md.test.js",
+          "packages/skills/verify-design-structure/__tests__/skill-md.test.js",
+          "packages/skills/verify-flow-as-built/__tests__/skill-md.test.js"
+        ]
+      }
+    }
+  },
+  "runs": {
+    "unit": {
+      "tree": "68ec58f9026e8470b96474ec1d8d4aba41953f0f+1cf0c90a017b",
+      "status": "fail",
+      "command": "npx jest",
+      "durationSeconds": 241,
+      "failures": [
+        "packages/core/hooks/status.test.js",
+        "packages/core/lib/__tests__/style-packs.test.js",
+        "packages/core/lib/ci-baseline.test.js",
+        "packages/core/lib/ci-workflow-jest-job.test.js",
+        "packages/core/lib/design-bundle.test.js",
+        "packages/core/lib/design-render-walk.test.js",
+        "packages/core/lib/design-render.test.js",
+        "packages/skills/design-grounding/__tests__/skill-md.test.js",
+        "packages/skills/design-setup/__tests__/skill-md.test.js",
+        "packages/skills/designing-on-canvas/__tests__/skill-md.test.js",
+        "packages/skills/framework-detector/__tests__/detect-framework.test.js",
+        "packages/skills/frontend-design/__tests__/skill-md.test.js",
+        "packages/skills/ship-setup/__tests__/skill-md.test.js",
+        "packages/skills/verification-setup/__tests__/skill-md.test.js",
+        "packages/skills/verify-data-fidelity/__tests__/skill-md.test.js",
+        "packages/skills/verify-design-comparison/__tests__/skill-md.test.js",
+        "packages/skills/verify-design-structure/__tests__/skill-md.test.js",
+        "packages/skills/verify-flow-as-built/__tests__/skill-md.test.js"
+      ],
+      "at": "2026-11-16T20:21:54.600Z"
+    },
+    "integration": {
+      "tree": "68ec58f9026e8470b96474ec1d8d4aba41953f0f+1cf0c90a017b",
+      "status": "pass",
+      "command": "bats scaffold-project.test.sh scaffold-delivery.test.sh notify-on-complete.test.sh",
+      "durationSeconds": 440,
+      "failures": [],
+      "at": "2026-11-16T20:21:54.985Z"
+    }
+  }
+}

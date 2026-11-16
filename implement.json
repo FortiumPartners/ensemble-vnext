@@ -1,0 +1,129 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/publish-artifacts-per-kind.md",
+  "trd_hash": "b15a36c30bd6be7ea402de3be15c3e8fa9c83db171b3a2dd20ca55f34c3cc25c",
+  "branch": "feature/40-publish-artifacts-per-kind",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "FIX-001",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/artifacts.js",
+        "packages/core/lib/artifacts.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T19:34:38.150Z",
+      "completed_at": "2026-11-16T20:22:30.316Z",
+      "last_advanced": "2026-11-16T19:41:05.732Z"
+    },
+    "FIX-002": {
+      "description": "FIX-002",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/create-prd.md",
+        "packages/core/commands/audit-prd.md",
+        "packages/core/commands/verify-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T19:34:38.150Z",
+      "completed_at": "2026-11-16T20:22:30.316Z",
+      "last_advanced": "2026-11-16T19:41:05.732Z"
+    },
+    "FIX-003": {
+      "description": "FIX-003",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/design-commands.md",
+        "packages/core/commands/design-system.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T19:34:38.150Z",
+      "completed_at": "2026-11-16T20:22:30.316Z",
+      "last_advanced": "2026-11-16T19:41:05.732Z"
+    },
+    "FIX-004": {
+      "description": "FIX-004",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "test/integration/tests/scaffold-delivery.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T19:34:38.150Z",
+      "completed_at": "2026-11-16T20:22:30.316Z",
+      "last_advanced": "2026-11-16T19:41:05.732Z"
+    },
+    "FIX-005": {
+      "description": "FIX-005",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/publish-switch-prose.test.js",
+        "CHANGELOG.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T19:34:38.150Z",
+      "completed_at": "2026-11-16T20:22:30.316Z",
+      "last_advanced": "2026-11-16T19:41:05.732Z"
+    },
+    "FIX-006": {
+      "description": "FIX-006",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/lib/artifacts.js",
+        ".claude/commands/plan.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-16T19:34:38.150Z",
+      "completed_at": "2026-11-16T20:22:30.316Z",
+      "last_advanced": "2026-11-16T19:41:05.732Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "5cadb7b52e087347b9a7f480d593c22ab014d913",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T20:22:30.318Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "5cadb7b52e087347b9a7f480d593c22ab014d913",
+    "last_checkpoint_timestamp": "2026-11-16T20:22:30.318Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/publish-artifacts-per-kind.md § Intended Change"
+  }
+}
