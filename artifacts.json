@@ -17,5 +17,11 @@
     "url": "",
     "updated_at": "2026-11-16T20:34:36.702Z",
     "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/cap-verification-runs-per-feature/audit-build-report.md",
+    "url": "https://claude.ai/artifact/U4pwXnYAV77CCSJteFBHhU",
+    "updated_at": "2026-11-16T20:54:20.370Z",
+    "command": "/audit-build"
   }
 }

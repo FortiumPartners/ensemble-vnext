@@ -1,0 +1,13 @@
+{
+  "feature": "cap-verification-runs-per-feature",
+  "trd": "docs/TRD/cap-verification-runs-per-feature.md",
+  "closedAt": "2026-11-16T20:54:04Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: planned, not built yet: VRL-T001 -- the live check is a [LIVE] task that needs headless model sessions in a fixtures slot, so /implement-trd set it aside to run as a separate live pass after the build; owner question: `--reset-state` clears the run count, which goes against O1's \"no command starts a fresh count\" (the TRD assumed this in OQ-5, and nobody has confirmed it); O9's coverage floor (60% unit / 50% integration) was never measured for this feature; no test covers a second record-ruling call.",
+    "report": ".trd-state/cap-verification-runs-per-feature/audit-build-report.md",
+    "auditedCommit": "177d2898cc576f1ad20876888a0566e7c25daad6",
+    "anchorCommit": "8c81ff1d0cf08306a62091641782a821764b6911"
+  }
+}
