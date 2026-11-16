@@ -1,14 +1,42 @@
 {
   "version": 1,
-  "baseline": null,
+  "baseline": {
+    "base": "dceaef8b301daa12754dcd5591f4d2c367ced661",
+    "capturedAt": "2026-11-16T20:43:37.614Z",
+    "suites": {
+      "unit": {
+        "command": "npx jest",
+        "durationSeconds": 137,
+        "failures": [
+          "packages/core/hooks/status.test.js",
+          "packages/skills/design-setup/__tests__/skill-md.test.js",
+          "packages/skills/ship-setup/__tests__/skill-md.test.js",
+          "packages/skills/verification-setup/__tests__/skill-md.test.js"
+        ]
+      }
+    }
+  },
   "runs": {
     "unit": {
-      "tree": "278761733f0a21ccbfbcfa8da04c1a6299dd669f+ee16246cf883",
-      "status": "pass",
+      "tree": "4258cc01b7e097492dc6e8447588a48f3f542578+bbeda0af64c0",
+      "status": "fail",
       "command": "npx jest",
-      "durationSeconds": 137,
+      "durationSeconds": 155,
+      "failures": [
+        "packages/core/hooks/status.test.js",
+        "packages/skills/design-setup/__tests__/skill-md.test.js",
+        "packages/skills/ship-setup/__tests__/skill-md.test.js",
+        "packages/skills/verification-setup/__tests__/skill-md.test.js"
+      ],
+      "at": "2026-11-16T20:49:07.424Z"
+    },
+    "integration": {
+      "tree": "4258cc01b7e097492dc6e8447588a48f3f542578+bbeda0af64c0",
+      "status": "pass",
+      "command": "bats test/integration/tests/runtime-integrity.test.sh",
+      "durationSeconds": 30,
       "failures": [],
-      "at": "2026-11-16T20:42:16.361Z"
+      "at": "2026-11-16T20:46:13.699Z"
     }
   }
 }

@@ -4,7 +4,7 @@
   "trd_hash": "46619b9a0c3e7c6e96e5be8e1bba1dd01bbe5bbd420450fc7dd7d1ccd0e3b6dc",
   "branch": "feature/10-audit-before-functional-verification",
   "strategy": "tdd",
-  "phase_cursor": 2,
+  "phase_cursor": 3,
   "tasks": {
     "ABFV-B001": {
       "description": "In packages/core/lib/audit-rounds.js, per §3.1: make readRounds fold a later ledger line carrying the same non-empty runId into its round; add pendingClose(stateDir, { runId }) and the pending-close CLI verb; extend the header comment, the usage string and module.exports. Jest tests in audit-rounds.test.js. Copy the file to .claude/lib/audit-rounds.js. No write verb: the deferred-close line is written through the existing record",
@@ -26,37 +26,42 @@
     "ABFV-B002": {
       "description": "Add the caller-only modes to packages/core/commands/audit-build.md per §3.2: argument-hint and User Input parsing for --chained, --defer-close, --close-deferred and --verified; a new section after step 4 stating each mode by reference to the steps it reuses; the deferred branch of step 4's close true bullet (the deferred-close line through record, its trdHash from trd-hash run after the fix run's RETURN and the anchorCommit wait); --close-deferred's pending-close read with implement.json's audit.runId, D8's stale and nothing to close, D9's refusal and D18's anchorCommit; under --chained, each COMMAND STUCK exit as RETURN → STUCK: <why>; the RETURN lines; Output discipline saying neither mode emits a banner or notification. Leave the standalone text of step 4 and the PR paragraph unchanged except for one sentence each saying what --defer-close skips (D7). In step 2, change the definition of round to count the rounds readRounds returns since the last close (D3), not ledger lines. Copy to .claude/commands/audit-build.md. Pin the new text in verify-command-surface.test.js",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        ".claude/commands/audit-build.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-16T20:43:42.946Z",
+      "completed_at": "2026-11-16T20:46:32.156Z",
+      "last_advanced": "2026-11-16T20:46:20.184Z"
     },
     "ABFV-B003": {
       "description": "Edit packages/core/commands/implement-trd.md per §3.3: usage header, User Input, Execution Model (tail line and its FUNCTIONAL VERIFICATION paragraph), §1.5 (D12), §3.7, §6's state-file schema (audit, D19), Step 7 intro, new §7.3 (D4's wait, call, re-audit loop and skips; D19's write), Step 9's close check and call (D5, D18), its RETURN handling (D9), its STATE audit line, its NEXT (D10) and the PR paragraph; copy to .claude/commands/implement-trd.md. Rewrite the four tests in verify-command-surface.test.js that assert today's order, and add pins for §7.3 and Step 9",
       "phase": 3,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-11-16T20:49:14.825Z",
       "completed_at": null
     },
     "ABFV-B004": {
       "description": "Edit packages/core/commands/verify-build.md per §3.4: readout rule O4 and the fix loop's step 6 take D11's close at exactly the two \"otherwise /audit-build\" points, with its explicit---no-fix and --resume rules and its NEXT by RETURN; copy to .claude/commands/verify-build.md. Change renderReport's satisfied Next line in packages/core/lib/functional-verification.js per §3.5, copy it to .claude/lib/functional-verification.js, and rewrite its three pins in functional-verification.test.js. Rewrite the verify-build.md pin \"satisfied branch: NEXT names /audit-build\" in verify-command-surface.test.js and add pins for the fix loop's step 6",
       "phase": 3,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-11-16T20:49:14.825Z",
       "completed_at": null
     },
     "ABFV-D001": {
@@ -104,13 +109,21 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T20:42:16.542Z"
+    },
+    {
+      "phase": 2,
+      "commit": "06f224dee30ae6f3ea11bee27878ddb0c0005664",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T20:49:14.825Z"
     }
   ],
   "recovery": {
     "interrupted": false,
     "interrupt_reason": null,
-    "last_healthy_checkpoint": "4258cc01b7e097492dc6e8447588a48f3f542578",
-    "last_checkpoint_timestamp": "2026-11-16T20:42:16.542Z"
+    "last_healthy_checkpoint": "06f224dee30ae6f3ea11bee27878ddb0c0005664",
+    "last_checkpoint_timestamp": "2026-11-16T20:49:14.825Z"
   },
   "functional_verification": {
     "prd_resolved": true,
