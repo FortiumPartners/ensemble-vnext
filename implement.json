@@ -163,6 +163,36 @@
       "started_at": "2026-11-16T23:12:48.576Z",
       "last_advanced": "2026-11-16T23:13:56.176Z",
       "completed_at": "2026-11-16T23:14:21.376Z"
+    },
+    "AMEND-003": {
+      "description": "AMEND-003",
+      "phase": 4,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "current_problem": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-16T23:26:07.888Z",
+      "last_advanced": "2026-11-16T23:27:36.906Z",
+      "completed_at": "2026-11-16T23:27:43.893Z"
+    },
+    "AMEND-004": {
+      "description": "AMEND-004",
+      "phase": 4,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-first-order.test.js"
+      ],
+      "commit": null,
+      "current_problem": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-16T23:26:07.888Z",
+      "last_advanced": "2026-11-16T23:27:36.906Z",
+      "completed_at": "2026-11-16T23:27:43.894Z"
     }
   },
   "checkpoints": [
@@ -205,13 +235,21 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T23:16:10.258Z"
+    },
+    {
+      "phase": 4,
+      "commit": "6986ce186b62d94e77881a41984c9bda7d51f326",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T23:29:14.142Z"
     }
   ],
   "recovery": {
     "interrupted": false,
     "interrupt_reason": null,
-    "last_healthy_checkpoint": "7d9e9680a4b493d03d520ba50272a714a0842d5a",
-    "last_checkpoint_timestamp": "2026-11-16T23:16:10.258Z"
+    "last_healthy_checkpoint": "6986ce186b62d94e77881a41984c9bda7d51f326",
+    "last_checkpoint_timestamp": "2026-11-16T23:29:14.142Z"
   },
   "functional_verification": {
     "prd_resolved": true,

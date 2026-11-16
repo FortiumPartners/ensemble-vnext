@@ -18,17 +18,17 @@
   },
   "runs": {
     "unit": {
-      "tree": "d3b6e66a16f04697674c1f947cedee852a26d042+a0cc21964b7a",
+      "tree": "5cb9bd6950c644a18c1e18bd9530adb4e932f0ef+da4be4abe402",
       "status": "fail",
       "command": "npx jest",
-      "durationSeconds": 96,
+      "durationSeconds": 84,
       "failures": [
         "packages/core/hooks/status.test.js",
         "packages/skills/design-setup/__tests__/skill-md.test.js",
         "packages/skills/ship-setup/__tests__/skill-md.test.js",
         "packages/skills/verification-setup/__tests__/skill-md.test.js"
       ],
-      "at": "2026-11-16T23:16:10.058Z"
+      "at": "2026-11-16T23:29:13.790Z"
     },
     "integration": {
       "tree": "d3b6e66a16f04697674c1f947cedee852a26d042+a0cc21964b7a",

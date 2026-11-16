@@ -1,0 +1,195 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "A default /implement-trd run (not --chained) runs the code audit (/audit-build, with its fix run) after the end-of-run code review and BEFORE the functional-verification loop, so verification runs once, on code that already carries the audit's fixes. MUST PASS.",
+      "source": "TRD ## Objectives O1; investigation ## Objectives O1 (roadmap item 1; PM instruction 2026-11-16)",
+      "served_by": [
+        "ABFV-B003",
+        "ABFV-T001"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "The feature is closed and the PR opened (when ensemble.openPullRequest is auto) only after BOTH the audit has passed AND verification has run with outcome satisfied (or was skipped by --no-verify); a passing audit followed by a failing verification closes nothing and opens no PR. MUST PASS.",
+      "source": "TRD ## Objectives O2; investigation ## Objectives O2 (roadmap item 1)",
+      "served_by": [
+        "ABFV-B001",
+        "ABFV-B002",
+        "ABFV-B003"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "/implement-trd's readout NEXT and /verify-build's hand-off follow the new order: neither tells the owner to run /audit-build after a verification when an audit has already passed on this feature; /verify-build with outcome satisfied and an audit pass on record completes that deferred close (and PR) itself.",
+      "source": "TRD ## Objectives O3; investigation ## Objectives O3 (roadmap item 1)",
+      "served_by": [
+        "ABFV-B003",
+        "ABFV-B004"
+      ]
+    },
+    {
+      "id": "O4",
+      "statement": "/audit-build invoked on its own by the owner behaves exactly as today: audits, chains its fix run, closes the feature and opens the PR on a pass. MUST PASS.",
+      "source": "TRD ## Objectives O4; investigation ## Objectives O4 (roadmap item 1, Keep /audit-build usable on its own)",
+      "served_by": [
+        "ABFV-B002"
+      ]
+    },
+    {
+      "id": "O5",
+      "statement": "Command text (packages/core/commands/ and the .claude/commands/ mirror) and docs that describe the order (CLAUDE.md, .claude/rules/process.md, docs/guides/*, docs/reference/implement-trd.md, docs/reference/verification.md, others grep finds) state audit-first; a grep finds no text still saying verification runs before the audit.",
+      "source": "TRD ## Objectives O5; investigation ## Objectives O5 (roadmap item 1, How it will be checked)",
+      "served_by": [
+        "ABFV-D001"
+      ]
+    },
+    {
+      "id": "O6",
+      "statement": "Jest tests pin the order: the existing tests that pin satisfied leading to NEXT /audit-build are rewritten to pin audit-first, and new tests pin the deferred-close mode and its library support.",
+      "source": "TRD ## Objectives O6; investigation ## Objectives O6 (roadmap item 1)",
+      "served_by": [
+        "ABFV-B001",
+        "ABFV-B002",
+        "ABFV-B003",
+        "ABFV-B004",
+        "ABFV-T001"
+      ]
+    },
+    {
+      "id": "O7",
+      "statement": "A headless fixture session (the fixtures environment of verification.md section 1) shows /implement-trd running the audit step before the verification step.",
+      "source": "TRD ## Objectives O7; investigation ## Objectives O7 (roadmap item 1, How it will be checked; PM acceptance)",
+      "served_by": [
+        "ABFV-T002"
+      ]
+    },
+    {
+      "id": "O8",
+      "statement": "The deferred close is a run record: written to the audit round ledger (.trd-state/<feature>/audit-rounds.jsonl), reaches origin on the feature's records ref, and is never committed on the branch.",
+      "source": "TRD ## Objectives O8; investigation ## Decision (run records go to the records ref); .claude/rules/command-status.md",
+      "served_by": [
+        "ABFV-B001"
+      ]
+    },
+    {
+      "id": "O9",
+      "statement": "Every edited command exists byte-identical under packages/core/commands/ and .claude/commands/, every edited library under packages/core/lib/ and .claude/lib/, router.py under packages/router/hooks/ and .claude/hooks/, and command-status.md under .claude/rules/ and packages/core/templates/claude-directory/rules/; packages/full/ carries the same content.",
+      "source": "TRD ## Objectives O9; investigation ## Decision (mirrors)",
+      "served_by": [
+        "ABFV-B001",
+        "ABFV-B004"
+      ]
+    },
+    {
+      "id": "O10",
+      "statement": "Tests pass with unit coverage at or above 60% and integration coverage at or above 50% where integration tests apply.",
+      "source": "TRD ## Objectives O10; constitution.md Quality Gates",
+      "served_by": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "ABFV-B001",
+      "description": "In packages/core/lib/audit-rounds.js: make readRounds fold a later ledger line carrying the same non-empty runId into its round; add pendingClose(stateDir, {runId}) and the pending-close CLI verb; Jest tests in audit-rounds.test.js; copy to .claude/lib. Serves D3, D8, D19, O2, O6, O8, O9. Depends on none.",
+      "touches": [
+        "packages/core/lib/audit-rounds.js",
+        "packages/core/lib/audit-rounds.test.js",
+        ".claude/lib/audit-rounds.js"
+      ]
+    },
+    {
+      "id": "ABFV-B002",
+      "description": "Add the caller-only modes (--chained, --defer-close, --close-deferred and related) to packages/core/commands/audit-build.md per TRD section 3.2, plus mirror and command-surface tests. Serves D2, D6, D7, D8, D9, D13, D18, O2, O4, O6. Depends on ABFV-B001.",
+      "touches": [
+        "packages/core/commands/audit-build.md",
+        ".claude/commands/audit-build.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ]
+    },
+    {
+      "id": "ABFV-B003",
+      "description": "Edit packages/core/commands/implement-trd.md per TRD section 3.3: usage header, User Input, Execution Model (tail line and FUNCTIONAL VERIFICATION paragraph), section 7.3 audit step and Step 9 close logic and NEXT precedence. Serves D4, D5, D9, D10, D12, D13, D14, D18, D19, O1, O2, O3, O6. Depends on ABFV-B002.",
+      "touches": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ]
+    },
+    {
+      "id": "ABFV-B004",
+      "description": "Edit packages/core/commands/verify-build.md per TRD section 3.4: readout rule O4 and the fix loop step 6 take the deferred close at the two otherwise-run-audit-build points. Serves D9, D11, D18, D20, O3, O6, O9. Depends on ABFV-B002, ABFV-B003. Also touches packages/core/lib/functional-verification.js (plus mirror and test).",
+      "touches": [
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        "packages/core/lib/functional-verification.js",
+        ".claude/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js"
+      ]
+    },
+    {
+      "id": "ABFV-D001",
+      "description": "Update every statement of the end-of-run order to audit-first and close-after-verification across docs, rules, templates and router.py (CLAUDE.md Development Workflow block, README.md, process.md, guides, reference docs, command-status.md, router hint). Serves O5, D13, D14, D15, D18. Depends on ABFV-B002, ABFV-B003, ABFV-B004. Runs after B004 so its grep sees final command text.",
+      "touches": [
+        "CLAUDE.md",
+        "README.md",
+        ".claude/rules/process.md",
+        "packages/core/templates/process.md.template",
+        "packages/core/templates/CLAUDE.md.template",
+        "docs/guides/PROCESS.md",
+        "docs/guides/QUICK-REFERENCE.md",
+        "docs/guides/CONCEPTS.md",
+        "docs/guides/README.md",
+        "docs/guides/ARCHITECTURE.md",
+        "docs/guides/ship-build.md",
+        "docs/reference/implement-trd.md",
+        "docs/reference/verification.md",
+        "docs/reference/README.md",
+        "docs/reference/other-commands.md",
+        "packages/router/hooks/router.py",
+        ".claude/hooks/router.py",
+        ".claude/rules/command-status.md",
+        "packages/core/templates/claude-directory/rules/command-status.md",
+        "test/integration/tests/runtime-integrity.test.sh (only if a byte ceiling must be raised)"
+      ]
+    },
+    {
+      "id": "ABFV-T001",
+      "description": "Add packages/core/commands/audit-first-order.test.js (new file): slices implement-trd.md by headings (section 7.3 sits between 7.2 and Step 8) and pins the audit-first order. Serves O1, O6, D17. Depends on ABFV-B002, ABFV-B003, ABFV-B004.",
+      "touches": [
+        "packages/core/commands/audit-first-order.test.js"
+      ]
+    },
+    {
+      "id": "ABFV-T002",
+      "description": "[LIVE, deferred by design: set aside by /implement-trd unless --include-deferred] Headless model session in a fixtures slot at .trd-state/audit-before-functional-verification/evidence/live/work/slot-1 (scaffolded from packages/full) showing /implement-trd runs the audit step before verification. Serves O7, D16. Depends on ABFV-B001, ABFV-B002, ABFV-B003.",
+      "touches": [
+        ".trd-state/audit-before-functional-verification (evidence/live/ABFV-T002/, evidence/live-manifest.jsonl, and the slot-1 folder destroyed afterwards; all gitignored; nothing in the source tree)"
+      ]
+    },
+    {
+      "id": "AMEND-001",
+      "description": "Amendment (no objective recorded), review finding [review:correctness]: pendingClose treats a held-back close as spent only while closed.json exists, so deleting closed.json to reopen a feature brings the old held-back close back. Depends on none.",
+      "touches": [
+        "packages/core/lib/audit-rounds.js"
+      ]
+    },
+    {
+      "id": "AMEND-002",
+      "description": "Amendment (no objective recorded), review finding [review:correctness]: a --resume run may close with --verified, setting audit.anchorCommit to HEAD although the resumed evidence may predate commits made since. Depends on none.",
+      "touches": [
+        "packages/core/commands/verify-build.md"
+      ]
+    }
+  ],
+  "open_questions": [
+    "Investigation section '## Open Questions' (docs/plan/audit-before-functional-verification.investigation.md, line 156), verbatim row content: 'none'.",
+    "The TRD (docs/TRD/audit-before-functional-verification.md) has no Open Questions heading; none was found by heading grep."
+  ],
+  "could_not_verify": [
+    "A standalone /audit-build after a satisfied /verify-build closes on code no verification saw, when its fix run changes code (D20, TR4). It is reached only when no deferred close is on record: features built before this change, a Step 7.3 that errored, or an audit that ended open, capped or STUCK. /ship-build's custody check starts at that fix run's head (anchorCommit), so it does not re-prove the fix run's work either. This is today's behaviour, now confined to that case. Not checkable from the text: it is a residual risk the design accepts, seen only in practice. The owner acts: after such an audit, if its readout says the fix run changed code, run /verify-build before shipping.",
+    "A real PR opened by --close-deferred with ensemble.openPullRequest: auto. The fixture slot is not a GitHub repository with a remote, so the PR branch is proven by prose pins only (section 6.1, Verification Environment). claude --remote sessions and failures that occur only on the GitHub Actions runner cannot be reproduced here either (verification.md section 5).",
+    "How long ABFV-T002's live run takes with the audit added. The only measurement is the same fixture's default run without an audit, 1471 s on 2026-08-19; the audit's verifier wave, a possible fix run and re-audits come on top. The task sets no time bound, only a background run with a timeout above the 600 s foreground limit, so the timeout must be chosen generously."
+  ]
+}
