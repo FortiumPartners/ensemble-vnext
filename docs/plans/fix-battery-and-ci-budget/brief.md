@@ -1,0 +1,98 @@
+# Brief: Phase gates rerun the full test battery and die at the Bash time limit; CI has no time budget
+
+The owner's list, verbatim (from GitHub issues FortiumPartners/ensemble-vnext #156 and #158):
+
+> #156 implement-trd's phase gates rerun the full battery twice, and long suites die at the 600 s Bash timeout; #158 treat CI as a first-class constraint: a 10 to 15 minute budget recorded by ship-setup, reported by ship, with sharding guidance.
+
+The two issues are independent: #156 changes how `/implement-trd` runs tests locally at each phase gate; #158 changes `/ship-setup`, the `wait-ci` shipping step and the ship readout. Neither needs the other built, and they touch different files. Builds on: fix-rerun-scope-rule (issue #157, already in the Ensemble fixes plan), which adds the shared none, targeted or full rerun-scope contract (`packages/core/contracts/rerun-scope.md`) and a decision step at the same `implement-trd.md` lines this fix changes; its brief says #156 lands after it. Issue 1 below applies that contract's "none" and "targeted" scopes to the phase-gate battery rather than inventing its own words. Both are prompt and library edits in this repository; the source of truth is `packages/` (the vendored `.claude/` copy is refreshed from it).
+
+---
+
+## 1. Phase gates run the full test battery twice, and suites longer than 10 minutes are cut off (#156)
+
+### Steps
+
+1. Run `/implement-trd` on a TRD in a project whose unit, integration or e2e suite takes longer than 10 minutes (seen in the Storybook product, phone-layout builds 1 to 4, about 100+ minutes each).
+2. At each phase gate, the phase workflow first dispatches the `verify-app` agent with a prompt that says "Run the full test suite against files changed since the last checkpoint" (`packages/core/commands/implement-trd.md:1173-1188`).
+3. After the workflow returns, the command itself runs "the FULL battery" again (`packages/core/commands/implement-trd.md:1256-1262`), resolving it as `test:ci`, `test` or the language runner, on the same tree with no edits in between.
+4. Each of those runs goes through a foreground `Bash` call, whose hard limit is 600 s.
+
+### Expected
+
+1. A suite the gate already ran on the same tree (same commit, no file edited since) is not run again; the second run reuses the first result and says so.
+2. Integration and e2e suites are narrowed to the tests related to the changed files where the runner supports it (for example Jest's findRelatedTests option, `vitest related`, `pytest` by path); the full suite runs when shared code changed (a shared helper, config, fixtures, a package manifest) or the runner cannot narrow.
+3. A suite whose expected runtime is above the Bash limit runs with `Bash({run_in_background: true})` and a timeout above its runtime, and the command waits on it with `Monitor` (or the background-completion notice) instead of a foreground call, so the result is never lost.
+4. The base branch's already-failing tests are recorded once, as a baseline, in the feature's run records, and a later phase gate reports a failure that is in the baseline as "already failing on <base>" instead of diagnosing it again. A failure not in the baseline still fails the gate.
+
+### Actual
+
+The battery runs twice per phase on an unchanged tree. In Storybook, full e2e runs were cut off by the 600 s Bash limit (build 1 twice, build 2 once), the result was lost and the suite re-ran; build 4's integration run was killed after 31 minutes. 20 of 21 full unit runs reported the same failures that were already on the base branch (`develop`), and each was re-diagnosed. The command text has no mention of a baseline, of `run_in_background` or `Monitor` for the battery, or of reusing the gate's result: `grep -n -i "baseline\|run_in_background\|Monitor" packages/core/commands/implement-trd.md` matches only lines 82, 846 and 1621, none of them in the battery section.
+
+### Where
+
+- `packages/core/commands/implement-trd.md:1256` — "Run the deterministic phase-gate battery (D8: the command runs the FULL battery here…)" and the resolution list below it (lines 1258-1270): the second run, and where reuse, narrowing, background running and the baseline belong.
+- `packages/core/commands/implement-trd.md:1173` — the `verifyPrompt` for the `verify-app` gate ("Run the full test suite against files changed…"): the first run; it should record the commit and tree it ran on so the command can tell whether a rerun is needed, receive the baseline, and follow the same background-running rule (the `verify-app` agent's own `Bash` calls hit the same 600 s limit).
+- `packages/core/commands/implement-trd.md:1290` — "On phase failure (… a resolved battery red)": where a baseline-only failure must stop counting as red.
+- The baseline file belongs beside the other run records under `.trd-state/<feature>/` (written through the records ref, never committed on the branch, per `.claude/rules/command-status.md`).
+
+### How to check
+
+- Before the fix, each of these prints nothing; after it, each matches the battery section of `packages/core/commands/implement-trd.md` (lines 1250-1300 or wherever it moves):
+  - `sed -n '/Run the deterministic phase-gate battery/,/## Step 5/p' packages/core/commands/implement-trd.md | grep -n -i "baseline"`
+  - `… | grep -n "run_in_background"`
+  - `… | grep -n -i "reuse\|not run again"`
+  - `… | grep -n -i "related"`
+- A prose test in `packages/core/commands/` (the pattern of `implement-trd-shipping.test.js`) asserting the four rules, failing before and passing after; `npx jest packages/core/commands` green.
+- Any library the fix adds (for example a baseline reader and comparer) has Jest unit tests: a failure in the baseline is reported as already failing; a new failure is red.
+- Live behaviour (a real phase gate skipping its rerun on a long suite) is waiting on the owner: it needs a project with a suite over 10 minutes, which this repository does not have (its suites finish well inside the limit).
+
+### Open questions
+
+- Where the baseline is captured: **owner's call, default taken** — once per feature, at the first phase gate, by running the resolved battery on the merge base (the branch point from the base branch) in a temporary `git worktree`, then reused by every later gate of that feature. A project whose battery is too slow for that may instead let the first gate's failures that also fail on the merge base become the baseline.
+- How "expected runtime above the Bash limit" is known: **owner's call, default taken** — from the last recorded duration of that suite in the feature's run records; with none recorded, run in the background whenever the suite is an integration or e2e suite.
+
+---
+
+## 2. CI has no time budget: nothing records one, reports CI time against it, or says how to stay inside it (#158)
+
+### Steps
+
+1. Run the `ship-setup` skill (`packages/skills/ship-setup/SKILL.md`). It asks about shipping steps and then runs the CI baseline check (`node .claude/lib/ci-baseline.js check`, section "CI baseline", line 149), which checks three things: a summary job, docs-and-record skips, and record-commit change detection.
+2. Run `/ship-build` with a `wait-ci` step. The `wait-ci` step (`packages/core/contracts/ship-primitive-wait-ci.md`) returns `passed`, `failed` or `no-checks` with `data: { failed, flaky, judgedHead }`.
+3. Look for a CI time budget, or CI wall time, anywhere: `grep -c -i budget packages/skills/ship-setup/SKILL.md packages/skills/verification-setup/SKILL.md packages/core/contracts/ship-primitive-wait-ci.md packages/core/commands/ship-build.md packages/core/commands/audit-build.md packages/core/templates/claude-directory/rules/ship.md`.
+
+### Expected
+
+1. `ship-setup` records a CI time budget in `ship.md`: a default of 10 minutes, accepted up to 15; a value above 15 is refused with the reason. The owner is offered the default.
+2. `wait-ci` measures the CI wall time of the run it waited on (first job start to last job end, from the jobs JSON of `gh run view <run-id>`), adds it to its result `data` (for example `wallSeconds` and `budgetSeconds`), and the `/ship-build` readout states it with its budget ("CI took 11.2 min, budget 10 min").
+3. A run over budget is one ISSUES line in the ship readout naming the slowest jobs. It does not fail the step or stop the ship: the budget is a reported constraint, not a gate.
+4. Guidance and a template for staying inside the budget, beside the existing CI baseline guidance: shard heavy suites by duration (for example the Jest and Playwright shard options, with timing data), merge coverage in one job, cache dependencies and browsers, cancel superseded runs (`concurrency:` with `cancel-in-progress: true`), skip heavy jobs for docs-only and run-record commits (already checked by `ci-baseline.js`), and quarantine flaky tests with a report the owner sees (building on the flaky-job cap in `packages/core/lib/flaky-ci.js`).
+5. The CI baseline check in `ship-setup` reports a missing superseded-run cancellation as a gap, the same way it reports the other three.
+
+### Actual
+
+No file mentions a CI budget (the `grep -c` in step 3 prints `0` for all six files). `wait-ci` records no duration. `ci-baseline.js` checks three properties and none is about speed or concurrency. This repository's own CI on `main` took 163-606 s across the last 10 runs, so it is inside a 10-minute budget today; the Storybook product's normal PR CI is at a 10.9-minute median with unit tests growing from 264 s to 502 s in six days, its full run 51 minutes with integration alone on the critical path, and 45 failed-then-passed reruns in six days from flaky e2e specs.
+
+### Where
+
+- `packages/skills/ship-setup/SKILL.md:46` (section "Topics") — add the budget question; `:116` ("Writing") — write it into `ship.md`; `:149` ("CI baseline") — the speed guidance and the new concurrency gap.
+- `packages/core/templates/claude-directory/rules/ship.md` — the template gains a budget line (for example `CI budget: 10 min`) in a place `ship-sequencer.js` parses or ignores safely.
+- `packages/core/contracts/ship-primitive-wait-ci.md:47` ("Result") — add wall time and budget to `data`; the measuring belongs in step 2 of "Do".
+- `packages/core/commands/ship-build.md:249` — the readout states CI time against the budget, and the over-budget ISSUES line.
+- `.claude/lib/ci-baseline.js:529` (`checkSummary` and the checks beside it) — add the superseded-run cancellation check; source copy under `packages/core/lib/`.
+
+### How to check
+
+- Before the fix the `grep -c -i budget …` command above prints `0` six times; after it, `ship-setup/SKILL.md`, the `ship.md` template, the `wait-ci` contract and `ship-build.md` each print at least 1.
+- Jest tests for whatever library computes wall time and compares it with the budget (input: a `gh run view` jobs JSON fixture; output: seconds, and over or under budget), and for the new `ci-baseline.js` concurrency check (a workflow with and without `concurrency: cancel-in-progress`). `npx jest packages/core/lib packages/skills/ship-setup` green.
+- `node .claude/lib/ci-baseline.js check` on this repository's `.github/workflows/ci.yml` reports the concurrency check as `pass` or `gap` rather than having no such key.
+- A live `/ship-build` reporting CI time against the budget on a real PR is waiting on the owner's next ship (the `github-live-test` environment in `.claude/rules/verification.md` allows it).
+
+### Open questions
+
+- Where the budget lives: **owner's call, default taken** — in `ship.md` only, written by `ship-setup`. The issue also names `/verification-setup`; recording it in two owner-governed files gives two sources that can disagree, so `verification-setup` is not changed. The owner can reverse this.
+- Whether `/audit-build` also flags an over-budget PR (issue item 3 says "`/audit-build` or the ship readout"): **owner's call, default taken** — the ship readout only, because CI runs during `/ship-build`, after `/audit-build` has closed the feature, so the audit has no CI run to read.
+- Whether exceeding the budget ever blocks a merge: **owner's call, default taken** — no; reported only.
+- Storybook's own CI changes are out of scope: Storybook's PM is handling them (per #158).
+
+Decisions: ship path: ci.yml exists and references no secrets, so the check passed and nothing was asked (owner's call not needed, 2026-11-16). Baseline capture point: on the merge base in a temporary worktree, once per feature (owner's call, default taken under unattended planning, 2026-11-16). Background threshold: last recorded duration, else integration and e2e always background (owner's call, default taken, 2026-11-16). CI budget home: ship.md only, verification-setup unchanged (owner's call, default taken, 2026-11-16). Over-budget report: ship readout only, not audit-build, and never blocking (owner's call, default taken, 2026-11-16). Order: blocks on fix-rerun-scope-rule, because both edit `implement-trd.md` at the battery step and #157 defines the scope words #156 uses (planner's call, 2026-11-16).
