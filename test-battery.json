@@ -18,7 +18,7 @@
   },
   "runs": {
     "unit": {
-      "tree": "0b8f117279165bb338b7ede8ae4ec60b33802241+448742445f2e",
+      "tree": "7b0ced067d1a4eb30d215a4f7617bbf5884c0c53+8d6877ac73b3",
       "status": "fail",
       "command": "npx jest -c jest.config.ci.js",
       "durationSeconds": 600,
@@ -28,7 +28,7 @@
         "packages/skills/verification-setup/SKILL.md › template.md (D5) › cp -RL (the scaffolding mechanism) dereferences it into a real file, never a link",
         "template.md and the workflow link › cp -RL dereferences both into real files"
       ],
-      "at": "2026-11-16T20:42:05.843Z"
+      "at": "2026-11-16T20:54:11.767Z"
     }
   }
 }

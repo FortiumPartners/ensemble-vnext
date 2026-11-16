@@ -163,38 +163,60 @@
     "CBD-B007": {
       "description": "verify-design-comparison SKILL.md Criteria and Page (D9, D11, D15, D18) and the functional-verification contract's \"Must pass\" and \"Check criteria\" sections (D11, D12, D13). Merged: the contract states what the skill's rows mean, and both must describe the same column",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/skills/verify-design-comparison/SKILL.md",
+        "packages/skills/verify-design-comparison/__tests__/skill-md.test.js",
+        "packages/core/contracts/functional-verification.md",
+        "packages/core/contracts/functional-verification.test.js",
+        ".claude/skills/verify-design-comparison/SKILL.md",
+        ".claude/skills/verify-design-comparison/__tests__/skill-md.test.js",
+        ".claude/contracts/functional-verification.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-16T20:42:16.382Z",
+      "completed_at": "2026-11-16T20:50:52.185Z",
+      "last_advanced": "2026-11-16T20:50:22.180Z"
     },
     "CBD-B008": {
       "description": "/implement-trd §8.1, §8.1b, §8.3 and /verify-build 3b, 3c, 4 (D16, D17). Merged: verify-build.md restates implement-trd.md §8, and both are pinned by verify-command-surface.test.js",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/implement-trd.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        "packages/core/commands/verify-build-criteria.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-16T20:42:16.383Z",
+      "completed_at": "2026-11-16T20:50:52.186Z",
+      "last_advanced": "2026-11-16T20:50:22.180Z"
     },
     "CBD-D002": {
       "description": "docs/reference/verification.md (the definition's columns table gains Board class; the decideNext section gains the evidence-only drop and ratio rule) and docs/reference/design.md (the core field, the core and core-marks verbs, /create-design step 5, /refine-design and /audit-design Core lines, the Core marker)",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "docs/reference/verification.md",
+        "docs/reference/design.md",
+        "packages/core/lib/core-boards-reference-docs.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-16T20:42:16.383Z",
+      "completed_at": "2026-11-16T20:50:52.186Z",
+      "last_advanced": "2026-11-16T20:50:22.180Z"
     },
     "CBD-T002": {
       "description": "[LIVE] live canvas Core mark",
@@ -225,11 +247,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T20:42:06.152Z"
+    },
+    {
+      "phase": 3,
+      "commit": "dff56ebeb03b1443c12aa9270a8ee4d1cc72c687",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T20:54:12.034Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "7b0ced067d1a4eb30d215a4f7617bbf5884c0c53",
-    "last_checkpoint_timestamp": "2026-11-16T20:42:06.152Z",
+    "last_healthy_checkpoint": "dff56ebeb03b1443c12aa9270a8ee4d1cc72c687",
+    "last_checkpoint_timestamp": "2026-11-16T20:54:12.034Z",
     "interrupted": false,
     "interrupt_reason": null
   },
