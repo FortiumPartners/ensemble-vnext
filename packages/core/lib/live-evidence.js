@@ -322,7 +322,13 @@ function deriveCriterionCoversReport({ trdPath, definitionPath, ids, cwd = proce
   }
   if (designRows.length) {
     const { designCovers } = require('./design-covers'); // lazy for the same cycle reason as above
-    const d = designCovers({ cwd, rows: designRows });
+    // A malformed design-map.json must not take the task-row covers down with it: report the design rows unresolved.
+    let d;
+    try {
+      d = designCovers({ cwd, rows: designRows });
+    } catch (e) {
+      d = { covers: new Map(), unresolved: designRows.map((r) => ({ id: r.id, reason: `design maps could not be read: ${e.message}` })) };
+    }
     for (const [id, files] of d.covers) {
       const covers = files.map(normalizeCoverPath).filter(Boolean);
       if (covers.length) result.set(id, { covers, source: 'design-map' });
