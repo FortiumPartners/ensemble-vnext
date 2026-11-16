@@ -228,7 +228,7 @@ describe('functional-verification contract', () => {
     expect(coreText).toMatch(/names each unproven\s*\n?must-pass criterion/);
   });
 
-  test('the success-definition example carries the Must pass column as the last column, with one marked row (D2)', () => {
+  test('the success-definition example carries the Must pass column, with one marked row (D2)', () => {
     expect(coreText).toMatch(/\|\s*Tier 1\s*\|\s*Parts\s*\|\s*Must pass\s*\|/);
     expect(coreText).toMatch(/\|\s*\[read\]\s*\|\s*locator\s*\|\s*\|\s*O1\s*\|/);
   });
@@ -236,9 +236,19 @@ describe('functional-verification contract', () => {
   test('has a Must pass section: objective ids, blank is ordinary, absent reads blank, check rows blank (D2)', () => {
     expect(coreText).toMatch(/## Must pass — the objectives a criterion proves/);
     expect(coreText).toMatch(/An absent\s*\n?column, or an absent cell, reads as blank/);
-    expect(coreText).toMatch(/check row leaves `Must pass` blank/);
-    expect(coreText).toMatch(/uses the same eight\s*\n?columns/);
+    expect(coreText).not.toMatch(/check row leaves `Must pass` blank/);
+    expect(coreText).not.toMatch(/uses the same eight\s*\n?columns/);
     expect(coreText).not.toMatch(/same seven columns/);
+    expect(coreText).not.toMatch(/`Must pass` column is the \*\*last\*\* column/);
+  });
+
+  test('describes the Board class column: core is must-pass with no objective id, evidence-only never blocks (D11, D12, D13)', () => {
+    expect(coreText).toMatch(/`Board class`/);
+    expect(coreText).toMatch(/`core` row is must-pass/);
+    expect(coreText).toMatch(/no objective id/);
+    expect(coreText).toMatch(/`evidence-only` row never blocks/);
+    expect(coreText).toMatch(/left out of the\s*\n?coverage ratio/);
+    expect(coreText).toMatch(/Core rows block under `Blocking: must-pass only`/);
   });
 
   test('states the narrow isolation exception for must-pass objectives, id and text only (D3)', () => {

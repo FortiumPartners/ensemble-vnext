@@ -263,14 +263,14 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 32 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
-  test('implement-trd.md §8.3 lists 32 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered/verificationDigest/preclassified/offHostProofs/blocking/blockingNote, with setupTargets after coverageFloor', () => {
+describe('both dispatch blocks carry the same 34 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
+  test('implement-trd.md §8.3 lists 34 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered/verificationDigest/preclassified/offHostProofs/blocking/blockingNote, with setupTargets after coverageFloor', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(32);
+    expect(fields).toHaveLength(34);
     expect(fields.indexOf('criterionCovers')).toBe(fields.indexOf('liveEvidence') + 1);
     expect(fields.indexOf('setupTargets')).toBe(fields.indexOf('coverageFloor') + 1);
-    expect(fields.slice(-10)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered', 'verificationDigest', 'preclassified', 'offHostProofs', 'blocking', 'blockingNote']);
+    expect(fields.slice(-12)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered', 'evidenceOnlyIds', 'coreMustPassIds', 'verificationDigest', 'preclassified', 'offHostProofs', 'blocking', 'blockingNote']);
   });
 
   test('implement-trd.md §8.3 names the derive-criteria command, the sweep-file {} and the failure fallback (REGR-B006)', () => {
@@ -302,14 +302,14 @@ describe('both dispatch blocks carry the same 32 fields in the same order (VSET-
     expect(t).toMatch(/`offHostProofs` is recomputed with `--ids <retry set>`/);
   });
 
-  test('verify-build.md §4 lists the identical 32 fields in the identical order', () => {
+  test('verify-build.md §4 lists the identical 34 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 32 fields, not 31, 30, 29, 28, 26, 25, 23, 22, 21 or 18', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 32 fields/);
+  test('verify-build.md §4 intro says 34 fields, not 32, 31, 30, 29, 28, 26, 25, 23, 22, 21 or 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 34 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 30 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 29 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 28 fields/);
@@ -2618,10 +2618,10 @@ describe('blocking policy wiring in implement-trd.md and verify-build.md', () =>
     }
   });
 
-  test('the field-count prose says 32 in verify-build.md', () => {
+  test('the field-count prose says 34 in verify-build.md', () => {
     const t = vb();
-    expect(t).toMatch(/the list is the 32 fields, `blockingNote` last/);
-    expect(t).toMatch(/with the same 32 fields except/);
+    expect(t).toMatch(/the list is the 34 fields, `blockingNote` last/);
+    expect(t).toMatch(/with the same 34 fields except/);
     expect(t).not.toMatch(/the 31 fields|same 31 fields/);
   });
 
@@ -2677,5 +2677,59 @@ describe('O7 CI re-run wording', () => {
     expect(t).toContain('`gh run rerun <run-id> --job <job-id>`');
     expect(t).toContain('`gh run rerun <run-id> --failed` when `jobId` is null');
     expect(t).toContain('never `gh workflow run`, which starts a full manual CI run');
+  });
+});
+
+// CBD-B008 (core-boards-in-designs D16, D17): where must-pass coverage is read, and the class fields.
+describe('Core boards: coverage read at the end of 8.1b, class fields dispatched (CBD-B008)', () => {
+  const impl = () => flat(read(CORE_IMPLEMENT));
+  const sec = (a, b) => {
+    const t = read(CORE_IMPLEMENT);
+    return flat(t.slice(t.indexOf(a), t.indexOf(b)));
+  };
+  const s81 = () => sec('### 8.1 Resolve the definition', '### 8.1b Append the check criteria');
+  const s81b = () => sec('### 8.1b Append the check criteria', '### 8.2 The `--resume` composition');
+
+  test('the must-pass-coverage call lives once, in 8.1b, not in 8.1', () => {
+    expect(s81()).not.toMatch(/functional-verification\.js must-pass-coverage/);
+    expect(s81b()).toMatch(/functional-verification\.js must-pass-coverage/);
+    expect(impl().match(/functional-verification\.js must-pass-coverage/g)).toHaveLength(1);
+  });
+
+  test('the stale "nothing here needs redoing" sentence is gone and 8.1 maps Board class', () => {
+    expect(impl()).not.toMatch(/nothing here needs redoing/);
+    expect(s81()).toMatch(/`Board class` → `boardClass`/);
+  });
+
+  test('8.1b runs comparison-rows, reports missing frames, adds the column and cross-checks sets', () => {
+    const t = s81b();
+    expect(t).toMatch(/design-criteria\.js comparison-rows --dir docs\/ui\/<slug>/);
+    expect(t).toMatch(/`missing`/);
+    expect(t).toMatch(/add the header, its separator cell and a blank cell/);
+    expect(t).toMatch(/compare sets, not counts/);
+    expect(t).toMatch(/second mismatch is one ISSUES line/);
+    expect(t).toMatch(/pass `\[\]`\s+for all four/);
+  });
+
+  test('8.2 repoints to 8.1b and 8.3 lists the class fields right after mustPassUncovered', () => {
+    expect(flat(read(CORE_IMPLEMENT))).toMatch(/also runs §8\.1b's `must-pass-coverage` call/);
+    const f = extractDispatchFields(read(CORE_IMPLEMENT));
+    const i = f.indexOf('mustPassUncovered');
+    expect(f.slice(i, i + 3)).toEqual(['mustPassUncovered', 'evidenceOnlyIds', 'coreMustPassIds']);
+  });
+
+  test('verify-build holds both fields, runs the tail at 3c only, and restricts both under --criteria', () => {
+    const vb = flat(read(CORE_VERIFY_BUILD));
+    expect(vb).toMatch(/Stop before §8\.1b's last two steps/);
+    expect(vb).toMatch(/§8\.1b steps 7 and 8/);
+    expect(vb).toMatch(/`evidenceOnly` \(sent as `evidenceOnlyIds`\)/);
+    expect(vb).toMatch(/`evidenceOnlyIds` is `evidenceOnly` and `coreMustPassIds` is `coreCriteria`, each restricted/);
+    expect(vb).toMatch(/Restrict `mustPassIds`, `evidenceOnlyIds` and `coreMustPassIds` to them/);
+    expect(vb).toMatch(/`mustPassIds`, `evidenceOnlyIds` and `coreMustPassIds` are restricted to it/);
+  });
+
+  test('package and .claude copies are identical', () => {
+    expect(read(CLAUDE_IMPLEMENT)).toBe(read(CORE_IMPLEMENT));
+    expect(read(CLAUDE_VERIFY_BUILD)).toBe(read(CORE_VERIFY_BUILD));
   });
 });

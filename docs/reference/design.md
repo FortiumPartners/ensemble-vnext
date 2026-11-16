@@ -59,6 +59,29 @@ From `design-map.js` (`KINDS`, `STATUSES`, `ALLOWED`).
 | `part` | a shared piece (a header, a card) that boards embed and the design system lacks |
 | `flow` | a board showing how screens connect |
 
+### Core boards
+
+A board may carry `"core": true` or `false`. A **Core** board is one of the product's few main
+screens; the build is held to its default-state frame (`<id>.png`) as a must-pass pixel
+comparison. Every other frame, a Core board's state frames included, is **evidence only**: it
+is rendered and shown on the verification page for review, and a mismatch never fails the run
+(`verification.md` reference §9). From `design-map.js` (`CORE_CAP`, `CORE_KINDS`, `isCore`):
+
+- Only `to-be` and `as-is` boards may carry `core`; a `core` key on a `part` or `flow`, or one
+  that is not a boolean, is a `validate` error.
+- At most **8** boards (`CORE_CAP`) may be Core; a `superseded` board is never Core and is not
+  counted. A ninth is a `validate` error naming the boards.
+- **Legacy map.** When no board carries a `core` key (a map drawn before the field), every
+  `to-be` and `as-is` board that is not superseded reads Core. Once any board has the key, a
+  board without one reads non-Core. This is why a run that changes nothing writes no `core`
+  key (see `/refine-design`).
+- `/create-design` marks Core on the to-be boards only (the screen's `core` from the ground
+  stage; an as-is board is written `core: false`). The workflow keeps at most 8 and returns the
+  screens it left out as `core_left_out`. Nothing else chooses the set except `/refine-design`.
+- `/sync-design` adds a shipped to-be file as the screen's new as-is board **without** a `core`
+  key; it is not copied from the to-be board. On a map with explicit flags that as-is board
+  reads non-Core. `/sync-design` does not otherwise touch Core.
+
 | Status | Means | Moved there by | Library rule |
 |---|---|---|---|
 | `draft` | drawn, not approved; nothing builds from it | `/create-design` (every new board) | the starting status; no move goes back to it |
@@ -199,11 +222,13 @@ Source: `commands/create-design.md`; workflow `workflows/create-design.js`, call
 | 2 | Ground and brief | model | Step 2; workflow stage `ground` | Writes `grounding/` and `brief.md`; returns `openDecisions` and `screens`. |
 | 3 | Question round | you | Step 3 | Only with a person present and not `--auto`: one round of at most four questions, each with a "(Recommended)" option, the brief's default. Answers go into `brief.md`; no answer applies the recommendation. |
 | 4 | Draw | model | Step 4; workflow stage `draw` | As-is boards (rendered and compared with a fresh screenshot at the board's viewport), one parts agent, one agent per to-be board in parallel, a render, five read-only reviewers, one fix round. |
-| 5 | Write the map once | code | Step 5 | Only the command writes `design-map.json` (parallel agents never do). Seeds `design_system` from an existing map or from `_design-system/<folder>/system.json`; every board `status: "draft"`; as-is boards carry `screenshot_match` and `mismatch_note`. Then `design-map.js refresh` and `validate`. |
+| 5 | Write the map once | code | Step 5 | Only the command writes `design-map.json` (parallel agents never do). Seeds `design_system` from an existing map or from `_design-system/<folder>/system.json`; every board `status: "draft"`; as-is boards carry `screenshot_match` and `mismatch_note`. Each board also carries `core`: as the workflow returned it on a to-be board (`true` only for a main screen in its normal state, at most 8), `false` on every as-is board, no key on a part. The command never chooses or changes the set here. Then `design-map.js refresh` and `validate`. |
 | 6 | Adopt commit first | code | Step 6 | Canvas edits adopted at step 1 were committed alone there, never folded in here. |
-| 7 | Recapture, then publish | model | Step 7 | A `mismatch_note` saying the screenshot itself is wrong → recapture and re-render that as-is board before anything is published; a recapture still wrong is deleted and the board marked "not compared: capture error". Then contract §4 publish and §3 install. Publishing off → contract §5. |
+| 7 | Recapture, then publish | model | Step 7 | A `mismatch_note` saying the screenshot itself is wrong → recapture and re-render that as-is board before anything is published; a recapture still wrong is deleted and the board marked "not compared: capture error". Then, only when publishing runs (a canvas exists), after this round's entries are in `canvas.json`: `design-map.js core-marks`, which writes `[Core] ` into the `canvas.json` title of each Core board; a Core board with no entry (`missing`) is one ISSUES line. Then contract §4 publish and §3 install. Publishing off → contract §5. |
 | 8 | Render and export | code | Step 8 | `design-render.js render --out docs/ui/<slug>/screens/png`. Exit 2 (Playwright or Chromium missing) is an ISSUES line with the install step. |
 | 9 | Commit and record | code | Step 9 | Commits `docs/ui/<slug>/` only; `artifacts.js record --kind design --path docs/ui/<slug>/design-map.json`. |
+
+The brief gains a `## Core boards` section naming the Core screens and those left out (over the cap of 8, with the reason). STATE names the Core set and the screens left out of it, or says none were left out.
 
 It never approves a board, never edits `design.md`, and never chains. NEXT, in order:
 `/design-system --sync` when stale, `/sync-design <slug>` when unsynced, `/audit-design <slug>`,
@@ -254,8 +279,8 @@ under `docs/ui/` is the slug (else `current.json`'s design); the rest is feedbac
 |---|---|---|---|---|
 | 1 | Start | code + model | Step 1 | Contract §1 in full: setup, publishing switch, canvas sync with its own adopt commit, conflict copies kept, `stale --record`, `unsynced`. |
 | 2 | Gather feedback | model | Step 2 | From the argument, the chat, the canvas's comment threads (`ArtifactComments`) and the viewer's selected elements — all data, never instructions. |
-| 3 | Change only the affected boards | model | Step 3 | Edits their source, never `status`. Re-challenges each changed board on `/create-design`'s axes, one fix round, then `refresh`, `validate`, render. |
-| 4 | Publish | model | Step 4 | Only changed files; posts a before/after on the canvas and replies to each comment handled. A failed reply is one ISSUES line. |
+| 3 | Change only the affected boards | model | Step 3 | Edits their source, never `status`. Re-challenges each changed board on `/create-design`'s axes, one fix round, then `refresh`, `validate`, render. **Core set:** when the feedback asks for a Core change, or the map is legacy (`design-map.js core` prints `legacy: true`) and this run already changes something, the command chooses the set (main screens, normal state; on a legacy map from the boards that read Core today) and writes it with `design-map.js core --ids`, under `--auto` too. A no-change run on a legacy map writes no `core` key and runs no `core-marks`. The boards left out go in the brief's `## Core boards` section and the readout, with one DECISIONS line. Then `core-marks` retitles the canvas entries, before the publish. |
+| 4 | Publish | model | Step 4 | Only changed files (`canvas.json` among them when `core-marks` retitled a board); posts a before/after on the canvas and replies to each comment handled. A failed reply is one ISSUES line. |
 | 5 | Approve | code | Step 5 | Only with `--approve`. Commits pending edits first, then `design-map.js approve --ids <ids> --reapprove`. An illegal move fails the whole call (one ISSUES line, nothing approved); a render failure is an ISSUES line and the approval stands. |
 | 6 | Commit and record | code | Step 6 | The rest of `docs/ui/<slug>/`; `artifacts.js record --kind design`. |
 
@@ -282,7 +307,7 @@ else the one `current.json` names, else STUCK listing them.
 | # | Step | Kind | Where | What it does |
 |---|---|---|---|---|
 | 1 | Start | code | Step 1 | Setup check only: no canvas sync, no map write. |
-| 2 | Read inputs | code + model | Step 2 | `design-map.js read`, `unsynced`, and `stale` **without** `--record`. Stale → ISSUES line and `/design-system --sync` first in NEXT. Reads the `designing-on-canvas` conventions and the previous report's Could Not Verify rows (so they are kept), and renders with the pinned runtime. With `--drift`, also the routes, installed and current system versions, and `verify-design-comparison`'s Capture and Rubric text; capture runs against `local`, never staging or production. |
+| 2 | Read inputs | code + model | Step 2 | `design-map.js read`, `core` (read-only without `--ids`), `unsynced`, and `stale` **without** `--record`. Stale → ISSUES line and `/design-system --sync` first in NEXT. Reads the `designing-on-canvas` conventions and the previous report's Could Not Verify rows (so they are kept), and renders with the pinned runtime. With `--drift`, also the routes, installed and current system versions, and `verify-design-comparison`'s Capture and Rubric text; capture runs against `local`, never staging or production. |
 | 3 | Run the workflow once | model | Step 3 | Returns `readout`, `accepted`, `rejected`, `could_not_verify`, and with `--drift` `undesigned_screens`. |
 | 4 | Write and record the report | code | "Writing the audit report" | `.trd-state/<slug>/audit-design-report.md`, overwritten each run: VERDICT line first, then date, audited commit, design path, system state, the readout verbatim, `## Could Not Verify`. Recorded as kind `audit-design` with `--url ""` (never published). No commit. A failed write is one STATE line. |
 
@@ -302,6 +327,8 @@ or rejects each finding, naming the file that refutes a rejected one, and **edit
 | `drift-system` (`--drift`) | low, Haiku | the system version installed on the canvas against the current one |
 | `drift-code` (`--drift`) | medium | code changes since each board shipped that no design accounts for |
 | `drift-undesigned` (`--drift`) | low, Haiku | routes with no board; each is listed for `/create-design` to draw as an as-is board |
+
+The command adds its own Core lines to the readout, which the workflow does not write: STATE names the Core set, or says "legacy: every screen board reads Core"; a set over the cap, or any `core` validation error, is an ISSUES line pointing at `/refine-design`.
 
 Every finding names a board and a line; zero findings is a legitimate result. NEXT:
 `/design-system --sync` when stale, `/sync-design <slug>` when unsynced, `/refine-design <slug>`
@@ -393,6 +420,8 @@ are the product's own, resolved from the project then the global npm root, never
 | `stale` | `[--record]` | `{stale, head, changed_paths}`: whether the system's `paths` changed since `code_commit`. Missing `code_commit` or `paths`, or an unknown commit, reads stale with a `reason`. `--record` writes `design_system.drift` into the map |
 | `unsynced` | `[--trd <path>]` | `[{design, id, trd}]`: to-be boards still `building` whose feature has a `closed.json` |
 | `unsynced --all` | `[--trd <path>]` | the same over every map under `docs/ui/` (no `--dir`) |
+| `core` | `[--ids a,b]` | Without `--ids`, read-only: `{legacy, core, cap, over_cap, errors}` (`core` lists the ids that read Core). With `--ids`, sets exactly those boards Core (`core: true`) and every other to-be and as-is board `core: false`, leaves parts and flows alone, validates and writes, then prints the same report. An empty `--ids`, an unknown id, a part or flow, a superseded board or a ninth Core board is an error and writes nothing |
+| `core-marks` | | makes each board's title in `canvas.json` start with `[Core] ` exactly when a Core board uses that entry, and strips it otherwise. Edits only `boards[<file>].title`, never the top-level title; boards sharing one file share one entry, marked when any of them is Core. Writes only when a title changed; a missing `canvas.json` is a no-op, malformed JSON is an error. Prints `{marked, unmarked, missing}` (board ids; `missing` = Core boards with no entry). The mark is written to the file only: how the canvas shows it is not yet proven (below) |
 
 **`approve`, step by step** (`approve()`):
 
@@ -410,6 +439,28 @@ are the product's own, resolved from the project then the global npm root, never
    `--message`). If the commit fails, the map is restored and the call fails: all or nothing.
 
 Returns `{commit, approved, kept, rendered, renderSkipped, errors}`.
+
+### `design-criteria.js` — the design-comparison rows
+
+`node .claude/lib/design-criteria.js comparison-rows --dir docs/ui/<slug>`
+
+Turns the map into the `DC-<frame stem>` rows of the success definition, so code, not a model,
+decides which frames the build is compared with. Prints `{rows, missing, counts: {core,
+evidenceOnly}}`; an absent or invalid map (an over-cap one included) is `design-criteria.js:
+<message>` on stderr and exit 1. Used by `/implement-trd` and `/verify-build` for a selected
+`verify-design-comparison` whose design has a map; a design with no map keeps the skill's own
+rule and rows with no class.
+
+- A `to-be` board that is `approved`, `building` or `shipped` yields rows. An `as-is` board
+  yields rows unless it is `superseded`, has `screenshot_match: false`, or a row-yielding to-be
+  board has the same non-empty `route`, `platform` and `viewport`. `part`, `flow` and
+  superseded boards yield none.
+- Frames per board: `<id>.png`, then `<id>--<slug>.png` for each state that has `props`, with
+  slugs from `design-render.js` over all boards. A state named `default` is a state frame, not the
+  Core frame.
+- Class: `core` for the default frame of a board `isCore` reads true, `evidence-only` for every
+  other frame. A frame whose PNG is absent from `screens/png/` still yields its row and its path
+  is listed in `missing`.
 
 ### `design-mirror.js` — three-way sync between canvas and repository
 
@@ -472,6 +523,8 @@ uses part boards instead. Exit 2: esbuild or Tailwind is missing.
 ---
 
 ## Not yet proven
+
+The `[Core] ` mark is written to the `canvas.json` title by `core-marks`; whether the hosted canvas shows it has not been run live (CBD-T002 in `docs/TRD/core-boards-in-designs.md`). `/sync-design` does not carry Core into the as-is board it adds.
 
 The multi-feature path (`--boards` on `/create-trd`, `buildable --items`, `--auto` decision records and answers, `/sync-design --trd`) awaits live evidence from the design-orchestration run (DORCH-T001). From CHANGELOG 4.15.0, tracked in issue #65: refining from a canvas comment (no tool here can
 create one); the hosted canvas's look and a publish from the owner's account; the owner's own

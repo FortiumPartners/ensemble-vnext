@@ -1704,7 +1704,8 @@ numbering is not the running order and stays as it is because other documents ci
    (no `--url`: it is not published). A failed record is one line in ISSUES, never STUCK. Then
    parse its table into `criteria` (§3.1's format; column → field: `ID` → `id`,
    `Functional statement` → `statement`, `Cites` → `cites`, `Evidence that would prove it` →
-   `evidence`, `Derivation` → `derivation`, `Tier 1` → `tier1`, valued `locator` or
+   `evidence`, `Derivation` → `derivation`, `Board class` → `boardClass` (blank, `core` or `evidence-only`; an
+   absent column or cell reads blank), `Tier 1` → `tier1`, valued `locator` or
    `judge-only` — an absent column, or an absent cell, reads as `locator` (verification-convergence
    TRD §3.8), so a definition written before this change parses unchanged). **Zero rows is
    legitimate** (AC-3) — proceed to
@@ -1713,25 +1714,9 @@ numbering is not the running order and stays as it is because other documents ci
    `outcome: 'satisfied'` with a real, rendered report — that is the correct handling for a PRD
    that yielded no functional criteria, and it is not this step's job to special-case it.
 
-   **Then read the must-pass coverage — with the library, not by reading the `Must pass` column
-   yourself (D11).** A column dropped in a prose parse would read as "nothing is must-pass" and
-   fail open; the CLI reads both files from their paths and fails closed:
-
-   ```bash
-   node .claude/lib/functional-verification.js must-pass-coverage \
-        --trd <TRD> --definition .trd-state/<feature>/success-definition.md
-   # → {"criteria": [<must-pass criterion ids>], "uncovered": [{id, text}], "unknown": [{criterion, objective}]}
-   ```
-
-   Hold `criteria` as `mustPassIds` and `uncovered` as `mustPassUncovered`, **unchanged**, for
-   §8.3 (both `[]` when the TRD marks nothing). `unknown` entries are criteria whose cell names an
-   id that is not a must-pass objective; the CLI has already left them out of `criteria`, so they
-   stay ordinary, and Step 9's ISSUES names each. Also keep the objectives' invalid cells, from
-   `node .claude/lib/spec-scope.js objectives --trd <TRD>`: each entry with an `invalidValue` is a
-   `Must pass` cell that is neither `yes` nor `no` (D17); it counts as must-pass, and ISSUES
-   names it. Check rows appended to the definition after this step carry no `Must pass` cell, which the
-   CLI reads as blank, so nothing here needs redoing once they are added. A sweep file declares no must-pass (D19) and has no
-   TRD: skip this call and pass `[]` for both.
+   **Must-pass coverage is not read here.** It is read once, after the check rows are written, at
+   the end of the next section — a `Must pass` mark or a `Board class` cell on a check row does not
+   exist until then.
 
 ### 8.1b Append the check criteria (verification-artifacts TRD §3.5, D7, D9, D15)
 
@@ -1769,6 +1754,18 @@ straight to Step 9 exactly as §8.1 already sends them.
    `docs/ui/<slug>/design-map.json`) as the `designMaps` list, empty when that check was not
    selected: §8.1a step 8 passes each one to the preclassify call, and has nothing to pass
    without them.
+
+   **The comparison check's rows come from the generator when its design has a map (D17).** For a
+   selected `verify-design-comparison`, the design folder is the `docs/ui/<slug>` that holds the
+   `screens/png/` directory its Inputs row names. When `<that folder>/design-map.json` exists, run
+   `node .claude/lib/design-criteria.js comparison-rows --dir docs/ui/<slug>` and use its `rows` as
+   this check's rows (each carries `boardClass`); do not write them from the skill's table by hand.
+   Put one ISSUES line for each path in its `missing` array (the frame the map requires but
+   `screens/png/` lacks; its row stays and fails on its own). A non-zero exit is one ISSUES line and
+   that check yields no rows. Record the generator's output as `comparisonRows` (its `rows`, with
+   `counts`) and the folder as the `comparisonDirs` list, both empty when the check was not selected
+   or its design has no map; a design with no map keeps the skill's own Criteria rule, `Board class`
+   blank on every row (D18).
 4. **Write them (D15).** Re-read `.trd-state/<feature>/success-definition.md` immediately
    before writing — §8.1a's habit of re-reading a file at the moment it is needed, applied here
    too, since another agent produced it. Keep every derived row (the deriver's own, non-`check:`
@@ -1780,6 +1777,11 @@ straight to Step 9 exactly as §8.1 already sends them.
    `locator` (§8.1's own parsing rule), so their meaning is unchanged; a `judge-only` design row
    written into a table with no `Tier 1` column at all would silently read as `locator` and fail
    tier 1, so the column must exist even when nothing else in the table needed it yet.
+   Write the generator's rows by header name. When any row to be written carries a `boardClass` and
+   the table has no `Board class` column, add the header, its separator cell and a blank cell on
+   every other row; the column is the table's last (after `Must pass` when the table has one, else
+   after `Parts`). Nothing else writes the header: a table with no class-bearing row keeps its
+   columns.
 5. **Collect the texts and comments.** `checks[<name>]` = the selected skill's `SKILL.md` text,
    `{}` when none are selected. For each selected skill that has a stored URL
    (`node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind <skill>`; empty output means none), read its open threads (D18) — load
@@ -1797,6 +1799,37 @@ straight to Step 9 exactly as §8.1 already sends them.
    previous pass's check rows when §8.1 read it, and they carry the same stable IDs (§3.5) as
    the rows just rebuilt. Appending without dropping them passes each check criterion twice,
    which doubles its weight in the workflow's totals and coverage.
+7. **Read the must-pass coverage — with the library, not by reading the `Must pass` or `Board class`
+   column yourself (D11, D16).** This runs on every pass through this section, including when step 2
+   selected no check at all, because `mustPassIds` is needed regardless. A column dropped in a
+   prose parse would read as "nothing is must-pass" and fail open; the CLI reads both files from
+   their paths and fails closed:
+
+   ```bash
+   node .claude/lib/functional-verification.js must-pass-coverage \
+        --trd <TRD> --definition .trd-state/<feature>/success-definition.md
+   # → {"criteria": [...], "uncovered": [{id, text}], "unknown": [{criterion, objective}],
+   #    "evidenceOnly": [...], "classIssues": [{criterion, value, reason}], "coreCriteria": [...]}
+   ```
+
+   Hold `criteria` as `mustPassIds` and `uncovered` as `mustPassUncovered`, **unchanged**, for
+   §8.3 (both `[]` when the TRD marks nothing). Hold `evidenceOnly` as `evidenceOnlyIds` and
+   `coreCriteria` as `coreMustPassIds`, both `[]` when none. `unknown` entries are criteria whose
+   cell names an id that is not a must-pass objective; the CLI has already left them out of
+   `criteria`, so they stay ordinary, and Step 9's ISSUES names each. Each `classIssues` entry is
+   one ISSUES line. Also keep the objectives' invalid cells, from
+   `node .claude/lib/spec-scope.js objectives --trd <TRD>`: each entry with an `invalidValue` is a
+   `Must pass` cell that is neither `yes` nor `no` (D17); it counts as must-pass, and ISSUES
+   names it. A sweep file declares no must-pass (D19) and has no TRD: skip this call, pass `[]`
+   for all four of `mustPassIds`, `mustPassUncovered`, `evidenceOnlyIds` and `coreMustPassIds`, and
+   skip the cross-check below.
+8. **Cross-check the classes against the generator (D17).** When `comparisonRows` is non-empty,
+   compare sets, not counts: the ids of `comparisonRows` whose `boardClass` is `core` must equal
+   `coreMustPassIds`, and those whose class is `evidence-only` must equal `evidenceOnlyIds`
+   (`mustPassIds` also holds rows that name a declared must-pass objective, so never compare against
+   it). On a mismatch, rewrite the comparison rows once from the generator's JSON (step 4) and run
+   this step's call again; a second mismatch is one ISSUES line naming the ids, never STUCK, and
+   the second call's output stands.
 
 ### 8.2 The `--resume` composition (functional-verification TRD §3.7, D13) — already gated at Step 3.6
 
@@ -1821,7 +1854,7 @@ with a log line. `outcome` is read by Step 3.6's gate, not passed to the workflo
 derives its own. On a fresh run (no prior state
 file, or a terminal one), `resume` is `null`.
 
-**After resolving `criteria` here, this path also runs §8.1's `must-pass-coverage` call** (the
+**After resolving `criteria` here, this path also runs §8.1b's `must-pass-coverage` call (its step 7)** (the
 resumed run's state file holds no must-pass set, and the TRD and definition are on disk), **and
 runs §8.1a exactly like a fresh run does** — it
 is not exempt from lane resolution merely because it skipped the phase loop. First run §3.6a's
@@ -2108,8 +2141,10 @@ Workflow({ name: "verify-functional", args: {
   checks,                                                        // §8.1b -- { "<skill>": "<SKILL.md text>" } for each selected check; {} when none
   checkComments,                                                 // §8.1b -- open threads on each check's published page (D18); [] when none
   pagesDir,                                                       // §8.1b -- ".trd-state/<feature>/verification-artifacts"; always set, even with no checks selected
-  mustPassIds,                                                   // §8.1 -- must-pass-coverage's `criteria`, unchanged; [] when none is declared
-  mustPassUncovered,                                             // §8.1 -- must-pass-coverage's `uncovered` ([{id, text}]), unchanged; [] when none
+  mustPassIds,                                                   // §8.1b -- must-pass-coverage's `criteria`, unchanged; [] when none is declared
+  mustPassUncovered,                                             // §8.1b -- must-pass-coverage's `uncovered` ([{id, text}]), unchanged; [] when none
+  evidenceOnlyIds,                                               // §8.1b -- must-pass-coverage's `evidenceOnly`; [] when none (a sweep file too)
+  coreMustPassIds,                                               // §8.1b -- must-pass-coverage's `coreCriteria`, a subset of mustPassIds; [] when none
   verificationDigest,                                            // §8.1a step 8 -- verification-digest's `digest` (sha256 hex of verification.md); "" when the file is absent (nothing persists)
   preclassified,                                                 // §8.1a step 8 -- preclassify's output (entries already settled not-checkable-here, never exercised); [] when none
   offHostProofs,                                                 // `node .claude/lib/functional-verification.js off-host-proofs` (see above) -- its `proofs`, fresh before this dispatch; [] when none is declared or the call fails
