@@ -485,7 +485,8 @@ const VISUAL_SCHEMA = {
   },
 }
 const VISUAL_COMMON = `Write this scratch map to a file in a fresh scratch folder under the system temp directory, and render
-into ANOTHER fresh scratch folder under the system temp directory (never into ${DIR}, which holds the design):
+into ANOTHER fresh scratch folder under the system temp directory (never into ${DIR}, which holds the design). Make each folder with
+mktemp -d; never run rm on a glob or an unresolved path, and leave cleanup to the scratchpad:
   node .claude/lib/design-render.js render --dir ${DIR} --map <that scratch map> --out <a fresh scratch folder> ${FLOOR_FLAGS} --boards <the board ids below>
 Copy every render error and every measure the command printed into your return VERBATIM: do not summarise, round,
 merge or drop one, and do not rank them. If the command exits 2, return missing_tool with its message (the product

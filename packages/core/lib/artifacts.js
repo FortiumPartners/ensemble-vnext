@@ -80,12 +80,15 @@ function parseRaw(stateDir, text) {
 function normaliseEntry(v) {
   if (typeof v === 'string') return { path: null, url: v, updated_at: null, command: null };
   const o = v && typeof v === 'object' ? v : {};
-  return {
+  const entry = {
     path: typeof o.path === 'string' ? o.path : null,
     url: typeof o.url === 'string' ? o.url : '',
     updated_at: typeof o.updated_at === 'string' ? o.updated_at : null,
     command: typeof o.command === 'string' ? o.command : null,
   };
+  // Present only after a URL was replaced; absent otherwise so older manifests stay byte-identical.
+  if (typeof o.previous_url === 'string' && o.previous_url !== '') entry.previous_url = o.previous_url;
+  return entry;
 }
 
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -162,8 +165,12 @@ function record(stateDir, kind, entry, { root = process.cwd(), now = () => new D
     updated_at: null,
     command,
   };
+  // A changed non-empty URL keeps the one it replaced, so a command that finds the new link
+  // unreadable (or the owner) can still say which page was replaced. Otherwise carry it over.
+  if (prev && prev.url !== '' && next.url !== prev.url) next.previous_url = prev.url;
+  else if (prev && prev.previous_url) next.previous_url = prev.previous_url;
   const unchanged = prev && prev.path === next.path && prev.url === next.url && prev.command === next.command
-    && prev.updated_at !== null;
+    && prev.previous_url === next.previous_url && prev.updated_at !== null;
   next.updated_at = unchanged ? prev.updated_at : now().toISOString();
   data[kind] = next;
 

@@ -226,6 +226,20 @@ describe('refine-design --auto decisions, answers and audit findings (DORCH-B004
     expect(raw).toMatch(/^\s*`# Visual critique: <slug> \(\/refine-design, <YYYY-MM-DD>\)`, even when it kept every board/m);
   });
 
+  test('no feedback and no open findings is a no-change run that does not send NEXT back to /audit-design', () => {
+    expect(text).toMatch(/No report, or a report with no open findings, is a no-change run/);
+    expect(text).toMatch(/`VERDICT: proceed with these caveats` report whose open findings are none: its caveats are not feedback/);
+    expect(text).toMatch(/"no change made, nothing to re-audit", and its NEXT omits `\/audit-design <slug>`/);
+  });
+
+  test('a VISUAL FINDINGS line marked known build-side caveat is skipped, counted in STATE, and does not make a change run', () => {
+    expect(text).toMatch(/A `VISUAL FINDINGS` line marked "known build-side caveat" is not an open finding: skip it/);
+    expect(text).toMatch(/STATE says how many were skipped/);
+    expect(text).toMatch(/A report whose only open findings are known build-side caveats is a no-change run/);
+    // the heading stays in the open-findings list; only the marked lines are excluded
+    expect(text).toMatch(/RENDER ERRORS, VISUAL FINDINGS\./);
+  });
+
   test('names no product or orchestrator (O10)', () => {
     expect(raw).not.toMatch(/forge/i);
     expect(raw).not.toMatch(/orchestrat/i);

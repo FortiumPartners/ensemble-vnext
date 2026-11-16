@@ -604,6 +604,78 @@ describe('measures (D3)', () => {
   });
 });
 
+describe('reused-component marking (FIX-004)', () => {
+  // A global component library, as a design-system script defines it. React is read at render time.
+  const lib = `
+    function h() { return window.React.createElement.apply(window.React, arguments); }
+    window.Acme = {
+      Card: function (p) { return h('div', { style: { background: '#ffffff' } }, h('span', { style: { color: '#bbbbbb' } }, 'library low'), p.children); },
+      Outer: function (p) { return h('section', null, h('div', null, h('span', { style: { color: '#bbbbbb' } }, 'deep low')), p.children); },
+    };\n`;
+  const page = (body, extra = '') => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>t</title>
+<script src="./support.js"></script><script src="ds/acme/lib.js"></script></head><body><x-dc>
+<div style="width: 320px; height: 200px; background: #ffffff; color: #111111; font-family: monospace">${body}</div></x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":200}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script></body></html>`;
+  const LOW = 'style="margin:0;color:#bbbbbb"';
+  const boards = {
+    lib: page('<x-import component-from-global-scope="Acme.Outer"><p ' + LOW + '>drawn low</p></x-import>'),
+    plain: page('<p ' + LOW + '>drawn low</p>'),
+    part: page('<dc-import name="Strip"></dc-import>'),
+    off: page(
+      '<button disabled style="color:#bbbbbb;height:20px">off</button>' +
+      '<div aria-disabled="true" role="button" style="color:#bbbbbb;height:20px">off2</div>' +
+      '<button style="color:#bbbbbb;height:20px">on</button>'),
+  };
+  const part = '<x-dc><p ' + LOW + '>part low</p></x-dc>';
+  const mk = () => {
+    const d = mkDesign(Object.keys(boards).map((k) => board(k)), {
+      ...Object.fromEntries(Object.entries(boards).map(([k, v]) => [`${k}.dc.html`, v])),
+      'Strip.dc.html': part,
+    });
+    const dir = path.join(d.repo, 'docs', 'ui', '_design-system', 'acme');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'lib.js'), lib);
+    return d;
+  };
+  const ct = (r, id, check = 'contrast') => r.measures.filter((m) => m.board === id && m.check === check && m.verdict === 'below-floor');
+
+  it('marks a library internal reused, keeps a hand-drawn child of the same import drawn, in separate groups', async () => {
+    const r = await run(mk(), { boards: ['lib'], floor: { contrast: 4.5 } });
+    const m = ct(r, 'lib');
+    expect(m).toHaveLength(2); // same colour pair, so only the flag keeps them apart
+    expect(m.filter((x) => x.reused === true)).toHaveLength(1);
+    expect(m.find((x) => x.reused === true).element).toMatch(/deep low/); // nested two levels inside the host
+    const drawn = m.find((x) => x.reused === undefined);
+    expect(drawn.element).toMatch(/drawn low/);
+    expect(drawn).not.toHaveProperty('reused');
+  });
+
+  it('does not mark the same colours reused outside any import', async () => {
+    const m = ct(await run(mk(), { boards: ['plain'], floor: { contrast: 4.5 } }), 'plain');
+    expect(m).toHaveLength(1);
+    expect(m[0]).not.toHaveProperty('reused');
+  });
+
+  it('does not mark a dc-import part\'s own elements reused (OQ-1: parts are stamped like a board)', async () => {
+    const m = ct(await run(mk(), { boards: ['part'], floor: { contrast: 4.5 } }), 'part');
+    expect(m).toHaveLength(1);
+    expect(m[0].element).toMatch(/part low/);
+    expect(m[0]).not.toHaveProperty('reused');
+  });
+
+  it('skips contrast inside disabled controls but still measures an enabled twin and every target', async () => {
+    const r = await run(mk(), { boards: ['off'], floor: { contrast: 4.5, target: 44 } });
+    const c = ct(r, 'off');
+    expect(c).toHaveLength(1);
+    expect(c[0].count).toBe(1);
+    expect(c[0].element).toMatch(/"on"/);
+    const t = ct(r, 'off', 'target-size');
+    expect(t.reduce((n, x) => n + x.count, 0)).toBe(3); // the disabled button's miss is still reported
+  });
+});
+
 describe('state names that are not file-safe', () => {
   it('slugs: safe names unchanged, unsafe runs collapse, empty becomes state', () => {
     expect(render.stateSlug('empty')).toBe('empty');
