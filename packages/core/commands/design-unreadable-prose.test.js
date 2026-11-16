@@ -101,7 +101,7 @@ describe('commands point at the rule', () => {
 
   test('design-system.md points at it from the publish and record steps (6-8)', () => {
     const t = read('packages/core/commands/design-system.md');
-    const steps = t.slice(t.indexOf('6. **Publish the Design System'), t.indexOf('9. **Readout'));
+    const steps = t.slice(t.indexOf('6. **Publish the Design System'), t.indexOf('10. **Readout'));
     expect(steps).toMatch(/Unreadable recorded artifact/);
   });
 });
@@ -122,5 +122,30 @@ describe('the readout carries the republish in DECISIONS', () => {
     const s7 = flat(contract.slice(contract.indexOf('## 7. Readout'), contract.indexOf('## 8.')));
     expect(s7).toMatch(/DECISIONS: one line per canvas or design system republished/);
     expect(s7).toMatch(/old and new URL, even when STATE also mentions it/);
+  });
+});
+
+// FS-5: a run that republished both pages left one under its dead URL because the second record
+// was skipped. Recording is a separate numbered step with a self-check, in all three places.
+describe('per-page record step and self-check', () => {
+  const check = /list every page republished this run; confirm `artifacts\.js get` returns the new URL for each kind \(`design`, `design-system`\); if any still returns the old URL, record it now/;
+  test('contract names the separate step and self-check', () => {
+    const t = flat(contract);
+    expect(t).toMatch(/its own numbered step after the last publish and before the readout/);
+    expect(t).toMatch(check);
+  });
+  test('design-system.md step 9 is the record step, before the readout', () => {
+    const t = read('packages/core/commands/design-system.md');
+    const i = t.indexOf('9. **Record every republished page**');
+    expect(i).toBeGreaterThan(-1);
+    expect(i).toBeLessThan(t.indexOf('10. **Readout'));
+    expect(flat(t.slice(i))).toMatch(check);
+  });
+  test('refine-design.md step 7 is the record step, before the readout', () => {
+    const t = read('packages/core/commands/refine-design.md');
+    const i = t.indexOf('7. **Record every republished page**');
+    expect(i).toBeGreaterThan(-1);
+    expect(i).toBeLessThan(t.indexOf('## Readout'));
+    expect(flat(t.slice(i))).toMatch(check);
   });
 });

@@ -93,11 +93,13 @@ $ARGUMENTS
    A system republished under the *Unreadable recorded artifact* rule is recorded with
    `design-map.js republished --kind system --new <url>` (it keeps the old link as
    `previous_url`), not by the line above.
-9. **Readout and close**, as below. Record the system's artifact link with
-   `node .claude/lib/artifacts.js record` (kind `design-system`, `--command /design-system`). When
-   this run also republished a canvas, record that too (kind `design`, `--path
-   docs/ui/<slug>/design-map.json`, the new canvas `--url`): every republished page gets its own
-   record, so neither is left under its dead URL.
+9. **Record every republished page** (its own step, after the last publish, before the readout).
+   Record the system's link with `node .claude/lib/artifacts.js record` (kind `design-system`,
+   `--command /design-system`, its new `--url`). When this run also republished a canvas, record
+   that too (kind `design`, `--path docs/ui/<slug>/design-map.json`, the new canvas `--url`).
+   Self-check: list every page republished this run; confirm `artifacts.js get` returns the new
+   URL for each kind (`design`, `design-system`); if any still returns the old URL, record it now.
+10. **Readout and close**, as below.
 
 ---
 

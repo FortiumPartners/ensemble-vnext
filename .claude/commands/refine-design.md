@@ -227,8 +227,13 @@ A caller with nobody to ask drives `--auto` through its argument. The record for
    ```bash
    node .claude/lib/artifacts.js record --state-dir .trd-state/<slug> --kind design --path docs/ui/<slug>/design-map.json --command /refine-design --url "<canvas url, or empty when nothing was published>"
    ```
-   If the run also republished the Design System page, record it too with the same helper (kind
-   `design-system`, its new `--url`): every republished page gets its own record.
+7. **Record every republished page** (its own step, after the last publish, before the readout).
+   For each page republished this run, run `node .claude/lib/artifacts.js record --state-dir
+   .trd-state/<slug> --kind design|design-system --command /refine-design --url "<its new url>"`
+   (kind `design` for the canvas, `design-system` for the Design System page; `--path` as in
+   step 6 or `docs/ui/_design-system/<folder>/system.json`). Self-check: list every page
+   republished this run; confirm `artifacts.js get` returns the new URL for each kind (`design`,
+   `design-system`); if any still returns the old URL, record it now.
 
 Never put a credential in a board or a page (contract section 6).
 

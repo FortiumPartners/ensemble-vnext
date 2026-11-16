@@ -95,7 +95,10 @@ Implements AC-F5.9 and AC-F6.9. In this order:
    set the new base before any other change to the design folder, and
    `node .claude/lib/artifacts.js record` with the new `--url` — once for EACH page republished in
    the run (kind `design` for a canvas, kind `design-system` for the system page), so a run that
-   replaced both leaves neither entry under its dead URL. Add a **DECISIONS** line naming
+   replaced both leaves neither entry under its dead URL. **Do this as its own numbered step after
+   the last publish and before the readout, never folded into another step. Self-check: list every
+   page republished this run; confirm `artifacts.js get` returns the new URL for each kind
+   (`design`, `design-system`); if any still returns the old URL, record it now.** Add a **DECISIONS** line naming
    the old and new URL: "recorded <canvas|design system> was unreadable (<not-found|no-access>);
    republished from the committed copy: old <old url>, new <new url>". This is never STUCK for
    this cause. It does not apply to `/audit-design` (read-only: it reports the unreadable

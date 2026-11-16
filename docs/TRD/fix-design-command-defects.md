@@ -84,6 +84,7 @@ None apply — these are Markdown commands, a contract, two libraries and a work
 | FIX-006 | `audit-design.js` and `audit-design.md`: the command runs `design-map.js caveats` and passes `caveats` in the workflow args; the record-it hint names `## Accessibility caveats` in `brief.md` exactly; `visualFindings` ranks per the Decision (drawn high; reused with recorded ruling `low` + `known_caveat: true` + "known build-side caveat"; reused unrecorded high with the record-it hint); the report lists the known caveats under VISUAL FINDINGS with the "known build-side caveat" wording | O4, O5 | FIX-004, FIX-005 | Jest tests in `audit-design.test.js`: a below-floor measure with `reused: true` and `caveats.reused_build_side` true yields `rank: 'low'` and `known_caveat: true`; the same measure without a recorded ruling yields `high`; a measure without `reused` stays `high` in both cases; the command prose passes `caveats` |
 | FIX-007 | `refine-design.md` no-feedback rule: a VISUAL FINDINGS line marked "known build-side caveat" is not an open finding; it is skipped, and STATE says how many were skipped | O7 | FIX-006 | A prose test in `refine-design-prose.test.js` asserts the rule names "known build-side caveat" and that it is skipped; a report whose only open findings are known caveats counts as the existing "no change made" run |
 | FIX-008 | Sync the vendored copies: every changed file under `packages/core/` copied to its `.claude/` counterpart, as commit 73f6dac1 did | O1, O2, O3, O4, O5, O6, O7 | FIX-001, FIX-002, FIX-003, FIX-004, FIX-005, FIX-006, FIX-007 | `diff -rq packages/core/lib .claude/lib` (and `commands`, `contracts`, `workflows`) reports no difference for the touched files; the full Jest suite passes |
+| AMEND-001 | Republished canvas and Design System page must both be recorded in artifacts.json with new url and previous_url (FS-5) (`packages/core/contracts/design-commands.md`, `packages/core/commands/refine-design.md`, `packages/core/commands/design-system.md`) — promoted from a gap discovery found by verify-build --fix [plan:B1 @ 2026-11-16T10:00:00Z] | plan blocker B1 | None | Republished canvas and Design System page must both be recorded in artifacts.json with new url and previous_url (FS-5) no longer holds |
 
 ## Task Grounding
 
@@ -142,6 +143,10 @@ None apply — these are Markdown commands, a contract, two libraries and a work
 - **Replaces:** the stale vendored copies
 - **Follow:** do not hand-edit `.claude/` first [read]
 - **Careful:** copy only files that changed
+
+### AMEND-001
+
+- **Touches:** `packages/core/contracts/design-commands.md`, `packages/core/commands/refine-design.md`, `packages/core/commands/design-system.md`
 
 ## Could Not Verify
 
