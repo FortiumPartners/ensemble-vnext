@@ -160,6 +160,7 @@
     "trd_dir": "docs/TRD",
     "publishArtifacts": true,
     "openPullRequest": "never",
+    "verificationRunLimit": 2,
     "records": "ref"
   }
 }

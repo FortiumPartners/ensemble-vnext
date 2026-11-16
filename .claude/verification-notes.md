@@ -1566,3 +1566,19 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] With 8baac09d vendored, both fixture runs with unreadable (404) canvas and system republished BOTH pages and recorded both: `/refine-design` wrote design and design-system entries (each with `previous_url`) to `.trd-state/demo/artifacts.json` (system entry path `system.json`, command `/refine-design`) but left `_shared/artifacts.json` at the old system URL; `/design-system --sync` updated `demo/` and `_shared/` both. Runs took 1 to 3 minutes.
 - [ran] FS-10 fixture (malformed canvas and system URLs in design-map.json and artifacts.json): `Artifact(read ...)` returned "not an artifact URL: ...", the run reached COMMAND COMPLETE with no publish call, design-map.json byte-identical to its committed copy, and artifacts.json only had `updated_at` touched (url unchanged, no `previous_url`).
 - [ran] The Artifact tool still gives one 404 for not-found and no-access, so FS-2 cannot be shown for no-access separately (owner ruling R1); the not-found run is the nearest evidence.
+
+## Exercising the verification run cap (`cap-verification-runs-per-feature`)
+
+- [ran] The run-limit library is provable with no model session: build a throwaway root
+  (`mkdir -p $W/root/.claude $W/root/.trd-state/f`), then call
+  `node .claude/lib/verification-runs.js check|start|finish|request|record-ruling --state-dir <d> --root $W/root`
+  from bash (a zsh `V="node ..."` string variable does not word-split; use a shell function or a
+  bash script). `record-ruling` rows are visible in `discovered.jsonl`; `waived-defects.js gate`
+  in a root with no `stack.md` tracker reports each row under `failed` with a ready `title`/`body`
+  (error "no tracker declared"), which shows what would be filed.
+- [inferred] The command-level criteria (dispatch of the workflow, `--resume`, `--criteria`,
+  sweep files, the NEXT line in a readout) were not driven through a live headless session in
+  this pass; they were read from `packages/core/commands/{implement-trd,verify-build,refine-verification}.md`
+  (identical to `.claude/commands/`). A fixtures-slot session is the way to prove them live.
+
+- [ran] cap-verification-runs FS-10/FS-13 (2026-11-16): `scaffold-project.sh` needs the slot folder to EXIST first (`mkdir -p`), else "Target directory does not exist". A slot with a hand-seeded `demo` feature (`implement.json` holding two finished `runs`, a `success-definition.md`, an existing `verification-plan.md`) plus `--refresh --plugin-dir <abs>` ran `claude --print ... "/verify-build docs/TRD/demo.md"` (about 1 min) and `"/refine-verification docs/TRD/demo.md --auto"` (about 1 min) with no trust prompt; both ended `COMMAND STUCK` with the limit Reason, wrote `ruling-request.md`, left `runs` and the plan untouched. A headless session has no `Artifact` tool, so the ruling request is recorded in `artifacts.json` with an empty url, and the fixture has no `.claude/hooks/notify-complete.sh`. macOS has no `timeout` command; do not prefix it.

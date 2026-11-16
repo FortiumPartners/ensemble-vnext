@@ -101,6 +101,54 @@ a first run on a feature with neither has nothing to scope and skips this step.
    unsure").
 4. **Record it.** DECISIONS carries the contract's one-line `Rerun scope:` statement.
 
+### 1b. Check the run limit
+
+A feature gets a limited number of counted verification runs (`ensemble.verificationRunLimit`,
+default 2; cap-verification-runs-per-feature D4, D7). Ask as soon as the scope is known to be
+`targeted` or `full` (a scope question in step 1a can still come first), before step 2 spends an
+environment check on a run that would be refused. This step runs even on a first `/verify-build`
+of a feature whose `implement.json` already lists runs, so it is its own step, not a part of 1a:
+
+```bash
+node .claude/lib/verification-runs.js check --state-dir .trd-state/<feature>
+```
+
+It prints `{"count","limit","allowed","continuing","runs"}`. Skipped entirely, because these are
+**not counted**:
+
+- rerun scope `none` is not counted (nothing runs; the earlier report stands, so there is nothing to refuse);
+- a sweep file (feature `<slug>-sweep`) is not counted;
+- `--criteria` is not counted (a custody re-proof, its one retry included, is never a counted run).
+
+**A resume of an interrupted run (`outcome: null`)** (step 1a.1's automatic resume, or `--resume`
+on a state file whose `outcome` is `null`) is not a new run: `check` passes it as `"continuing":
+true`, `allowed: true`. A `--resume` of a state file that has an outcome starts a fresh run
+(the `--resume` section), so it is checked and counted like a plain run. `--chained` on a TRD
+alone is ignored (the run is ordinary), so that run is counted too.
+
+`allowed: true`: copy the printed `runs` into `state.functional_verification.runs` and go on to
+step 2. Exit code 2 means `ensemble.verificationRunLimit` is invalid: end `COMMAND STUCK:
+/verify-build` with the printed `error` as the Reason. `allowed: false` is a refusal (D8): the
+feature has already had `limit` runs, and nothing is dispatched. Then, in order:
+
+1. `node .claude/lib/record-ref.js ensure --state-dir .trd-state/<feature>` (a fresh worktree needs
+   the records restored so the request is complete; `failed` is one ISSUES line).
+2. `node .claude/lib/verification-runs.js request --state-dir .trd-state/<feature> --command /verify-build`
+   writes `.trd-state/<feature>/ruling-request.md`, everything still open and the three outcomes
+   (ship, fix, drop) the product PM can rule.
+3. Record and publish it as the "Artifact link" section says (kind `ruling-request`), then the one
+   records-ref write.
+4. End the run, writing no `verification-plan.md` and building nothing:
+
+```
+═══ COMMAND STUCK: /verify-build ═══
+Reason: verification run limit reached (<n> of <limit> runs)
+Next:   rule on .trd-state/<feature>/ruling-request.md (<link, when published>)
+```
+
+   Then, on the same turn, `.claude/hooks/notify-complete.sh "verify-build" "stuck" "verification run limit reached"`
+   (it closes the command's run record, as on every other STUCK ending).
+
 ### 2. Preflight the environment
 
 **Identical to `/implement-trd` §3.6a — read that section and follow it.** No criteria exist
@@ -359,6 +407,19 @@ full manual CI run. An entry reading `baseline` is red on the base branch head t
 feature's failure and it does not prove the criterion. After a Debug edit, push and wait for the run CI
 starts; the earlier run belongs to an earlier commit.
 
+**Start the counted run at the first dispatch only** (D4, D7), immediately before the `Workflow`
+call below, with the scope step 1a chose:
+
+```bash
+node .claude/lib/verification-runs.js start --state-dir .trd-state/<feature> --command /verify-build --scope <full|targeted>
+```
+
+Not at a fix round's step 4 (a round belongs to the run already started), not at the `--criteria`
+retry, and not at all under `--criteria` or for a sweep file. Copy the printed `runs` into
+`state.functional_verification.runs` right away, so a later in-memory save cannot shorten it.
+`continued: true` is a resumed interrupted run: nothing was written, carry on. `allowed: false`
+is the step 1b refusal (the library refuses in code too), handled exactly as there.
+
 ```javascript
 Workflow({ name: "verify-functional", args: {
   criteria,                                                    // §3, from success-definition.md
@@ -458,6 +519,20 @@ It writes one non-blocking discovery row per entry and skips one already recorde
 rounds write no duplicate. A failure (the command exits non-zero, or its printed `failed` list is
 non-empty) is one ISSUES line naming the ids, never STUCK.
 
+**Finish the counted run, on every ending that followed `start`** (D4, D13): here when there is no
+plan to fix (or under `--no-fix`), otherwise after the fix loop's step 6, and in the fix loop's
+build-STUCK path (step 3) before its banner. Never under `--criteria` or for a sweep file:
+
+```bash
+node .claude/lib/verification-runs.js finish --state-dir .trd-state/<feature> --outcome <the outcome>
+```
+
+Copy the printed `runs` into `state.functional_verification.runs`. It prints `rulingDue`; when
+`true` the count has reached the limit and the run did not end clean, so run `request` (as in step
+1b), record and publish `ruling-request.md` per the "Artifact link" section, and let the readout's
+NEXT name it (Readout, `rulingDue: true`). `finish` has already rewritten the report's `**Next**:`
+line to name it, so the published report agrees.
+
 **§8.5 applies here in full: while the loop is in flight, its gaps are not yours to fix.**
 Record them and let it finish.
 
@@ -479,9 +554,17 @@ with its reason) with the owner as the one who acts. Outcome
 each problem, as plain text, (2) `/verify-build`. Any other outcome (`stalled`, `stuck`,
 `unbuilt`, `insufficient-coverage`, `must-pass-unproven`) → `/refine-verification`,
 then `/verify-build`. The report's Next line says the same, so the readout and the report never
-disagree on what comes next.** NEXT lists those commands as numbered steps in the order to
+disagree on what comes next — except at the run limit: when `finish` printed `rulingDue: true`
+the report's line is superseded by the ruling request, and `finish` rewrites it to say so.** NEXT lists those commands as numbered steps in the order to
 take them, one fenced block per slash command, never a shell command. A step that must come
 first and is not a slash command (a merge, a deploy) leads as plain text, not a block.
+
+**`rulingDue: true` replaces `/refine-verification` (D13).** When `finish` printed `rulingDue: true`
+(the feature has now had as many counted runs as the limit allows and this one was not clean,
+`setup-failure` included), NEXT is (1) the product PM rules on `.trd-state/<feature>/ruling-request.md`
+(with its link), whose three outcomes each name their own steps, and nothing else: no
+`/refine-verification`, no further `/verify-build`. For `setup-failure` the request lists the
+environment problems and fixes. ISSUES says the run limit was reached, in words.
 
 **When the outcome is `stalled`, `stuck`, `unbuilt`, `insufficient-coverage` or `must-pass-unproven` — never `setup-failure`,
 whose report carries no Diagnosis line** (D3, D15;
@@ -638,7 +721,8 @@ writes a plan after a run that fell short, so a fresh plan is always newer. Once
 `/verify-build` run has used it, the report it writes is newer than the plan, so the next
 plain `/verify-build` reads that plan as spent: a single verify pass, NEXT `/refine-verification`.
 Refine, run, repeat — never an old cycle's plan re-applied, with its rulings, to a run the
-owner meant as a check. `--fix <plan-path>` names a plan explicitly and is used whatever its
+owner meant as a check — and the cycle ends at the run limit (step 1b): after that a ruling
+request replaces the next plan. `--fix <plan-path>` names a plan explicitly and is used whatever its
 timestamp; say in DECISIONS that an older plan was applied on request.
 
 **`--resume` builds nothing (OQ-2).** It only continues an interrupted verification loop, so
@@ -730,7 +814,9 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
 3. **Round k ≥ 1 — build.** Chain `Skill({ skill: "implement-trd", args: "<trd> --reconcile
    --chained" })` **exactly once per round** — ONE fix batch covering every row step 2
    recorded, never one build per criterion. On `RETURN → chained by /verify-build: <n> of <m> tasks built…`,
-   continue to step 4. On `RETURN → STUCK: <reason>`, end the whole run now with `═══ COMMAND
+   continue to step 4. On `RETURN → STUCK: <reason>`, first run `node .claude/lib/verification-runs.js finish
+   --state-dir .trd-state/<feature> --outcome <the latest verification-state.json outcome>` (a STUCK run
+   still counted; the library's `abandoned` handling covers a lost finish), then end the whole run now with `═══ COMMAND
    STUCK: /verify-build ═══` — under `--chained` the caller owns the run's only terminator, and
    a build that cannot proceed leaves nothing for another round to verify.
 
@@ -759,7 +845,10 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    returns to step 2 for round k+1. `action: 'stop'` — for any reason, including "nothing left
    to build" — falls through to step 6, and sets `functional_verification.fix.stopped = true`.
 
-6. **Render and close.** Build the `## Fix run` section with `node
+6. **Render and close.** Before the readout, run `node .claude/lib/verification-runs.js finish
+   --state-dir .trd-state/<feature> --outcome <the final outcome>` (step 5's "Finish the counted run");
+   when it prints `rulingDue`, NEXT below names the ruling request in place of `/refine-verification`.
+   Build the `## Fix run` section with `node
    .claude/lib/functional-verification.js render-fix-summary` (D10) and append it to
    `verification-report.md`, republish it under the same stored URL (the "Artifact link" section, below). Its `criteria` input is
    **every criterion not `met`** in the latest state file, each with a non-empty `stopReason`
@@ -779,7 +868,8 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    reason>`. The renderer prints `no stop reason recorded` for a blank one so an omission is
    visible, but a blank one is a defect in this step, never an acceptable row. Emit the readout: STATE
    carries the Diagnosis counts (above, unchanged); ISSUES names each `verification.md` need
-   recorded at step 2, "the owner, at the next bridge" (D13); NEXT follows O4, above:
+   recorded at step 2, "the owner, at the next bridge" (D13); NEXT follows O4, above
+   (and the Readout's `rulingDue` branch replaces it at the run limit):
    `/refine-verification`, then `/verify-build`, when the outcome is anything but `satisfied`
    (`stalled`, `stuck`, `unbuilt`, `insufficient-coverage` or `must-pass-unproven`) or anything
    buildable or blocked remains or any criterion carries `settled: 'definition-problem'`
@@ -814,6 +904,11 @@ URL (TR4). With publishing off, name each page's local path instead.
 the publish switch): `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind verification-report --path .trd-state/<feature>/verification-report.md --command /verify-build`
 and, per page, `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind <skill> --path <pagesDir>/<skill>/index.html --command /verify-build`,
 adding `--url <returned URL>` only when a publish returned one. No command writes `artifacts.json` by hand.
+
+**When a ruling request was written (step 1b's refusal, or `finish` printing `rulingDue: true`),
+publish it the same way** (the markdown FILE `.trd-state/<feature>/ruling-request.md`, stored URL from
+`node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind ruling-request` as `url:`) and record it, outside the
+publish switch: `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind ruling-request --path .trd-state/<feature>/ruling-request.md --command /verify-build`.
 
 Emit the link ABOVE the banner. A failed publish — the report's or any check page's — is one
 line of prose and nothing more; it never blocks the banner.
