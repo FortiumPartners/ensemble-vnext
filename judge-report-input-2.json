@@ -1,0 +1,538 @@
+{
+  "feature": "audit-before-functional-verification",
+  "prd": "docs/plan/audit-before-functional-verification.investigation.md",
+  "definitionPath": ".trd-state/audit-before-functional-verification/success-definition.md",
+  "outcome": "satisfied",
+  "reason": "no gaps remain — every criterion is met, not verifiable here, or settled as an evidence gap",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "In a default `/implement-trd` run (no `--chained`), the code audit runs as `Skill(audit-build)` with `--defer-close`, after the end-of-run `/code-review` and before the `Workflow(verify-functional)` dispatch",
+      "cites": "Intended Change item 1, lines 56-57; Checkable, lines 88-89; roadmap item, lines 11-14 and line 21 (\"a headless fixture session shows /implement-trd running the audit step first\")",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/live/slot1-tool-sequence.txt",
+      "reason": "Fixture default run: code-review, then Skill audit-build with --chained --defer-close, then the one verify-functional Workflow, in that order.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "statement": "When the audit's fix run (`/implement-trd --reconcile --chained`) changes code, those changes are on the branch before the functional-verification loop starts, so verification runs on code that already carries the audit's fixes",
+      "cites": "roadmap item, lines 11-14 (\"so fixes the audit causes land before verification\"); Intended Change item 2, line 63 (\"chains its fix run exactly as today\"); Decision, lines 95-96",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/live/slot1-git-log.txt",
+      "reason": "The fix run commit 1ee94ec (21:42:22Z) and the citation commit 038a50b (21:44:27Z) both come before the verify-functional dispatch at 21:45:13Z.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "statement": "A default `/implement-trd` run dispatches the functional-verification loop once, after the audit step has returned, so verification evidence is produced once, on the final code",
+      "cites": "roadmap item, lines 13-14 (\"verification evidence is produced once, on the final code\"); Intended Change, line 42 (Step 8 is one `Workflow(verify-functional)` dispatch)",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/live/slot1-tool-sequence.txt",
+      "reason": "Exactly one verify-functional Workflow call, made after the audit returned (audit.return recorded as passed, close deferred).",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "statement": "A re-audit decided by the audit runs inside `/implement-trd`'s audit step, up to the audit cap, before verification; NEXT never sends the owner to a standalone `/audit-build` for that re-audit",
+      "cites": "Decision, lines 111-113",
+      "status": "not_met",
+      "artifact": null,
+      "reason": "No live run reached a second audit round. The end-of-run /code-review --fix repaired every seeded defect before the audit ran (three attempts), so each audit found 0 defects and no re-audit was decided. Re-captured once already, so this is settled as evidence the fixture cannot produce.",
+      "cause": "evidence-missing",
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "not_met"
+        }
+      ],
+      "blocker": "No live run reached a second audit round. The end-of-run /code-review --fix repaired every seeded defect before the audit ran (three attempts), so each audit found 0 defects and no re-audit was decided. Re-captured once already, so this is settled as evidence the fixture cannot produce.",
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": "evidence-gap",
+      "settled": "definition-problem"
+    },
+    {
+      "id": "FS-5",
+      "statement": "`/implement-trd --chained` skips the audit step, so implement-trd -> audit-build -> implement-trd --reconcile --chained does not recurse",
+      "cites": "Intended Change item 1, lines 58-59; Grounding hazard, line 152",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/static/implement-trd-step73.txt",
+      "reason": "The live chained fix run made no audit-build call, and the Step 7.3 and section 3.7 text state the skip under --chained.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "statement": "`/implement-trd --no-verify` still runs the audit step; only verification is skipped",
+      "cites": "Intended Change item 1, lines 59-60 (\"is NOT skipped by `--no-verify`\")",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/live/fs6-no-verify-evidence.txt",
+      "reason": "The --no-verify run called Skill audit-build with --chained --defer-close after code-review, and its only Workflow calls were audit-build and implement-phase, with no verify-functional.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "statement": "`/audit-build --defer-close` on a passing audit (where `decide` returns `close: true`) runs no waived-defect gate, writes no `closed.json`, publishes nothing and opens no PR",
+      "cites": "Intended Change item 2, lines 61-64",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/live/slot1-closed-json-timeline.txt",
+      "reason": "The live defer-close run ran no waived-defect gate, wrote no closed.json and opened no PR. It attempted the report publish, which TRD decision D6 keeps in the audit run on purpose. That departs from the investigation's item 2, so the owner may want to confirm D6.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-8",
+      "statement": "`/audit-build --defer-close` on a passing audit records a pending close carrying the verdict, report path, `auditedCommit` and `anchorCommit` (computed by today's rule) in the feature's run records, and writes the records ref",
+      "cites": "Intended Change item 2, lines 64-65; Decision, lines 114-116 and line 120",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/fs8-audit-rounds.jsonl",
+      "reason": "The deferred-close line carries trdHash, anchorCommit and report, the round line carries verdict and auditedCommit, and the records-ref copy is identical.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-9",
+      "statement": "`/audit-build --defer-close` ends with exactly one `[STATUS: /audit-build] RETURN →` line (passed, close deferred; re-audit needed; cap reached; open: <why>; or STUCK: <why>) instead of a COMMAND COMPLETE banner, `notify-complete.sh` or `PushNotification`",
+      "cites": "Intended Change item 2, lines 65-67",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/fs8-defer-close.transcript.txt",
+      "reason": "The last line is the RETURN line, with no COMMAND COMPLETE banner, no notify-complete call and no PushNotification.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-10",
+      "statement": "Under `--defer-close`, the non-close branches (re-audit, cap reached, uncovered) behave as they do today, except that each returns a RETURN line instead of printing a banner",
+      "cites": "Intended Change item 2, lines 67-68",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/fs-s/FS-10-11-audit-build.diff",
+      "reason": "The diff shows the non-close branch text unchanged apart from the added RETURN endings.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-11",
+      "statement": "`/audit-build`'s stale-wake check, and the wait for the fix run's §7.2 review (which can finish after the RETURN line; `anchorCommit` waits for it), still apply inside `--defer-close`",
+      "cites": "Grounding hazard, lines 153-154",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/fs-s/FS-10-11-audit-build.diff",
+      "reason": "The text names both the stale-wake check and the anchorCommit wait, and the live defer-close transcript runs stale-wake.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-12",
+      "statement": "`/audit-build --close-deferred` reads the pending close and performs today's close tail from it: waived-defect gate, close step with `closedBy: \"audit\"` and the pending audit fields, commit of the TRD if needed, publish, records ref, and the PR per `ensemble.openPullRequest`",
+      "cites": "Intended Change item 3, lines 69-72; Decision, lines 97-99",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/fs12-closed.json",
+      "reason": "The live close-deferred run ran the gate with --closed-by audit, wrote closed.json with closedBy audit and the pending auditedCommit, and called pull-request.js ensure, which skipped the PR because the setting is never. The auto path was not shown.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-13",
+      "statement": "`/audit-build --close-deferred` runs no verifier wave, clears the pending close once consumed, and returns one RETURN line",
+      "cites": "Intended Change item 3, lines 72-73; Decision, lines 101-102 (rejected: a second verifier wave on unchanged code)",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/fs12-close-deferred.transcript.txt",
+      "reason": "No Workflow dispatch and one RETURN line. pending-close afterwards reports null.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-14",
+      "statement": "`/audit-build --close-deferred` with no pending close on record returns `RETURN → nothing to close` and closes nothing",
+      "cites": "Intended Change item 3, line 73",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/fs14-no-pending.transcript.txt",
+      "reason": "The run returned 'RETURN → nothing to close' and wrote no closed.json.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-15",
+      "statement": "When the audit step returned \"passed, close deferred\" AND verification's outcome is `satisfied` with no `definition-problem` criterion (or verification was skipped by `--no-verify`), `/implement-trd` runs `audit-build --close-deferred` before its readout, and the readout's STATE says the feature is closed and names the PR (or why it was skipped or failed)",
+      "cites": "Intended Change item 4, lines 74-78; roadmap item, lines 15-16 (\"A passing audit still opens the PR when ensemble.openPullRequest is auto, but only after verification has also run\")",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/live/fs15-evidence.txt",
+      "reason": "In the default satisfied run, audit-build --chained --close-deferred --verified comes after verify-functional and before the readout; in the --no-verify run, --close-deferred runs before the readout. Both wrote closed.json with closedBy audit, and both STATE sections say the feature is closed and why no PR was opened. The auto PR path was not shown.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-16",
+      "statement": "A passing audit followed by a verification whose outcome is not `satisfied`, or is `satisfied` with a `definition-problem` criterion, closes nothing and opens no PR: no `closed.json` is written and the pending close stays on record",
+      "cites": "Intended Change item 4, lines 75 and 78; Checkable, lines 89-90",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/live/fs16-evidence.txt",
+      "reason": "After a passing audit, verification ended Insufficient Coverage: no --close-deferred call, no closed.json in the state listing, pending-close still reports the deferred close, and the readout says the feature stays open. The fixture has no GitHub remote, so gh pr list could not run; no PR step ran.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-17",
+      "statement": "The waived-defect gate runs after verification, so it files the failures verification waived under `Blocking: must-pass only`",
+      "cites": "Decision, lines 103-105",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/fs17-command-order.txt",
+      "reason": "The gate's call comes after verification in both the command text and the live run order, and a real waived-defects.js run sees the waived row only after verification has recorded it.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-18",
+      "statement": "`/implement-trd`'s readout NEXT never names `/audit-build` merely because verification passed; it follows the verification outcome (`/refine-verification` then `/verify-build`, or the setup-failure fix) or the audit's own result (re-audit `/audit-build`, capped `/close-feature`, uncovered: design work)",
+      "cites": "Intended Change item 4, lines 78-80; roadmap item, line 12 (\"its NEXT text\")",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/fs18-next-template.txt",
+      "reason": "The satisfied branch of the NEXT template has no /audit-build line, and the live satisfied run's NEXT does not name it.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-19",
+      "statement": "`/verify-build` with outcome `satisfied` (no `definition-problem` criterion) and a pending close on record runs `audit-build --close-deferred`, and its NEXT is shipping (`/ship-build`) or the PR step",
+      "cites": "Intended Change item 5, lines 81-83; roadmap item, line 12 (\"/verify-build's hand-off\")",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/live/fs19-evidence.txt",
+      "reason": "With a pending close on record, /verify-build reached satisfied, then called audit-build --chained --close-deferred --verified, which wrote closed.json (closedBy audit). Its NEXT names /ship-build and the PR step.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-20",
+      "statement": "`/verify-build` with outcome `satisfied`, no pending close and no closed feature names `/audit-build` as NEXT; under `--chained` and for a sweep file its behaviour is unchanged",
+      "cites": "Intended Change item 5, lines 83-85",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/fs-s/FS-20-verify-build.diff",
+      "reason": "The no-pending-close rule names /audit-build, and the --chained and sweep sections are unchanged in the diff.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-21",
+      "statement": "`/audit-build` invoked by the owner with neither `--defer-close` nor `--close-deferred` audits, chains its fix run, and on a pass closes the feature (writes `closed.json` with `closedBy: \"audit\"`) and opens the PR when `ensemble.openPullRequest` is `auto`, exactly as today",
+      "cites": "Intended Change item 6, line 86; Checkable, line 90 (\"`/audit-build` alone on a passing feature still writes `closed.json`\"); roadmap item, lines 16-17 (\"Keep /audit-build usable on its own after the fact\")",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/live/fs21-evidence.txt",
+      "reason": "A standalone /audit-build on a passing feature ended COMMAND COMPLETE: /audit-build and wrote closed.json with closedBy audit (anchorCommit null, today's rule when no fix run chains). The diff against main changes the default close tail only by adding caller-only-mode text. The chain and auto-PR paths were not shown live in this round.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-22",
+      "statement": "The pending close is a line on `audit-rounds.jsonl`, and `audit-rounds.js` exposes it through a `pending-close` CLI verb that folds a round's lines by run id; a later audit round supersedes a pending close, a close consumes it, a change to the TRD since the audit makes it stale, and no ledger line is deleted",
+      "cites": "Decision, lines 109-110 and 114-120",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/fs-s/FS-22-pending-close-cli.txt",
+      "reason": "The CLI covers a pending round, a mismatched run id, supersede, consume and a TRD-hash change, and keeps all ledger lines. The Jest tests pass.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-23",
+      "statement": "When the close follows a satisfied verification in the same run, `anchorCommit` is the branch head at close time, so code changed by verification's Debug stage after the audit does not invalidate the pending close",
+      "cites": "Decision, lines 106-109",
+      "status": "not_met",
+      "artifact": null,
+      "reason": "No run had a verification Debug commit after the audit: the end-of-run /code-review --fix repaired all seeded bugs first, so verification was satisfied on its first iteration every time. Partial evidence only (evidence/live/fs23-attempts.txt). Re-captured once already, so this is settled as evidence the fixture cannot produce.",
+      "cause": "evidence-missing",
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "not_met"
+        }
+      ],
+      "blocker": "No run had a verification Debug commit after the audit: the end-of-run /code-review --fix repaired all seeded bugs first, so verification was satisfied on its first iteration every time. Partial evidence only (evidence/live/fs23-attempts.txt). Re-captured once already, so this is settled as evidence the fixture cannot produce.",
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": "evidence-gap",
+      "settled": "definition-problem"
+    },
+    {
+      "id": "FS-24",
+      "statement": "The command text and the docs that describe the order state audit-first: a grep finds no command text still saying verification runs before the audit; every edited command is byte-identical between `packages/core/commands/` and `.claude/commands/`; and `npx jest` and `bats` for the touched command-surface tests, rewritten to pin the new order, pass",
+      "cites": "roadmap item, lines 16-20 (\"Update the command text, the docs that describe the order and the tests that pin it\" and \"How it will be checked\"); Decision, lines 121-123 (mirrors byte-identical)",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/fs-s/FS-24-grep-cmp.txt",
+      "reason": "The mirrors are identical, no verification-before-audit wording was found, and Jest passed 1595 tests. No bats test touches these commands.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  },
+  "mustPass": [
+    "FS-1",
+    "FS-2",
+    "FS-3",
+    "FS-7",
+    "FS-8",
+    "FS-12",
+    "FS-15",
+    "FS-16",
+    "FS-21"
+  ],
+  "mustPassUncovered": [],
+  "causes": []
+}

@@ -5,5 +5,17 @@
     "url": "",
     "updated_at": "2026-11-16T20:29:25.046Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/audit-before-functional-verification/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-16T21:27:39.078Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/audit-before-functional-verification/verification-report.md",
+    "url": "",
+    "updated_at": "2026-11-16T23:10:34.521Z",
+    "command": "/implement-trd"
   }
 }
