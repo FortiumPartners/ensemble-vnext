@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "fix-brief": {
+    "path": "docs/plans/fix-battery-and-ci-budget/brief.md",
+    "url": "https://claude.ai/artifact/G1gALoCuyVsTZjMTmvMPQg",
+    "updated_at": "2026-11-16T10:24:30.213Z",
+    "command": "/plan-fix"
+  },
+  "workplan-input": {
+    "path": "docs/plans/fix-battery-and-ci-budget/workplan-input.json",
+    "url": "",
+    "updated_at": "2026-11-16T10:25:58.544Z",
+    "command": "create-workplan"
+  }
+}
