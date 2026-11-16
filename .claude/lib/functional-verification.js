@@ -320,6 +320,12 @@ function formatCoveragePercent(fraction) {
  *   previousCauses: string[]|null, // NEW (causes D12) -- the cause keys open last iteration; null on the first
  *   awaitingRegression: string[], // NEW (causes D12) -- ids of closed causes' other members; removed from
  *                               //     `gaps` and `previousGaps` up front, like settledEvidenceGaps; required
+ *   evidenceOnly: string[],     // NEW (core-boards D13) -- ids of evidence-only comparison rows; dropped from
+ *                               //     `gaps` and `previousGaps` up front and left out of the coverage-floor
+ *                               //     ratio; required, `[]` when none; an id also in `mustPass` throws
+ *   coreMustPass: string[],     // NEW (core-boards D13) -- the `mustPass` ids that are must-pass only because
+ *                               //     their Board class is `core`; required, `[]` when none; each must be in
+ *                               //     `mustPass`. They block under both policies but never switch on step 3b
  *   refreshFailed: boolean,     // NEW (preflight D16) — the last Debug pass's refresh ran and exited
  *                               //     non-zero, and no Setup check consumed that fact; required
  *   blocking?: 'all'|'must-pass', // NEW (block-only-on-material-failures) — defaults to 'all'; under
@@ -398,6 +404,26 @@ function decideNext(input) {
   if (!Array.isArray(awaitingRegression)) {
     throw new TypeError('decideNext: input.awaitingRegression is required and must be an array (an absent value would hold every closed cause\'s members open until the iteration cap — D12)');
   }
+  // Required, never defaulted (core-boards D13), checked after `awaitingRegression` so earlier
+  // fields' messages are unchanged. An absent `evidenceOnly` would read as "nothing is evidence-only"
+  // and every non-default state frame of a Core board would block the run again.
+  const { evidenceOnly, coreMustPass } = input;
+  if (!Array.isArray(evidenceOnly)) {
+    throw new TypeError('decideNext: input.evidenceOnly is required and must be an array (an absent value would read as "nothing is evidence-only" and let every state frame block the run — D13)');
+  }
+  const bothLists = evidenceOnly.filter((id) => mustPass.includes(id));
+  if (bothLists.length > 0) {
+    throw new TypeError(`decideNext: input.evidenceOnly and input.mustPass both list ${bothLists.join(', ')} (a criterion cannot be both must-pass and evidence-only — D13)`);
+  }
+  // Required for the same reason: an absent list would read as "no must-pass id is a Core row",
+  // which switches the must-pass-only waiver on for a design whose only must-pass ids are Core rows.
+  if (!Array.isArray(coreMustPass)) {
+    throw new TypeError('decideNext: input.coreMustPass is required and must be an array (an absent value would read as "no must-pass id is a Core row" and switch on the must-pass-only waiver for Core ids — D13)');
+  }
+  const notMustPass = coreMustPass.filter((id) => !mustPass.includes(id));
+  if (notMustPass.length > 0) {
+    throw new TypeError(`decideNext: input.coreMustPass lists ${notMustPass.join(', ')} which input.mustPass does not (coreMustPass must be a subset of mustPass — D13)`);
+  }
   // Optional, and the default is the strict direction ('all'), so an absent key defaults; only a
   // present-but-wrong value throws (a typo must not silently pick either policy).
   const blocking = input.blocking ?? 'all';
@@ -411,7 +437,9 @@ function decideNext(input) {
   // nor an open gap (it must not hold the run to the cap): drop it from both lists up front.
   // A member awaiting the regression pass (causes D12) is treated the same way: it was not
   // re-checked this iteration, so it is neither closed nor open.
-  const dropped = (id) => settledEvidenceGaps.includes(id) || awaitingRegression.includes(id);
+  // An evidence-only id (core-boards D13) is dropped the same way: it is shown on the report, never
+  // blocks, and must not count as a closure or hold the run to the cap. `unbuilt` is not filtered.
+  const dropped = (id) => settledEvidenceGaps.includes(id) || awaitingRegression.includes(id) || evidenceOnly.includes(id);
   const openGaps = gaps.filter((id) => !dropped(id));
   const previousGaps = inputPreviousGaps == null ? inputPreviousGaps : inputPreviousGaps.filter((id) => !dropped(id));
 
@@ -493,7 +521,8 @@ function decideNext(input) {
   // below still run on the converted result.
   if (
     blocking === 'must-pass' &&
-    mustPass.length > 0 &&
+    // Core ids block under both policies but never make the waiver active (core-boards D12/D13).
+    mustPass.some((id) => !coreMustPass.includes(id)) &&
     (result.action === 'exit-stalled' || result.action === 'exit-stuck') &&
     openGaps.every((id) => !mustPass.includes(id))
   ) {
@@ -514,19 +543,23 @@ function decideNext(input) {
   // the safe direction (never re-label on a denominator nobody supplied). `total` is optional at
   // the type level for that same reason: unlike `met`, its absence cannot fabricate a false
   // "nothing proven" reading -- it just leaves the ratio uncomputed and the re-label dormant.
+  // Evidence-only rows leave both sides of the ratio (core-boards D13): a Core design's state frames
+  // are shown for review, so their being unmet must not read as thin coverage.
+  const countedMet = met.filter((id) => !evidenceOnly.includes(id)).length;
+  const countedTotal = typeof total === 'number' ? total - evidenceOnly.length : total;
   if (
     COVERAGE_RELABELABLE_ACTIONS.has(result.action) &&
     coverageFloor != null &&
     typeof total === 'number' &&
-    total > 0 &&
-    met.length / total < coverageFloor
+    total - evidenceOnly.length > 0 &&
+    countedMet / countedTotal < coverageFloor
   ) {
-    const ratio = met.length / total;
-    const uncoveredCount = total - met.length;
+    const ratio = countedMet / countedTotal;
+    const uncoveredCount = countedTotal - countedMet;
     result = {
       action: 'exit-insufficient-coverage',
       reason:
-        `proven ratio ${met.length}/${total} (${(ratio * 100).toFixed(1)}%) is below the ` +
+        `proven ratio ${countedMet}/${countedTotal} (${(ratio * 100).toFixed(1)}%) is below the ` +
         // D19: the owner reads percentages (verification.md §5a is written as one), and the
         // readout that quotes this reason prints percentages elsewhere too -- a bare fraction
         // here would be the one place a ratio surfaced unitless.
@@ -866,14 +899,52 @@ function readDefinitionRows(definitionText) {
  * Reads the TRD and the success definition from disk (D11), so the must-pass set never depends on
  * a model parsing the table. Columns are found by header name; a definition with no `Must pass`
  * column yields blank cells, so every declared must-pass objective comes back uncovered (fail closed).
+ *
+ * Also reads the `Board class` column (core-boards D12): a `core` row joins `criteria`; an
+ * `evidence-only` row that names no declared objective goes to `evidenceOnly`; any other value is
+ * ordinary and listed in `classIssues`, as is an evidence-only row that is also must-pass.
+ * `mustPassCoverage()` itself is unchanged.
+ * @returns {{criteria: string[], uncovered: Array<{id: string, text: string}>,
+ *   unknown: Array<{criterion: string, objective: string}>, evidenceOnly: string[],
+ *   classIssues: Array<{criterion: string, value: string, reason: string}>, coreCriteria: string[]}}
+ *   `coreCriteria` is the subset of `criteria` that is must-pass only because its class is `core`.
  */
 function mustPassCoverageFromFiles(trdPath, definitionPath) {
   const objectives = objectiveRows(fs.readFileSync(trdPath, 'utf8'))
     .filter((r) => r.mustPass)
     .map(({ id, text }) => ({ id, text }));
-  const criteria = readDefinitionRows(fs.readFileSync(definitionPath, 'utf8'))
-    .map((r) => ({ id: r.id, mustPass: r.cells['must pass'] ?? '' }));
-  return mustPassCoverage({ objectives, criteria });
+  const rows = readDefinitionRows(fs.readFileSync(definitionPath, 'utf8'));
+  const base = mustPassCoverage({
+    objectives,
+    criteria: rows.map((r) => ({ id: r.id, mustPass: r.cells['must pass'] ?? '' })),
+  });
+  // The Board class column (core-boards D11, D12). Normalised like `mustPassCellIds`: a model-written
+  // `core` or **core** cell must not read as an unknown value.
+  const named = new Set(base.criteria);
+  const criteria = [...base.criteria];
+  const coreCriteria = [];
+  const evidenceOnly = [];
+  const classIssues = [];
+  for (const r of rows) {
+    const value = String(r.cells['board class'] ?? '').replace(/\*\*|`/g, '').trim().toLowerCase();
+    if (value === '') continue;
+    if (value === 'core') {
+      // A Core row that also names an objective is already must-pass, and not "only because" of its class.
+      if (!named.has(r.id)) {
+        criteria.push(r.id);
+        coreCriteria.push(r.id);
+      }
+    } else if (value === 'evidence-only') {
+      if (named.has(r.id)) {
+        classIssues.push({ criterion: r.id, value, reason: 'evidence-only row also names a declared must-pass objective; it stays must-pass' });
+      } else {
+        evidenceOnly.push(r.id);
+      }
+    } else {
+      classIssues.push({ criterion: r.id, value, reason: 'unknown Board class value; the row is treated as ordinary' });
+    }
+  }
+  return { ...base, criteria, evidenceOnly, classIssues, coreCriteria };
 }
 
 // ---------------------------------------------------------------------------
@@ -1749,6 +1820,7 @@ function recordNonBlockingFollowups(stateDir, nonBlocking, nowIso) {
  *     imageExcluded?: string|null, // NEW — why an image was found but not cited; wins over `image`.
  *   }>,
  *   finalEnvironmentRun?: {command: string, status: 'pass'|'fail'|'skipped'} | null,  // NEW (D14)
+ *   evidenceOnly?: string[],                          // NEW (core-boards D15) — ids labelled "evidence only, never blocks"
  *   mustPass?: string[],                              // NEW (D13) — must-pass criterion ids
  *   mustPassUncovered?: Array<{id: string, text: string}>, // NEW (D13) — must-pass objectives with no criterion
  *   setup?: {problems: Array<{environment: string, problem: string, fix: string}>}, // NEW (preflight §3.3) — rendered only under `setup-failure`
@@ -1791,6 +1863,10 @@ function renderReport(input) {
   // Cause rendering (causes D19) is gated on the input carrying `causes` or any `awaiting`, so an
   // older input renders byte-identically.
   const causeRows = Array.isArray(input.causes) ? input.causes : [];
+  // Evidence-only rendering (core-boards D15) is gated on the input carrying a non-empty
+  // `evidenceOnly` list, so an older input, or an empty list, renders byte-identically.
+  const evidenceOnlyIds = new Set(Array.isArray(input.evidenceOnly) ? input.evidenceOnly.map(String) : []);
+  const evidenceMark = (c) => (evidenceOnlyIds.has(String(c.id)) ? ' — evidence only, never blocks' : '');
   const awaitingMark = (c) => (c.awaiting === 'regression' ? ' — awaiting the regression pass, not re-checked' : '');
 
   // Regression pass rendering (one-full-regression-pass-at-the-end D14) is gated on the input
@@ -1915,6 +1991,9 @@ function renderReport(input) {
         ? ` — uncovered: ${uncoveredIds.map(escapeCell).join(', ')}`
         : ' — uncovered: none')
   );
+  if (evidenceOnlyIds.size > 0) {
+    lines.push(`**Evidence only**: ${evidenceOnlyIds.size} frame(s) shown for review, never blocking`);
+  }
   // The must-pass line (D13): only when any must-pass is declared, so every report written
   // before this feature stays byte-identical. The report input is hand-composed and unvalidated,
   // so a must-pass id absent from `criteria` renders as `missing` rather than throwing.
@@ -2090,7 +2169,7 @@ function renderReport(input) {
       // The flag is appended after escaping: it is ours, not Judge text.
       const flag = images.flaggedSet.has(c) ? UI_NO_SCREENSHOT_FLAG : '';
       lines.push(
-        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.artifact)}${flag} | ${escapeCell(provenAt)} |`
+        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.artifact)}${flag}${evidenceMark(c)} | ${escapeCell(provenAt)} |`
       );
     }
   }
@@ -2121,7 +2200,7 @@ function renderReport(input) {
         .map((a) => `iter ${a.iteration}: ${a.result}`)
         .join('; ');
       lines.push(
-        `| ${c.id} | ${escapeCell(c.statement)} | ${kindGate ? `${kindWords(c)} | ` : ''}${escapeCell(c.tier1 ?? '')} | ${escapeCell(c.reason)}${awaitingMark(c)}${caughtMark(c)} | ${escapeCell(c.blocker)} | ${escapeCell(attempts)} |`
+        `| ${c.id} | ${escapeCell(c.statement)} | ${kindGate ? `${kindWords(c)} | ` : ''}${escapeCell(c.tier1 ?? '')} | ${escapeCell(c.reason)}${awaitingMark(c)}${caughtMark(c)}${evidenceMark(c)} | ${escapeCell(c.blocker)} | ${escapeCell(attempts)} |`
       );
     }
   }
@@ -2954,7 +3033,9 @@ module.exports = {
 //       (reads the report itself; --published-file is a JSON array of the paths a fresh listing
 //        returned; prints {batches, remove, rejected})
 //   node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>
-//       (reads both files itself — not a JSON payload; prints {criteria, uncovered, unknown})
+//       (reads both files itself — not a JSON payload; prints {criteria, uncovered, unknown,
+//        evidenceOnly, classIssues, coreCriteria}: `criteria` also holds every `Board class: core` row,
+//        `evidenceOnly` the `evidence-only` rows that are not must-pass)
 //   node functional-verification.js off-host-proofs --trd <TRD path> --definition <definition path> [--covers <json file>] [--ids <id,id,...>] [--base <ref>]
 //       (reads both files itself; prints {proofs, ignored}, one proof per declared CI job with a
 //        status of green, red, pending, missing, dirty, baseline or error; each carries runId and

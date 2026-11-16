@@ -94,7 +94,7 @@ const cleanEnv = () => {
  * recorded. `designMd` is the text of .claude/rules/design.md (the unfilled case passes the
  * template itself, which design-map.js `setup()` reports as `unfilled`).
  */
-function project({ designMd = DESIGN_MD } = {}) {
+function project({ designMd = DESIGN_MD, trdText = TRD_TEXT, definition = DEFINITION } = {}) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'reproof-seam-')));
   roots.push(root);
   const bare = path.join(root, 'origin.git');
@@ -131,7 +131,7 @@ function project({ designMd = DESIGN_MD } = {}) {
   g(repo, 'checkout', '-b', 'feature/f');
   // Everything under `.claude/rules/` is a shipped-class path, so it goes in before the anchor.
   commit('work', {
-    [TRD]: TRD_TEXT,
+    [TRD]: trdText,
     '.claude/rules/design.md': designMd,
     '.claude/skills/design-setup/template.md': fs.readFileSync(DESIGN_TEMPLATE, 'utf8'),
     'docs/ui/f/design-map.json': JSON.stringify(DESIGN_MAP, null, 2),
@@ -144,7 +144,7 @@ function project({ designMd = DESIGN_MD } = {}) {
     cli(CUSTODY, 'reconcile', '--state-dir', STATE, '--trd', TRD, ...extra).json;
   reconcile(); // sets the anchor at this commit
 
-  write(`${STATE}/success-definition.md`, DEFINITION);
+  write(`${STATE}/success-definition.md`, definition);
   write(`${STATE}/verification-state.json`, JSON.stringify({
     criteria: [{ id: ID_HOME, status: 'met', artifact: null }, { id: ID_SETTINGS, status: 'met', artifact: null }],
   }));
@@ -157,6 +157,30 @@ function project({ designMd = DESIGN_MD } = {}) {
   };
   return { repo, commit, recorded, gate, records };
 }
+
+// A design feature whose TRD declares no must-pass objective (core-boards D12): the Core row is
+// must-pass by its Board class alone, the evidence-only row is not must-pass at all.
+const CORE_TRD_TEXT = TRD_TEXT.replace('| O1 | boards are built | yes |', '| O1 | boards are built | |');
+const classRow = (id, cls) => `| ${id} | the board is built | c | e | check:verify-design-comparison | locator | | | ${cls} |`;
+const CORE_DEFINITION = [
+  '# D', '',
+  '| ID | Functional statement | Cites | Evidence | Derivation | Tier 1 | Parts | Must pass | Board class |',
+  '|----|----|----|----|----|----|----|----|----|',
+  classRow(ID_HOME, 'core'),
+  classRow(ID_SETTINGS, 'evidence-only'), '',
+].join('\n');
+
+describe('narrow reproof: Core rows (core-boards D12)', () => {
+  test('a Core row is in custody\'s re-proof set; an evidence-only row is not', () => {
+    const p = project({ trdText: CORE_TRD_TEXT, definition: CORE_DEFINITION });
+    p.commit('add a sibling', { 'src/home/Card.extra.tsx': 'more' });
+    const r = p.gate();
+    expect(r.action).toBe('reverify');
+    expect(r.ids).toEqual([ID_HOME]);
+    expect(r.ids).not.toContain(ID_SETTINGS);
+    expect(r.reused).not.toContain(ID_SETTINGS);
+  });
+});
 
 describe('narrow reproof: covers record to custody', () => {
   test('record-criteria resolves both boards to their page and component files', () => {

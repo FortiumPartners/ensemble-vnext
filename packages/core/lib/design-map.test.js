@@ -665,6 +665,179 @@ describe('unsynced --merged-into', () => {
   });
 });
 
+describe('Core boards', () => {
+  const screens = (n, extra = () => ({})) => Array.from({ length: n }, (_, i) => board({ id: `s${i + 1}`, file: `s${i + 1}.dc.html`, ...extra(i) }));
+  const cli = (...args) => spawnSync('node', [path.join(__dirname, 'design-map.js'), ...args], { encoding: 'utf8' });
+  const writeMap = (dir, m) => fs.writeFileSync(path.join(dir, 'design-map.json'), JSON.stringify(m));
+  const readMap = (dir) => JSON.parse(fs.readFileSync(path.join(dir, 'design-map.json'), 'utf8'));
+  const canvasPath = (dir) => path.join(dir, 'canvas/project/canvas.json');
+  const writeCanvas = (dir, boards, title = 'Top') => {
+    fs.mkdirSync(path.dirname(canvasPath(dir)), { recursive: true });
+    fs.writeFileSync(canvasPath(dir), JSON.stringify({ v: 1, title, pages: [], boards }, null, 2) + '\n');
+  };
+  const readCanvas = (dir) => JSON.parse(fs.readFileSync(canvasPath(dir), 'utf8'));
+
+  describe('validate', () => {
+    it('rejects 9 non-superseded core:true boards, naming them', () => {
+      const e = dm.validate(mapOf(screens(9, () => ({ core: true })))).join('\n');
+      expect(e).toMatch(/9 Core boards; at most 8 may be Core: s1, s2/);
+    });
+    it('accepts 8, and ignores superseded ones in the count', () => {
+      expect(dm.validate(mapOf(screens(8, () => ({ core: true }))))).toEqual([]);
+      expect(dm.validate(mapOf([...screens(8, () => ({ core: true })), board({ id: 'old', file: 'old.dc.html', core: true, status: 'superseded' })]))).toEqual([]);
+    });
+    it('accepts a legacy map with 12 screen boards', () => expect(dm.validate(mapOf(screens(12)))).toEqual([]));
+    it('rejects a core key on a part or flow, and a non-boolean core', () => {
+      const e = dm.validate(mapOf([board({ id: 'p', kind: 'part', core: true }), board({ id: 'f', kind: 'flow', core: false }), board({ id: 'x', core: 'yes' }), board({ id: 'n', core: null })])).join('\n');
+      expect(e).toMatch(/board p: core is allowed only on to-be and as-is boards/);
+      expect(e).toMatch(/board f: core is allowed only on to-be and as-is boards/);
+      expect(e).toMatch(/board x: core must be true or false/);
+      expect(e).toMatch(/board n: core must be true or false/);
+    });
+  });
+
+  describe('isCore, coreBoards, coreReport', () => {
+    it('legacy map: every to-be and as-is board, no part or flow', () => {
+      const m = mapOf([board({ id: 'a', kind: 'as-is' }), board({ id: 'b' }), board({ id: 'p', kind: 'part' }), board({ id: 'f', kind: 'flow' })]);
+      expect(dm.isLegacyCore(m)).toBe(true);
+      expect(dm.coreBoards(m).map((b) => b.id)).toEqual(['a', 'b']);
+      expect(dm.coreReport(m)).toEqual({ legacy: true, core: ['a', 'b'], cap: 8, over_cap: false, errors: [] });
+    });
+    it('explicit map: only core:true; a board with no key reads false', () => {
+      const m = mapOf([board({ id: 'a', core: true }), board({ id: 'b', core: false }), board({ id: 'c' })]);
+      expect(dm.isLegacyCore(m)).toBe(false);
+      expect(m.boards.map((b) => dm.isCore(m, b))).toEqual([true, false, false]);
+    });
+    it('a superseded board is never Core, on legacy and explicit maps', () => {
+      const legacy = mapOf([board({ id: 'a', status: 'superseded' }), board({ id: 'b' })]);
+      expect(dm.coreBoards(legacy).map((b) => b.id)).toEqual(['b']);
+      const explicit = mapOf([board({ id: 'a', core: true, status: 'superseded' }), board({ id: 'b', core: true })]);
+      expect(dm.coreReport(explicit).core).toEqual(['b']);
+    });
+    it('reports over_cap and the Core errors for an explicit 9', () => {
+      const r = dm.coreReport(mapOf(screens(9, () => ({ core: true }))));
+      expect(r.over_cap).toBe(true);
+      expect(r.errors).toHaveLength(1);
+    });
+  });
+
+  describe('setCore', () => {
+    it('sets exactly the named set and leaves the input untouched', () => {
+      const m = mapOf([...screens(3), board({ id: 'p', kind: 'part' })]);
+      const next = dm.setCore(m, ['s1', 's3']);
+      expect(next.boards.map((b) => b.core)).toEqual([true, false, true, undefined]);
+      expect(m.boards[0].core).toBeUndefined();
+    });
+    it('throws on an unknown id, a part id, a ninth id', () => {
+      const m = mapOf([...screens(9), board({ id: 'p', kind: 'part' })]);
+      expect(() => dm.setCore(m, ['nope'])).toThrow(/no board nope/);
+      expect(() => dm.setCore(m, ['p'])).toThrow(/only to-be and as-is/);
+      expect(() => dm.setCore(m, screens(9).map((b) => b.id))).toThrow(/at most 8/);
+    });
+  });
+
+  describe('transition, approve and refresh keep core', () => {
+    it('transition keeps the key on every board', () => {
+      const m = mapOf([board({ id: 'a', core: true }), board({ id: 'b', core: false })]);
+      const next = dm.transition(m, ['a'], 'approved', { commit: 'c1' });
+      expect(next.boards.map((b) => b.core)).toEqual([true, false]);
+    });
+    it('refresh keeps the key', () => {
+      const dir = tmp();
+      fs.mkdirSync(path.join(dir, 'canvas/project'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'canvas/project/01-a.dc.html'), '<div></div>');
+      writeMap(dir, mapOf([board({ core: true })]));
+      expect(dm.refresh(dir).boards[0].core).toBe(true);
+      expect(readMap(dir).boards[0].core).toBe(true);
+    });
+  });
+
+  describe('core CLI', () => {
+    it('prints the report; --ids sets and writes; failures write nothing and exit 1', () => {
+      const dir = tmp();
+      writeMap(dir, mapOf([...screens(9), board({ id: 'p', kind: 'part' })]));
+      const before = fs.readFileSync(path.join(dir, 'design-map.json'), 'utf8');
+      expect(JSON.parse(cli('core', '--dir', dir).stdout).legacy).toBe(true);
+      for (const ids of ['', 'nope', 'p', 's1,s2,s3,s4,s5,s6,s7,s8,s9']) {
+        const r = cli('core', '--dir', dir, '--ids', ids);
+        expect(r.status).toBe(1);
+        expect(fs.readFileSync(path.join(dir, 'design-map.json'), 'utf8')).toBe(before);
+      }
+      const ok = cli('core', '--dir', dir, '--ids', 's2, s4');
+      expect(ok.status).toBe(0);
+      expect(JSON.parse(ok.stdout)).toMatchObject({ legacy: false, core: ['s2', 's4'] });
+      expect(readMap(dir).boards.filter((b) => b.core).map((b) => b.id)).toEqual(['s2', 's4']);
+    });
+  });
+
+  describe('coreMarks', () => {
+    it('marks Core titles once, edits only the entry title, strips a board that stopped being Core', () => {
+      const dir = tmp();
+      writeMap(dir, mapOf([board({ id: 'a', file: 'a.dc.html', core: true }), board({ id: 'b', file: 'b.dc.html', core: false })]));
+      writeCanvas(dir, { 'a.dc.html': { x: 1, title: 'A' }, 'b.dc.html': { x: 2, title: '[Core] B' } });
+      expect(dm.coreMarks(dir)).toEqual({ marked: ['a'], unmarked: ['b'], missing: [] });
+      const c = readCanvas(dir);
+      expect(c.title).toBe('Top');
+      expect(c.boards['a.dc.html']).toEqual({ x: 1, title: '[Core] A' });
+      expect(c.boards['b.dc.html'].title).toBe('B');
+      expect(dm.coreMarks(dir)).toEqual({ marked: [], unmarked: [], missing: [] });
+      expect(readCanvas(dir)).toEqual(c);
+    });
+    it('writes nothing when nothing changes', () => {
+      const dir = tmp();
+      writeMap(dir, mapOf([board({ id: 'a', file: 'a.dc.html', core: true })]));
+      fs.mkdirSync(path.dirname(canvasPath(dir)), { recursive: true });
+      // compact, unlike the 2-space form coreMarks writes: any rewrite would change the bytes
+      fs.writeFileSync(canvasPath(dir), '{"boards":{"a.dc.html":{"title":"[Core] A"}}}');
+      dm.coreMarks(dir);
+      expect(fs.readFileSync(canvasPath(dir), 'utf8')).toBe('{"boards":{"a.dc.html":{"title":"[Core] A"}}}');
+    });
+    it('lists a Core board with no entry under missing; no canvas.json is a no-op', () => {
+      const dir = tmp();
+      writeMap(dir, mapOf([board({ id: 'a', file: 'a.dc.html', core: true })]));
+      expect(dm.coreMarks(dir)).toEqual({ marked: [], unmarked: [], missing: [] });
+      writeCanvas(dir, {});
+      expect(dm.coreMarks(dir)).toEqual({ marked: [], unmarked: [], missing: ['a'] });
+    });
+    it('throws naming the file on malformed canvas.json', () => {
+      const dir = tmp();
+      writeMap(dir, mapOf([board({ core: true })]));
+      fs.mkdirSync(path.dirname(canvasPath(dir)), { recursive: true });
+      fs.writeFileSync(canvasPath(dir), '{nope');
+      expect(() => dm.coreMarks(dir)).toThrow(/canvas\.json is not valid JSON/);
+    });
+    it('boards sharing one file leave the entry marked whatever their order', () => {
+      for (const order of [0, 1]) {
+        const dir = tmp();
+        const shipped = board({ id: 'to', file: 'x.dc.html', core: true, status: 'shipped' });
+        const asIs = board({ id: 'as', file: 'x.dc.html', kind: 'as-is' });
+        writeMap(dir, mapOf(order ? [asIs, shipped] : [shipped, asIs]));
+        writeCanvas(dir, { 'x.dc.html': { title: 'X' } });
+        dm.coreMarks(dir);
+        expect(readCanvas(dir).boards['x.dc.html'].title).toBe('[Core] X');
+        dm.coreMarks(dir);
+        expect(readCanvas(dir).boards['x.dc.html'].title).toBe('[Core] X');
+      }
+    });
+    it('finds one canvas.json per canvas, by each canvas dir', () => {
+      const dir = tmp();
+      const m = mapOf([board({ id: 'a', file: 'a.dc.html', core: true, canvas: 'u1' }), board({ id: 'b', file: 'b.dc.html', core: true, canvas: 'u2' })]);
+      m.canvases = [{ url: 'u1', dir: 'c1' }, { url: 'u2', dir: 'c2' }];
+      writeMap(dir, m);
+      for (const [d, f] of [['c1', 'a.dc.html'], ['c2', 'b.dc.html']]) {
+        fs.mkdirSync(path.join(dir, d), { recursive: true });
+        fs.writeFileSync(path.join(dir, d, 'canvas.json'), JSON.stringify({ boards: { [f]: { title: 'T' } } }));
+      }
+      expect(dm.coreMarks(dir).marked.sort()).toEqual(['a', 'b']);
+    });
+    it('core-marks CLI runs', () => {
+      const dir = tmp();
+      writeMap(dir, mapOf([board({ core: true })]));
+      expect(JSON.parse(cli('core-marks', '--dir', dir).stdout)).toEqual({ marked: [], unmarked: [], missing: [] });
+    });
+  });
+});
+
 describe('installed copy', () => {
   it('.claude/lib/design-map.js is byte-identical to packages/core/lib/design-map.js', () => {
     const root = path.join(__dirname, '..', '..', '..');

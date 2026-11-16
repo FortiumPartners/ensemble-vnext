@@ -420,7 +420,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -437,7 +437,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -452,7 +452,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: ['FS-1'],
     });
@@ -467,7 +467,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -485,7 +485,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -506,7 +506,7 @@ describe('decideNext', () => {
       previousGaps: [],
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
       cap: 3,
@@ -522,7 +522,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
       cap: 3,
@@ -540,7 +540,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
       cap: 3,
@@ -558,7 +558,7 @@ describe('decideNext', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
       cap: 1,
@@ -575,7 +575,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -588,7 +588,7 @@ describe('decideNext', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -597,11 +597,11 @@ describe('decideNext', () => {
 
   test('every result includes a non-empty reason string', () => {
     for (const input of [
-      { iteration: 1, gaps: [], unbuilt: ['FS-1'], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [] },
-      { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [] },
-      { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [] },
-      { iteration: 3, gaps: ['FS-1'], unbuilt: [], previousGaps: [], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [] },
-      { iteration: 1, gaps: ['FS-1'], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [] },
+      { iteration: 1, gaps: [], unbuilt: ['FS-1'], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] },
+      { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] },
+      { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] },
+      { iteration: 3, gaps: ['FS-1'], unbuilt: [], previousGaps: [], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] },
+      { iteration: 1, gaps: ['FS-1'], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] },
     ]) {
       const result = decideNext(input);
       expect(typeof result.reason).toBe('string');
@@ -622,7 +622,7 @@ describe('decideNext: the blocking policy', () => {
     previousGaps: null,
     mustPass: ['FS-1'],
     refreshFailed: false,
-    settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+    settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
     mustPassUncovered: [],
     met: ['FS-1'],
     ...over,
@@ -719,7 +719,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: ['FS-1'],
       total: 10,
@@ -740,7 +740,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: ['FS-3'],
       total: 10,
@@ -757,7 +757,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: ['FS-3'],
       total: 10,
@@ -775,7 +775,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
       total: 10,
@@ -792,7 +792,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
       total: 10,
@@ -809,7 +809,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: ['FS-1'],
       total: 62, // the PRD's own 18% (11 of 62) shape, exaggerated further to 1/62
@@ -826,7 +826,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
       total: 10,
@@ -843,7 +843,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: ['FS-1', 'FS-2', 'FS-3', 'FS-4', 'FS-5'],
       total: 10,
@@ -860,7 +860,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
       coverageFloor: 0.5,
@@ -877,7 +877,7 @@ describe('decideNext: the coverage re-label', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
       total: 0,
@@ -1294,7 +1294,7 @@ describe('CLI', () => {
       previousGaps: null,
       mustPass: [],
       refreshFailed: false,
-      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [],
+      settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [],
       mustPassUncovered: [],
       met: [],
     });
@@ -1426,7 +1426,7 @@ describe('CLI', () => {
     const inputFile = path.join(tmpDir, 'decide.json');
     fs.writeFileSync(
       inputFile,
-      JSON.stringify({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [] })
+      JSON.stringify({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] })
     );
 
     const stdout = execFileSync('node', [MODULE_PATH, 'decide-next', '--file', inputFile]).toString();
@@ -3309,7 +3309,7 @@ describe('CLI: decide-fix-round and render-fix-summary', () => {
 describe('the existing functional-verification.test.js cases still pass', () => {
   test('sanity: decideNext and renderReport basics are untouched by the VFIX-B001 changes', () => {
     expect(
-      decideNext({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [] })
+      decideNext({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] })
     ).toMatchObject({ action: 'exit-satisfied' });
     expect(renderReport({
       feature: 'demo',
@@ -3329,7 +3329,7 @@ describe('the existing functional-verification.test.js cases still pass', () => 
 // ---------------------------------------------------------------------------
 
 describe('decideNext: the must-pass step (D8, D9, D10)', () => {
-  const clean = { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: ['FS-1'], total: 2, refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [] };
+  const clean = { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: ['FS-1'], total: 2, refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] };
 
   test('a base exit-satisfied with an unproven must-pass criterion becomes exit-must-pass-unproven', () => {
     const r = decideNext({ ...clean, mustPass: ['FS-2'], mustPassUncovered: [] });
@@ -3352,14 +3352,14 @@ describe('decideNext: the must-pass step (D8, D9, D10)', () => {
   });
 
   test('a must-pass criterion in gaps still remediates / stalls / sticks', () => {
-    const base = { iteration: 1, gaps: ['FS-2'], unbuilt: [], previousGaps: null, met: ['FS-1'], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [] };
+    const base = { iteration: 1, gaps: ['FS-2'], unbuilt: [], previousGaps: null, met: ['FS-1'], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] };
     expect(decideNext(base).action).toBe('remediate');
     expect(decideNext({ ...base, iteration: 2, previousGaps: ['FS-2'] }).action).toBe('exit-stalled');
     expect(decideNext({ ...base, iteration: 3 }).action).toBe('exit-stuck');
   });
 
   test('a must-pass criterion in unbuilt still exits unbuilt', () => {
-    const r = decideNext({ iteration: 1, gaps: [], unbuilt: ['FS-2'], previousGaps: null, met: [], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [] });
+    const r = decideNext({ iteration: 1, gaps: [], unbuilt: ['FS-2'], previousGaps: null, met: [], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] });
     expect(r.action).toBe('exit-unbuilt');
   });
 
@@ -4446,7 +4446,7 @@ describe('CLI: decide-setup (§3.1)', () => {
 });
 
 describe('decideNext: the failed-refresh guard (D16, §3.1a)', () => {
-  const open = { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [], settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [] };
+  const open = { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [], settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] };
 
   test('refreshFailed with open gaps and nothing closed returns exit-setup-failure, not exit-stalled', () => {
     const r = decideNext({ ...open, refreshFailed: true });
@@ -4754,7 +4754,7 @@ describe('KIND_BY_CAUSE (triage D1)', () => {
 });
 
 describe('decideNext: settledEvidenceGaps (triage D6)', () => {
-  const base = { iteration: 2, unbuilt: [], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, causes: [], previousCauses: null, awaitingRegression: [] };
+  const base = { iteration: 2, unbuilt: [], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] };
 
   test('throws a TypeError naming the field when absent or not an array', () => {
     const input = { ...base, gaps: [], previousGaps: null };
@@ -4786,7 +4786,7 @@ describe('decideNext: settledEvidenceGaps (triage D6)', () => {
 });
 
 describe('decideNext: causes, previousCauses, awaitingRegression (causes D12)', () => {
-  const base = { iteration: 2, unbuilt: [], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [] };
+  const base = { iteration: 2, unbuilt: [], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] };
 
   test('each new input throws a TypeError naming it when absent or wrongly typed', () => {
     const input = { ...base, gaps: [], previousGaps: null };
@@ -5625,5 +5625,155 @@ describe('recordNonBlockingFollowups and the Not blocking report line (FIX-003)'
       expect(renderReport({ ...base, nonBlocking: [] })).toBe(renderReport(base));
       expect(renderReport(base)).not.toContain('Not blocking');
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Core boards (core-boards-in-designs D12, D13, D15): Board class, evidenceOnly, coreMustPass
+// ---------------------------------------------------------------------------
+
+describe('CLI: must-pass-coverage reads the Board class column (core-boards D12)', () => {
+  const run = (rows, { objectives = [] } = {}) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mpc-class-'));
+    const trd = path.join(dir, 'trd.md');
+    const definition = path.join(dir, 'definition.md');
+    fs.writeFileSync(trd, [
+      '# T', '', '## Objectives', '',
+      '| ID | Objective | Must pass |', '|----|-----------|-----------|',
+      ...objectives.map((o) => `| ${o} | thing | yes |`), ...(objectives.length ? [] : ['| O1 | thing | |']), '',
+    ].join('\n'));
+    fs.writeFileSync(definition, [
+      '# D', '',
+      '| ID | Functional statement | Must pass | Board class |', '|----|----|----|----|',
+      ...rows.map(([id, mp, cls]) => `| ${id} | s | ${mp} | ${cls} |`), '',
+    ].join('\n'));
+    return JSON.parse(execFileSync('node', [MODULE_PATH, 'must-pass-coverage', '--trd', trd, '--definition', definition]).toString());
+  };
+
+  test('2 core, 3 evidence-only and 1 blank row with no must-pass objective', () => {
+    const r = run([
+      ['DC-1', '', 'core'], ['DC-2', '', '`core`'], ['DC-3', '', 'evidence-only'],
+      ['DC-4', '', '**evidence-only**'], ['DC-5', '', 'evidence-only'], ['DC-6', '', ''],
+    ]);
+    expect(r.criteria).toEqual(['DC-1', 'DC-2']);
+    expect(r.coreCriteria).toEqual(['DC-1', 'DC-2']);
+    expect(r.evidenceOnly).toEqual(['DC-3', 'DC-4', 'DC-5']);
+    expect(r.classIssues).toEqual([]);
+  });
+
+  test('a Core-ish value is ordinary and listed in classIssues', () => {
+    const r = run([['DC-1', '', 'Core-ish']]);
+    expect(r.criteria).toEqual([]);
+    expect(r.evidenceOnly).toEqual([]);
+    expect(r.classIssues).toMatchObject([{ criterion: 'DC-1', value: 'core-ish' }]);
+  });
+
+  test('an evidence-only row naming a declared must-pass objective stays must-pass and is a classIssue', () => {
+    const r = run([['DC-1', 'O1', 'evidence-only']], { objectives: ['O1'] });
+    expect(r.criteria).toEqual(['DC-1']);
+    expect(r.evidenceOnly).toEqual([]);
+    expect(r.coreCriteria).toEqual([]);
+    expect(r.classIssues).toMatchObject([{ criterion: 'DC-1', value: 'evidence-only' }]);
+  });
+
+  test('a core row that also names an objective appears once in criteria and not in coreCriteria', () => {
+    const r = run([['DC-1', 'O1', 'core']], { objectives: ['O1'] });
+    expect(r.criteria).toEqual(['DC-1']);
+    expect(r.coreCriteria).toEqual([]);
+  });
+});
+
+describe('decideNext: evidenceOnly and coreMustPass (core-boards D13)', () => {
+  const base = { iteration: 2, unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false, settledEvidenceGaps: [], causes: [], previousCauses: null, awaitingRegression: [], evidenceOnly: [], coreMustPass: [] };
+
+  test('absent evidenceOnly or coreMustPass throws naming it', () => {
+    const { evidenceOnly, ...noEvidence } = { ...base, gaps: [] };
+    expect(() => decideNext(noEvidence)).toThrow(TypeError);
+    expect(() => decideNext(noEvidence)).toThrow(/input\.evidenceOnly is required/);
+    const { coreMustPass, ...noCore } = { ...base, gaps: [] };
+    expect(() => decideNext(noCore)).toThrow(/input\.coreMustPass is required/);
+  });
+
+  test('an id in both mustPass and evidenceOnly throws; a coreMustPass id not in mustPass throws', () => {
+    expect(() => decideNext({ ...base, gaps: [], mustPass: ['A'], evidenceOnly: ['A'] })).toThrow(/both list A/);
+    expect(() => decideNext({ ...base, gaps: [], mustPass: [], coreMustPass: ['A'] })).toThrow(/coreMustPass lists A/);
+  });
+
+  test('only evidence-only ids in gaps is exit-satisfied under both policies', () => {
+    for (const blocking of ['all', 'must-pass']) {
+      const r = decideNext({ ...base, gaps: ['E1', 'E2'], previousGaps: ['E1', 'E2'], evidenceOnly: ['E1', 'E2'], blocking });
+      expect(r.action).toBe('exit-satisfied');
+    }
+  });
+
+  test('an evidence-only id does not hold the run to the cap or count as stalled', () => {
+    const r = decideNext({ ...base, iteration: 9, gaps: ['E1'], previousGaps: ['E1'], evidenceOnly: ['E1'] });
+    expect(r.action).toBe('exit-satisfied');
+  });
+
+  test('a core id in gaps behaves as any must-pass gap under both policies', () => {
+    for (const blocking of ['all', 'must-pass']) {
+      const input = { ...base, mustPass: ['C1'], coreMustPass: ['C1'], blocking };
+      expect(decideNext({ ...input, gaps: ['C1'], previousGaps: null }).action).toBe('remediate');
+      expect(decideNext({ ...input, gaps: ['C1'], previousGaps: ['C1'] }).action).toBe('exit-stalled');
+      expect(decideNext({ ...input, iteration: 5, gaps: ['C1'], previousGaps: ['C1', 'X'] }).action).toBe('exit-stuck');
+    }
+  });
+
+  test('a core id not_verifiable (absent from met, not in gaps) is exit-must-pass-unproven under both policies', () => {
+    for (const blocking of ['all', 'must-pass']) {
+      const r = decideNext({ ...base, gaps: [], mustPass: ['C1'], coreMustPass: ['C1'], blocking });
+      expect(r.action).toBe('exit-must-pass-unproven');
+    }
+  });
+
+  test('the must-pass waiver stays inert when every must-pass id is a Core id', () => {
+    const r = decideNext({ ...base, gaps: ['C1', 'O1'], previousGaps: ['C1', 'O1'], mustPass: ['C1'], coreMustPass: ['C1'], blocking: 'must-pass' });
+    expect(r.action).toBe('exit-stalled');
+    expect(r.nonBlocking).toBeUndefined();
+  });
+
+  test('the waiver still converts when a non-Core must-pass id exists and the open gap is ordinary', () => {
+    const r = decideNext({ ...base, gaps: ['O1'], previousGaps: ['O1'], met: ['C1', 'M1'], mustPass: ['C1', 'M1'], coreMustPass: ['C1'], blocking: 'must-pass' });
+    expect(r.action).toBe('exit-satisfied');
+    expect(r.nonBlocking).toEqual(['O1']);
+  });
+
+  test('evidence-only rows leave the coverage-floor ratio: 2 of 4 ordinary met with 6 evidence-only unmet does not re-label', () => {
+    const ev = ['E1', 'E2', 'E3', 'E4', 'E5', 'E6'];
+    const r = decideNext({ ...base, gaps: [...ev], previousGaps: null, met: ['A', 'B'], total: 10, coverageFloor: 0.5, evidenceOnly: ev });
+    expect(r.action).toBe('exit-satisfied');
+    const without = decideNext({ ...base, gaps: [...ev], met: ['A', 'B'], total: 10, coverageFloor: 0.5 });
+    expect(without.action).not.toBe('exit-satisfied');
+  });
+
+  test('a floor still re-labels when the ordinary criteria fall below it', () => {
+    const r = decideNext({ ...base, gaps: [], met: ['A'], total: 10, coverageFloor: 0.5, evidenceOnly: ['E1', 'E2', 'E3', 'E4', 'E5', 'E6'] });
+    expect(r.action).toBe('exit-insufficient-coverage');
+    expect(r.reason).toContain('1/4');
+  });
+});
+
+describe('renderReport: evidence-only label (core-boards D15)', () => {
+  const input = {
+    feature: 'f', prd: 'p', definitionPath: 'd', outcome: 'satisfied', reason: 'ok',
+    criteria: [
+      { id: 'DC-1', statement: 'core', status: 'met', artifact: 'a.png', reason: null, attempts: [], blocker: null },
+      { id: 'DC-2', statement: 'state', status: 'not_met', artifact: null, reason: 'differs', attempts: [], blocker: null },
+      { id: 'DC-3', statement: 'state met', status: 'met', artifact: 'b.png', reason: null, attempts: [], blocker: null },
+    ],
+  };
+
+  test('an empty or absent list is byte-identical to today\'s report', () => {
+    expect(renderReport({ ...input, evidenceOnly: [] })).toBe(renderReport(input));
+  });
+
+  test('a non-empty list adds the line and labels the Met and Not Met rows', () => {
+    const out = renderReport({ ...input, evidenceOnly: ['DC-2', 'DC-3'] });
+    expect(out).toContain('**Evidence only**: 2 frame(s)');
+    const lines = out.split('\n');
+    expect(lines.find((l) => l.startsWith('| DC-2 |'))).toContain('evidence only, never blocks');
+    expect(lines.find((l) => l.startsWith('| DC-3 |'))).toContain('evidence only, never blocks');
+    expect(lines.find((l) => l.startsWith('| DC-1 |'))).not.toContain('evidence only');
   });
 });
