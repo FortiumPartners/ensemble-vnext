@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "slug": "storybook-framework-requests",
+  "name": "Storybook framework requests",
+  "source": {
+    "command": "/plan-feature",
+    "artifact": "docs/plans/storybook-framework-requests/roadmap.md"
+  },
+  "repo": "/Users/james/dev/fortium/ensemble-vnext",
+  "base_branch": "main",
+  "rigor": "standard",
+  "features": [
+    {
+      "name": "Audit before functional verification",
+      "description": "Audit before functional verification - feature F-1 of workplan storybook-framework-requests.\nRun the code audit (/audit-build) before the functional-verification loop in /implement-trd's end-of-run sequence, its NEXT text and /verify-build's hand-off, so audit fixes land before verification and its evidence is produced once on the final code. The PR still opens only after both. Keep /audit-build usable alone.\nAcceptance: the command text and docs state audit first, tests pin it, a fixture session runs the audit step first.\nBuilds on: none.\nDecisions: alongside means audit runs first, not in parallel: OWNER-CALL (PM, 2026-11-16).\nDesign: docs/plans/storybook-framework-requests/roadmap.md item 1.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 10,
+      "dependencies": [],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    },
+    {
+      "name": "Cap verification runs per feature",
+      "description": "Cap verification runs per feature - feature F-2 of workplan storybook-framework-requests.\nCount full verification runs per feature in implement.json (functional_verification.runs), kept across verify, refine and resume. After 2 full runs, stop recovering and write one ruling request listing everything still open (ship, fix one named thing, drop it). The limit is a setting defaulting to 2.\nAcceptance: the run counter survives resume, a third run is refused with a ruling request, /refine-verification declines a third plan.\nBuilds on: none.\nRelated: Audit before functional verification: touches the same end-of-run order; neither needs the other built.\nDecisions: the ruling goes to the product PM, who may escalate: OWNER-CALL (PM, 2026-11-16).\nDesign: docs/plans/storybook-framework-requests/roadmap.md item 2.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 20,
+      "dependencies": [
+        {
+          "name": "Audit before functional verification",
+          "reason": "related"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    },
+    {
+      "name": "Core boards in designs",
+      "description": "Core boards in designs - feature F-3 of workplan storybook-framework-requests.\nIn /create-design and its siblings mark at most 8 Core boards (main screens, normal state) with a visible Core mark on the canvas and a flag in design-map.json. Core boards stay must-pass pixel-perfect comparisons; all other boards are evidence only and never fail verification, their behaviour proven by forced-state component tests. Older designs count every board as Core until refined.\nAcceptance: a 12-board fixture design yields 8 must-pass and 4 evidence-only criteria; the canvas shows the Core mark.\nBuilds on: none.\nDeferred: the visible Core mark on a live canvas waits on a design round using the canvas service.\nDesign: docs/plans/storybook-framework-requests/roadmap.md item 3.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 30,
+      "dependencies": [],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    },
+    {
+      "name": "Publish artifacts per kind",
+      "description": "Publish artifacts per kind - feature F-4 of workplan storybook-framework-requests.\nReplace the single publishArtifacts switch with a per-kind setting. Default publishes trd, task and spike reports and design canvases; for verification-report, audit-build, audit-prd, audit-trd and check-skill pages only the path is recorded unless the run is asked to publish. publishArtifacts false still turns all off and a rebase never reverses it; true maps to the new default. Update every reading command, the settings template, scaffold-project.sh, the artifacts library and docs.\nAcceptance: settings resolution tests pass, a refresh keeps an owner's false, no command reads the old boolean directly.\nBuilds on: none.\nDesign: docs/plans/storybook-framework-requests/roadmap.md item 4.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 40,
+      "dependencies": [],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    }
+  ]
+}
