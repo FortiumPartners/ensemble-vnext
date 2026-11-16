@@ -100,6 +100,17 @@ Next:   /audit-build docs/TRD/<feature>.md
 Run `notify-complete.sh` and `PushNotification` as for any STUCK (see "Completion signal"). A
 `/plan` TRD is shipped without the gate.
 
+### Rerun scope before a re-proof or CI rerun
+
+Before the custody gate re-proves anything, and before `wait-ci` reruns a job, read
+`.claude/contracts/rerun-scope.md` (`rerun-scope`) and state the scope: the anchor is the custody
+anchor for a re-proof and the head of the last green CI run for a CI rerun. List the change with
+`node .claude/lib/rerun-scope.js changed --anchor <anchor>`, choose `none`, `targeted` or `full`,
+and put the contract's one-line `Rerun scope:` statement in DECISIONS. The gate contract
+(`ship-custody-gate.md`) and `wait-ci` carry the step at their re-run points. When unsure, ask
+once with a default (interactive); on a resumed or chained run, stop with `COMMAND STUCK`
+carrying the question and the default.
+
 ## Step 2b: Resolve the owner's rule files
 
 ```bash
