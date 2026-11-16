@@ -26,7 +26,7 @@ export const meta = {
 //   sources       the PRD / issue / brief the design serves, as a path or pasted text
 //   designRules   design.md text (the owner's answers)        canvasRules   the Design type's SKILL.md + references
 //   conventions   designing-on-canvas text                    groundingSkill  the grounding skill's text, or ''
-//   boardsInScope  [{ name, route, platform, viewport, predecessor, screenshot }]
+//   boardsInScope  [{ name, route, platform, viewport, predecessor, screenshot, core }] (core: true only on a main screen; absent reads false)
 //   explore       true: draw `directions` to-be boards per screen (NN-key--dir-a.dc.html ...), rank them, and
 //                 send only the top-ranked one on to the challenge and fix round (D15). Returns `explore`.
 //   directions    how many directions per screen under explore: 2 or 3, default 3 (only a, b, c have an emphasis)
@@ -97,6 +97,7 @@ const LATITUDE_TEXT = LATITUDE
   ? `${LATITUDE}: ${LATITUDE_MEANING[LATITUDE] || '(level not recognised: read the design direction above)'}. Components and tokens are reused at every level.`
   : '(none supplied: keep the information architecture and navigation of the current screen)'
 const NEW_MODE = a.newMode === true
+const CORE_CAP = 8 // the most boards a design may mark Core (D6); the map's validate enforces the same number
 // A numeric string ("4") is accepted: a silent fall back to 1 would repeat ids already in brief.md.
 const OD_NEXT_RAW = typeof a.odNext === 'string' && a.odNext.trim() !== '' ? Number(a.odNext) : a.odNext
 const OD_NEXT = Number.isInteger(OD_NEXT_RAW) && OD_NEXT_RAW >= 1 ? OD_NEXT_RAW : 1
@@ -251,13 +252,19 @@ returned; write the other assumptions you made into brief.md under "Assumptions"
 
 Also return the screens in scope as the boards will use them: name, route, platform, viewport,
 whether a current screen already exists (predecessor) and its screenshot path if any.
+
+CORE BOARDS. Mark each screen core: true only when it is one of the product's main screens, shown in
+its normal state; every other screen core: false (answer for every screen). At most ${CORE_CAP} may be
+true. Write a "## Core boards" section into brief.md naming the screens you marked and, when more than
+${CORE_CAP} qualified, the ones you left out with the reason. Return those left out as
+core_left_out: [{ name, why }].
 ${SCOPE}
 ${DATA_RULE}
 ${BATCH}`,
     {
       label: 'brief', agentType: 'product-manager', phase: 'Brief', effort: 'high', model: 'sonnet',
       schema: {
-        type: 'object', additionalProperties: false, required: ['openDecisions', 'items', 'screens'],
+        type: 'object', additionalProperties: false, required: ['openDecisions', 'items', 'screens', 'core_left_out'],
         properties: {
           items: {
             type: 'array',
@@ -276,11 +283,19 @@ ${BATCH}`,
               },
             },
           },
+          core_left_out: {
+            type: 'array',
+            items: {
+              type: 'object', additionalProperties: false, required: ['name', 'why'],
+              properties: { name: { type: 'string' }, why: { type: 'string' } },
+            },
+          },
           screens: {
             type: 'array',
             items: {
-              type: 'object', additionalProperties: false, required: ['name', 'route', 'platform', 'viewport', 'predecessor'],
+              type: 'object', additionalProperties: false, required: ['name', 'route', 'platform', 'viewport', 'predecessor', 'core'],
               properties: {
+                core: { type: 'boolean' },
                 name: { type: 'string' }, route: { type: 'string' }, platform: { type: 'string' },
                 viewport: { type: 'string' }, predecessor: { type: 'boolean' }, screenshot: { type: 'string' },
               },
@@ -291,6 +306,17 @@ ${BATCH}`,
     },
   ), 'Brief')
 
+  // The cap is code, so a model's over-count never reaches the map (D6). Only core === true is
+  // marked; the first CORE_CAP in returned order stay marked, the rest are drawn with core: false.
+  let marked = 0
+  const coreLeftOut = [...(brief.core_left_out || [])]
+  const screens = (brief.screens || []).map((sc) => {
+    if (sc.core !== true) return { ...sc, core: false }
+    if (marked < CORE_CAP) { marked += 1; return { ...sc, core: true } }
+    coreLeftOut.push({ name: sc.name, why: `over the cap of ${CORE_CAP}` })
+    return { ...sc, core: false }
+  })
+
   return {
     stage: 'ground',
     slug: SLUG,
@@ -300,7 +326,8 @@ ${BATCH}`,
     // by id later (`/refine-design --auto "OD-n: <option>"`).
     openDecisions: (brief.openDecisions || []).map((d, i) => ({ ...d, id: `OD-${OD_NEXT + i}` })),
     items: brief.items,
-    screens: brief.screens,
+    screens,
+    core_left_out: coreLeftOut,
     grounding_written: grounded.filter(Boolean).filter((g) => g.written).map((g) => g.file),
     grounding_missing: groundingDead,
   }
@@ -372,7 +399,7 @@ asIs.forEach((r, i) => {
   if (!r) { failed.push(`asis:${asIsScreens[i].n}-${asIsScreens[i].key}`); return }
   const rec = {
     id: r.id, file: r.file, kind: 'as-is', platform: r.screen.platform, viewport: viewportOf(r.screen.viewport),
-    route: r.screen.route, brief_items: r.brief_items || [], states: statesOf(r.states),
+    route: r.screen.route, brief_items: r.brief_items || [], states: statesOf(r.states), core: false,
     screenshot_match: r.screenshot_match === true, mismatch_note: r.mismatch_note || '',
   }
   boards.push(rec)
@@ -433,7 +460,7 @@ toBe.forEach((r, i) => {
   if (!r) { failed.push(EXPLORE ? `direction:${drawItems[i].s.n}-${drawItems[i].s.key}-${drawItems[i].letter}` : `tobe:${drawItems[i].s.n}-${drawItems[i].s.key}`); return }
   const rec = {
     id: r.id, file: r.file, kind: 'to-be', platform: r.screen.platform, viewport: viewportOf(r.screen.viewport),
-    route: r.screen.route, brief_items: r.brief_items || [], states: statesOf(r.states),
+    route: r.screen.route, brief_items: r.brief_items || [], states: statesOf(r.states), core: r.screen.core === true,
   }
   if (EXPLORE) { drawn.push({ s: r.screen, letter: r.letter, rec }); return }
   boards.push(rec)

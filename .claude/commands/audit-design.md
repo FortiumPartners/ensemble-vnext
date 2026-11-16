@@ -59,6 +59,7 @@ zero findings is a legitimate result.
    ```bash
    node .claude/lib/design-map.js read --dir docs/ui/<slug>
    node .claude/lib/design-map.js unsynced --dir docs/ui/<slug>
+   node .claude/lib/design-map.js core --dir docs/ui/<slug>
    node .claude/lib/design-map.js stale --dir docs/ui/<slug>
    ```
    `stale` runs **without `--record`**: drift is reported, never written (AC-F6.9). On
@@ -68,7 +69,10 @@ zero findings is a legitimate result.
    was built" (with no `changed_paths`, name its `reason` in their place). And step 1 of NEXT is `/design-system --sync`, ahead of `/refine-design`. A non-empty `unsynced` result is an **ISSUES** line too: "boards <ids>
    are still building although their feature closed: check them against the build"; NEXT then
    names `/sync-design <slug>` after `/design-system --sync` (when also due) and ahead of
-   `/refine-design`. Read the
+   `/refine-design`. `core` is read-only without
+   `--ids`. Its result is the readout's own Core lines: STATE names the Core set, or says "legacy:
+   every screen board reads Core"; a set over the cap, or any `core` validation error, is an
+   **ISSUES** line pointing at `/refine-design`. Read the
    `designing-on-canvas` skill's conventions if it is installed (else pass none; the workflow
    reports that), and the previous report's `## Could Not Verify` rows if
    `.trd-state/<slug>/audit-design-report.md` exists, so the section is **maintained** (AC-F10.1)
@@ -128,7 +132,9 @@ The report is written under `.trd-state/<slug>/`, never under `docs/ui/<slug>/`,
 frames stay out of the tree.
 
 **One text, written once, printed as written.** Print the readout character for character as
-the file holds it; the only addition is STATE lines about the report itself.
+the file holds it; the only additions are STATE lines about the report itself and this command's own Core lines
+(the STATE line for the Core set and the over-cap or validation ISSUES line from step 2), which
+the workflow does not write, like the drift and `unsynced` ISSUES lines.
 
 Then record it. These reports are never published, so record passes `--url ""`:
 

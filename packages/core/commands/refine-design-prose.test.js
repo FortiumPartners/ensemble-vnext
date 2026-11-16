@@ -244,4 +244,31 @@ describe('refine-design --auto decisions, answers and audit findings (DORCH-B004
     expect(raw).not.toMatch(/forge/i);
     expect(raw).not.toMatch(/orchestrat/i);
   });
+
+  describe('the Core set (CBD-B006, D21)', () => {
+    const step3 = text.slice(text.indexOf('3. **Change only'), text.indexOf('4. **Publish**'));
+
+    test('core --ids on a Core change or a legacy map that already changes something, under --auto too', () => {
+      expect(step3).toContain('design-map.js core --dir docs/ui/<slug> --ids');
+      expect(step3).toMatch(/legacy: true/);
+      expect(step3).toMatch(/this run already changes something/);
+      expect(step3).toMatch(/under `--auto` too/);
+    });
+
+    test('a no-change run on a legacy map writes no core key and runs no core-marks', () => {
+      expect(step3).toMatch(/no-change run on a legacy map stays a no-change run: it writes no `core` key and runs no `core-marks`/);
+      expect(text).toContain('no change made, nothing to re-audit');
+    });
+
+    test('core-marks runs before step 4 publish and canvas.json is among the published files', () => {
+      expect(step3).toContain('design-map.js core-marks --dir docs/ui/<slug>');
+      const step4 = text.slice(text.indexOf('4. **Publish**'), text.indexOf('5. **Approve**'));
+      expect(step4).toMatch(/`canvas\.json` among them/);
+    });
+
+    test('left-out boards go in the brief and the readout; the map write is declared', () => {
+      expect(step3).toMatch(/`## Core boards` section and in the readout/);
+      expect(text).toMatch(/Write `design-map\.json` except `brief_items` on redrawn boards and the Core set through `core --ids`/);
+    });
+  });
 });

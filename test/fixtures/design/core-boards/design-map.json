@@ -1,0 +1,210 @@
+{
+  "design_system": {
+    "paths": [
+      "components/"
+    ]
+  },
+  "canvases": [],
+  "boards": [
+    {
+      "id": "01-home",
+      "file": "01-home.dc.html",
+      "kind": "to-be",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "building",
+      "route": "/",
+      "states": {
+        "loading": {
+          "props": {}
+        },
+        "error": {
+          "setup": "x"
+        },
+        "empty": {
+          "props": {}
+        }
+      },
+      "core": true
+    },
+    {
+      "id": "02-trips",
+      "file": "02-trips.dc.html",
+      "kind": "to-be",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "shipped",
+      "route": "/trips",
+      "states": {
+        "many": {
+          "props": {}
+        }
+      },
+      "core": true
+    },
+    {
+      "id": "03-profile",
+      "file": "03-profile.dc.html",
+      "kind": "to-be",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "approved",
+      "route": "/profile",
+      "states": {
+        "empty": {
+          "props": {}
+        }
+      },
+      "core": true
+    },
+    {
+      "id": "04-search",
+      "file": "04-search.dc.html",
+      "kind": "to-be",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "building",
+      "route": "/search",
+      "core": true
+    },
+    {
+      "id": "05-cart",
+      "file": "05-cart.dc.html",
+      "kind": "to-be",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "approved",
+      "route": "/cart",
+      "core": true
+    },
+    {
+      "id": "06-checkout",
+      "file": "06-checkout.dc.html",
+      "kind": "to-be",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "building",
+      "route": "/checkout",
+      "core": true
+    },
+    {
+      "id": "07-about--as-is",
+      "file": "07-about--as-is.dc.html",
+      "kind": "as-is",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "draft",
+      "route": "/about",
+      "core": true
+    },
+    {
+      "id": "08-help--as-is",
+      "file": "08-help--as-is.dc.html",
+      "kind": "as-is",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "draft",
+      "route": "/help",
+      "core": true
+    },
+    {
+      "id": "01-home--as-is",
+      "file": "01-home--as-is.dc.html",
+      "kind": "as-is",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "draft",
+      "route": "/",
+      "core": false
+    },
+    {
+      "id": "09-draft",
+      "file": "09-draft.dc.html",
+      "kind": "to-be",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "draft",
+      "route": "/draft",
+      "core": false
+    },
+    {
+      "id": "10-old",
+      "file": "10-old.dc.html",
+      "kind": "to-be",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "superseded",
+      "route": "/old",
+      "core": false
+    },
+    {
+      "id": "11-mismatch--as-is",
+      "file": "11-mismatch--as-is.dc.html",
+      "kind": "as-is",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "draft",
+      "route": "/mismatch",
+      "core": false,
+      "screenshot_match": false
+    },
+    {
+      "id": "12-parts",
+      "file": "12-parts.dc.html",
+      "kind": "part",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "draft"
+    },
+    {
+      "id": "13-flow",
+      "file": "13-flow.dc.html",
+      "kind": "flow",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "draft"
+    }
+  ]
+}

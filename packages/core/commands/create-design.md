@@ -71,7 +71,10 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    ```
    It writes `grounding/` and `brief.md` and returns `openDecisions` (each `id`, `question`, `options`,
    `recommended`, `why`, `weak`, `brief_items`, with no cap; the ids run `OD-<odNext>`, `OD-<odNext+1>`, ...
-   in both modes, under `--auto` too), `items` (`{ id, source }`) and `screens`.
+   in both modes, under `--auto` too), `items` (`{ id, source }`), `screens` (each with `core`, `true` only on a
+   main screen in its normal state; the workflow keeps at most 8 and the rest read `false`) and `core_left_out`
+   (`{ name, why }`: the screens left out of the Core set, those over the cap of 8 included). The brief gains a
+   `## Core boards` section naming both. Only `core === true` counts as Core; a missing `core` reads false.
    Under `--style <pack>`, put `**Style pack:** <pack> (from --style)` as the first line of
    `brief.md`, replacing any such line already there, so later commands find it.
    **If the workflow is unavailable**, do the grounding and the brief yourself, then continue.
@@ -104,7 +107,7 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
 
    `Affects` lists the decision's `brief_items`, or reads `none named` when it has none.
 4. **Draw.** Call the workflow again with the same args plus `stage: "draw"` and
-   `boardsInScope: <the returned screens>` and `items: <the ground stage's items>` (the recorded ids; each
+   `boardsInScope: <the returned screens, `core` included>` and `items: <the ground stage's items>` (the recorded ids; each
    to-be agent may return only those as `brief_items`). It writes the boards under `docs/ui/<slug>/canvas/project/`:
    as-is boards (rendered and compared with the screenshot, AC-F8.5; the screenshot is captured
    fresh at the board's viewport by the `design-grounding` skill's Capture section, never a stored
@@ -145,6 +148,7 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    built system: `design_system` from the map if one exists, else from
    `docs/ui/_design-system/<folder>/system.json` (what `/design-system` writes; do not invent
    one). Add `canvases` and one entry per returned board with `status: "draft"` and its `brief_items` from the returned board (parts `[]`), plus each
+   board's `core` exactly as the workflow returned it (`true` on a Core to-be board, `false` on every as-is board, no key on a part; never choose or change the set here), plus each
    as-is board's `screenshot_match` and `mismatch_note` (D5), write the map's top-level `brief_items` list from the ground stage's `items`, then run
    `node .claude/lib/design-map.js refresh --dir docs/ui/<slug>` to derive components, parts
    and links, and `validate`. If `validate` fails on an unknown brief item id, correct the id on that board to
@@ -164,6 +168,9 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    that as-is board against it and update its `screenshot_match` and `mismatch_note`. If the
    recapture is still wrong, delete it, set `screenshot_match` false with "not compared:
    capture error", and list it under ISSUES. This runs even with publishing off.
+   **Mark the Core boards.** Only when publishing runs (nothing with `publish: off` or no Artifact tool, since no canvas exists to mark): after you have written this round's board entries (title, page, `is_interactive`) into `docs/ui/<slug>/canvas/project/canvas.json`, and before the publish call below, run
+   `node .claude/lib/design-map.js core-marks --dir docs/ui/<slug>`. Each board in its `missing` array
+   is one ISSUES line ("Core board <id> has no entry in canvas.json, so it carries no [Core] mark"); never silent.
    **Publish**, only when step 1 read `publish: on` and the Artifact tool is present. Per
    contract section 4: a whole-artifact read of the canvas first, then publish `canvas.json`
    and the parts, then the boards in order. **Install the design system** per contract
@@ -192,7 +199,7 @@ step above. Never put a credential in a board or a page (contract section 6).
 
 **Format: the four-section readout in `.claude/rules/command-status.md`** (STATE, DECISIONS,
 ISSUES, NEXT, in that order, one screen, written for someone who was not in the session).
-Contract section 7 applies. STATE counts boards by kind. DECISIONS lists each default taken by its id and its question
+Contract section 7 applies. STATE counts boards by kind and names the Core set (the Core boards by id and screen name) and the screens left out of it with each reason ("left out of Core: <screen>, over the cap of 8"), or says none were left out. DECISIONS lists each default taken by its id and its question
 ("OD-2, which currency to show"), never the id alone; a default with `weak: true` goes to ISSUES
 instead. ISSUES lists blank design-direction fields,
 visual critique not run, pinned-runtime drift and the explore swap line (steps 1 and 4), design-system drift,
