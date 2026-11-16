@@ -470,18 +470,56 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 section may be "none". No section for what was dispatched or which stages ran: that is in the
 transcript and does not change what the owner does next.
 
-**NEXT follows one rule, stated once here (O4): outcome `satisfied` → `/audit-build`, except that
-a `satisfied` run with any criterion carrying `settled: 'definition-problem'` (D24) → 
+**NEXT follows one rule, stated once here (O4): outcome `satisfied` with no criterion carrying
+`settled: 'definition-problem'` → the held-back close (below), except that
+a `satisfied` run with any criterion carrying `settled: 'definition-problem'` (D24) →
 `/refine-verification`, then `/verify-build`, and ISSUES names each such criterion (in words,
 with its reason) with the owner as the one who acts. Outcome
 `setup-failure` is the one exception (D11): the environment, not the code, is broken, and
 `/refine-verification` writes a build plan with nothing to build, so NEXT is (1) the fix for
 each problem, as plain text, (2) `/verify-build`. Any other outcome (`stalled`, `stuck`,
 `unbuilt`, `insufficient-coverage`, `must-pass-unproven`) → `/refine-verification`,
-then `/verify-build`. The report's Next line says the same, so the readout and the report never
-disagree on what comes next.** NEXT lists those commands as numbered steps in the order to
+then `/verify-build`. The report's Next line is written before the close, so it describes both
+branches of the close below; the readout and the report never disagree on what comes next.** NEXT lists those commands as numbered steps in the order to
 take them, one fenced block per slash command, never a shell command. A step that must come
 first and is not a slash command (a merge, a deploy) leads as plain text, not a block.
+
+**The held-back close (D11).** This is the one place, with the fix loop's step 6, that a
+`satisfied` run with no `definition-problem` criterion can close the feature; nowhere else does
+this command close anything. The audit now runs before verification, so a feature built by
+`/implement-trd` already holds a passing audit with its close held back. After the report is
+written and before the readout, read `audit.runId` from `.trd-state/<feature>/implement.json` and run
+
+```
+node .claude/lib/audit-rounds.js pending-close '{"stateDir":".trd-state/<feature>","runId":"<audit.runId>"}'
+```
+
+A missing `audit.runId`, or a `pending` of null, is no pending close; an `error` is also no pending
+close, plus one ISSUES line naming the ledger and the error. With a pending close, call
+`Skill({ skill: "audit-build", args: "<trd> --chained --close-deferred --verified" })`
+(`--verified` because this run just proved every commit up to the head), then NEXT follows its one
+`[STATUS: /audit-build] RETURN →` line:
+
+- `closed; PR …`: the feature is closed. NEXT is shipping: `/ship-build`, the PR in words and
+  the unsynced-board steps printed above the RETURN line.
+- `stale: the TRD changed since the audit`: NEXT is `/audit-build <trd>`, with one STATE line
+  saying the TRD changed since the audit passed (a fix round promoted rows into it), so the
+  audit no longer covers it, and that `/verify-build` closes directly only when its fix loop
+  built nothing.
+- `nothing to close`: NEXT is shipping when `closed.json` exists, else `/audit-build <trd>`.
+- `STUCK: close refused: <rows>`: end the run `COMMAND STUCK` with the `Reason:` and `Next:`
+  wording `/audit-build` step 4 gives a refused close (both ways out, then
+  `/audit-build <trd>`). Any other `STUCK: <why>`: `COMMAND STUCK` naming it, `Next:`
+  `/audit-build <trd>`. The one records write (Output discipline) still runs first, before the
+  banner, on this path too.
+
+With no pending close (D20), NEXT is shipping when `closed.json` exists, else `/audit-build <trd>`:
+no usable audit pass is on record (no audit, one that did not pass, or one that stopped short).
+
+Which runs may close: an explicit `--no-fix` run never closes (it asked for a report only, and
+closing opens a PR), so with a pending close its NEXT is plain `/verify-build`. A `--resume` run
+implies `--no-fix` but may complete the close, since it only finishes an interrupted check. A run
+under `--chained` or `--criteria`, and a sweep file, are unchanged: no close is attempted.
 
 **When the outcome is `stalled`, `stuck`, `unbuilt`, `insufficient-coverage` or `must-pass-unproven` — never `setup-failure`,
 whose report carries no Diagnosis line** (D3, D15;
@@ -783,7 +821,9 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    `/refine-verification`, then `/verify-build`, when the outcome is anything but `satisfied`
    (`stalled`, `stuck`, `unbuilt`, `insufficient-coverage` or `must-pass-unproven`) or anything
    buildable or blocked remains or any criterion carries `settled: 'definition-problem'`
-   (D24; ISSUES names each), otherwise `/audit-build`; a `setup-failure` outcome is the
+   (D24; ISSUES names each), otherwise the held-back close of O4 (`pending-close`, then
+   `--chained --close-deferred --verified`, with its explicit-`--no-fix` and `--resume` rules and its
+   NEXT by RETURN); a `setup-failure` outcome is the
    exception and routes to the fix then `/verify-build` (above) — keyed to the outcome, so a
    `must-pass-unproven` run with nothing buildable still routes to `/refine-verification`. Exactly **one** `═══
    COMMAND COMPLETE: /verify-build ═══` banner for the whole run — never one per round —

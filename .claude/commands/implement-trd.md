@@ -32,10 +32,11 @@ category: implementation
 >   as usual.
 > - `--no-verify` - Opt out of the functional-verification pass entirely: no derive agent is
 >   dispatched, no `.trd-state/<feature>/success-definition.md` appears, and Step 8 is
->   skipped — Step 9's banner reads `not run (--no-verify set)`.
+>   skipped — Step 9's banner reads `not run (--no-verify set)`. It does not skip Step 7.3's
+>   audit: the code audit still runs, and Step 9 then closes the feature on the audit alone.
 > - `--chained` - **For callers only** (`/verify-build`'s fix loop, verification-fix-loop TRD §3.3,
->   D2), never typed by hand: skips the derive pass, §3.6a's environment preflight, Step 8, and
->   §9.0a's publishing; emits no banner, no `notify-complete.sh`, no `PushNotification`. Ends
+>   D2), never typed by hand: skips the derive pass, §3.6a's environment preflight, Step 7.3's audit,
+>   Step 8, and §9.0a's publishing; emits no banner, no `notify-complete.sh`, no `PushNotification`. Ends
 >   with one handoff line, `[STATUS: /implement-trd] RETURN → …`, reporting the build back to
 >   its caller instead of the usual four-section readout (§3.7).
 > - `--shipping` - **For `/ship-build` only** (ship-build TRD D14), never typed by hand, and valid
@@ -65,12 +66,18 @@ step 0 checks for. `--chained` (§3.7) is for callers only — `/verify-build`'s
 and `/ship-build` are the things that pass it. `--shipping` (§3.7) is for `/ship-build` only. `--sweep-flag` is likewise for callers only — `/plan`'s sweep chain is the
 one thing that passes it — and its text is carried to Step 9's ISSUES unchanged.
 
+A default run (no `--chained`) audits its own delivered code at Step 7.3, after the end-of-run
+review and before Step 8's verification, by calling `/audit-build` with its caller-only
+`--chained --defer-close` mode; Step 9 then performs the held-back close with `--chained
+--close-deferred` only when verification allows it. `--no-verify` does not skip Step 7.3;
+`--chained` does.
+
 ---
 
 ## Execution Model
 
 ```
-PREFLIGHT -> RESUME CHECK -> PARSE TRD + BUILD GRAPH -> PHASE LOOP -> END-OF-RUN REVIEW -> FUNCTIONAL VERIFICATION -> COMPLETE
+PREFLIGHT -> RESUME CHECK -> PARSE TRD + BUILD GRAPH -> PHASE LOOP -> END-OF-RUN REVIEW -> AUDIT -> FUNCTIONAL VERIFICATION -> CLOSE (when verification allows) -> COMPLETE
 
   Functional verification RUNS BY DEFAULT (VCON O6, supersedes D11's opt-in default).
   `--no-verify` opts out of both stages below. `--verify` is still accepted explicitly
@@ -83,10 +90,19 @@ PREFLIGHT -> RESUME CHECK -> PARSE TRD + BUILD GRAPH -> PHASE LOOP -> END-OF-RUN
   straight into the phase loop with no wait. Only when `--no-verify` is set is no
   derive agent dispatched and no .trd-state/<feature>/success-definition.md produced.
 
-  FUNCTIONAL VERIFICATION (Step 8, D1): one dispatch, not a loop. After Step 7's
-  end-of-run review, resolve the definition from disk (never wait, never derive inline) and make
+  AUDIT (Step 7.3, skipped under `--chained`, not skipped by `--no-verify`): after the
+  end-of-run review's result has arrived, call `/audit-build <trd> --chained --defer-close`
+  (re-called while it returns `re-audit needed`, three calls at most). The audit chains its own
+  fix run and records its close on the round ledger instead of performing it; verification
+  then runs once, on code that already carries the audit's fixes.
+
+  FUNCTIONAL VERIFICATION (Step 8, D1): one dispatch, not a loop. After Step 7.3's
+  audit, resolve the definition from disk (never wait, never derive inline) and make
   a single Workflow(verify-functional, {...}) call; render its outcome into Step 9's
   banner. Only when `--no-verify` is set is this step skipped entirely.
+
+  CLOSE (Step 9): the held-back close (`/audit-build <trd> --chained --close-deferred`) runs only
+  when the audit passed AND verification was `satisfied` (or skipped by `--no-verify`).
 
 Phase Loop (per phase N):
   mark this phase GROUP's tasks in_progress (state-write-before-dispatch)
@@ -277,6 +293,11 @@ Check for `.trd-state/<trd-name>/implement.lock`:
 - If recent (<30 min): Warn user, offer "wait"/"force"/"abort"
 - Create lock on start with session_id, timestamp
 - Release lock on exit or staleness
+- A lock whose `session_id` is this session belongs to the calling run: a `--chained` run in the
+  same session proceeds without the wait/force/abort prompt and leaves the lock for its caller to
+  release. Step 7.3's audit nests `/implement-trd --reconcile --chained` (its fix run) inside the
+  run that holds the lock, and without this rule every default run with an audit gap would stop
+  on its own lock.
 
 ### 1.6 Load Non-Goals and Risks
 
@@ -1041,6 +1062,8 @@ Parsed alongside the other flags (User Input, above). Under it:
   ran it this same run and persisted `functional_verification.environments`; running it again
   would only repeat that classification, and nothing under `--chained` asks the owner anything
   (no `AskUserQuestion` reaches the owner under `--chained`).
+- **Step 7.3's audit is skipped.** A fix run that audited would call `/audit-build`, which chains
+  a fix run, which would audit: the recursion stops here. The outer run's Step 7.3 audits once.
 - **Step 8 is skipped entirely** — no verification loop, so §8.1a's lane resolution and §8.2's
   "run §3.6a now if none recorded" fallback are never reached; there is nothing here for them to
   resolve. `/verify-build` runs its own verify pass, over the caller's own criteria, after
@@ -1064,7 +1087,7 @@ Parsed alongside the other flags (User Input, above). Under it:
 
 **Unchanged**: phase gates, checkpoints, commits, and Step 7.2's end-of-run
 `Skill({ skill: "code-review", args: "high --fix {branch_base}...HEAD" })` still run exactly as
-in an ordinary build.
+in an ordinary build: §7.2's review still runs and Step 7.3 does not.
 
 **The readout is replaced by one line**, in place of Step 9's four-section template and its
 banner:
@@ -1516,6 +1539,11 @@ the durable companion to `implement.json` — state records *what* happened, the
         "default": "criteria needing it resolve not_verifiable — needs-owner only"
       }
     }
+  },
+  "audit": {
+    "return": "<the text after RETURN → of Step 7.3's last call, or error: <why>>",
+    "runId": "<the pending round's run id when return is passed, close deferred; else null>",
+    "calls": 1
   }
 }
 ```
@@ -1571,8 +1599,9 @@ There is no session-scoped TaskTools mirror in this design — dispatch is per-p
 
 ## Step 7: End-of-Run Review
 
-After the final phase's checkpoint (Step 5) and before Step 8's functional verification
-(unless `--no-verify` was set) and Step 9's completion report:
+After the final phase's checkpoint (Step 5), then Step 7.3's audit (§7.3, between §7.2 and
+Step 8), then Step 8's functional verification (unless `--no-verify` was set) and Step 9's
+completion report:
 
 ### 7.1 Feature-scale hardening pass — REMOVED 2026-08-28
 
@@ -1632,6 +1661,47 @@ with a `summary` (a row without one is dropped):
 4. While the result has not arrived, say so in the present tense: the review is still running.
    An unresolved `[review-pending]` row is a review whose findings never arrived; `/ship-build`'s
    `file-followups` step reports it.
+
+### 7.3 Audit before verification (skipped under `--chained`)
+
+The code audit runs here, after the review and before Step 8, so verification runs once, on code
+that already carries the audit's fixes. **Skipped under `--chained`** (a fix run never audits;
+§3.7) and on §3.6 step 0's explicit `--resume --verify` path, which skips Step 7 altogether.
+It is skipped only under `--chained`, not by `--no-verify`, because the audit is a code
+check, not a functional one.
+
+**Start only after §7.2's review result has arrived and its pathspec commit is made**, so the
+review's edits land before the audit reads the tree. If the result has not arrived, say so in the
+present tense and end the turn: the review's completion re-invokes the session, and this step
+runs then. Do not claim to wait.
+
+Call, with the TRD path and the PRD path §3.6 resolved (omit `--prd <prd>` when there is none):
+
+```
+Skill({ skill: "audit-build", args: "<trd> --prd <prd> --chained --defer-close" })
+```
+
+The audit runs its verifier wave, chains its own fix run (`/implement-trd --reconcile
+--chained`), writes and publishes its report, and, where it would close, records the close on its
+round ledger instead of performing it. It ends with one `[STATUS: /audit-build] RETURN → …`
+line. While that line is `re-audit needed`, make the same call again: **at most three calls in
+all** (1 + `MAX_REAUDITS`, which `audit-rounds.js` sets to 2 and does not export, so it is stated
+here). A third `re-audit needed` is read as `cap reached`. Then go to Step 8 whatever the last
+RETURN says.
+
+When the last RETURN is `passed, close deferred`, read the pending round's run id:
+`node .claude/lib/audit-rounds.js pending-close '{"stateDir":".trd-state/<feature>"}'`. A
+`pending` of null or an `error` is no pending close: write `"return": "error: no pending close
+on the ledger"` below and add one ISSUES line naming the ledger and the error.
+
+**Write the result into `implement.json`'s `audit` field** (D19), preserving every other field:
+`"audit": { "return": "<the text after RETURN →>", "runId": "<pending.runId when the return is
+passed, close deferred; else null>", "calls": <n> }`. Step 9 reads this field, never a remembered
+RETURN line, so a long verification or a `--resume` run still closes against the right audit.
+
+A skill that is unavailable or errors writes `"return": "error: <why>"`, adds one ISSUES line,
+and Step 8 still runs. The audit's report link and caveats are printed above its RETURN line;
+carry them into Step 9's STATE.
 
 ---
 
@@ -2249,6 +2319,37 @@ together. A review result that arrives after this push makes its commit then; pu
 too (`git push origin {branch_name}`, not under `--shipping`), or it stays local. A network
 failure here follows the same retry-then-pause handling as any other git push (Step 10).
 
+**The held-back close.** After the push and before the readout, decide whether this run closes
+the feature (not under `--chained`, which has no Step 9 readout). Read `.trd-state/<feature>/implement.json`'s
+`audit.return` (Step 7.3 wrote it), never a remembered RETURN line. Close only when
+`audit.return` is `passed, close deferred` AND one of these holds:
+
+- Step 8 ran and its outcome is `satisfied`, with no criterion carrying
+  `settled: 'definition-problem'` (such a run routes to `/refine-verification`, so it cannot close);
+  call with `--verified`:
+  `Skill({ skill: "audit-build", args: "<trd> --chained --close-deferred --verified" })`
+- `--no-verify` was set, so Step 8 was skipped by request; call without `--verified`, so
+  `/ship-build`'s custody check re-proves what only the audit saw:
+  `Skill({ skill: "audit-build", args: "<trd> --chained --close-deferred" })`
+
+Step 8 not run for any other reason (`not run: no success definition derivable` or `not run: no
+definition produced`), and any outcome other than `satisfied`, close nothing. The call reads the
+ledger itself, runs the waived-defect gate, writes `closed.json` with `closedBy: "audit"`, and
+opens the PR when `ensemble.openPullRequest` is `auto`; it writes no records, because §9.1's one
+write below carries `closed.json`. Branch on its one RETURN line:
+
+- `closed; PR <opened|updated|skipped|failed>: …`: the feature is closed. Carry the lines printed
+  above the RETURN (the close record, PR URL or reason, unsynced-board steps, caveats) into STATE.
+- `stale: the TRD changed since the audit` or `nothing to close`: one STATE line saying why
+  (the TRD gained rows after the audit passed, or no deferred close is on record); nothing closed.
+- `STUCK: close refused: <rows>`: end the run `COMMAND STUCK`, with the same `Reason:` and `Next:`
+  wording `/audit-build` step 4 gives a refused close (both ways out, then `/audit-build <trd>`);
+  §9.1's records write still runs first.
+- any other `STUCK: <why>`: `COMMAND STUCK` naming it; `Next:` is `/audit-build <trd> --prd <prd>`.
+
+A skill that is unavailable or errors closes nothing: one ISSUES line, and NEXT takes the
+audit-did-not-pass branch below.
+
 **Format: the four-section readout in `.claude/rules/command-status.md`** — STATE, DECISIONS,
 ISSUES, NEXT, in that order, one screen, written for someone who was not in the session.
 
@@ -2264,6 +2365,11 @@ STATE
   {N} of {M} tasks built on branch {branch}. {failed_count} not built.
   {for each task not built: "  {id}: {what it was for} — {why it is not done}"}
   Tests: {green/red} ({suite}, {X}% unit / {Y}% integration).
+  {audit line, unless `audit` is absent from `implement.json`: the audit's verdict in plain words,
+    its report link (from `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind audit-build`)
+    or path, how many audits ran (`audit.calls`), and whether the feature is now closed, the close
+    waits for verification (say what verification found), or why it stays open (the audit hit
+    its cap, stayed open, or stopped; the close returned `stale` or `nothing to close`).}
   {if verification ran (--no-verify not set): "The delivered software {does | does not} do
     what the PRD asked: {plain sentence}." For `insufficient-coverage`, say the ratio and
     what it means, not the outcome name — e.g. "Only 11 of 62 criteria were proven; the rest
@@ -2362,7 +2468,7 @@ NEXT
   1. fix the environment named above
   2. /verify-build
   {if any entry in `criteria` carries `settled: 'definition-problem'` (D24), even on a `satisfied` run: NEXT is the
-   two `/refine-verification` then `/verify-build` steps of the branch below, and the `/audit-build` branch after it does not apply.}
+   two `/refine-verification` then `/verify-build` steps of the branch below, and the audit-result branches after it do not apply; add one STATE line saying the audit passed and the close waits.}
   {if outcome is stalled/stuck/unbuilt/insufficient-coverage/must-pass-unproven (O4, D15): the line "refine the plan
    with `/refine-verification` (add `--auto` to let an agent answer), then run
    `/verify-build`" — the exact wording `renderReport` puts under its own Diagnosis line
@@ -2370,19 +2476,37 @@ NEXT
    comes next — then the two steps, each command in a block of its own:}
   1. /refine-verification
   2. /verify-build
-  {otherwise (any other outcome, `setup-failure` excepted): verify delivery against the TRD and PRD, in a block of its own:}
+  {otherwise (any other outcome, `setup-failure` excepted), meaning verification `satisfied` or skipped by
+   `--no-verify`, by what the close left. NEXT never names `/audit-build` merely because verification passed,
+   and there is no re-audit branch: Step 7.3 re-audits in place:}
+  {the close returned `closed; PR …`: ship what the audit left on the branch, in a block of its own:}
+  1. /ship-build
+  2. {only when `ensemble.openPullRequest` is `never`, in words, not a block: open the PR on
+     GitHub, or ask for it, now that the feature has closed. Then each unsynced-board step the
+     close printed, in order.}
+  {Step 8 did not run (not `--no-verify`) and `audit.return` is `passed, close deferred`:}
+  {`not run: no definition produced`: `/verify-build`, which derives the definition itself and then completes the close:}
+  1. /verify-build
+  {`not run: no success definition derivable`: `/close-feature docs/TRD/<feature>.md`, with one
+   STATE line saying the audit passed and no verification can run because no source resolved; a
+   standalone `/audit-build` would close on unverified code and `/verify-build` has nothing to
+   derive from:}
+  1. /close-feature docs/TRD/<feature>.md
+  {no close happened, by `audit.return`: `cap reached` -> `/close-feature docs/TRD/<feature>.md`
+   alone in its block; `open: <why>` -> the design work it names, in words; `STUCK: <why>` or
+   `error: <why>` (or no `audit` field) -> the fix it names in words, then:}
   1. /audit-build <trd> --prd <prd>
-  2. {only when `ensemble.openPullRequest` is `never`, in words, not a block: open the PR once
-     the audit is clean, on GitHub, or ask for it. A passing `/audit-build` opens the PR when
-     `ensemble.openPullRequest` is `auto`, so then this is no step of yours and NEXT omits it.}
+  {the close returned `stale` or `nothing to close`: the same `/audit-build <trd> --prd <prd>`
+   block, with the STATE line saying why.}
 ```
 
-**A passing `/audit-build` opens the PR when `ensemble.openPullRequest` is `auto`; when it is
-`never`, NEXT says in words to open it.** `/implement-trd`
-itself opens nothing, and no command merges. The reason NEXT names it — a run that ends without telling
-them how to ship leaves the work stranded on a branch. This line was lost when the seven-
-section template was replaced on 2026-09-20 and restored the same day; the old template
-listed it under NEXT STEPS.
+The PR opens when this run closes the feature (the audit passed and verification allowed it)
+and `ensemble.openPullRequest` is `auto`; when it is `never`, NEXT says in words to open it once
+the feature has closed. `/implement-trd` itself opens nothing on its own and no command merges; the
+close call is `/audit-build`'s, run under this command's contract. The reason NEXT names the PR — a
+run that ends without telling them how to ship leaves the work stranded on a branch. This line
+was lost when the seven-section template was replaced on 2026-09-20 and restored the same day;
+the old template listed it under NEXT STEPS.
 
 **Rules this template enforces, each from a measured failure:**
 

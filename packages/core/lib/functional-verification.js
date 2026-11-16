@@ -2031,7 +2031,10 @@ function renderReport(input) {
     lines.push(
       settledGaps.length > 0
         ? '**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`'
-        : '**Next**: `/audit-build`'
+        // ABFV §3.5: the audit now runs before verification, so a satisfied run closes the feature
+        // when an audit already passed. The report is written before the close, so the line names
+        // both branches the readouts take.
+        : '**Next**: close the feature — the command that ran this check closes it when an audit has already passed (its readout says whether it did); otherwise run `/audit-build`'
     );
   }
 
