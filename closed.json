@@ -1,0 +1,13 @@
+{
+  "feature": "core-boards-in-designs",
+  "trd": "docs/TRD/core-boards-in-designs.md",
+  "closedAt": "2026-11-16T21:44:17Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: planned, not built yet: CBD-T002 -- whether the hosted canvas visibly shows the [Core] mark needs a design round on the live canvas service, and the request itself defers it; the canvas.json shape the mark is written into (boards[<file>].title) rests on one sample read outside the repo and is unconfirmed (still in Could Not Verify); three design-criteria.test.js cases could not be confirmed on this machine because copying the fixture's screens/png directory fails with a file-permission error (EPERM) in this checkout before they assert anything (still in Could Not Verify)",
+    "report": ".trd-state/core-boards-in-designs/audit-build-report.md",
+    "auditedCommit": "bdf09be66c12e9f4e208b9a23d3fe9cd7d35a77a",
+    "anchorCommit": null
+  }
+}
