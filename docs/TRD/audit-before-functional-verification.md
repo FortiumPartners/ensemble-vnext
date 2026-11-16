@@ -527,8 +527,9 @@ not here. What is listed here was not checked by that audit, and why:
   the GitHub Actions runner cannot be reproduced here either (`verification.md` §5).
 - **ABFV-T002's own run, and how long it takes with the audit added.** The task is deferred by
   design (`implement.json` status `deferred`), so its evidence folder `evidence/live/ABFV-T002/`
-  and `evidence/live-manifest.jsonl` do not exist yet. O7 itself was shown by the verification
-  loop's own fixture run instead (`evidence/live/slot1-tool-sequence.txt`: `audit-build
+  and `evidence/live-manifest.jsonl` do not exist yet. The objective that a fixture session shows
+  the audit step running before verification (O7) was shown by the verification loop's own
+  fixture run instead (`evidence/live/slot1-tool-sequence.txt`: `audit-build
   --chained --defer-close` before `verify-functional`, then `--close-deferred --verified`). The
   only timing measurement is the same fixture's default run without an audit, 1471 s on
   2026-08-19; the task sets no time bound, so its timeout must be chosen generously.

@@ -141,7 +141,9 @@ describe('held-back close drops --verified when verdicts were carried forward', 
   test('verify-build D11: its one --verified call is gated on a fresh walk and excludes --resume/targeted', () => {
     const vb = verifiedBlocks(vbClose);
     expect(vb).toHaveLength(1);
-    expect(vbClose.match(VERIFIED_CALL)).toHaveLength(1);
+    // Whole file, flattened: an unconditional call added in any other section, or wrapped over a
+    // line break, is still counted.
+    expect(flat(verify).match(VERIFIED_CALL) || []).toHaveLength(1);
     expect(vb[0]).toContain('`--verified` only when this run walked every criterion afresh');
     expect(vb[0]).toMatch(/a `--resume` or targeted run carried `met` verdicts forward[^)]*calls without `--verified`/);
   });
@@ -149,7 +151,7 @@ describe('held-back close drops --verified when verdicts were carried forward', 
   test('implement-trd Step 9: its one --verified call excludes the --resume --verify path, and the bare call has its own bullet', () => {
     const vb = verifiedBlocks(itClose);
     expect(vb).toHaveLength(1);
-    expect(itClose.match(VERIFIED_CALL)).toHaveLength(1);
+    expect(flat(implement).match(VERIFIED_CALL) || []).toHaveLength(1);
     // The exclusion is in the same bullet and comes before the call.
     const b = vb[0];
     const exclusion = b.indexOf('except on the `--resume --verify` path');
@@ -171,12 +173,14 @@ describe('held-back close drops --verified when verdicts were carried forward', 
     // verify-build fix-loop step 6 never passes it
     expect(flat(vbStep6)).toContain('never with `--verified` here');
     expect(flat(vbStep6)).toContain('carries every `met` verdict forward');
-    expect(vbStep6).not.toMatch(/--close-deferred --verified/);
+    expect(flat(vbStep6)).not.toMatch(/--close-deferred --verified/);
     // implement-trd --resume --verify
     expect(flat(itClose)).toContain('the loop re-entered from `verification-state.json` carries `met` verdicts');
   });
 
-  test('audit-build --close-deferred step 3 is the library behaviour that makes --verified matter', () => {
+  // Prose, not library behaviour: the HEAD-or-recorded anchor choice is made by the model at close
+  // time; no library function takes `--verified`, so nothing here exercises it behaviourally.
+  test('audit-build --close-deferred step 3 says what --verified changes: HEAD instead of the recorded anchor', () => {
     const t = flat(abStep3);
     expect(t).toContain('With `--verified` (verification proved every commit up to the head), `audit.anchorCommit` is the full output of `git rev-parse HEAD` at close time; without it, the line\'s `close.anchorCommit`');
   });

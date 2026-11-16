@@ -2762,7 +2762,7 @@ describe('audit-build caller-only modes (ABFV-B002)', () => {
     const t = closeMode();
     expect(t).toMatch(/Skip the TRD commit and the publish \(the `--defer-close` run made them\) and "Write the records, once, last"/);
     expect(t).toMatch(/the caller makes the one records write, and it carries `closed\.json`/);
-    expect(t).not.toContain('record-ref.js write');
+    // That this mode's text runs no `record-ref.js write` is pinned for both modes below.
   });
 
   test('--defer-close skips the gate, the close step and the PR', () => {
