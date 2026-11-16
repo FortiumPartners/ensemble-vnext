@@ -80,6 +80,27 @@ its caller's run** (see "`--chained`" below); those are the only inputs it chang
 **`--criteria <ids>` on a TRD runs a subset** (see "`--criteria`" below). It is meaningless on a
 sweep file (a sweep has no criteria to name, so nothing re-runs): ignore it there.
 
+### 1a. Choose the rerun scope, and continue a restarted run
+
+Read `.claude/contracts/rerun-scope.md` (`rerun-scope`) before the run starts anything. It applies
+whenever `.trd-state/<feature>/verification-state.json` or a report from an earlier run exists;
+a first run on a feature with neither has nothing to scope and skips this step.
+
+1. **A restarted session continues, it does not start over.** A plain `/verify-build` that finds
+   a state file whose `outcome` is `null` is the run that stopped mid-loop: treat it as
+   `--resume` (the `--resume` section below), so the `met` entries carry forward and only the
+   open criteria are walked. Say so in DECISIONS. Only a state file with an outcome (or none)
+   starts a fresh loop.
+2. **Otherwise read the change and choose.** Anchor and "related" are the contract's row for
+   `/verify-build`: `node .claude/lib/rerun-scope.js changed --anchor <anchor>`, then choose
+   `none`, `targeted` or `full`. `none`: run nothing and say the earlier report stands.
+   `targeted`: carry the earlier `met` entries forward as `--resume` does and walk the open
+   criteria and those the changed files can reach. `full`: walk every criterion, as before.
+3. **Unsure?** Ask once, with your default scope, when interactive; under `--chained` stop
+   with `COMMAND STUCK` carrying the question and the default (the contract's "When you are
+   unsure").
+4. **Record it.** DECISIONS carries the contract's one-line `Rerun scope:` statement.
+
 ### 2. Preflight the environment
 
 **Identical to `/implement-trd` §3.6a — read that section and follow it.** No criteria exist

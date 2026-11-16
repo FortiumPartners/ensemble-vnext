@@ -229,12 +229,21 @@ removes an `Off-host proof` cell.
   `**Agreed with**` says which items the owner (or the `--auto` agent) answered, or "derived
   from the evidence; no open items".
 
+  `**Next run scope**` names the rerun scope the next `/verify-build` should take, chosen by
+  `.claude/contracts/rerun-scope.md` (`rerun-scope`): read the change since the last satisfied
+  report with `node .claude/lib/rerun-scope.js changed --anchor <anchor>`, then write `none`,
+  `targeted` (naming the criteria and files) or `full`, with the reason. Quality floor: every
+  open criterion and every criterion the planned blockers' files can reach stays in scope. When
+  unsure, ask once with a default (interactive); under `--auto` write the default and say so in
+  DECISIONS, since a plan is the PM's to correct. State the same line in the readout's DECISIONS.
+
   ```markdown
   # Verification plan: refine-verification
 
   **Written**: 2026-09-29T00:00:00Z by /refine-verification
   **From run**: stalled at 5/8, report `.trd-state/refine-verification/verification-report.md`
   **Agreed with**: derived from the evidence; no open items
+  **Next run scope**: targeted — only the open criteria SC-3, SC-4 and what `packages/core/lib/functional-verification.js` reaches
 
   ## Blockers
   | ID | Blocker | Files | After | Unblocks |

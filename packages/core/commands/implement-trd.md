@@ -1253,6 +1253,15 @@ documented state-write owner.
 by ABSENCE; passing them as `filesChanged` fails the zero-of-N check, retries twice more, and
 reaches STUCK on work that was done correctly.
 
+**Choose the rerun scope first.** Read `.claude/contracts/rerun-scope.md` (`rerun-scope`): the
+anchor is the tree the last green phase gate passed on (the task's own targeted checks, for the
+first phase), and `node .claude/lib/rerun-scope.js changed --anchor <commit>` lists the change.
+Put the contract's one-line `Rerun scope:` statement in the readout's DECISIONS. A
+`full` choice runs the battery below as written; a narrower choice runs the tests that exercise
+the changed files and says what it left out. Making the battery itself stop running twice is
+issue #156. Unsure: ask once with a default (interactive); under `--chained` stop with
+`COMMAND STUCK` carrying the question and the default.
+
 **Run the deterministic phase-gate battery** (D8: the command runs the FULL battery here;
 the per-task battery in Step 3.5 was targeted).
 

@@ -33,7 +33,8 @@ what runs on the base branch.
    often still empty, so poll it for up to 120s before returning `no-checks`.
 2. Wait (Waiting, below).
 3. If a check failed, re-run the failed jobs once (`gh run rerun <run-id> --failed`) and wait
-   again. For each job that then passes, take its name from `gh run view <run-id> --json jobs`
+   again. Failed jobs only: a full rerun needs `.claude/contracts/rerun-scope.md`
+   (`rerun-scope`) to have chosen `full` and said why in the readout. For each job that then passes, take its name from `gh run view <run-id> --json jobs`
    (never the workflow name `gh run list` returns) and record the flake:
    `node .claude/lib/flaky-ci.js record --state-dir <work.stateDir> --job <name> --run-id <id>`.
    It prints one JSON line with `count` and `capped`. Not capped: list the job in `data.flaky`.
