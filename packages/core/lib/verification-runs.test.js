@@ -279,4 +279,33 @@ describe('record-ruling', () => {
     const { dir } = mk();
     expect(cli(['record-ruling', '--state-dir', dir, '--outcome', 'ship']).status).not.toBe(0);
   });
+
+  test('with no state file, ship waives the last run\'s open ids, as the request lists them', () => {
+    const { root, dir } = fixture({ runs: [run(1), run(2, { open: ['C-1', 'C-2'] })], definition: DEF });
+    expect(vr.renderRulingRequest(dir, { root }).open.map((o) => o.id)).toEqual(['C-1', 'C-2']);
+    const r = vr.recordRuling(dir, { outcome: 'ship', by: 'pm' });
+    expect(r.waived.recorded.sort()).toEqual(['C-1', 'C-2']);
+  });
+
+  test('ship and drop store no criterion', () => {
+    const { dir } = mk();
+    expect(vr.recordRuling(dir, { outcome: 'ship', criterion: 'C-1', by: 'pm' }).ruling.criterion).toBeNull();
+  });
+});
+
+describe('request extras', () => {
+  test('a setup-failure run lists the report\'s environment problems', () => {
+    const report = '# Report\n\n**Setup**: fixtures — slot folder missing; fix: run scaffold-project.sh\n';
+    const { root, dir } = fixture({ runs: [run(1), run(2, { outcome: 'setup-failure' })], vstate: { outcome: 'setup-failure', criteria: [] }, report });
+    vr.renderRulingRequest(dir, { root });
+    const text = fs.readFileSync(path.join(dir, 'ruling-request.md'), 'utf8');
+    expect(text).toContain('## Environment problems');
+    expect(text).toContain('- fixtures — slot folder missing; fix: run scaffold-project.sh');
+  });
+
+  test('an unfinished last run whose state has an outcome shows as abandoned', () => {
+    const { root, dir } = fixture({ runs: [run(1), run(2, { outcome: null, finished_at: null })], vstate: { outcome: 'stalled', criteria: [] } });
+    vr.renderRulingRequest(dir, { root });
+    expect(fs.readFileSync(path.join(dir, 'ruling-request.md'), 'utf8')).toContain('| 2 | `/verify-build` | 2026-11-12T00:00:00Z | abandoned |');
+  });
 });

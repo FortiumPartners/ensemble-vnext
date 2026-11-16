@@ -99,10 +99,7 @@ function mergeDiskRuns(filePath, state) {
     const prev = byN.get(r.n);
     // Disk entries go first, so an incoming entry replaces them unless the disk one is
     // finished and the incoming one is not.
-    if (!prev || r.finished_at != null || prev.finished_at == null) {
-      if (prev && prev.finished_at != null && r.finished_at == null) continue;
-      byN.set(r.n, r);
-    }
+    if (!prev || r.finished_at != null || prev.finished_at == null) byN.set(r.n, r);
   }
   const runs = [...byN.values()].sort((a, b) => a.n - b.n);
   return { ...state, functional_verification: { ...fv, runs } };

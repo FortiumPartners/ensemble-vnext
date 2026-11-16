@@ -124,6 +124,33 @@ function currentCriteria(stateDir) {
 
 const openCriteria = (stateDir) => currentCriteria(stateDir).filter((c) => c.status !== 'met');
 
+/**
+ * The open criteria the request and the ruling act on. With no state file at all, falls back to
+ * the last finished run's `open` ids, so `request` and `record-ruling` always agree on the set.
+ */
+function openForRuling(stateDir, runs) {
+  const all = currentCriteria(stateDir);
+  if (all.length > 0) return all.filter((c) => c.status !== 'met');
+  const fin = runs.filter((r) => r.finished_at);
+  return (fin.length ? fin[fin.length - 1].open || [] : []).map((id) => ({ id }));
+}
+
+/** `**Setup**:` lines of the latest report, when the latest run ended `setup-failure`. */
+function setupProblems(stateDir) {
+  const s = readJson(path.join(stateDir, 'verification-state.json'));
+  if (!s || s.outcome !== 'setup-failure') return [];
+  let text = '';
+  try {
+    text = fs.readFileSync(path.join(stateDir, REPORT_FILE), 'utf8');
+  } catch {
+    return [];
+  }
+  return text
+    .split(/\r?\n/)
+    .filter((l) => l.startsWith('**Setup**: '))
+    .map((l) => oneLine(l.slice('**Setup**: '.length)));
+}
+
 /** An interrupted run: verification-state.json exists with `outcome: null` (verify-build step 1a.1). */
 function stateInterrupted(stateDir) {
   const s = readJson(path.join(stateDir, 'verification-state.json'));
@@ -237,13 +264,7 @@ function readStatements(stateDir) {
 /** Open criteria with the facts the request lists. */
 function openItems(stateDir, runs) {
   const statements = readStatements(stateDir);
-  let criteria = openCriteria(stateDir);
-  if (criteria.length === 0 && currentCriteria(stateDir).length === 0) {
-    // No state file: fall back to the last finished run's open ids.
-    const fin = runs.filter((r) => r.finished_at);
-    criteria = (fin.length ? fin[fin.length - 1].open : []).map((id) => ({ id }));
-  }
-  return criteria.map((c) => ({
+  return openForRuling(stateDir, runs).map((c) => ({
     id: c.id,
     statement: statements.get(c.id) || oneLine(c.reason) || '(no statement recorded)',
     kind: c.kind || null,
@@ -278,8 +299,18 @@ function renderRulingRequest(stateDir, { feature, root } = {}) {
   out.push('## Runs', '');
   if (runs.length === 0) out.push('No run is recorded.', '');
   else {
+    // An unfinished last entry is only in progress while its state file is interrupted; otherwise
+    // `start` treats it as abandoned (and a refused `start` does not persist that close).
+    const interrupted = stateInterrupted(stateDir);
+    const shown = (r) => r.outcome || (r.finished_at || interrupted ? 'in progress' : 'abandoned');
     out.push('| Run | Command | Started | Outcome |', '|---|---|---|---|');
-    for (const r of runs) out.push(`| ${r.n} | \`${r.command}\` | ${r.started_at} | ${r.outcome || 'in progress'} |`);
+    for (const r of runs) out.push(`| ${r.n} | \`${r.command}\` | ${r.started_at} | ${shown(r)} |`);
+    out.push('');
+  }
+  const setup = setupProblems(stateDir);
+  if (setup.length > 0) {
+    out.push('## Environment problems', '', 'The latest run ended `setup-failure`: it did not judge the code. Fix these first:', '');
+    for (const p of setup) out.push(`- ${p}`);
     out.push('');
   }
   out.push('## Still open', '');
@@ -324,13 +355,15 @@ function renderRulingRequest(stateDir, { feature, root } = {}) {
 function recordRuling(stateDir, { outcome, criterion, by, nowIso } = {}) {
   if (!OUTCOMES.includes(outcome)) throw new RulingError(`--outcome must be one of ${OUTCOMES.join(', ')}`);
   if (!by || !oneLine(by)) throw new RulingError('--by is required');
-  const open = openCriteria(stateDir).map((c) => c.id);
+  // Load first: on a fresh checkout `load` restores the feature's records from its ref, and the
+  // open set must be read after that, with the same fallback the request used.
+  const state = loadState(stateDir) || {};
+  const open = openForRuling(stateDir, runsOf(state)).map((c) => c.id);
   if (outcome === 'fix' && !open.includes(criterion)) {
     throw new RulingError(`--criterion ${criterion || '(missing)'} is not an open criterion (open: ${open.join(', ') || 'none'})`);
   }
   const at = nowIso || new Date().toISOString();
-  const state = loadState(stateDir) || {};
-  const ruling = { outcome, criterion: outcome === 'fix' ? criterion : criterion || null, by: oneLine(by), recorded_at: at };
+  const ruling = { outcome, criterion: outcome === 'fix' ? criterion : null, by: oneLine(by), recorded_at: at };
   persist(stateDir, state, runsOf(state), { ruling });
   const verb = outcome === 'drop' ? 'dropped' : 'shipped as is';
   const rows = open.filter((id) => outcome !== 'fix' || id !== criterion).map((id) => ({ id, reason: `${verb} by ruling ${at.slice(0, 10)}` }));
