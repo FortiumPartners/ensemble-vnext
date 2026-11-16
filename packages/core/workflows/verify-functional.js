@@ -3288,6 +3288,31 @@ const CHANGE_EXCLUDED_DIRS = [STATE_DIR, PAGES_DIR]
   .map((d) => d.replace(/^(\.\/)+/, '').replace(/\/+$/, ''))
   .filter((d) => d !== '' && !d.startsWith('/'))
 
+// IC item 4. An inline copy of custody.js `relatedDirs` (this script has no `require`): the
+// directories a cover relates a changed path to. A cover ending in `/` is the directory itself; a glob
+// gives the directory of its literal prefix; any other cover gives its dirname and itself (it may name a
+// directory without a trailing slash). `.` is the repo root, which no changed file is ever related to.
+function coverDirs(cover) {
+  if (/[*?[{]/.test(cover)) {
+    const literal = []
+    for (const seg of cover.split('/')) {
+      if (/[*?[{]/.test(seg)) break
+      literal.push(seg)
+    }
+    return [literal.join('/') || '.']
+  }
+  const dir = cover.replace(/\/+$/, '')
+  if (cover.endsWith('/')) return [dir || '.']
+  const slash = dir.lastIndexOf('/')
+  return [slash === -1 ? '.' : dir.slice(0, slash), dir]
+}
+
+// The directory a changed repo-relative file sits in, `.` for the repo root.
+function fileDir(file) {
+  const slash = file.lastIndexOf('/')
+  return slash === -1 ? '.' : file.slice(0, slash)
+}
+
 function normaliseChangedFiles(raw) {
   if (!Array.isArray(raw)) return null
   const files = []
@@ -3316,10 +3341,11 @@ function normaliseChangedFiles(raw) {
 //
 // One reason per id, the first that holds: `covers-changed` (it has covers and a counting record's
 // files match one), `changes-unknown` (a counting record could not say what it changed),
-// `no-covers` (no covers record, and a counting record names at least one code-class file: see
-// isCodeClass), `cause-member` (round 1), `sent-to-debug` (round 2). A criterion with no covers record
-// cannot be tied to any one file, so the rule does not try: it only stops docs, test, framework,
-// CI-config and lockfile edits from re-walking it. `counts` is the number re-checked per reason and
+// `no-covers` (no covers record, and a counting record names at least one code-class file -- see
+// isCodeClass -- that shares a directory with some recorded cover in the run, or any code-class file
+// when no cover is recorded anywhere), `cause-member` (round 1), `sent-to-debug` (round 2). A criterion
+// with no covers record cannot be tied to any one file, so the rule does not try: it stops docs, test,
+// framework, CI-config and lockfile edits, and code edits beside no recorded cover, from re-walking it. `counts` is the number re-checked per reason and
 // `scopeWord` is `none` (nothing re-checked), `full` (any `changes-unknown`) or `targeted`.
 function regressionScope(records, awaitingIds = [], sentIds = []) {
   const provenAtOf = (id) => {
@@ -3327,6 +3353,12 @@ function regressionScope(records, awaitingIds = [], sentIds = []) {
     const proven = settled.get(id).provenAt
     return Number.isInteger(proven) && proven >= 1 ? proven : 0
   }
+  // IC item 4: a no-covers criterion is put back in scope only by a code-class file that shares a
+  // directory with some recorded cover in the run, or by any code-class file when no cover is recorded
+  // anywhere (nothing can be related, so it widens as before).
+  const recordedCovers = [...CRITERION_COVERS.values()].flat()
+  const recordedDirs = new Set(recordedCovers.flatMap(coverDirs).filter((d) => d !== '.'))
+  const reopensNoCovers = (file) => isCodeClass(file) && (recordedCovers.length === 0 || recordedDirs.has(fileDir(file)))
   const scope = []
   const notRewalked = []
   for (const c of CRITERIA) {
@@ -3344,7 +3376,7 @@ function regressionScope(records, awaitingIds = [], sentIds = []) {
       }
       if (hit.length > 0) scope.push({ id: c.id, reason: 'covers-changed', files: hit })
       else if (counting.some((r) => r.files === null)) scope.push({ id: c.id, reason: 'changes-unknown' })
-      else if (covers.length === 0 && counting.some((r) => r.files.some(isCodeClass))) scope.push({ id: c.id, reason: 'no-covers' })
+      else if (covers.length === 0 && counting.some((r) => r.files.some(reopensNoCovers))) scope.push({ id: c.id, reason: 'no-covers' })
       else notRewalked.push(c.id)
     } else if (awaitingIds.includes(c.id)) {
       scope.push({ id: c.id, reason: 'cause-member' })

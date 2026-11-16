@@ -4756,6 +4756,31 @@ describe('verify-functional: shared-cause targeting (causes D1-D6, D13, D16-D18)
       expect(reasonsIn(logs)[1]).toBe('FS-1 (no-covers), FS-2 (no-covers)');
     });
 
+    it('IC item 4: a no-covers criterion is re-checked when the code change shares a directory with a recorded cover', async () => {
+      const { logs } = await journey(reproven, { args: { criterionCovers: { 'FS-1': ['src/a/x.js'] } }, files: ['src/a/new.js'] });
+      expect(reasonsIn(logs)[1]).toBe('FS-2 (no-covers)');
+    });
+
+    it('IC item 4: a no-covers criterion is not re-checked when the code change shares a directory with no recorded cover', async () => {
+      const { agent, logs } = await journey(reproven, { args: { criterionCovers: { 'FS-1': ['src/a/x.js'] } }, files: ['src/z/new.js'] });
+      expect(regressionExercises(agent)).toHaveLength(0);
+      expect(logs.join('\n')).toMatch(/regression pass has nothing to re-check/);
+    });
+
+    it('IC item 4: with no cover recorded anywhere, the same code change still re-checks every no-covers criterion', async () => {
+      const { logs } = await journey(reproven, { args: { criterionCovers: {} }, files: ['src/z/new.js'] });
+      expect(reasonsIn(logs)[1]).toBe('FS-1 (no-covers), FS-2 (no-covers)');
+    });
+
+    it('IC item 4: a directory or glob cover relates a new file inside its directory; a repo-root file is related to no cover', async () => {
+      const dirCover = await journey(reproven, { args: { criterionCovers: { 'FS-1': ['src/a/'] } }, files: ['src/a/new.js'] });
+      expect(reasonsIn(dirCover.logs)[1]).toBe('FS-1 (covers-changed), FS-2 (no-covers)');
+      const globCover = await journey(reproven, { args: { criterionCovers: { 'FS-1': ['src/b/*.ts'] } }, files: ['src/b/new.js'] });
+      expect(reasonsIn(globCover.logs)[1]).toBe('FS-2 (no-covers)');
+      const root = await journey(reproven, { args: { criterionCovers: { 'FS-1': ['index.js'] } }, files: ['main.js'] });
+      expect(regressionExercises(root.agent)).toHaveLength(0);
+    });
+
     it('D12: the round record carries counts per reason and the scope word, and the log line prints the scope after not re-walked', async () => {
       const { result, logs } = await journey(reproven, { args: { criterionCovers: { 'FS-1': ['src/a.js'], 'FS-2': ['src/z.js'] } }, files: ['src/a.js'] });
       expect(result.regression.rounds[0]).toMatchObject({ counts: { 'covers-changed': 1 }, scopeWord: 'targeted' });

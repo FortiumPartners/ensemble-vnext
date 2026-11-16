@@ -16,6 +16,7 @@
 |---------|------|---------|--------|
 | 1.0.0 | 2026-11-16 | Initial TRD creation from the narrow-reproof-scope investigation | @technical-architect |
 | 1.0.1 | 2026-11-16 | `/audit-trd`: root-path rule settled for D2 (grounding agreed); D9 keeps `unresolved` always and updates one test; D13/D14 add `baseline` to the workflow validator and name no rerun for `missing`/`pending`; D15 prints scope at gate step 2, before the re-proof; D16 has each task mirror its own files; stale `relatedDirs`/§1.1/D12/TR4/OQ-2 text corrected; NRS-D001/D002 take the stale guide, contract and reference docs; NG7/NG8 record D3 and D10 narrowing less than O2/O5, pending owner confirmation; Could Not Verify rewritten | @technical-architect |
+| 1.0.2 | 2026-11-16 | Implementation note (OWNER-CALL): functional verification, working from the issue's own wording (success criteria FS-22 and FS-23), put back the same-directory clause that D10 had dropped. As built, `no-covers` re-checks an uncovered criterion only when a code-class change shares a directory with some recorded cover in the run, or when no cover is recorded anywhere. D10 and NG8 above describe the earlier, wider rule; the code and its tests follow the issue. The adversarial review's concern stands: an uncovered criterion whose files sit in a directory no cover names is not re-checked. | /implement-trd |
 
 ## Objectives
 
