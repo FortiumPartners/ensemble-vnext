@@ -116,6 +116,8 @@ owner asked for it by invoking the command. Run `design-render.js` for the board
 wrote or changed, with the floors `design-map.js direction` reports (contrast ratio and touch
 target size), so a frame below a floor is a finding (§8).
 
+**No `rm`.** Delete nothing: render into a fresh `mktemp -d` folder, never run `rm` on a glob or an unresolved path, and leave cleanup to the scratchpad. A wildcard `rm` raises Claude Code's dangerous-rm prompt, which hangs an unattended run.
+
 ## 3. Install the design system on a canvas
 
 Implements AC-F6.8. Used by `/design-system` (first build and `--sync`), `/create-design`
@@ -236,3 +238,6 @@ score without that is not accepted.
 
 The fix round fixes high and medium, as before. The critique edits nothing: it reports. Nothing
 blocks a commit on a score.
+
+**No `rm`.** A critic renders into a fresh `mktemp -d` folder and never runs `rm` on a glob or an
+unresolved path; it leaves cleanup to the scratchpad (§2).

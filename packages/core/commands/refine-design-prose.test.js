@@ -226,6 +226,12 @@ describe('refine-design --auto decisions, answers and audit findings (DORCH-B004
     expect(raw).toMatch(/^\s*`# Visual critique: <slug> \(\/refine-design, <YYYY-MM-DD>\)`, even when it kept every board/m);
   });
 
+  test('no feedback and no open findings is a no-change run that does not send NEXT back to /audit-design', () => {
+    expect(text).toMatch(/No report, or a report with no open findings, is a no-change run/);
+    expect(text).toMatch(/`VERDICT: proceed with these caveats` report whose open findings are none: its caveats are not feedback/);
+    expect(text).toMatch(/"no change made, nothing to re-audit", and its NEXT omits `\/audit-design <slug>`/);
+  });
+
   test('names no product or orchestrator (O10)', () => {
     expect(raw).not.toMatch(/forge/i);
     expect(raw).not.toMatch(/orchestrat/i);

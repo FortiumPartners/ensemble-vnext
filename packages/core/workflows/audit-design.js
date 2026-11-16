@@ -283,6 +283,7 @@ function visualVerifier(key, boards, scored) {
 1. Run, from the project root (the render uses the pinned runtime):
    node .claude/lib/design-render.js render --dir ${DIR} --out <a fresh scratch folder under the system temp directory> --boards ${ids}${floorFlags ? ' ' + floorFlags : ''}
    The --out folder MUST NOT be ${DIR}/screens/png or anywhere under ${DIR}: this audit changes no tracked file.
+   Make the folder with mktemp -d. Never run rm on a glob or an unresolved path; leave cleanup to the scratchpad.
    ${floorFlags ? '' : 'No floor was supplied, so the measures carry no verdict. '}Return the --out folder as "out".
 2. Copy every render error and every measure from the command's JSON into your return VERBATIM: do
    not summarise, drop or reword them. If the command exits 2, put its message in missing_tool and stop.
