@@ -111,13 +111,73 @@ describe('RETURN outcomes the callers branch on exist in audit-build.md', () => 
   });
 });
 
-// AMEND-002: carried-forward verdicts never anchor the close at HEAD.
+// AMEND-002 / AMEND-004: carried-forward verdicts never anchor the close at HEAD. The rule lives in
+// model-read prose, so the pins slice each caller's close section by markers and check structure:
+// every `--verified` call sits in a block that also excludes carried-forward runs, and every
+// carried-forward path names a call or instruction without `--verified`. A loose `.{0,N}` window
+// would still pass if an unconditional `--verified` call were re-added beside the sentence.
 describe('held-back close drops --verified when verdicts were carried forward', () => {
-  const read = (f) => fs.readFileSync(path.join(__dirname, f), 'utf8').replace(/\s+/g, ' ');
-  test('verify-build.md: a --resume or targeted run closes without --verified', () => {
-    expect(read('verify-build.md')).toMatch(/a `--resume` or targeted run carried `met` verdicts forward.{0,200}calls without `--verified`/);
+  /** Raw text from `startMarker` up to (not including) `endMarker`; both must exist, in order. */
+  function between(src, startMarker, endMarker) {
+    const start = src.indexOf(startMarker);
+    expect(start).toBeGreaterThanOrEqual(0);
+    const end = src.indexOf(endMarker, start + startMarker.length);
+    expect(end).toBeGreaterThan(start);
+    return src.slice(start, end);
+  }
+  /** Paragraphs and bullets: a block is the unit "its own bullet or paragraph" means. */
+  const blocks = (text) =>
+    text.split(/\n\s*\n/).flatMap((p) => p.split(/\n(?=\s*- )/)).map(flat);
+  const VERIFIED_CALL = /Skill\(\{ skill: "audit-build", args: "[^"]*--close-deferred --verified" \}\)/g;
+  const BARE_CALL = /Skill\(\{ skill: "audit-build", args: "[^"]*--close-deferred" \}\)/g;
+  const verifiedBlocks = (text) => blocks(text).filter((b) => b.match(VERIFIED_CALL));
+
+  const vbClose = between(verify, '**The held-back close (D11).**', 'Which runs may close');
+  const vbRuns = between(verify, 'Which runs may close', '**When the outcome is `stalled`');
+  const vbStep6 = between(verify, 'otherwise the held-back close of O4', 'a `setup-failure` outcome is the');
+  const itClose = between(implement, '**The held-back close.**', 'Step 8 not run for any other reason');
+  const abStep3 = between(audit, '3. Otherwise run step 4', 'consume the deferred round');
+
+  test('verify-build D11: its one --verified call is gated on a fresh walk and excludes --resume/targeted', () => {
+    const vb = verifiedBlocks(vbClose);
+    expect(vb).toHaveLength(1);
+    expect(vbClose.match(VERIFIED_CALL)).toHaveLength(1);
+    expect(vb[0]).toContain('`--verified` only when this run walked every criterion afresh');
+    expect(vb[0]).toMatch(/a `--resume` or targeted run carried `met` verdicts forward[^)]*calls without `--verified`/);
   });
-  test('implement-trd.md: the --resume --verify path closes without --verified', () => {
-    expect(read('implement-trd.md')).toMatch(/except on the `--resume --verify` path.{0,200}calls without `--verified`/);
+
+  test('implement-trd Step 9: its one --verified call excludes the --resume --verify path, and the bare call has its own bullet', () => {
+    const vb = verifiedBlocks(itClose);
+    expect(vb).toHaveLength(1);
+    expect(itClose.match(VERIFIED_CALL)).toHaveLength(1);
+    // The exclusion is in the same bullet and comes before the call.
+    const b = vb[0];
+    const exclusion = b.indexOf('except on the `--resume --verify` path');
+    expect(exclusion).toBeGreaterThanOrEqual(0);
+    expect(exclusion).toBeLessThan(b.search(VERIFIED_CALL));
+    expect(b).toContain('calls without `--verified` so custody re-proves them');
+    // --no-verify: a different bullet, a bare call.
+    const bare = blocks(itClose).filter((x) => x.match(BARE_CALL));
+    expect(bare).toHaveLength(1);
+    expect(bare[0]).toContain('`--no-verify` was set');
+    expect(bare[0]).toContain('call without `--verified`');
+    expect(bare[0]).not.toMatch(VERIFIED_CALL);
+  });
+
+  test('every carried-forward path names a close without --verified', () => {
+    // verify-build --resume and targeted runs
+    expect(flat(vbClose)).toMatch(/a `--resume` or targeted run carried `met` verdicts forward from an earlier loop[^)]*so it calls without `--verified`/);
+    expect(flat(vbRuns)).toContain('A `--resume` run implies `--no-fix` but may complete the close');
+    // verify-build fix-loop step 6 never passes it
+    expect(flat(vbStep6)).toContain('never with `--verified` here');
+    expect(flat(vbStep6)).toContain('carries every `met` verdict forward');
+    expect(vbStep6).not.toMatch(/--close-deferred --verified/);
+    // implement-trd --resume --verify
+    expect(flat(itClose)).toContain('the loop re-entered from `verification-state.json` carries `met` verdicts');
+  });
+
+  test('audit-build --close-deferred step 3 is the library behaviour that makes --verified matter', () => {
+    const t = flat(abStep3);
+    expect(t).toContain('With `--verified` (verification proved every commit up to the head), `audit.anchorCommit` is the full output of `git rev-parse HEAD` at close time; without it, the line\'s `close.anchorCommit`');
   });
 });

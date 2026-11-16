@@ -378,6 +378,8 @@ its own failing pins to rewrite.
 | ABFV-T002 | [LIVE] In a `fixtures` slot at `.trd-state/audit-before-functional-verification/evidence/live/work/slot-1`, made with `smoke_scaffold_project` from `test/smoke/lib/project.sh` (scaffold, rules, its own `git init`, committer identity and first commit), folder-trust accepted once as `verification.md` §1a says, run a default `/implement-trd` headless against the two-requirement fixture that `test/smoke/scenarios/verify-functional.sh` writes (`smoke_write_fv_prd`, `smoke_write_fv_trd`); save the transcript and an order excerpt under `.trd-state/audit-before-functional-verification/evidence/live/ABFV-T002/` and list them, with the command and library files exercised, in `evidence/live-manifest.jsonl`; destroy the slot afterwards | O7, D16 | | ABFV-B001, ABFV-B002, ABFV-B003 | The transcript shows one to three `Skill` calls to `audit-build` with `--chained --defer-close`, all before the `Workflow` call to `verify-functional`, and the run ends with one banner. Then, by the branch the run took (recorded with the evidence): the audit returned `passed, close deferred` and verification `satisfied` → `closed.json` has `closedBy: "audit"` and an `audit.anchorCommit` equal to the head the transcript's close step read, and `audit-rounds.js pending-close` on the slot's state folder prints `{"pending":null}`; the audit passed and verification was not `satisfied` → no `closed.json`, and `pending-close` prints a round with `closeDeferred: true` whose `runId` equals `implement.json`'s `audit.runId`; the audit did not pass (`cap reached`, `open` or `STUCK`) → no `closed.json`, `pending-close` prints `{"pending":null}`, and the readout's STATE names the audit's result |
 | AMEND-001 | [review:correctness] pendingClose treats a held-back close as spent only while closed.json exists, so deleting closed.json to reopen a feature brings the old held-back close back and a later satisfied /verify-build closes on an audit that never saw the new code (`packages/core/lib/audit-rounds.js`) — promoted from a bug discovery found by code-review | amendment — no objective recorded |  | None | [review:correctness] pendingClose treats a held-back close as spent only while closed.json exists, so deleting closed.json to reopen a feature brings the old held-back close back and a later satisfied /verify-build closes on an audit that never saw the new code no longer reproduces: code-review finding 2: readRounds returns all rounds once closed.json is gone; last is still closeDeferred |
 | AMEND-002 | [review:correctness] a --resume run may close with --verified, setting audit.anchorCommit to HEAD although the resumed evidence may predate commits made since the interruption, so /ship-build custody skips re-proving them (`packages/core/commands/verify-build.md`) — promoted from a bug discovery found by code-review | amendment — no objective recorded |  | None | [review:correctness] a --resume run may close with --verified, setting audit.anchorCommit to HEAD although the resumed evidence may predate commits made since the interruption, so /ship-build custody skips re-proving them no longer reproduces: code-review finding 8 |
+| AMEND-003 | [test-gap] No test pins that /audit-build --chained --defer-close runs 'Write the records, once, last' (the records-ref write) after recording the deferred-close line; proven live only — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/commands/verify-command-surface.test.js:2736-2741 checks trd-hash and `audit-rounds.js record` only; packages/core/commands/audit-build.md:500-527 (--defer-close text names the records write); live: .trd-state/audit-before-functional-verification/evidence/fs8-records-ref-audit-rounds.jsonl. The fold of audit-rounds.jsonl itself is generic (packages/core/lib/record-ref.js:284).) | amendment — no objective recorded |  | None | [test-gap] No test pins that /audit-build --chained --defer-close runs 'Write the records, once, last' (the records-ref write) after recording the deferred-close line; proven live only no longer holds |
+| AMEND-004 | [test-gap] The rule that a --resume or targeted close omits --verified is pinned by regex over command prose only; library close behaviour is tested behaviourally — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/commands/audit-first-order.test.js:115-123; packages/core/lib/audit-rounds.test.js:305+ (consumeClose)) | amendment — no objective recorded |  | None | [test-gap] The rule that a --resume or targeted close omits --verified is pinned by regex over command prose only; library close behaviour is tested behaviourally no longer holds |
 
 ## Deferred by design
 
@@ -507,25 +509,35 @@ None apply — this change has no UI design, no interaction diagram and renders 
 
 ## Could Not Verify
 
-Updated by `/audit-trd` on 2026-11-16 (five of five verifiers reported, against the
-investigation). What is listed here was not checked by that audit, and why:
+Updated by `/audit-build` on 2026-11-16 (five of five verifiers reported, against the
+investigation; 10 requirements and 9 tasks checked). Gaps that audit found are in its report,
+not here. What is listed here was not checked by that audit, and why:
 
 - **A standalone `/audit-build` after a satisfied `/verify-build` closes on code no verification
   saw, when its fix run changes code (D20, TR4).** It is reached only when no deferred close is
   on record: features built before this change, a Step 7.3 that errored, or an audit that ended
   open, capped or STUCK. `/ship-build`'s custody check starts at that fix run's head
   (`anchorCommit`), so it does not re-prove the fix run's work either. This is today's
-  behaviour, now confined to that case. Not checkable from the text: it is a residual risk the
+  behaviour, now confined to that case. Out of scope for a code audit: it is a residual risk the
   design accepts, seen only in practice. The owner acts: after such an audit, if its readout
   says the fix run changed code, run `/verify-build` before shipping.
 - **A real PR opened by `--close-deferred` with `ensemble.openPullRequest: auto`.** The fixture
   slot is not a GitHub repository with a remote, so the PR branch is proven by prose pins only
   (§6.1, Verification Environment). `claude --remote` sessions and failures that occur only on
   the GitHub Actions runner cannot be reproduced here either (`verification.md` §5).
-- **How long ABFV-T002's live run takes with the audit added.** The only measurement is the same
-  fixture's default run without an audit, 1471 s on 2026-08-19; the audit's verifier wave, a
-  possible fix run and re-audits come on top. The task sets no time bound, only a background run
-  with a timeout above the 600 s foreground limit, so the timeout must be chosen generously.
+- **ABFV-T002's own run, and how long it takes with the audit added.** The task is deferred by
+  design (`implement.json` status `deferred`), so its evidence folder `evidence/live/ABFV-T002/`
+  and `evidence/live-manifest.jsonl` do not exist yet. O7 itself was shown by the verification
+  loop's own fixture run instead (`evidence/live/slot1-tool-sequence.txt`: `audit-build
+  --chained --defer-close` before `verify-functional`, then `--close-deferred --verified`). The
+  only timing measurement is the same fixture's default run without an audit, 1471 s on
+  2026-08-19; the task sets no time bound, so its timeout must be chosen generously.
+- **Two behaviours no live run reached: a re-audit inside Step 7.3 before verification, and
+  `anchorCommit` taken at close after a verification Debug commit.** The end-of-run
+  `/code-review --fix` repaired every seeded defect first, so no fixture run produced a second
+  audit round or a Debug commit (verification report, FS-4 and FS-23, settled as evidence the
+  fixture cannot produce). Both rest on command-text pins and the `audit-rounds.js` library
+  tests only.
 
 ## 9. Task Grounding
 
@@ -603,3 +615,11 @@ investigation). What is listed here was not checked by that audit, and why:
 ### AMEND-002
 
 - **Touches:** `packages/core/commands/verify-build.md`
+
+### AMEND-003
+
+- **Touches:** `packages/core/commands/verify-command-surface.test.js`
+
+### AMEND-004
+
+- **Touches:** `packages/core/commands/audit-first-order.test.js`

@@ -2740,6 +2740,31 @@ describe('audit-build caller-only modes (ABFV-B002)', () => {
     expect(t).toMatch(/audit-rounds\.js record/);
   });
 
+  test('--defer-close makes its own one records write, after the deferred-close record line and before the RETURN lines', () => {
+    const t = deferMode();
+    const recordLine = t.indexOf('"closeDeferred":true');
+    const write = t.indexOf('"Write the records, once, last"');
+    const ret = t.indexOf('`RETURN → passed, close deferred`');
+    expect(recordLine).toBeGreaterThan(-1);
+    expect(write).toBeGreaterThan(recordLine);
+    expect(ret).toBeGreaterThan(write);
+    expect(t).toMatch(/artifacts\.js record` as today, then "Write the records, once, last", then end/);
+  });
+
+  test('"Write the records, once, last" is one record-ref.js write per run, re-audit, capped and --report-only included', () => {
+    const t = between(ab, '**Write the records, once, last.**', '**With publishing off');
+    expect(t).toContain('node .claude/lib/record-ref.js write --state-dir .trd-state/<feature> --command /audit-build');
+    expect(t).toMatch(/exactly one, a re-audit, a capped audit and `--report-only` included/);
+    expect(t).toMatch(/never a gate and never STUCK/);
+  });
+
+  test('--close-deferred does not write records itself: the caller makes the one write', () => {
+    const t = closeMode();
+    expect(t).toMatch(/Skip the TRD commit and the publish \(the `--defer-close` run made them\) and "Write the records, once, last"/);
+    expect(t).toMatch(/the caller makes the one records write, and it carries `closed\.json`/);
+    expect(t).not.toContain('record-ref.js write');
+  });
+
   test('--defer-close skips the gate, the close step and the PR', () => {
     const t = deferMode();
     expect(t).toMatch(/skips? the waived-defect gate, the close step, the unsynced-boards check and the pull request/);
