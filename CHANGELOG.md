@@ -12,6 +12,16 @@ the work is actually released.
 
 ## [Unreleased]
 
+**Publishing is set per kind (#40).** `ensemble.publishArtifacts` takes three shapes: `true` (the
+per-kind defaults), `false` (every publish off, even for a `--publish` request) or an object of
+per-kind booleans. By default TRDs, `/task` reports, design rounds and the design system publish;
+PRDs, audit reports, verification reports, check pages and the docs-audit change set do not, unless
+the run passes the new `--publish` flag. Commands now ask `node .claude/lib/artifacts.js publish
+--kind <kind>` instead of reading the setting, and a kind that reads off clears its stored link.
+**Behaviour change:** projects that relied on PRDs and reports publishing under the old
+`true` now get a link only with `--publish` or `{ "prd": true }`; `false` is unchanged. A test
+(`publish-switch-prose.test.js`) fails if a command or contract reads the old boolean again.
+
 **Re-proof scope is narrowed three ways**, so a change re-proves what it can affect and no more
 (#153, #154, #155). Quality is kept: a file or criterion nothing can be related to still widens to
 the full set.

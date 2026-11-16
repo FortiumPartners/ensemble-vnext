@@ -290,7 +290,7 @@ relies on (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP=1` bounds it to one corrective turn)
 | Key | Default | Meaning |
 |---|---|---|
 | `version` | the plugin version at init | The runtime version (section 2) |
-| `publishArtifacts` | `true` | Publish documents as private claude.ai pages |
+| `publishArtifacts` | `true` | Publish documents as private claude.ai pages: `true` is the per-kind defaults (TRD, report, design on), `false` is all off, an object sets kinds one by one |
 | `openPullRequest` | `never` | `auto` lets a passing `/audit-build` or `/close-feature` open the PR |
 | `docsAudit.thresholds.high`, `.medium` | 70, 40 (not written to the file; add the key to override) | `/audit-docs` drift scores that earn a thorough or a light review |
 | `agents_dir`, `skills_dir`, `rules_dir`, `state_dir`, `docs_dir`, `prd_dir`, `trd_dir` | `.claude/…`, `.trd-state`, `docs`, … | Where things live |

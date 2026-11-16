@@ -1,7 +1,7 @@
 ---
 name: implement-trd
 description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
-argument-hint: "[trd-path] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify] [--no-verify] [--chained] [--shipping] [--sweep-flag <text>]"
+argument-hint: "[trd-path] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify] [--no-verify] [--chained] [--publish] [--shipping] [--sweep-flag <text>]"
 version: 4.0.0
 category: implementation
 ---
@@ -33,6 +33,7 @@ category: implementation
 > - `--no-verify` - Opt out of the functional-verification pass entirely: no derive agent is
 >   dispatched, no `.trd-state/<feature>/success-definition.md` appears, and Step 8 is
 >   skipped — Step 9's banner reads `not run (--no-verify set)`.
+> - `--publish` - Publish this run's verification report and check pages even where `ensemble.publishArtifacts` leaves that kind off by default (a standalone flag token; `ensemble.publishArtifacts: false` still wins). Passed on by `/plan --implement`; not `--implement`.
 > - `--chained` - **For callers only** (`/verify-build`'s fix loop, verification-fix-loop TRD §3.3,
 >   D2), never typed by hand: skips the derive pass, §3.6a's environment preflight, Step 8, and
 >   §9.0a's publishing; emits no banner, no `notify-complete.sh`, no `PushNotification`. Ends
@@ -59,7 +60,7 @@ $ARGUMENTS
 ```
 
 Parse: TRD path, `--resume`/`--continue`, `--reconcile`, `--include-deferred`,
-`--reset-state`, `--verify`, `--no-verify`, `--chained`, `--shipping`, `--sweep-flag "<text>"`. Verification runs by default; `--no-verify` opts out;
+`--reset-state`, `--verify`, `--no-verify`, `--chained`, `--publish`, `--shipping`, `--sweep-flag "<text>"`. Verification runs by default; `--no-verify` opts out;
 `--verify` is still parsed explicitly, and doing so alongside `--resume` is exactly what §3.6
 step 0 checks for. `--chained` (§3.7) is for callers only — `/verify-build`'s fix loop, `/audit-build`
 and `/ship-build` are the things that pass it. `--shipping` (§3.7) is for `/ship-build` only. `--sweep-flag` is likewise for callers only — `/plan`'s sweep chain is the
@@ -2400,8 +2401,9 @@ listed it under NEXT STEPS.
 
 ### 9.0a Artifact link (see `.claude/rules/command-status.md`)
 
-Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, and **unless this run
-used `--no-verify`** (i.e. Step 8 actually ran), publish the verification report, with the images it embeds (verification-report-images D10).
+**Skipped entirely when this run used `--no-verify`** (Step 8 did not run). Otherwise ask first:
+`node .claude/lib/artifacts.js publish --kind verification-report` (add `--requested` when this
+run's arguments carry `--publish`). On `publish: on`, publish the verification report, with the images it embeds (verification-report-images D10).
 The report embeds each criterion's image by a path under `evidence/`; the Artifact tool serves
 a `files` map at those same paths. **Never assemble that map by hand** — `report-publish-plan`
 reads the report and returns it. Every time this sequence runs:
@@ -2443,12 +2445,15 @@ Artifact({ file_path: ".trd-state/<feature>/verification-report.md", icon: "chec
 **Then ALWAYS record the report, whether or not publishing is on** (this sits outside the
 publish switch, but inside the `--no-verify` gate: no Step 8, no report, nothing to record):
 `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind verification-report --path .trd-state/<feature>/verification-report.md --command /implement-trd`,
-adding `--url <returned URL>` only when a publish returned one. That is what lets a later
+adding `--url <returned URL>` only when a publish returned one (on `publish: off (…)`, make no
+publish call, name the local path and pass `--url ""`; a resolver error reads as off plus one
+ISSUES line). That is what lets a later
 `/verify-build` update the same link rather than minting a second one that competes with it.
 No command writes `artifacts.json` by hand.
 
-**Then, still under the same switch and the same `--no-verify` gate, publish each selected
-check's page** (verification-artifacts TRD §3.8, D8) that `pages` (§8.4) shows on disk — one
+**Then, under the same `--no-verify` gate, ask per skill, not once for all:
+`node .claude/lib/artifacts.js publish --kind <skill>` (add `--requested` when this run carried
+`--publish`). On `publish: on`, publish each selected check's page** (verification-artifacts TRD §3.8, D8) that `pages` (§8.4) shows on disk — one
 call per skill, in the same call shape as the report above, plus a `files` map for its images
 (read its stored URL first: `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind <skill>`, empty output meaning none):
 
@@ -2459,10 +2464,10 @@ Artifact({ file_path: "<pagesDir>/<skill>/index.html", files: { "img/…": "<pag
 
 **Then ALWAYS record each page that is on disk, whether or not publishing is on** (same
 placement as the report's record): `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind <skill> --path <pagesDir>/<skill>/index.html --command /implement-trd`,
-adding `--url <returned URL>` only when a publish returned one, so the next run's §8.1b reads
+adding `--url <returned URL>` only when a publish returned one (on `publish: off (…)`, pass `--url ""`), so the next run's §8.1b reads
 comments from the same link and a later `/verify-build` updates it in place. A page with more than 255 files (the Artifact
 tool's per-publish limit) is published in several calls to the same URL (TR4) — the page on
-disk is the deliverable either way. With publishing off, STATE names each page's local path
+disk is the deliverable either way. With `publish: off`, STATE names each page's local path
 instead of a link.
 
 **Emit the link inside the readout, above the banner.** Publishing failure — the report's or

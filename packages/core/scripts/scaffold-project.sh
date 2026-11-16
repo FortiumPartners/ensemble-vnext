@@ -1645,9 +1645,11 @@ if strict:
         if old_version != version:
             ensemble["previous_version"] = old_version
 ensemble.setdefault("agents_dir", ".claude/agents")
-# Backfill for projects scaffolded before the key existed, matching the
-# shipped default. setdefault, never assignment: an owner who turned this
-# OFF must not have it turned back on by a refresh.
+# Backfill for projects scaffolded before the key existed. True means "the
+# per-kind default" (artifacts.js PUBLISH_DEFAULTS decides which kinds
+# publish); it is not a blanket on. setdefault, never assignment: an owner's
+# false (every publish off) and an owner's object (per-kind choices such as
+# {"prd": true, "trd": false}) both survive every refresh unchanged.
 ensemble.setdefault("publishArtifacts", True)
 # Same backfill rule for the PR-at-cycle-end switch: shipped default "never".
 # setdefault, never assignment: an owner who chose "auto" must keep it

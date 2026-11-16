@@ -199,9 +199,28 @@ entering the pull request. This is the one place the rule is stated.
 
 A command that produces a document — a PRD, a TRD, a verification report — publishes it as an
 **artifact**: a private page on claude.ai the owner can click into, and later share if they
-choose. **On by default**; turn off per project with `ensemble.publishArtifacts: false` in
-`.claude/settings.json`. A document you have to go find in the tree is a document that does
-not get read — the link is the point of producing one.
+choose. **Which kinds publish is a per-kind setting** (below): TRDs, task reports and design
+rounds publish by default; the rest do when asked. A document you have to go find in the tree
+is a document that does not get read — the link is the point of producing one.
+
+**Ask the resolver; never read the setting yourself.** Before any publish call, run
+`node .claude/lib/artifacts.js publish --kind <kind>` (add `--requested` when the run's
+arguments carry `--publish`). It prints `publish: on` or `publish: off (<reason>)`, and it is
+the only reader of `ensemble.publishArtifacts`. A kind that reads off makes no publish call and
+emits no link; its stored link is recorded as empty (`record ... --url ""`) so a stale page is
+never republished. A resolver error reads as off, with one ISSUES line.
+
+**`ensemble.publishArtifacts` takes three shapes** in `.claude/settings.json`:
+
+| Value | Meaning |
+|---|---|
+| `true` (or absent) | the per-kind defaults: on for `trd`, `report`, `design`, `design-system`; off for every other kind (`prd`, the audits, `verification-report`, check pages, `docs-audit`) |
+| `false` | every publish off, including a `--publish` request: `false` wins |
+| an object, e.g. `{ "prd": true, "trd": false }` | per-kind booleans layered over the defaults; a kind not named keeps its default |
+
+A run can ask for one document with `--publish` (`/create-prd --publish`): it turns that kind on
+for that run, even where the setting leaves it off by default or names it `false` per kind, but
+never past a top-level `false`.
 
 **Publish the FILE, don't render it:**
 ```
@@ -235,10 +254,12 @@ command must not go STUCK, retry, or lose its banner over a failed link.
 
 **Turning it off is a real decision, not a discovery.** Publishing sends the document to an
 external service, where it may be cached or indexed even after deletion; artifacts are
-private to the owner on publish, which is what makes on-by-default reasonable. Set
-`{ "ensemble": { "publishArtifacts": false } }` and it's honored everywhere — commands skip
-the publish step and emit no link. `scaffold-project.sh` backfills the key with `setdefault`,
-so an owner's `false` survives every rebase; no upgrade may quietly reverse it.
+private to the owner on publish, which is what makes the defaults reasonable. Set
+`{ "ensemble": { "publishArtifacts": false } }` and every publish stops, whatever a run
+requests; set a kind to `false` in the object to stop just that one. The shipped value is
+`true`, meaning "the per-kind defaults", so a later change to the defaults reaches every
+project. `scaffold-project.sh` backfills the key with `setdefault`, so an owner's `false` or
+object survives every rebase; no upgrade may quietly reverse it.
 
 **Never publish a document that contains a credential.** `verification.md` already requires
 recording where credentials live rather than their values; with publishing on by default,

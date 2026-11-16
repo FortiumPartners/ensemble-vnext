@@ -36,7 +36,7 @@ $ARGUMENTS
    remedy, so it skips the stale check. Run `node .claude/lib/design-map.js setup`; a `design.md`
    that is `missing` or `unfilled` ends the command STUCK with "run `/design-setup`". The product
    build is gated on `design.md`: read its section 1 and run nothing before it is filled.
-   **Read the publishing switch next** (contract section 1 step 2) and hold the answer. With
+   **Read the publishing switch next** (contract section 1 step 2) and hold the answer. Run it with `--kind design-system` for the system and `--kind design` for each canvas. With
    `publish: off` or no Artifact tool, steps 6 and 7 make no publish call at all (no Design
    System artifact created or updated, nothing installed on a canvas), and the run ends
    STUCK naming the publish step (contract section 5), never COMPLETE.
@@ -68,8 +68,7 @@ $ARGUMENTS
    written last. One call holds at most 255 paths. **With `publish: off` (step 1) or no
    Artifact tool, skip this step and step 7 entirely**: contract section 5 applies. Steps 3-5
    and 8 still run on disk (record `url` empty or as already recorded), then end with
-   `COMMAND STUCK: /design-system`, Reason "publish step not run: ensemble.publishArtifacts is
-   false". Under `--chained`, the RETURN line says `not published` instead.
+   `COMMAND STUCK: /design-system`, Reason "publish step not run: <the reason the switch printed>". Under `--chained`, the RETURN line says `not published` instead.
    If the read of the recorded system artifact (or of a canvas to install on) fails, apply
    contract section 1's *Unreadable recorded artifact* rule. Only a not-found or no-access error
    (recognised by the error text that rule gives) republishes: from

@@ -166,6 +166,34 @@ teardown_file() {
     [ "$rc" -eq 0 ]
 }
 
+@test "an owner's per-kind publishArtifacts object survives two refreshes unchanged" {
+    local own
+    own="$(mktemp -d)"
+    git -C "$own" init -q .
+    git -C "$own" config user.email "test@example.com"
+    git -C "$own" config user.name "Test"
+    git -C "$own" commit -q --allow-empty -m init
+    bash "$SCAFFOLD" "$own" --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+
+    node -e '
+      const fs = require("fs"), p = process.argv[1] + "/.claude/settings.json";
+      const d = JSON.parse(fs.readFileSync(p, "utf8"));
+      d.ensemble.publishArtifacts = { prd: true, trd: false };
+      fs.writeFileSync(p, JSON.stringify(d, null, 2) + "\n");
+    ' "$own"
+
+    bash "$SCAFFOLD" "$own" --refresh --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+    bash "$SCAFFOLD" "$own" --refresh --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+
+    run node -e '
+      const v = require(process.argv[1] + "/.claude/settings.json").ensemble.publishArtifacts;
+      process.exit(JSON.stringify(v) === JSON.stringify({ prd: true, trd: false }) ? 0 : 1);
+    ' "$own"
+    local rc="$status"
+    rm -rf "$own"
+    [ "$rc" -eq 0 ]
+}
+
 @test "refresh keeps an owner's openPullRequest and backfills never when absent" {
     # Fails if the backfill is an assignment: "auto" would be reset to "never".
     local t

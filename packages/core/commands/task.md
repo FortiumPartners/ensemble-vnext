@@ -2,10 +2,12 @@
 name: task
 version: 1.0.0
 description: A job whose output is findings or a report, not merged code — run once, recorded, closed, without a TRD
-argument-hint: "<prompt | path-to-brief.md> | --resume"
+argument-hint: "<prompt | path-to-brief.md> [--publish] | --resume"
 ---
 
-> **Usage:** `/task <prompt>`, `/task <path-to-brief.md>` or `/task --resume`
+> **Usage:** `/task <prompt> [--publish]`, `/task <path-to-brief.md> [--publish]` or `/task --resume`.
+> `--publish` is a standalone flag token, stripped from the prompt text; a task's report publishes by
+> default, and the flag only matters where `ensemble.publishArtifacts` turns that kind off per kind.
 >
 > **Examples:**
 > `/task re-capture the 176 screen pairs, grade them, publish a report listing regressions`
@@ -161,9 +163,12 @@ node .claude/lib/artifacts.js record --state-dir .trd-state/task-<slug> --kind r
   --path "<output path>" --command /task
 ```
 
-Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the file with
-the `Artifact` tool and pass the returned URL back with `--url`. With publishing off, still
-`record` the path. **A failed publish is never fatal**: one line in ISSUES, carry on. Never
+Ask once, before the first output: `node .claude/lib/artifacts.js publish --kind report` (add
+`--requested` when this run's arguments carry `--publish`). The one answer covers every output
+(`report`, `report-2`, ...). On `publish: on`, publish each file with the `Artifact` tool and pass
+the returned URL back with `--url`. On `publish: off (…)`, make no publish call, still `record`
+the path with `--url ""`, and name the local path. A resolver error reads as off plus one ISSUES
+line. **A failed publish is never fatal**: one line in ISSUES, carry on. Never
 publish a document that holds a credential.
 
 An output path comes from the prompt, so it is free text: quote it, and if it contains a quote

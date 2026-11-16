@@ -2,7 +2,7 @@
 name: plan
 description: Pipeline entry point for work below the PRD threshold. Investigates, decides how much verification the work earns, and writes a TRD sized to match — light, phased, or a handoff to /create-prd when the intent is not settled. Implements only with --implement.
 version: 1.1.0
-argument-hint: "[description | source path | issue ref] [--implement] [--design docs/ui/<slug> --boards <ids>]"
+argument-hint: "[description | source path | issue ref] [--implement] [--publish] [--design docs/ui/<slug> --boards <ids>]"
 category: implementation
 # MODEL-INVOCABLE as of 2026-09-26, owner-requested. It carried
 # `disable-model-invocation: true` for one stated reason -- not authorization, which the
@@ -36,6 +36,7 @@ category: implementation
 > - `--implement` — after the last stage the work earns, chain into `/implement-trd`
 >   (functional verification runs by default). Honoured at every weight — this flag alone
 >   decides whether work begins; see "Implement, or stop", below.
+> - `--publish` — publish this run's document even where the kind is off by default (a standalone flag token; `ensemble.publishArtifacts: false` still wins). Passed on to `/implement-trd` (and any chained step) when present; it is not `--implement`.
 > - `--design docs/ui/<slug> --boards <ids>` — build one board (or a small set, comma-separated)
 >   of a design; only the named boards are used, and naming them approves any still in `draft`
 
@@ -87,7 +88,7 @@ decision. The exit test, below, detects that and sends you to `/create-prd`.
 
 ## Step 1: Establish the subject
 
-**Strip the flags from the argument first.** `--implement` is not part of the subject. Neither
+**Strip the flags from the argument first.** `--implement` and `--publish` are not part of the subject. Neither
 is `--design <dir> --boards <ids>`: remove the flag **and its value**, or the path ends up in the
 subject and the slug.
 `/plan the login copy is wrong --implement` has the subject *"the login copy is wrong"*;
@@ -1119,7 +1120,7 @@ Then do exactly what `plan()` returns, and nothing else:
 |---|---|
 | `writeTrd` | whether a TRD stays on disk for this path |
 | `writePointer` | write `.trd-state/current.json` only when **work actually begins** |
-| `chain` + `chainSkill` + `chainArgs` | when `chainSkill` is not `null`: `Skill({ skill: chainSkill, args: chainArgs })`. `chain: true` with `chainSkill: null` is the sweep chain: Step 7a |
+| `chain` + `chainSkill` + `chainArgs` | when `chainSkill` is not `null`: `Skill({ skill: chainSkill, args: chainArgs })` (append `--publish` to `chainArgs` when this run carried it). `chain: true` with `chainSkill: null` is the sweep chain: Step 7a |
 | `handoffLine` | emit before chaining |
 | `banner` / `bannerBody` | emit as the LAST line — **or `null`, meaning emit nothing** |
 | `notify` | run `.claude/hooks/notify-complete.sh "plan" "complete" "<summary>"` |
@@ -1162,7 +1163,8 @@ node -e '
    judge for the rest of the chain.
 
 3. **`sweep` and `verify`.** Run `Skill({ skill: chainSteps.<step>.skill, args:
-   chainSteps.<step>.args })`; those args are the only calls that carry `--chained`.
+   chainSteps.<step>.args })`; those args are the only calls that carry `--chained`. When this
+   run carried `--publish`, append it to the args of each `Skill()` call here and to `chainArgs`.
    - Before `/sweep`, record `git status --porcelain --untracked-files=all` and, for every path
      it lists, `git hash-object <path>` (a path that no longer exists records "absent"). Before
      `/verify-build`, record the time.
@@ -1258,14 +1260,14 @@ transcript and does not change what the owner does next.
 ### Artifact link (see `.claude/rules/command-status.md`)
 
 First read any stored URL: `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind trd`
-(empty output means none). Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the TRD with
+(empty output means none). Ask first: `node .claude/lib/artifacts.js publish --kind trd` (add `--requested` when this run's arguments carry `--publish`). On `publish: on`, publish the TRD with
 `Artifact({ file_path: "docs/TRD/<slug>.md", icon: "document" })` — the markdown FILE, never a
 rendering of it — passing the stored URL as `url:` when there is one. Emit the link ABOVE the
-banner. A failed publish is one line of prose and nothing more; it never blocks the banner.
+banner. A failed publish is one line of prose and nothing more; it never blocks the banner. On `publish: off (…)`, make no publish call and name the local path. A resolver error reads as off plus one ISSUES line.
 
 **Then ALWAYS record the document, whether or not publishing is on** (this sits outside the
 publish switch): `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind trd --path docs/TRD/<slug>.md --command /plan`,
-adding `--url <returned URL>` only when a publish returned one. No command writes `artifacts.json` by hand.
+adding `--url <returned URL>` only when a publish returned one (on `publish: off`, pass `--url ""`). No command writes `artifacts.json` by hand.
 
 **Write the records to the ref before any banner this command emits itself**
 (`command-status.md`, "Run records go to the records ref"), once, after the last

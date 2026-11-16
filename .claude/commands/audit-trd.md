@@ -2,7 +2,7 @@
 name: audit-trd
 description: Pipeline stage after /create-trd. Runs the verification wave over an existing TRD against its source PRD, the design corpus and the code, applies the findings that survive checking, and writes the audit report.
 version: 1.0.0
-argument-hint: "[path-to-trd] [--source <path>] [--project <dir>]"
+argument-hint: "[path-to-trd] [--source <path>] [--project <dir>] [--publish]"
 # MODEL-INVOCABLE as of 2026-10-21, owner-requested ("verify and audit steps need to be model
 # invocable"), the same change /plan received on 2026-09-26. The flag guarded one thing,
 # accidental selection by description match, and the remedy is now in the description: it
@@ -133,8 +133,16 @@ rephrase, re-punctuate or shorten it on the way to the terminal: a printed VERDI
 differs from the report's first line is two verdicts. The only thing the printed readout adds
 is STATE lines about the report itself (where it was written), which do not exist in the file.
 
-Then record the report. These reports are never published, so record passes `--url ""`:
-that clears any link a past version left behind, which would otherwise point at an old page:
+Then publish and record the report. Ask first: `node .claude/lib/artifacts.js publish --kind audit-trd`
+(add `--requested` when this run's arguments carry `--publish`; it is a standalone flag token,
+not part of the path or source). First read any stored URL: `node .claude/lib/artifacts.js get
+--state-dir .trd-state/<feature> --kind audit-trd` (empty output means none). On `publish: on`,
+publish the report FILE with `Artifact({ file_path: ".trd-state/<feature>/audit-trd-report.md",
+icon: "document", url: "<stored URL, if any>" })` and put the link ABOVE the banner; a failed
+publish is one STATE line, never STUCK. On `publish: off (…)`, make no publish call and name the
+local path. A resolver error reads as off plus one ISSUES line. Record passes `--url <returned
+URL>` only when a publish returned one, otherwise `--url ""`, which clears any link a past
+version left behind that would otherwise point at an old page:
 
 ```bash
 node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind audit-trd --path .trd-state/<feature>/audit-trd-report.md --command /audit-trd --url ""

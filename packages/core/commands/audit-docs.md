@@ -2,7 +2,7 @@
 name: audit-docs
 description: Maintenance pass over docs/. Scores every PRD, TRD and loose doc for drift from the code as built, reviews the drifted ones, and commits the corrections on a new local review branch; nothing is pushed or merged.
 version: 1.0.0
-argument-hint: "[--comprehensive]"
+argument-hint: "[--comprehensive] [--publish]"
 # MODEL-INVOCABLE as of 2026-10-21, owner-requested ("verify and audit steps need to be model
 # invocable"), the same change /plan received on 2026-09-26. The flag guarded one thing,
 # accidental selection by description match, and the remedy is now in the description: it
@@ -22,7 +22,7 @@ what is still true. All edits land on a new local review branch; nothing is push
 $ARGUMENTS
 ```
 
-Only `--comprehensive` is recognised. A **light run** (the default) reviews the PRDs and TRDs
+Only `--comprehensive` and `--publish` are recognised. A **light run** (the default) reviews the PRDs and TRDs
 touched by commits since the last run. A **comprehensive run** reviews every PRD and TRD and
 every loose doc. With no valid last-run marker the run is comprehensive whatever the flag.
 
@@ -132,8 +132,11 @@ non-zero exit is a git failure: **COMMAND STUCK**.
 
 ### 6. Publish the change set
 
-Unless `ensemble.publishArtifacts` is `false` in `.claude/settings.json` (see "Artifact links"
-in `.claude/rules/command-status.md`), publish the FILE, never a rendering of it. The change
+Ask first (see "Artifact links" in `.claude/rules/command-status.md`): `node
+.claude/lib/artifacts.js publish --kind docs-audit` (add `--requested` when this run's arguments
+carry `--publish`, a standalone flag token). On `publish: on`, publish the FILE, never a
+rendering of it; on `publish: off (…)`, make no publish call and name the local change-set path.
+A resolver error reads as off plus one ISSUES line. The change
 set is a committed file on the review branch, not the checked-out one, so read it from there:
 `git show <branch>:<changeSet>` into `$WORK/change-set.md`, then:
 

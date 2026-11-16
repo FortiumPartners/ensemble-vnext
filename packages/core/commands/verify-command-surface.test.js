@@ -416,9 +416,13 @@ describe('implement-trd.md §8.1b appends check criteria in the right place, doi
     expect(flat(src())).toMatch(/omitted an applicable check.*reason/i);
   });
 
-  test('§9.0a publishes each check page under the same publishArtifacts switch and stores the URL under the skill name', () => {
+  test('§9.0a asks the resolver per check skill, publishes each check page on publish: on and stores the URL under the skill name', () => {
     const section = flat(src().split('### 9.0a')[1].split('### 9.1')[0]);
     expect(section).toMatch(/publish each selected check's page/);
+    expect(section).toContain('artifacts.js publish --kind <skill>');
+    expect(section).toContain('artifacts.js publish --kind verification-report');
+    expect(section).toMatch(/`--url ""`/);
+    expect(section).toMatch(/--no-verify/);
     expect(section).toMatch(/files:/);
     expect(section).toMatch(/ALWAYS record each page that is on disk/);
     expect(section).toContain('--kind <skill> --path <pagesDir>/<skill>/index.html');
@@ -711,7 +715,7 @@ describe('process docs describe the new default', () => {
 describe('verify-build.md argument-hint', () => {
   test('argument-hint carries --no-fix and --fix [plan-path]', () => {
     expect(read(CORE_VERIFY_BUILD)).toMatch(
-      /argument-hint: "\[trd-path\] \[--resume\] \[--cap N\] \[--no-fix\] \[--fix \[plan-path\]\] \[--criteria <ids>\] \[--chained\]"/
+      /argument-hint: "\[trd-path\] \[--resume\] \[--cap N\] \[--no-fix\] \[--fix \[plan-path\]\] \[--criteria <ids>\] \[--publish\] \[--chained\]"/
     );
   });
 });
@@ -1892,7 +1896,7 @@ describe('report publish sequence (verification-report-images D10): one written 
 
   test("/verify-build step 6's republish points at the Artifact link section", () => {
     const step6 = flat(read(CORE_VERIFY_BUILD).split('6. **Render and close.**')[1].split('Its `criteria` input')[0]);
-    expect(step6).toMatch(/republish it[^.]*Artifact link/i);
+    expect(step6).toMatch(/republish it.*publish --kind verification-report.*Artifact link/i);
   });
 });
 
@@ -1976,15 +1980,16 @@ describe.each([
     expect(text).toContain('One text, written once, printed as written.');
   });
 
-  test(`records through artifacts.js with --kind ${cmd}, the command, and --url "" (never published)`, () => {
+  test(`asks the resolver with --kind ${cmd}, then records through artifacts.js, clearing the link on publish: off`, () => {
+    expect(text).toContain(`node .claude/lib/artifacts.js publish --kind ${cmd}`);
+    expect(text).toContain('--requested');
+    expect(text).toContain('`publish: on`');
+    expect(text).toContain('`publish: off (…)`');
+    expect(text).not.toMatch(/never published/);
+    expect(text).not.toContain('publishArtifacts');
     expect(text).toContain(
       `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind ${cmd} --path .trd-state/<feature>/${cmd}-report.md --command /${cmd} --url ""`,
     );
-    expect(text).toMatch(/never published/);
-    // A stored link would point at an old page: the report is never published, so it is
-    // cleared, not kept and named in STATE.
-    expect(text).not.toContain(`artifacts.js get --state-dir .trd-state/<feature> --kind ${cmd}`);
-    expect(text).not.toMatch(/keeps a URL already stored/);
   });
 
   test('a failed write or record is one line in STATE, never STUCK; no commit step', () => {
@@ -2118,7 +2123,7 @@ describe('implement-trd.md verification-preflight surface (VPRE-B005)', () => {
     const t = src();
     expect(t.split('\n')[3]).toMatch(/\[--sweep-flag <text>\]/);
     expect(flat(t)).toMatch(/`--sweep-flag "<text>"` - \*\*For callers only\*\*/);
-    expect(flat(t.split('## User Input')[1].split('## Execution Model')[0])).toMatch(/`--chained`, `--shipping`, `--sweep-flag "<text>"`/);
+    expect(flat(t.split('## User Input')[1].split('## Execution Model')[0])).toMatch(/`--chained`, `--publish`, `--shipping`, `--sweep-flag "<text>"`/);
   });
 
   test('outcome lists name setup-failure', () => {
@@ -2361,7 +2366,7 @@ describe('ship-build: implement-trd --shipping and Step 7.2 recording', () => {
   const sec = (from, to) => flat(text.split(from)[1].split(to)[0]);
 
   test('argument-hint and User Input carry --shipping', () => {
-    expect(text).toMatch(/argument-hint: "[^"]*\[--chained\] \[--shipping\] \[--sweep-flag <text>\]"/);
+    expect(text).toMatch(/argument-hint: "[^"]*\[--chained\] \[--publish\] \[--shipping\] \[--sweep-flag <text>\]"/);
     expect(flat(text.split('## User Input')[1].split('## Execution Model')[0])).toMatch(/`--shipping`/);
   });
 
