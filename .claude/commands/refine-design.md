@@ -143,8 +143,10 @@ A caller with nobody to ask drives `--auto` through its argument. The record for
    or `unfilled` ends STUCK with "run `/design-setup`"; read the publishing switch; read the
    live canvas, and adopt hand edits through the sync. With no canvas to read (publishing off,
    or none recorded), the canvas rules come from the Design type read in step 3 of that section;
-   a recorded canvas that is unreadable (not-found or no-access) follows that section's
-   *Unreadable recorded artifact* rule, never STUCK;
+   a recorded canvas whose read fails follows that section's *Unreadable recorded artifact*
+   rule, never STUCK: only a not-found or no-access error (recognised by the error text that
+   rule gives) republishes it; any other error, a malformed URL (`not an artifact URL`)
+   included, republishes nothing and leaves the map's URL unchanged;
    run the direction step (step 7 of that section), passing the name on the brief's
    `**Style pack:**` line to the direction verb as its style option when `brief.md` has one,
    before `design.md`'s field. An edit adopted onto an `approved` or
@@ -225,6 +227,8 @@ A caller with nobody to ask drives `--auto` through its argument. The record for
    ```bash
    node .claude/lib/artifacts.js record --state-dir .trd-state/<slug> --kind design --path docs/ui/<slug>/design-map.json --command /refine-design --url "<canvas url, or empty when nothing was published>"
    ```
+   If the run also republished the Design System page, record it too with the same helper (kind
+   `design-system`, its new `--url`): every republished page gets its own record.
 
 Never put a credential in a board or a page (contract section 6).
 

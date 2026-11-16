@@ -38,6 +38,29 @@ describe('contract: Unreadable recorded artifact rule', () => {
     expect(p).toMatch(/any other read error/i);
   });
 
+  // FS-10: a malformed recorded URL ("not an artifact URL") was read as "cannot be read" and the
+  // canvas was republished. The rule must say how to recognise the two triggers, and that every
+  // other error leaves the map alone.
+  test('recognises not-found and no-access by the error text', () => {
+    expect(p).toMatch(/`artifact not found`/);
+    expect(p).toMatch(/`404 Not Found`/);
+    expect(p).toMatch(/`403`/);
+  });
+
+  test('a malformed URL or any other error republishes nothing and leaves the map unchanged', () => {
+    expect(p).toMatch(/`not an artifact URL`/);
+    expect(p).toMatch(/never triggers a republish/);
+    expect(p).toMatch(/run no `design-map\.js republished`, write no `previous_url`/);
+    expect(p).toMatch(/URL in the map and in `artifacts\.js` unchanged/);
+    expect(p).toMatch(/could not be read \(<the exact error>\): not republished/);
+  });
+
+  test.each(['design-system.md', 'refine-design.md'])('%s says a malformed URL republishes nothing', (f) => {
+    const t = flat(read(`packages/core/commands/${f}`));
+    expect(t).toMatch(/only a not-found or no-access error/i);
+    expect(t).toMatch(/malformed URL \(`not an artifact URL`\) included, republishes nothing/);
+  });
+
   test('republishes from the committed copies and records the move', () => {
     expect(p).toMatch(/docs\/ui\/<slug>\/canvas\//);
     expect(p).toMatch(/docs\/ui\/_design-system\/<folder>\//);
@@ -80,5 +103,24 @@ describe('commands point at the rule', () => {
     const t = read('packages/core/commands/design-system.md');
     const steps = t.slice(t.indexOf('6. **Publish the Design System'), t.indexOf('9. **Readout'));
     expect(steps).toMatch(/Unreadable recorded artifact/);
+  });
+});
+
+// FS-8: a /design-system --sync run that replaced an unreadable system page and canvas reported
+// the replacement only in STATE. The readout instruction itself must put it in DECISIONS.
+describe('the readout carries the republish in DECISIONS', () => {
+  test('design-system.md readout names the DECISIONS line with old and new URL', () => {
+    const t = read('packages/core/commands/design-system.md');
+    const readout = flat(t.slice(t.indexOf('## Readout'), t.indexOf('## Completion signal')));
+    expect(readout).toMatch(/DECISIONS carries one line for each canvas or design system this run republished/);
+    expect(readout).toMatch(/Unreadable recorded artifact/);
+    expect(readout).toMatch(/old <old url>, new <new url>/);
+    expect(readout).toMatch(/only in STATE is wrong/);
+  });
+
+  test('contract section 7 DECISIONS bullet names the republish', () => {
+    const s7 = flat(contract.slice(contract.indexOf('## 7. Readout'), contract.indexOf('## 8.')));
+    expect(s7).toMatch(/DECISIONS: one line per canvas or design system republished/);
+    expect(s7).toMatch(/old and new URL, even when STATE also mentions it/);
   });
 });

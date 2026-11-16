@@ -70,10 +70,13 @@ $ARGUMENTS
    and 8 still run on disk (record `url` empty or as already recorded), then end with
    `COMMAND STUCK: /design-system`, Reason "publish step not run: ensemble.publishArtifacts is
    false". Under `--chained`, the RETURN line says `not published` instead.
-   If the recorded system artifact (or a canvas to install on) is unreadable (not-found or
-   no-access), apply contract section 1's *Unreadable recorded artifact* rule: republish from
+   If the read of the recorded system artifact (or of a canvas to install on) fails, apply
+   contract section 1's *Unreadable recorded artifact* rule. Only a not-found or no-access error
+   (recognised by the error text that rule gives) republishes: from
    `docs/ui/_design-system/<folder>/`, reinstall per section 3, record with `design-map.js
-   republished --kind system`, never STUCK.
+   republished --kind system`, never STUCK. Any other error, a malformed URL (`not an artifact
+   URL`) included, republishes nothing, writes no `previous_url` and leaves the recorded URL
+   unchanged; it is one ISSUES line, as that rule says.
 7. **Install on every canvas the product's maps record**, on the first build and on `--sync`
    (AC-F6.5, AC-F6.8), per contract section 3: `files` mapping each system file into
    `project/ds/<folder>/`, plus the `designSystems` record in `canvas.json`. At most four
@@ -91,7 +94,10 @@ $ARGUMENTS
    `design-map.js republished --kind system --new <url>` (it keeps the old link as
    `previous_url`), not by the line above.
 9. **Readout and close**, as below. Record the system's artifact link with
-   `node .claude/lib/artifacts.js record` (kind `design-system`, `--command /design-system`).
+   `node .claude/lib/artifacts.js record` (kind `design-system`, `--command /design-system`). When
+   this run also republished a canvas, record that too (kind `design`, `--path
+   docs/ui/<slug>/design-map.json`, the new canvas `--url`): every republished page gets its own
+   record, so neither is left under its dead URL.
 
 ---
 
@@ -99,7 +105,12 @@ $ARGUMENTS
 
 **Format: the four-section readout in `.claude/rules/command-status.md`** (STATE, DECISIONS,
 ISSUES, NEXT, in that order, one screen, written for someone who was not in the session).
-Contract section 7 applies: the system's link goes above the banner. ISSUES lists every stub.
+Contract section 7 applies: the system's link goes above the banner. DECISIONS carries one
+line for each canvas or design system this run republished under contract section 1's
+*Unreadable recorded artifact* rule, naming the old and new URL in that rule's wording
+("recorded <canvas|design system> was unreadable (<not-found|no-access>); republished from
+the committed copy: old <old url>, new <new url>"). STATE may also mention the replacement,
+but saying it only in STATE is wrong. ISSUES lists every stub.
 NEXT is `/create-design <brief>` for a first build, or nothing after `--sync`.
 
 ---
