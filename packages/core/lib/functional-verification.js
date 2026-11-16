@@ -439,7 +439,9 @@ function decideNext(input) {
   // re-checked this iteration, so it is neither closed nor open.
   // An evidence-only id (core-boards D13) is dropped the same way: it is shown on the report, never
   // blocks, and must not count as a closure or hold the run to the cap. `unbuilt` is not filtered.
-  const dropped = (id) => settledEvidenceGaps.includes(id) || awaitingRegression.includes(id) || evidenceOnly.includes(id);
+  // A Set, so a repeated id is subtracted from the coverage ratio once (below) and membership is O(1).
+  const evidenceOnlySet = new Set(evidenceOnly);
+  const dropped = (id) => settledEvidenceGaps.includes(id) || awaitingRegression.includes(id) || evidenceOnlySet.has(id);
   const openGaps = gaps.filter((id) => !dropped(id));
   const previousGaps = inputPreviousGaps == null ? inputPreviousGaps : inputPreviousGaps.filter((id) => !dropped(id));
 
@@ -545,13 +547,13 @@ function decideNext(input) {
   // "nothing proven" reading -- it just leaves the ratio uncomputed and the re-label dormant.
   // Evidence-only rows leave both sides of the ratio (core-boards D13): a Core design's state frames
   // are shown for review, so their being unmet must not read as thin coverage.
-  const countedMet = met.filter((id) => !evidenceOnly.includes(id)).length;
-  const countedTotal = typeof total === 'number' ? total - evidenceOnly.length : total;
+  const countedMet = met.filter((id) => !evidenceOnlySet.has(id)).length;
+  const countedTotal = typeof total === 'number' ? total - evidenceOnlySet.size : total;
   if (
     COVERAGE_RELABELABLE_ACTIONS.has(result.action) &&
     coverageFloor != null &&
     typeof total === 'number' &&
-    total - evidenceOnly.length > 0 &&
+    countedTotal > 0 &&
     countedMet / countedTotal < coverageFloor
   ) {
     const ratio = countedMet / countedTotal;

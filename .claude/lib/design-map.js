@@ -163,6 +163,9 @@ function validate(map) {
 
 const hasCoreKey = (b) => !!b && typeof b === 'object' && Object.prototype.hasOwnProperty.call(b, 'core');
 
+/** The boards the cap counts: explicit `core: true` on a board that is not superseded. */
+const markedCore = (boards) => boards.filter((b) => hasCoreKey(b) && b.core === true && b.status !== 'superseded');
+
 /** The Core rules of validate(): a bad value, a core key on a part or flow, too many Core boards. */
 function coreErrors(map) {
   const errors = [];
@@ -173,7 +176,7 @@ function coreErrors(map) {
     if (typeof b.core !== 'boolean') errors.push(`board ${name}: core must be true or false`);
     if (b.kind && !CORE_KINDS.includes(b.kind)) errors.push(`board ${name}: core is allowed only on to-be and as-is boards`);
   }
-  const marked = boards.filter((b) => hasCoreKey(b) && b.core === true && b.status !== 'superseded');
+  const marked = markedCore(boards);
   if (marked.length > CORE_CAP) {
     errors.push(`${marked.length} Core boards; at most ${CORE_CAP} may be Core: ${marked.map((b) => b.id).join(', ')}`);
   }
@@ -207,7 +210,7 @@ function coreReport(map) {
     legacy: isLegacyCore(map),
     core: coreBoards(map).map((b) => b.id),
     cap: CORE_CAP,
-    over_cap: boards.filter((b) => hasCoreKey(b) && b.core === true && b.status !== 'superseded').length > CORE_CAP,
+    over_cap: markedCore(boards).length > CORE_CAP,
     errors: coreErrors(map),
   };
 }
@@ -247,8 +250,7 @@ function coreMarks(dir) {
   const groups = new Map(); // canvas.json path -> Map(file -> boards)
   for (const b of map.boards) {
     if (!b || !b.file) continue;
-    const canvas = (map.canvases || []).find((c) => c.url === b.canvas) || (map.canvases || [])[0] || {};
-    const cj = path.join(dir, canvas.dir || DEFAULT_MIRROR_DIR, CANVAS_JSON);
+    const cj = path.join(mirrorDir(map, dir, b), CANVAS_JSON);
     if (!groups.has(cj)) groups.set(cj, new Map());
     const files = groups.get(cj);
     if (!files.has(b.file)) files.set(b.file, []);
@@ -339,8 +341,13 @@ function derive(source, fileToId) {
  */
 /** A board's source file on disk: its canvas's mirror folder (the first canvas when unnamed). */
 function boardPath(map, dir, b) {
+  return path.join(mirrorDir(map, dir, b), b.file);
+}
+
+/** A board's canvas mirror folder (the first canvas when unnamed); boardPath and coreMarks share it. */
+function mirrorDir(map, dir, b) {
   const canvas = (map.canvases || []).find((c) => c.url === b.canvas) || (map.canvases || [])[0] || {};
-  return path.join(dir, canvas.dir || DEFAULT_MIRROR_DIR, b.file);
+  return path.join(dir, canvas.dir || DEFAULT_MIRROR_DIR);
 }
 
 function refresh(dir) {

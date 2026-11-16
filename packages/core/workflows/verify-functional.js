@@ -186,7 +186,8 @@ const EVIDENCE_ONLY_IDS = (() => {
   if (both.length > 0) {
     throw new Error(`verify-functional: args.evidenceOnlyIds and args.mustPassIds both list ${both.join(', ')} (a criterion cannot be both must-pass and evidence-only)`)
   }
-  return raw
+  // Deduplicated, so the count reported beside coverage matches the criteria coverageOf leaves out.
+  return [...new Set(raw)]
 })()
 const CORE_MUST_PASS_IDS = (() => {
   const raw = a.coreMustPassIds
@@ -201,7 +202,8 @@ const CORE_MUST_PASS_IDS = (() => {
   return raw
 })()
 // The one membership test every site below uses, so no second gap filter exists to drift.
-const isEvidenceOnly = (id) => EVIDENCE_ONLY_IDS.includes(id)
+const EVIDENCE_ONLY_SET = new Set(EVIDENCE_ONLY_IDS)
+const isEvidenceOnly = (id) => EVIDENCE_ONLY_SET.has(id)
 // A Core must-pass id blocks under both policies but never makes the 'must-pass only' waiver active:
 // the policy bites only when some must-pass id is not Core (decideNext's step 3b, the same rule).
 const BLOCKING_ACTIVE = BLOCKING === 'must-pass' && MUST_PASS_IDS.some((id) => !CORE_MUST_PASS_IDS.includes(id))

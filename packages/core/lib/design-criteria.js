@@ -14,8 +14,8 @@
  *    replaced by a row-yielding to-be board with the same non-empty `route`, `platform` and
  *    `viewport` (compared element-wise). `part`, `flow` and superseded boards yield none.
  *  - Frames: the default frame `<id>.png`, then `<id>--<slug>.png` for each state that has `props`
- *    (a state without props renders no frame). Slugs come from design-render's `stateSlugs` with the
- *    same `reserved` list `render()` builds, over ALL boards. Frames are computed from `id` and
+ *    (a state without props renders no frame). The state frames come from design-render's
+ *    `stateFrames`, the list `render()` itself writes, over ALL boards. Frames are computed from `id` and
  *    `states`, never by splitting file names: board ids may themselves contain `--`.
  *  - Class: `core` for the default frame of a board design-map's `isCore` reads true, else
  *    `evidence-only`.
@@ -40,7 +40,7 @@
 const fs = require('fs');
 const path = require('path');
 const designMap = require('./design-map');
-const { stateSlugs } = require('./design-render');
+const { stateFrames } = require('./design-render');
 
 const REQUIRED_STATUSES = ['approved', 'building', 'shipped'];
 const TIER1 = 'judge-only — a pictorial comparison against the design frame; no text assertion is possible';
@@ -63,19 +63,10 @@ function selected(board, requirements) {
 
 /** [{ state: string|null, stem }] for one board: the default frame, then each state with props. */
 function framesOf(board, boards) {
-  const prefix = `${board.id}--`;
-  const reserved = boards
-    .filter((x) => x && typeof x.id === 'string' && x.id !== board.id && x.id.startsWith(prefix))
-    .map((x) => x.id.slice(prefix.length));
-  const states = board.states || {};
-  const slugs = stateSlugs(Object.keys(states), reserved);
-  const out = [{ state: null, stem: board.id }];
-  for (const name of Object.keys(states)) {
-    const st = states[name];
-    if (!st || !st.props) continue;
-    out.push({ state: name, stem: `${board.id}--${slugs.get(name)}` });
-  }
-  return out;
+  return [
+    { state: null, stem: board.id },
+    ...stateFrames(board, boards).map(({ state, slug }) => ({ state, stem: `${board.id}--${slug}` })),
+  ];
 }
 
 /**

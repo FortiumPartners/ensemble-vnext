@@ -1777,7 +1777,9 @@ straight to Step 9 exactly as §8.1 already sends them.
    `locator` (§8.1's own parsing rule), so their meaning is unchanged; a `judge-only` design row
    written into a table with no `Tier 1` column at all would silently read as `locator` and fail
    tier 1, so the column must exist even when nothing else in the table needed it yet.
-   Write the generator's rows by header name. When any row to be written carries a `boardClass` and
+   Write the generator's rows by header name, escaping every `|` inside a field as `\|` (its
+   `evidence` text holds "design | build | diff"; an unescaped pipe adds cells and shifts
+   `Board class` onto the wrong column). When any row to be written carries a `boardClass` and
    the table has no `Board class` column, add the header, its separator cell and a blank cell on
    every other row; the column is the table's last (after `Must pass` when the table has one, else
    after `Parts`). Nothing else writes the header: a table with no class-bearing row keeps its
