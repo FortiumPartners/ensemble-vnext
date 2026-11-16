@@ -4,7 +4,7 @@
   "trd_hash": "6fc1b8ec7a9b34e07a17b98409441d6f3703c98aaec8b1fb1f6f254ad0e11abd",
   "branch": "feature/20-cap-verification-runs-per-feature",
   "strategy": "tdd",
-  "phase_cursor": 2,
+  "phase_cursor": 3,
   "tasks": {
     "VRL-B001": {
       "phase": 1,
@@ -67,47 +67,70 @@
     },
     "VRL-D001": {
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/implement-trd-run-limit-prose.test.js"
+      ],
       "commit": null,
       "started_at": "2026-11-16T20:12:01.886Z",
-      "completed_at": null
+      "completed_at": "2026-11-16T20:20:58.666Z",
+      "last_advanced": "2026-11-16T20:19:33.449Z"
     },
     "VRL-D002": {
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/verify-build-run-limit-prose.test.js"
+      ],
       "commit": null,
       "started_at": "2026-11-16T20:12:01.886Z",
-      "completed_at": null
+      "completed_at": "2026-11-16T20:20:58.699Z",
+      "last_advanced": "2026-11-16T20:19:33.449Z"
     },
     "VRL-D003": {
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/refine-verification.md",
+        ".claude/commands/refine-verification.md",
+        "packages/core/commands/refine-verification-run-limit-prose.test.js"
+      ],
       "commit": null,
       "started_at": "2026-11-16T20:12:01.886Z",
-      "completed_at": null
+      "completed_at": "2026-11-16T20:20:58.698Z",
+      "last_advanced": "2026-11-16T20:19:33.449Z"
     },
     "VRL-D004": {
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "docs/reference/verification.md",
+        "docs/reference/implement-trd.md",
+        "docs/reference/other-commands.md",
+        "docs/TRD/refine-verification.md",
+        "CHANGELOG.md",
+        "packages/core/commands/run-limit-reference-docs.test.js"
+      ],
       "commit": null,
       "started_at": "2026-11-16T20:12:01.886Z",
-      "completed_at": null
+      "completed_at": "2026-11-16T20:20:58.699Z",
+      "last_advanced": "2026-11-16T20:19:33.449Z"
     },
     "VRL-T001": {
       "phase": 3,
@@ -129,11 +152,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T20:12:01.875Z"
+    },
+    {
+      "phase": 2,
+      "commit": "8ba3b6ee1caa8fb8acb189cf3b40b967a998ae4d",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T20:26:35.095Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "3931d54efcc1cce3f0d64be6e3000244dd91de2b",
-    "last_checkpoint_timestamp": "2026-11-16T20:12:01.875Z",
+    "last_healthy_checkpoint": "8ba3b6ee1caa8fb8acb189cf3b40b967a998ae4d",
+    "last_checkpoint_timestamp": "2026-11-16T20:26:35.095Z",
     "interrupted": false,
     "interrupt_reason": null
   },
