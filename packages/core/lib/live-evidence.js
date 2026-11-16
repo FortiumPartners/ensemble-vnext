@@ -25,9 +25,10 @@
  *   node .claude/lib/live-evidence.js read --state-dir D       # JSON array; [] when absent
  *
  *   node .claude/lib/live-evidence.js record-criteria --state-dir D --trd T --definition P \
- *        [--state verification-state.json]    # prints {"recorded":[...],"none":[...]}
+ *        [--state verification-state.json]    # prints {"recorded":[...],"none":[...],"unresolved":[{id,reason}]}
  *   node .claude/lib/live-evidence.js derive-criteria --state-dir D --trd T --definition P
- *                                          # prints {"<id>":[paths]} for every criterion that maps
+ *                                          # prints {"<id>":[paths]} for every criterion that maps;
+                                          # design rows that cannot resolve are named on stderr
  *
  * CRITERION COVERS (separate from the manifest above): for each criterion proven `met`, the repo
  * paths of the TRD tasks that serve it, so custody (`custody.js reconcile`) can re-prove only the
@@ -254,15 +255,27 @@ function backtickedExistingPaths(text, cwd) {
  * Requires `trd-parser`/`spec-scope`/`functional-verification` inside the function:
  * `functional-verification.js` requires this module at load, so a top-level require is a cycle.
  *
- * @returns {Map<string, {covers: string[], source: 'touches'|'task-row'}>}
+ * Rows whose `Derivation` cell is `check:verify-design-structure` or `check:verify-design-comparison`
+ * take their covers from the design board instead (`designCovers`, source `'design-map'`, D8); task
+ * covers do not apply to them. A board that cannot be fully resolved gets no entry and appears in
+ * the report's `unresolved` (D7). `deriveCriterionCovers` returns only the Map; callers that must
+ * surface unresolved rows use `deriveCriterionCoversReport`.
+ *
+ * @returns {Map<string, {covers: string[], source: 'touches'|'task-row'|'design-map'}>}
  */
-function deriveCriterionCovers({ trdPath, definitionPath, ids, cwd = process.cwd() }) {
+function deriveCriterionCovers(args) {
+  return deriveCriterionCoversReport(args).covers;
+}
+
+/** As `deriveCriterionCovers`, plus the design rows that could not be resolved: `{covers, unresolved}`. */
+function deriveCriterionCoversReport({ trdPath, definitionPath, ids, cwd = process.cwd() }) {
   const { parseTrd, maskFencedLines, findTables } = require('./trd-parser');
   const { objectiveRows } = require('./spec-scope');
   const result = new Map();
+  const report = { covers: result, unresolved: [] };
   // ids null/undefined = every row of the id column; [] = none.
   const want = ids == null ? null : new Set(ids);
-  if (want && want.size === 0) return result;
+  if (want && want.size === 0) return report;
 
   const trdText = fs.readFileSync(trdPath, 'utf8');
   const parsed = parseTrd(trdText);
@@ -274,8 +287,11 @@ function deriveCriterionCovers({ trdPath, definitionPath, ids, cwd = process.cwd
   const lines = maskFencedLines(fs.readFileSync(definitionPath, 'utf8').split(/\r?\n/));
   const clean = (h) => String(h ?? '').replace(/\*\*|`/g, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
   const table = findTables(lines, 0, lines.length).find((t) => t.headerCells.some((h) => clean(h) === 'id'));
-  if (!table) return result;
+  if (!table) return report;
   const idCol = table.headerCells.findIndex((h) => clean(h) === 'id');
+  // An older definition has no Derivation column (-1): no design rows, not an error.
+  const derivCol = table.headerCells.findIndex((h) => clean(h) === 'derivation');
+  const designRows = [];
 
   const named = (text, candidates) =>
     candidates.filter((c) => new RegExp(`(^|[^A-Za-z0-9_-])${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^A-Za-z0-9_-])`).test(text));
@@ -283,6 +299,13 @@ function deriveCriterionCovers({ trdPath, definitionPath, ids, cwd = process.cwd
   for (const row of table.dataRows) {
     const id = String(row.cells[idCol] ?? '').replace(/\*\*|`/g, '').trim();
     if (want && !want.has(id)) continue;
+    // Same shape functional-verification's preclassifyNotCheckable uses to recognise a check row.
+    const derivation = derivCol < 0 ? '' : String(row.cells[derivCol] ?? '').replace(/\*\*|`/g, '').trim();
+    const check = /^check:([\w-]+)/.exec(derivation);
+    if (check && (check[1] === 'verify-design-structure' || check[1] === 'verify-design-comparison')) {
+      designRows.push({ id, derivation });
+      continue;
+    }
     const rowText = row.cells.join(' | ');
     const objs = named(rowText, objectiveIds);
     const taskIds = new Set(named(rowText, parsed.tasks.map((t) => t.id)));
@@ -297,7 +320,17 @@ function deriveCriterionCovers({ trdPath, definitionPath, ids, cwd = process.cwd
     }
     if (covers.size) result.set(id, { covers: [...covers], source: fromRow ? 'task-row' : 'touches' });
   }
-  return result;
+  if (designRows.length) {
+    const { designCovers } = require('./design-covers'); // lazy for the same cycle reason as above
+    const d = designCovers({ cwd, rows: designRows });
+    for (const [id, files] of d.covers) {
+      const covers = files.map(normalizeCoverPath).filter(Boolean);
+      if (covers.length) result.set(id, { covers, source: 'design-map' });
+      else report.unresolved.push({ id, reason: 'no usable cover path' });
+    }
+    report.unresolved.push(...d.unresolved);
+  }
+  return report;
 }
 
 /**
@@ -317,7 +350,7 @@ function recordCriterionCovers(stateDir, map, nowIso) {
   for (const [id, v] of map instanceof Map ? map : Object.entries(map || {})) {
     const covers = [...new Set(((v && v.covers) || []).map(normalizeCoverPath).filter(Boolean))];
     if (!covers.length) continue;
-    criteria[id] = { covers, source: v.source === 'task-row' ? 'task-row' : 'touches', ts };
+    criteria[id] = { covers, source: v.source === 'task-row' || v.source === 'design-map' ? v.source : 'touches', ts };
     recorded.push(id);
   }
   if (recorded.length) {
@@ -360,16 +393,22 @@ function main(argv, out = process.stdout, err = process.stderr) {
       const stateFile = f.state || path.join(f['state-dir'], 'verification-state.json');
       const st = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
       const met = (Array.isArray(st.criteria) ? st.criteria : []).filter((c) => c && c.status === 'met').map((c) => String(c.id));
-      const derived = deriveCriterionCovers({ trdPath: f.trd, definitionPath: f.definition, ids: met });
-      const recorded = recordCriterionCovers(f['state-dir'], derived);
-      out.write(JSON.stringify({ recorded, none: met.filter((id) => !recorded.includes(id)) }) + '\n');
+      const derived = deriveCriterionCoversReport({ trdPath: f.trd, definitionPath: f.definition, ids: met });
+      const recorded = recordCriterionCovers(f['state-dir'], derived.covers);
+      // `none` stays "met but not recorded"; `unresolved` says why for the design rows among them (D9).
+      out.write(JSON.stringify({
+        recorded,
+        none: met.filter((id) => !recorded.includes(id)),
+        unresolved: derived.unresolved,
+      }) + '\n');
       return 0;
     }
     if (sub === 'derive-criteria') {
       if (!f.trd || !f.definition) throw new Error('derive-criteria needs --trd and --definition');
-      const derived = deriveCriterionCovers({ trdPath: f.trd, definitionPath: f.definition, ids: null });
+      const derived = deriveCriterionCoversReport({ trdPath: f.trd, definitionPath: f.definition, ids: null });
       const obj = {};
-      for (const [id, v] of derived) obj[id] = v.covers;
+      for (const [id, v] of derived.covers) obj[id] = v.covers;
+      for (const u of derived.unresolved) err.write(`live-evidence: unresolved design row ${u.id}: ${u.reason}\n`);
       out.write(JSON.stringify(obj) + '\n');
       return 0;
     }
@@ -399,4 +438,4 @@ function main(argv, out = process.stdout, err = process.stderr) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { deriveCriterionCovers, recordCriterionCovers, readCriterionCovers, criterionCoversPath, record, recordWithReason, read, readFresh, manifestPath, hashFile, main, MAX_LINE_BYTES, COVERS_HASH_BYTES };
+module.exports = { deriveCriterionCovers, deriveCriterionCoversReport, recordCriterionCovers, readCriterionCovers, criterionCoversPath, record, recordWithReason, read, readFresh, manifestPath, hashFile, main, MAX_LINE_BYTES, COVERS_HASH_BYTES };

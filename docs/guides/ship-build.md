@@ -366,7 +366,11 @@ merge and deploy links still fail on any non-ignored, non-test difference: the t
 When every changed path is non-shipped at `none` or `ci`, the anchor moves with no re-proof: rule
 `tier-none` (all at `none`) or `tier-ci` (any at `ci`), and the reason names the classes. A path at
 `reprove` puts every must-pass criterion in doubt, and a base-branch excuse does not soften it. A
-changed shipped path that no criterion's record names also puts every must-pass criterion in doubt.
+changed shipped path that no criterion's record names puts every must-pass criterion in doubt when
+it was modified or deleted; one ADDED since the anchor puts in doubt only the criteria related to
+it (a criterion whose recorded files sit in the same directory), and every criterion when it
+relates to none (a file at the repo root never relates to any). The result's `scope` (`none`,
+`targeted` or `full`) and `scopeReason` say which happened.
 The per-criterion file lists come from `record-criteria`, run by `/implement-trd` and `/verify-build`
 after a verification run; they live in `<state-dir>/evidence/criterion-covers.json`. A value outside
 the allowed set, or `settings.json` that is not valid JSON, makes `reconcile` return `refused` naming

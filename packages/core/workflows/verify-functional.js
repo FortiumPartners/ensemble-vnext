@@ -355,8 +355,9 @@ const PRECLASSIFIED = (() => {
 // criterion that names a CI job: `{id, workflow, job, status, runId, url, commit, reason}`, `[]` when
 // nothing is declared. Validated before any agent runs, in PRECLASSIFIED's "wrong shape throws" form.
 // Only a `green` entry can prove anything (the settle helper), so only a green one is held to carry
-// the run it names.
-const OFF_HOST_STATUSES = ['green', 'red', 'pending', 'missing', 'dirty', 'error']
+// the run it names. `baseline` is a job red on the base branch head too; it proves nothing either. A
+// `jobId` (the job's database id, or null) is optional: only the reason text for a red job reads it.
+const OFF_HOST_STATUSES = ['green', 'red', 'pending', 'missing', 'dirty', 'error', 'baseline']
 const OFF_HOST_PROOFS = (() => {
   const raw = a.offHostProofs
   if (raw === undefined || raw === null) return new Map()
@@ -1988,6 +1989,29 @@ function debugTouchedCovers(id) {
   return counted.some((r) => (covers.length === 0 ? r.files.length > 0 : r.files.some((f) => covers.some((cv) => coverMatches(cv, f)))))
 }
 
+// What a non-green declared proof says. It always opens `declared off-host proof <workflow>#<job> is
+// <status>` (the resume cut below keys on that prefix), then says what to do next. Only a finished run
+// can be re-run, and only its failed job: `gh workflow run` starts the whole workflow, which is never
+// the answer. After a Debug edit to the criterion's covers the run on record is for the earlier commit,
+// so the way forward is to push and wait for the run CI starts.
+function nonGreenWhy(p, job) {
+  const head = `declared off-host proof ${job} is ${p.status}${p.reason ? ` (${p.reason})` : ''}`
+  if (p.status === 'baseline') {
+    return `${head}: the job is red on the base branch head too, so it is not this feature's failure; the criterion stays not_verifiable`
+  }
+  if (p.status === 'missing' || p.status === 'pending') {
+    return `${head}: wait for the run to finish, or push to start one; never \`gh workflow run\``
+  }
+  if (p.status === 'red') {
+    if (Number.isInteger(p.runId) && !debugTouchedCovers(p.id)) {
+      const rerun = Number.isInteger(p.jobId) ? `gh run rerun ${p.runId} --job ${p.jobId}` : `gh run rerun ${p.runId} --failed`
+      return `${head}: re-run only the failed job with \`${rerun}\`, never \`gh workflow run\``
+    }
+    return `${head}: push and wait for the run CI starts, never \`gh workflow run\``
+  }
+  return head
+}
+
 // NEW (off-host proof D7). The one settle helper, called where a not-checkable must-pass verdict is
 // final (the fold, and the resume seeding of a persisting one). `entry` is that verdict: `{id, status:
 // 'not_verifiable', kind: 'not-checkable-here', reason, cause, ...}`. Returns null when nothing is
@@ -2005,9 +2029,9 @@ function settleOffHost(entry) {
   const at = entry.reason ? entry.reason.indexOf(marker) : -1
   const baseReason = at === 0 ? null : at > 0 && entry.reason.slice(at - 2, at) === '; ' ? entry.reason.slice(0, at - 2) : entry.reason
   let why = null
-  if (p.status !== 'green') why = `declared off-host proof ${job} is ${p.status}${p.reason ? ` (${p.reason})` : ''}`
+  if (p.status !== 'green') why = nonGreenWhy(p, job)
   else if (offHostRefused.has(entry.id)) why = `declared off-host proof ${job} is green but this id ${offHostRefused.get(entry.id)}`
-  else if (debugTouchedCovers(entry.id)) why = `declared off-host proof ${job} is green but its covered files were changed by Debug in this run`
+  else if (debugTouchedCovers(entry.id)) why = `declared off-host proof ${job} is green but its covered files were changed by Debug in this run: push and wait for CI to run on the new commit first`
   if (why !== null) return { entry: { ...entry, reason: baseReason ? `${baseReason}; ${why}` : why }, settledMet: false }
   const { kind: _kind, verificationDigest: _digest, settled: _settled, causeKey: _key, awaiting: _awaiting, ...keep } = entry
   offHostSettledThisRun.add(entry.id)
@@ -3206,6 +3230,49 @@ function coverMatches(cover, file) {
   return file === cover || file.startsWith(`${dir}/`)
 }
 
+// D10, D11. An inline copy of custody.js `classifyPath` reduced to "does it return `shipped`" (this
+// script has no `require`; a table-driven test runs the same paths through both). A change to a path
+// that is not code-class (a record file, test, CI config, lockfile, doc, or framework file) cannot
+// have broken a criterion that has no covers, so it does not put that criterion back in scope. The
+// plan's own file is not knowable here and is not excluded.
+const IC_TEST_BASENAME = [
+  /\.test\.(js|cjs|mjs|ts|tsx|jsx|sh)$/,
+  /\.spec\.(js|ts|tsx|jsx)$/,
+  /\.bats$/,
+  /^test_.*\.py$/,
+  /_test\.py$/,
+  /_test\.go$/,
+  /Test\.(java|kt)$/,
+  /Tests\.cs$/,
+  /_spec\.rb$/,
+  /_test\.exs$/,
+]
+const IC_TEST_SEGMENTS = ['__tests__', '__fixtures__', '__mocks__']
+const IC_CI_DIRS = ['.github/workflows/', '.github/actions/', '.circleci/', '.buildkite/']
+const IC_CI_FILES = ['.gitlab-ci.yml', 'azure-pipelines.yml', 'bitbucket-pipelines.yml', 'Jenkinsfile']
+const IC_LOCKFILES = [
+  'package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lock', 'bun.lockb',
+  'Pipfile.lock', 'poetry.lock', 'uv.lock', 'Gemfile.lock', 'go.sum', 'Cargo.lock', 'composer.lock',
+  'mix.lock', 'pubspec.lock', 'Podfile.lock', 'packages.lock.json',
+]
+const IC_HOUSEKEEPING = ['CLAUDE.md', '.gitattributes', '.gitignore']
+const IC_DOC_BASENAME = /^(README|CHANGELOG|LICENSE|CONTRIBUTING|CODE_OF_CONDUCT|AUTHORS|NOTICE)(\.(md|markdown|txt|rst|adoc))?$/i
+
+function isCodeClass(p) {
+  if (p === '.claude/verification-notes.md' || p === 'OWNER-CALLS.md' || p === '.trd-state' || p.startsWith('.trd-state/')) return false
+  const segments = p.split('/')
+  const base = segments[segments.length - 1]
+  if (IC_TEST_BASENAME.some((re) => re.test(base))) return false
+  if (segments.slice(0, -1).some((s) => IC_TEST_SEGMENTS.includes(s))) return false
+  if (IC_CI_DIRS.some((d) => p.startsWith(d)) || IC_CI_FILES.includes(p)) return false
+  if (IC_LOCKFILES.includes(base)) return false
+  if (segments.length > 1 && (segments[0] === 'docs' || segments[0] === 'doc')) return false
+  if (IC_DOC_BASENAME.test(base)) return false
+  if (segments.length > 1 && segments[0] === '.claude' && segments[1] !== 'rules') return false
+  if (IC_HOUSEKEEPING.includes(base)) return false
+  return true
+}
+
 // D2. What Debug returned as `filesChanged`, as the script will use it: an array of repo-relative
 // paths, or null for "cannot tell". Null is the safe answer to anything the script cannot match, and
 // unknown widens the scope, never narrows it: an absent or malformed list, a non-string, an absolute
@@ -3249,9 +3316,11 @@ function normaliseChangedFiles(raw) {
 //
 // One reason per id, the first that holds: `covers-changed` (it has covers and a counting record's
 // files match one), `changes-unknown` (a counting record could not say what it changed),
-// `no-covers` (no covers record, and a counting record changed something), `cause-member` (round 1),
-// `sent-to-debug` (round 2). A criterion with no covers record is re-checked only when something
-// really changed: when nothing did, nothing can have broken it.
+// `no-covers` (no covers record, and a counting record names at least one code-class file: see
+// isCodeClass), `cause-member` (round 1), `sent-to-debug` (round 2). A criterion with no covers record
+// cannot be tied to any one file, so the rule does not try: it only stops docs, test, framework,
+// CI-config and lockfile edits from re-walking it. `counts` is the number re-checked per reason and
+// `scopeWord` is `none` (nothing re-checked), `full` (any `changes-unknown`) or `targeted`.
 function regressionScope(records, awaitingIds = [], sentIds = []) {
   const provenAtOf = (id) => {
     if (resumedProof.has(id)) return 0
@@ -3275,7 +3344,7 @@ function regressionScope(records, awaitingIds = [], sentIds = []) {
       }
       if (hit.length > 0) scope.push({ id: c.id, reason: 'covers-changed', files: hit })
       else if (counting.some((r) => r.files === null)) scope.push({ id: c.id, reason: 'changes-unknown' })
-      else if (covers.length === 0 && counting.some((r) => r.files.length > 0)) scope.push({ id: c.id, reason: 'no-covers' })
+      else if (covers.length === 0 && counting.some((r) => r.files.some(isCodeClass))) scope.push({ id: c.id, reason: 'no-covers' })
       else notRewalked.push(c.id)
     } else if (awaitingIds.includes(c.id)) {
       scope.push({ id: c.id, reason: 'cause-member' })
@@ -3291,7 +3360,16 @@ function regressionScope(records, awaitingIds = [], sentIds = []) {
       if (!unclaimedChanges.includes(file) && !everyCover.some((cover) => coverMatches(cover, file))) unclaimedChanges.push(file)
     }
   }
-  return { scope, notRewalked, unclaimedChanges }
+  const counts = {}
+  for (const entry of scope) counts[entry.reason] = (counts[entry.reason] || 0) + 1
+  const scopeWord = scope.length === 0 ? 'none' : scope.some((entry) => entry.reason === 'changes-unknown') ? 'full' : 'targeted'
+  return { scope, notRewalked, unclaimedChanges, counts, scopeWord }
+}
+
+// `Scope: <word> — re-checked <n>: <reason> <count>, ...`, the same line renderReport prints per round.
+function scopePhrase(plan) {
+  const parts = Object.entries(plan.counts).map(([reason, n]) => `${reason} ${n}`)
+  return `Scope: ${plan.scopeWord} — re-checked ${plan.scope.length}${parts.length > 0 ? `: ${parts.join(', ')}` : ''}`
 }
 
 // D8. The checker's freshness floor is the loop's start, so an artifact captured in iteration 1 passes
@@ -3502,13 +3580,14 @@ async function runRegressionPass(exitResult, iteration, exitPreviousCauses, exit
       log(
         `iteration ${iteration}: regression pass ${plan.scope.length > 0 ? `round 1 re-checks ${plan.scope.map((entry) => `${entry.id} (${entry.reason})`).join(', ')}` : 'has nothing to re-check'}` +
           `; not re-walked: ${plan.notRewalked.length > 0 ? plan.notRewalked.join(', ') : 'none'}` +
+          `; ${scopePhrase(plan)}` +
           (plan.unclaimedChanges.length > 0 ? `; changed files no criterion covers: ${plan.unclaimedChanges.join(', ')}` : '')
       )
     }
     if (plan.scope.length > 0) {
       const rounds = []
       let last = await regressionRound(1, iteration, plan, { exitGaps: exitResult.gaps || [], prevGaps: previousGaps, prevCauses: exitPreviousCauses })
-      rounds.push({ round: 1, iteration, scope: plan.scope, caught: last.failing })
+      rounds.push({ round: 1, iteration, scope: plan.scope, counts: plan.counts, scopeWord: plan.scopeWord, caught: last.failing })
       let notRewalked = plan.notRewalked
       let unclaimedChanges = plan.unclaimedChanges
       let repaired = false
@@ -3522,11 +3601,12 @@ async function runRegressionPass(exitResult, iteration, exitPreviousCauses, exit
         const plan2 = regressionScope([repair.record], [], caught)
         log(
           `iteration ${iteration}: regression pass round 2 re-checks ${plan2.scope.map((entry) => `${entry.id} (${entry.reason})`).join(', ')}` +
-            `; not re-walked: ${plan2.notRewalked.length > 0 ? plan2.notRewalked.join(', ') : 'none'}`
+            `; not re-walked: ${plan2.notRewalked.length > 0 ? plan2.notRewalked.join(', ') : 'none'}` +
+            `; ${scopePhrase(plan2)}`
         )
         const round1Gaps = last.result.gaps || []
         last = await regressionRound(2, iteration, plan2, { exitGaps: round1Gaps, prevGaps: round1Gaps, prevCauses: previousCauseKeys })
-        rounds.push({ round: 2, iteration, scope: plan2.scope, caught: last.failing })
+        rounds.push({ round: 2, iteration, scope: plan2.scope, counts: plan2.counts, scopeWord: plan2.scopeWord, caught: last.failing })
         // A criterion round 1 left alone but the repair touched was re-checked after all.
         const rewalkedLater = new Set(plan2.scope.map((entry) => entry.id))
         notRewalked = notRewalked.filter((id) => !rewalkedLater.has(id))
