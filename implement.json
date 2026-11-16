@@ -125,6 +125,44 @@
       "commit": null,
       "started_at": null,
       "completed_at": null
+    },
+    "AMEND-001": {
+      "description": "pendingClose revives a consumed held-back close after closed.json is deleted",
+      "phase": 4,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/audit-rounds.js",
+        "packages/core/lib/audit-rounds.test.js",
+        "packages/core/commands/audit-build.md",
+        ".claude/lib/audit-rounds.js",
+        ".claude/commands/audit-build.md"
+      ],
+      "commit": null,
+      "current_problem": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-16T23:12:48.575Z",
+      "last_advanced": "2026-11-16T23:13:56.175Z",
+      "completed_at": "2026-11-16T23:14:21.374Z"
+    },
+    "AMEND-002": {
+      "description": "a resumed verification closes with --verified and anchors custody at HEAD",
+      "phase": 4,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/audit-first-order.test.js"
+      ],
+      "commit": null,
+      "current_problem": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-16T23:12:48.576Z",
+      "last_advanced": "2026-11-16T23:13:56.176Z",
+      "completed_at": "2026-11-16T23:14:21.376Z"
     }
   },
   "checkpoints": [
@@ -159,13 +197,21 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T21:20:41.343Z"
+    },
+    {
+      "phase": 4,
+      "commit": "7d9e9680a4b493d03d520ba50272a714a0842d5a",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T23:16:10.258Z"
     }
   ],
   "recovery": {
     "interrupted": false,
     "interrupt_reason": null,
-    "last_healthy_checkpoint": "84f77325f584430f570af8d0076ec081ecdcb61a",
-    "last_checkpoint_timestamp": "2026-11-16T21:20:41.343Z"
+    "last_healthy_checkpoint": "7d9e9680a4b493d03d520ba50272a714a0842d5a",
+    "last_checkpoint_timestamp": "2026-11-16T23:16:10.258Z"
   },
   "functional_verification": {
     "prd_resolved": true,
