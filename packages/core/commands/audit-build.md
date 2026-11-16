@@ -506,7 +506,10 @@ standalone. The readout is not printed; lines a caller must carry (filed issue U
 printed above the RETURN line. When the audit workflow was unavailable (the subagent fallback) and
 the round has no run id, record the round with `runId: "fallback-<the round's ts>"` so the
 deferred-close line can name it. A re-audit whose rerun scope is `none` takes the `close` true
-path: the earlier passing verdict stands and the close is deferred, not performed.
+path: the earlier passing verdict stands and the close is deferred, not performed. No workflow
+runs, so first record this run's round through `record` (its own `runId`, the last passing round's
+`verdict`, `auditedCommit` and `trdHash`, every count 0): the deferred-close line must have a round of
+its run id to fold into, or `pending-close` reads it as a round with no verdict and reports an `error`.
 
 Where step 4's `close` is true, the run skips the waived-defect gate, the close step, the
 unsynced-boards check and the pull request. Instead, run `audit-rounds.js trd-hash` after the fix
@@ -537,7 +540,8 @@ node .claude/lib/audit-rounds.js pending-close '{"stateDir":".trd-state/<feature
 ```
 
 1. `pending` is null (no pending round, a later round, a closed feature, another audit's run id
-   via `mismatch`, or an `error`): end `RETURN → nothing to close`, writing nothing.
+   via `mismatch`, or an `error`): end `RETURN → nothing to close`, writing nothing. Print an
+   `error` (and a `mismatch` run id) on the line above the RETURN, so the caller can name it.
 2. Run `audit-rounds.js trd-hash`; when it differs from the line's `close.trdHash`, close nothing,
    write nothing and end `RETURN → stale: the TRD changed since the audit`.
 3. Otherwise run step 4's `close` true branch from the round's `verdict` and `auditedCommit` and

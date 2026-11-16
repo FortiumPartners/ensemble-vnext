@@ -1675,7 +1675,9 @@ review's edits land before the audit reads the tree. If the result has not arriv
 present tense and end the turn: the review's completion re-invokes the session, and this step
 runs then. Do not claim to wait.
 
-Call, with the TRD path and the PRD path §3.6 resolved (omit `--prd <prd>` when there is none):
+Call, with the TRD path and the PRD path §3.6 step 1 resolved (under `--no-verify` §3.6 is skipped,
+so resolve the PRD here by its step 1 order without dispatching anything; omit `--prd <prd>` when
+there is none):
 
 ```
 Skill({ skill: "audit-build", args: "<trd> --prd <prd> --chained --defer-close" })
@@ -2342,6 +2344,8 @@ write below carries `closed.json`. Branch on its one RETURN line:
   above the RETURN (the close record, PR URL or reason, unsynced-board steps, caveats) into STATE.
 - `stale: the TRD changed since the audit` or `nothing to close`: one STATE line saying why
   (the TRD gained rows after the audit passed, or no deferred close is on record); nothing closed.
+  When an `error` was printed above a `nothing to close` RETURN, add one ISSUES line naming the
+  ledger and that error instead of saying no close is on record.
 - `STUCK: close refused: <rows>`: end the run `COMMAND STUCK`, with the same `Reason:` and `Next:`
   wording `/audit-build` step 4 gives a refused close (both ways out, then `/audit-build <trd>`);
   §9.1's records write still runs first.
