@@ -81,7 +81,10 @@ Implements AC-F5.9 and AC-F6.9. In this order:
    `docs/ui/_design-system/<folder>/` (and reinstalls it on each canvas per §3, so the replacement
    canvas carries the system). Then record the move, so the old link is kept as `previous_url`:
    `node .claude/lib/design-map.js republished --dir docs/ui/<slug> --kind canvas|system --new <new url> [--old <old url>]`
-   (`--old` says which canvas when the map records several), and
+   (`--old` says which canvas when the map records several; the verb clears the canvas's sync base, so a
+   republished canvas starts fresh), then, once the replacement is published,
+   `node .claude/lib/design-mirror.js record --dir docs/ui/<slug> --canvas <new url> --version <its version>` to
+   set the new base before any other change to the design folder, and
    `node .claude/lib/artifacts.js record` with the new `--url`. Add a **DECISIONS** line naming
    the old and new URL: "recorded <canvas|design system> was unreadable (<not-found|no-access>);
    republished from the committed copy: old <old url>, new <new url>". This is never STUCK for
