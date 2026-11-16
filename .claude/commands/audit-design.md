@@ -70,8 +70,10 @@ zero findings is a legitimate result.
    are still building although their feature closed: check them against the build"; NEXT then
    names `/sync-design <slug>` after `/design-system --sync` (when also due) and ahead of
    `/refine-design`. `core` is read-only without
-   `--ids`. Its result is the readout's own Core lines: STATE names the Core set, or says "legacy:
-   every screen board reads Core"; a set over the cap, or any `core` validation error, is an
+   `--ids`. The Core rule it checks against: at most 8 boards are Core, and only `to-be` and
+   `as-is` boards may be Core (never a part or a flow board). Its result is the readout's own Core
+   lines: STATE names the Core set, or says "legacy: every screen board reads Core"; a Core
+   board of any other kind, a set over the cap, or any `core` validation error, is an
    **ISSUES** line pointing at `/refine-design`. Read the
    `designing-on-canvas` skill's conventions if it is installed (else pass none; the workflow
    reports that), and the previous report's `## Could Not Verify` rows if

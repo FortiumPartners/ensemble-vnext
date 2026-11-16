@@ -200,7 +200,9 @@ A caller with nobody to ask drives `--auto` through its argument. The record for
    `{ id, source }` too, or `validate` rejects a redrawn board that names it. Run `design-map.js refresh` and `validate`
    (refresh leaves `brief_items` as written; validate rejects a malformed one).
    Render per contract section 2.
-   - **The Core set** (the boards whose default-state frame must pass in verification; at most 8).
+   - **The Core set** (the boards whose default-state frame must pass in verification). The Core
+     rule: at most 8 boards are Core, and only `to-be` and `as-is` boards may be Core (never a part
+     or a flow board).
      When the feedback asks for a Core change, or the map is legacy (`node .claude/lib/design-map.js
      core --dir docs/ui/<slug>` prints `legacy: true`: no board carries a `core` key, so every screen
      board reads Core) **and this run already changes something**, choose the set yourself (main
