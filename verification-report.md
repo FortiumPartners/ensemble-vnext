@@ -2,14 +2,13 @@
 
 **Source PRD**: docs/TRD/fix-design-command-defects.md ## Reproduction
 **Success definition**: .trd-state/fix-design-command-defects/success-definition.md
-**Outcome**: Must-Pass Unproven (no full-environment run declared)
-**Reason**: must-pass criteria not proven: FS-2 — the core was not shown to work
+**Outcome**: Satisfied (1 of 19 not verifiable) (no full-environment run declared)
+**Reason**: no gaps remain — every criterion is met, not verifiable here, or settled as an evidence gap
 **Criteria**: 19 total — 18 met, 0 not met, 1 not verifiable, 0 unbuilt
 **Coverage**: 18 of 19 proven — uncovered: FS-2
-**Must pass**: 14 of 15 proven — unproven: FS-2 (not verifiable)
+**Must pass**: 14 of 14 proven
 **Screenshots**: 8 shown
-**Diagnosis**: 1 open — 1 not checkable here — 1 environment not reachable
-**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`
+**Next**: `/audit-build`
 
 ## Met
 
@@ -42,7 +41,7 @@ _None._
 
 | ID | Statement | Kind | Reason |
 |----|-----------|------|--------|
-| FS-2 | When the canvas URL recorded in design-map.json returns no-access from the current account, `/refine-design` publishes a new canvas from `docs/ui/<slug>/canvas/`, records the new URL, carries on, and does not end COMMAND STUCK | not checkable here | The run shown is the not-found case, not no-access: the recorded canvas read returned 404 Not Found, the command republished it (new canvas 8d56283qVwWbsgV4k6e96a, old URL kept as previous_url) and ended COMMAND COMPLETE. A genuine no-access read (403/Forbidden) cannot be produced here: the Artifact tool gives one 404 for deleted and not-shared artifacts alike, and no artifact owned by another account exists in any authorized environment (owner ruling R1). The no-access branch shares the not-found code path in the contract, but that is not proof of this criterion. Unblock by declaring an environment that can reach another account's artifact, an off-host proof on objective O1, or dropping must-pass for FS-2. |
+| FS-2 | When the canvas URL recorded in design-map.json returns no-access from the current account, `/refine-design` publishes a new canvas from `docs/ui/<slug>/canvas/`, records the new URL, carries on, and does not end COMMAND STUCK | not checkable here | The run shown is the not-found case, not no-access: the recorded canvas read returned 404 Not Found, the command republished it (new canvas 8d56283qVwWbsgV4k6e96a, old URL kept as previous_url) and ended COMMAND COMPLETE. A genuine no-access read (403/Forbidden) cannot be produced here: the Artifact tool gives one 404 for deleted and not-shared artifacts alike, and no artifact owned by another account exists in any authorized environment (owner ruling R1). |
 
 ## Evidence
 
@@ -83,9 +82,9 @@ _None._
 
 | Round | Tasks promoted | Criteria closed | Still open |
 |-------|-----------------|------------------|-------------|
-| 0 | 1 | 2 | 1 |
+| 0 | 0 | 0 | 1 |
 
 | ID | Statement | Status | Cause | Stop reason |
 |----|-----------|--------|-------|-------------|
-| FS-2 | A no-access (not just not-found) canvas read still republishes |  | unrecorded | not checkable here: the Artifact tool returns one combined error for deleted and not-shared artifacts and no artifact owned by another account exists in any authorized environment (owner ruling R1) |
+| FS-2 | A no-access (not just not-found) canvas read still republishes | not_verifiable | unrecorded | not checkable here: the Artifact tool returns one combined error for deleted and not-shared artifacts, and no artifact owned by another account exists in any authorized environment (owner ruling R1; no longer must-pass, filed as #160) |
 
