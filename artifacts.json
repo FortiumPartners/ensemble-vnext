@@ -9,14 +9,14 @@
   "success-definition": {
     "path": ".trd-state/core-boards-in-designs/success-definition.md",
     "url": "",
-    "updated_at": "2026-11-16T21:05:02.653Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-16T21:38:13.583Z",
+    "command": "/verify-build"
   },
   "verification-report": {
     "path": ".trd-state/core-boards-in-designs/verification-report.md",
-    "url": "",
-    "updated_at": "2026-11-16T21:22:14.480Z",
-    "command": "/implement-trd"
+    "url": "https://claude.ai/artifact/PTPqC7BL1zvtJTrETHJJBL",
+    "updated_at": "2026-11-16T21:38:13.530Z",
+    "command": "/verify-build"
   },
   "verification-plan": {
     "path": ".trd-state/core-boards-in-designs/verification-plan.md",

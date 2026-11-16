@@ -325,8 +325,18 @@
         "maxRounds": 3,
         "closedBelow": 1
       },
-      "rounds": [],
-      "stopped": false
+      "rounds": [
+        {
+          "round": 1,
+          "tasksPromoted": [
+            "AMEND-001"
+          ],
+          "criteriaClosed": 1,
+          "criteriaOpen": 0,
+          "buildable": 1
+        }
+      ],
+      "stopped": true
     }
   }
 }
