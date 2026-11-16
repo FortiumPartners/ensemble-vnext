@@ -1,0 +1,13 @@
+{
+  "feature": "fix-rerun-scope-rule",
+  "trd": "docs/TRD/fix-rerun-scope-rule.md",
+  "closedAt": "2026-11-16T11:40:31Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (the TRD came from issue #157 and an owner ruling, not a PRD, so only TRD-to-code traceability was checked); the restart rule (O3: a plain /verify-build after a restart continues the open criteria) is proven by prose assertions only, with no live session run.",
+    "report": ".trd-state/fix-rerun-scope-rule/audit-build-report.md",
+    "auditedCommit": "260115cece876b936da322af17d9d887b95adeb3",
+    "anchorCommit": null
+  }
+}
