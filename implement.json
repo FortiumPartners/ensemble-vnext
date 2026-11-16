@@ -4,7 +4,7 @@
   "trd_hash": "a0dc619e993161809aa477dfbc8e54fd7ab6b2bb8a951e955586a64cddb75a79",
   "branch": "feature/30-core-boards-in-designs",
   "strategy": "tdd",
-  "phase_cursor": 2,
+  "phase_cursor": 3,
   "tasks": {
     "CBD-B001": {
       "description": "design-map.js: CORE_CAP, CORE_KINDS, CORE_MARK, isLegacyCore, isCore, coreBoards, coreReport, setCore, coreMarks, the three validate() rules, the core and core-marks CLI verbs and the usage comment, all exported (§3.1). One task: everything lands in one file and one test file",
@@ -67,62 +67,98 @@
     "CBD-B003": {
       "description": "New design-criteria.js with comparisonRows and the comparison-rows CLI (§3.2), its test file, and the 12-board fixture (D24)",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/lib/design-criteria.js",
+        "packages/core/lib/design-criteria.test.js",
+        ".claude/lib/design-criteria.js",
+        "packages/full/lib/design-criteria.js",
+        "test/fixtures/design/core-boards/design-map.json"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-16T20:33:03.468Z",
+      "completed_at": "2026-11-16T20:39:03.425Z",
+      "last_advanced": "2026-11-16T20:35:02.977Z"
     },
     "CBD-B004": {
       "description": "verify-functional.js: the evidenceOnlyIds and coreMustPassIds args, their validation, the \"evidenceOnly\" and \"coreMustPass\" decide-next payload literals, the reconcileJudgeKinds evidence-only branch and the settled enum and prompt sentences, the shared settled-kind predicate, BLOCKING_ACTIVE, the regression failing skip, coverageOf's count, and the report input (§3.4, D14). Update docs/TRD/functional-verification.md §3.3 (the arg and the result's coverage field), header version and changelog row in the same task, because verify-functional-trd-sync.test.js compares them to this file",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        "packages/core/workflows/verify-functional-trd-sync.test.js",
+        "docs/TRD/functional-verification.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-16T20:33:03.469Z",
+      "completed_at": "2026-11-16T20:39:03.473Z",
+      "last_advanced": "2026-11-16T20:35:02.978Z"
     },
     "CBD-B005": {
       "description": "/create-design: the create-design workflow's brief schema gains core per screen and core_left_out, the brief prompt asks for the ## Core boards section, the ground stage caps at 8 in code and returns core_left_out, and the draw stage copies core onto to-be records (explore path included) and core: false onto as-is records (D6, D7). create-design.md step 3/4 pass core through, step 5 writes it, step 7 runs core-marks after the session writes the board entries into canvas.json and before the publish call (nothing with publishing off), each missing board is an ISSUES line, and the readout names the Core set and the left-out screens (D20). Merged: the command writes exactly what the workflow returns, and one prose test plus one workflow test pin the pair",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/create-design.js",
+        "packages/core/workflows/create-design.test.js",
+        "packages/core/commands/create-design.md",
+        "packages/core/commands/create-design-prose.test.js",
+        ".claude/workflows/create-design.js",
+        ".claude/commands/create-design.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-16T20:33:03.469Z",
+      "completed_at": "2026-11-16T20:39:03.474Z",
+      "last_advanced": "2026-11-16T20:35:02.978Z"
     },
     "CBD-B006": {
       "description": "/refine-design (D21) and /audit-design (D22) prose: refine uses core --ids for a Core change, or for a legacy map on a run that already changes something (a no-change run stays one), then core-marks before its publish; step 3 and \"What this command must not do\" gain the core --ids map write; and records the left-out boards in the readout and the brief; sync-design.md step 4 gains the sentence that the new as-is board carries no core key (pinned in sync-design-prose.test.js); audit reads core in step 2, adds the STATE and ISSUES lines, and rewrites the \"One text, written once\" sentence to name them as the command's own additions. Merged: both are a few lines calling the same two verbs, each pinned by its own prose test",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/refine-design.md",
+        "packages/core/commands/audit-design.md",
+        "packages/core/commands/sync-design.md",
+        ".claude/commands/refine-design.md",
+        ".claude/commands/audit-design.md",
+        ".claude/commands/sync-design.md",
+        "packages/core/commands/refine-design-prose.test.js",
+        "packages/core/commands/audit-design-prose.test.js",
+        "packages/core/commands/sync-design-prose.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-16T20:33:03.469Z",
+      "completed_at": "2026-11-16T20:39:03.475Z",
+      "last_advanced": "2026-11-16T20:35:02.978Z"
     },
     "CBD-T001": {
       "description": "Seam test, packages/core/lib/core-boards-seam.test.js: generator (CBD-B003) to definition to must-pass-coverage (CBD-B002) to decideNext. Writes the fixture's rows into a temp success definition beside a minimal TRD, runs the must-pass-coverage CLI, and feeds its output to decideNext",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/lib/core-boards-seam.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-16T20:33:03.469Z",
+      "completed_at": "2026-11-16T20:39:03.475Z",
+      "last_advanced": "2026-11-16T20:35:02.978Z"
     },
     "CBD-B007": {
       "description": "verify-design-comparison SKILL.md Criteria and Page (D9, D11, D15, D18) and the functional-verification contract's \"Must pass\" and \"Check criteria\" sections (D11, D12, D13). Merged: the contract states what the skill's rows mean, and both must describe the same column",
@@ -181,11 +217,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T20:32:52.578Z"
+    },
+    {
+      "phase": 2,
+      "commit": "7b0ced067d1a4eb30d215a4f7617bbf5884c0c53",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T20:42:06.152Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "0b8f117279165bb338b7ede8ae4ec60b33802241",
-    "last_checkpoint_timestamp": "2026-11-16T20:32:52.578Z",
+    "last_healthy_checkpoint": "7b0ced067d1a4eb30d215a4f7617bbf5884c0c53",
+    "last_checkpoint_timestamp": "2026-11-16T20:42:06.152Z",
     "interrupted": false,
     "interrupt_reason": null
   },
