@@ -163,7 +163,7 @@
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "8ba3b6ee1caa8fb8acb189cf3b40b967a998ae4d",
+    "last_healthy_checkpoint": "177d2898cc576f1ad20876888a0566e7c25daad6",
     "last_checkpoint_timestamp": "2026-11-16T20:26:35.095Z",
     "interrupted": false,
     "interrupt_reason": null
@@ -197,6 +197,17 @@
         "status": "unusable",
         "reason": "must not be touched (verification.md §1)"
       }
-    }
+    },
+    "runs": [
+      {
+        "n": 1,
+        "command": "/implement-trd",
+        "started_at": "2026-11-16T20:27:38.007Z",
+        "scope": "full",
+        "outcome": "satisfied",
+        "finished_at": "2026-11-16T20:34:01.606Z",
+        "open": []
+      }
+    ]
   }
 }
