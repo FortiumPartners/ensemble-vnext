@@ -14,7 +14,7 @@
 ## Intended Change
 
 Prose contract plus a fact-only helper, referenced from five commands. The mechanisms that apply a
-scope (`custody.js`, `verify-functional.js`, the CI-proof mechanism, the phase-gate battery) are
+scope (`packages/core/lib/custody.js`, `packages/core/workflows/verify-functional.js`, the CI-proof mechanism, the phase-gate battery) are
 NOT changed: issues #153, #154, #155 and #156 land after this and are built separately.
 
 ## Decision
@@ -26,7 +26,7 @@ default to full.
 
 ## Non-Goals
 
-Changing `custody.js:501`, `verify-functional.js:3250-3256`, the CI-proof mechanism or the battery
+Changing `packages/core/lib/custody.js:501`, `regressionScope()` in `packages/core/workflows/verify-functional.js` (line 3255, mirrored in `.claude/workflows/`), the CI-proof mechanism or the battery
 (issues #153 to #156).
 
 ## Verification Artifacts
@@ -72,4 +72,16 @@ None apply — prose contracts, command prompts and one small library; Jest prov
 
 ## Could Not Verify
 
-- A live `/verify-build` session after a restart was not run; the restart rule is proven by prose assertions only.
+State after `/audit-build` on 2026-11-16 (5 of 5 verifiers reported). The four objectives (O1 to O4)
+and three tasks (RS-001 to RS-003) were checked against the delivered code and found built and
+tested; they are not listed here.
+
+- **No PRD was supplied** (this TRD was written from issue #157 and an owner ruling, not a PRD), so
+  the audit checked the TRD against the code only. Whether the TRD faithfully captures, or omits,
+  anything the owner asked for in #157 was not checked.
+- **The restart rule (O3) is proven by prose assertions only.** A live `/verify-build` session after
+  a session restart was not run; the audit is read-only and does not drive live sessions. It would
+  need a headless fixture run (`verification.md` §1, `fixtures`).
+- **The model's scope judgment itself is not tested.** The tests prove each command carries the
+  scope step and the contract states the rules; whether a live run picks the right scope (none,
+  targeted or full) for a given change is model behaviour, out of reach of a read-only audit.
