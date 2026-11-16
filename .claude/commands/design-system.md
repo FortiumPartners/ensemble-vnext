@@ -70,6 +70,10 @@ $ARGUMENTS
    and 8 still run on disk (record `url` empty or as already recorded), then end with
    `COMMAND STUCK: /design-system`, Reason "publish step not run: ensemble.publishArtifacts is
    false". Under `--chained`, the RETURN line says `not published` instead.
+   If the recorded system artifact (or a canvas to install on) is unreadable (not-found or
+   no-access), apply contract section 1's *Unreadable recorded artifact* rule: republish from
+   `docs/ui/_design-system/<folder>/`, reinstall per section 3, record with `design-map.js
+   republished --kind system`, never STUCK.
 7. **Install on every canvas the product's maps record**, on the first build and on `--sync`
    (AC-F6.5, AC-F6.8), per contract section 3: `files` mapping each system file into
    `project/ds/<folder>/`, plus the `designSystems` record in `canvas.json`. At most four
@@ -83,6 +87,9 @@ $ARGUMENTS
    Run it once per map under `docs/ui/*/`. On a first build no map exists yet: write the same
    four fields to `docs/ui/_design-system/<folder>/system.json`, which `/create-design` reads
    to seed its map. Commit the maps with the system.
+   A system republished under the *Unreadable recorded artifact* rule is recorded with
+   `design-map.js republished --kind system --new <url>` (it keeps the old link as
+   `previous_url`), not by the line above.
 9. **Readout and close**, as below. Record the system's artifact link with
    `node .claude/lib/artifacts.js record` (kind `design-system`, `--command /design-system`).
 

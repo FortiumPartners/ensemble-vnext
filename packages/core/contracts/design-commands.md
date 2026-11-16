@@ -74,6 +74,21 @@ Implements AC-F5.9 and AC-F6.9. In this order:
      <board>: canvas version kept; the repository version is at
      `docs/ui/<slug>/canvas/project/<board>.repo.dc.html`; merge by hand and delete the copy".
    - **Repository changed (`toPublish`).** Those files go out at the publish step (§4).
+   **Unreadable recorded artifact.** When the read of a recorded canvas (step 3 or this step)
+   or of the recorded Design System artifact returns **not-found or no-access**, the run does not
+   go STUCK and does not ask anyone to share it. It republishes a replacement from the committed
+   copy: a canvas from `docs/ui/<slug>/canvas/`, the system from
+   `docs/ui/_design-system/<folder>/` (and reinstalls it on each canvas per §3, so the replacement
+   canvas carries the system). Then record the move, so the old link is kept as `previous_url`:
+   `node .claude/lib/design-map.js republished --dir docs/ui/<slug> --kind canvas|system --new <new url> [--old <old url>]`
+   (`--old` says which canvas when the map records several), and
+   `node .claude/lib/artifacts.js record` with the new `--url`. Add a **DECISIONS** line naming
+   the old and new URL: "recorded <canvas|design system> was unreadable (<not-found|no-access>);
+   republished from the committed copy: old <old url>, new <new url>". This is never STUCK for
+   this cause. It does not apply to `/audit-design` (read-only: it reports the unreadable
+   artifact as an ISSUES line and publishes nothing), nor with `publish: off` (§5 governs), nor
+   to "no canvas recorded", which already creates one. Any other read error (a network failure,
+   a refused save) is handled as before.
 5. A canvas edit adopted onto an `approved` or `building` board leaves its status and
    `approved_commit` unchanged, so verification frames stay at the approved commit. Approval
    is kept and the edit is flagged (see §7).
@@ -123,14 +138,16 @@ target size), so a frame below a floor is a finding (§8).
 Implements AC-F6.8. Used by `/design-system` (first build and `--sync`), `/create-design`
 (system missing or outdated) and `/sync-design`.
 
-1. Do the whole-artifact read of the canvas first (§4).
+1. Do the whole-artifact read of the canvas first (§4). If the canvas is unreadable, §1's
+   *Unreadable recorded artifact* rule applies before this step.
 2. Publish with `files` mapping each file of the Design System artifact into
    `project/ds/<folder>/`.
 3. Add the `designSystems` record to `canvas.json`.
 
 ## 4. Publish
 
-Implements AC-F5.6. Read the whole artifact first, then publish. When the canvas refuses
+Implements AC-F5.6. Read the whole artifact first, then publish. A recorded artifact that cannot
+be read at all follows §1's *Unreadable recorded artifact* rule instead. When the canvas refuses
 because it holds a newer save, re-read and redo the change, asking
 `design-mirror.js refused --dir docs/ui/<slug> --work-dir <this run's scratch folder>` what to
 do next (the count lives in that folder, so each run starts from zero). The third refusal ends

@@ -806,3 +806,132 @@ describe('approve', () => {
     expect(bad.status).toBe(1);
   });
 });
+
+describe('republished', () => {
+  const mirror = require('./design-mirror');
+  const setup = (extra) => {
+    const dir = tmp();
+    const m = mapOf([board({ canvas: 'u1' }), board({ id: '02-b', file: '02-b.dc.html', canvas: 'u1' })], extra);
+    m.canvases[0].synced_version = '1';
+    m.canvases[0].files = { 'a.dc.html': 'h' };
+    dm.write(dir, m);
+    return dir;
+  };
+
+  it('swaps a canvas url, keeps previous_url, follows the boards and clears the sync base', () => {
+    const dir = setup();
+    const out = dm.republished(dir, { kind: 'canvas', old: 'u1', new: 'u2' });
+    expect(dm.validate(dm.read(dir))).toEqual([]);
+    expect(out.canvases[0]).toEqual({ url: 'u2', previous_url: 'u1' });
+    expect(dm.read(dir).boards.map((b) => b.canvas)).toEqual(['u2', 'u2']);
+  });
+
+  it('reads as changed against the new url until a base is recorded', () => {
+    const dir = setup();
+    dm.republished(dir, { kind: 'canvas', old: 'u1', new: 'u2' });
+    expect(mirror.check(dm.read(dir), 'u2', '1')).toBe('changed');
+    const entry = dm.read(dir).canvases[0];
+    mirror.record(dir, entry, '5', dir);
+    expect(mirror.check(dm.read(dir), 'u2', '5')).toBe('unchanged');
+  });
+
+  it('takes the only canvas when --old is omitted, and requires it with several', () => {
+    const dir = setup();
+    dm.republished(dir, { kind: 'canvas', new: 'u2' });
+    expect(dm.read(dir).canvases[0].url).toBe('u2');
+    const m = dm.read(dir);
+    m.canvases.push({ url: 'u3' });
+    m.boards[1].canvas = 'u3';
+    dm.write(dir, m);
+    expect(() => dm.republished(dir, { kind: 'canvas', new: 'u4' })).toThrow(/--old/);
+  });
+
+  it('throws and writes nothing for an --old url not in the map', () => {
+    const dir = setup();
+    const before = fs.readFileSync(path.join(dir, 'design-map.json'), 'utf8');
+    expect(() => dm.republished(dir, { kind: 'canvas', old: 'nope', new: 'u2' })).toThrow(/no canvas with url nope/);
+    expect(fs.readFileSync(path.join(dir, 'design-map.json'), 'utf8')).toBe(before);
+  });
+
+  it('refuses a new url another canvas already holds', () => {
+    const dir = setup();
+    const m = dm.read(dir);
+    m.canvases.push({ url: 'u9' });
+    m.boards[1].canvas = 'u9';
+    dm.write(dir, m);
+    expect(() => dm.republished(dir, { kind: 'canvas', old: 'u1', new: 'u9' })).toThrow(/already listed/);
+  });
+
+  it('swaps the design system url and keeps previous_url', () => {
+    const dir = setup();
+    dm.republished(dir, { kind: 'system', new: 'd2' });
+    const ds = dm.read(dir).design_system;
+    expect(ds.url).toBe('d2');
+    expect(ds.previous_url).toBe('d');
+    expect(dm.validate(dm.read(dir))).toEqual([]);
+    expect(() => dm.republished(dir, { kind: 'system', old: 'zzz', new: 'd3' })).toThrow(/is not zzz/);
+  });
+
+  it('rejects an unknown kind and a missing --new', () => {
+    const dir = setup();
+    expect(() => dm.republished(dir, { kind: 'x', new: 'u2' })).toThrow(/canvas or system/);
+    expect(() => dm.republished(dir, { kind: 'canvas' })).toThrow(/--new/);
+  });
+
+  it('runs from the CLI', () => {
+    const dir = setup();
+    const r = spawnSync('node', [path.join(__dirname, 'design-map.js'), 'republished', '--dir', dir, '--kind', 'canvas', '--old', 'u1', '--new', 'u2'], { encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout).canvases[0].url).toBe('u2');
+  });
+});
+
+describe('caveats', () => {
+  const crypto = require('crypto');
+  const proj = ({ brief, design } = {}) => {
+    const d = tmp();
+    fs.mkdirSync(path.join(d, 'docs/ui/shop'), { recursive: true });
+    fs.mkdirSync(path.join(d, '.claude/rules'), { recursive: true });
+    if (brief !== undefined) fs.writeFileSync(path.join(d, 'docs/ui/shop/brief.md'), brief);
+    if (design !== undefined) fs.writeFileSync(path.join(d, '.claude/rules/design.md'), design);
+    return d;
+  };
+  const run = (d) => dm.caveats(path.join(d, 'docs/ui/shop'), { root: d });
+  it('returns the brief bullets in order and sets reused_build_side', () => {
+    const d = proj({ brief: '# Brief\n\n## Accessibility caveats\n\n- Button contrast 3.1:1 (library)\n- Icon target 32px\n\n## Other\n- not me\n' });
+    const r = run(d);
+    expect(r.items).toEqual(['Button contrast 3.1:1 (library)', 'Icon target 32px']);
+    expect(r.reused_build_side).toBe(true);
+    expect(r.sources).toEqual([path.join(d, 'docs/ui/shop/brief.md')]);
+  });
+  it('a design.md section 4 line naming reused components as build-side sets it', () => {
+    const d = proj({ design: '# Design\n\n## 4. Design rules\n\n- **Reuse:** x\n- **Process rules:** reused components are build-side work\n\n## 5. Design direction\n' });
+    const r = run(d);
+    expect(r).toEqual({ items: [], reused_build_side: true, sources: [path.join(d, '.claude/rules/design.md')] });
+  });
+  it('the same sentence outside section 4 does not count', () => {
+    const d = proj({ design: '# Design\n\n## 4. Design rules\n\n- x\n\n## 5. Design direction\n\nreused components are build-side work\n' });
+    expect(run(d).reused_build_side).toBe(false);
+  });
+  it('neither present gives an empty result, including no files and a None bullet', () => {
+    expect(run(proj())).toEqual({ items: [], reused_build_side: false, sources: [] });
+    expect(run(proj({ brief: '## Accessibility caveats\n\n- None\n', design: '## 4. Design rules\n- x\n' })))
+      .toEqual({ items: [], reused_build_side: false, sources: [] });
+    expect(run(proj({ brief: '# Brief\n' })).items).toEqual([]);
+  });
+  it('does not change design.md or brief.md', () => {
+    const d = proj({ brief: '## Accessibility caveats\n- a\n', design: '## 4. Design rules\n- reused components are build-side work\n' });
+    const files = ['docs/ui/shop/brief.md', '.claude/rules/design.md'].map((f) => path.join(d, f));
+    const hash = () => files.map((f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex'));
+    const before = hash();
+    run(d);
+    spawnSync(process.execPath, [path.join(__dirname, 'design-map.js'), 'caveats', '--dir', 'docs/ui/shop'], { cwd: d, encoding: 'utf8' });
+    expect(hash()).toEqual(before);
+  });
+  it('CLI caveats prints the result as JSON', () => {
+    const d = proj({ brief: '## Accessibility caveats\n- a\n' });
+    const r = spawnSync(process.execPath, [path.join(__dirname, 'design-map.js'), 'caveats', '--dir', 'docs/ui/shop'], { cwd: d, encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout).items).toEqual(['a']);
+  });
+});

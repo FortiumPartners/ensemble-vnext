@@ -124,7 +124,10 @@ A caller with nobody to ask drives `--auto` through its argument. The record for
   `/create-design`: each becomes one STATE line and nothing is redrawn for them. A
   `VERDICT: safe to proceed` report with no open findings is one STATE line; there is nothing
   to do. So is a `VERDICT: proceed with these caveats` report whose open findings are none: its
-  caveats are not feedback. **No report, or a report with no open findings, is a no-change run:**
+  caveats are not feedback. A `VISUAL FINDINGS` line marked "known build-side caveat" is not an open
+  finding: skip it, change nothing for it, and STATE says how many were skipped. A report whose only
+  open findings are known build-side caveats is a no-change run, the same as one with none.
+  **No report, or a report with no open findings, is a no-change run:**
   no argument feedback, no `OD-n` answer, no comment or selected element and no hand edit adopted
   means no board changes, nothing is re-challenged or published, and the run ends with the
   "no change made" completion below. Never invent a change to fill the round.
@@ -140,6 +143,8 @@ A caller with nobody to ask drives `--auto` through its argument. The record for
    or `unfilled` ends STUCK with "run `/design-setup`"; read the publishing switch; read the
    live canvas, and adopt hand edits through the sync. With no canvas to read (publishing off,
    or none recorded), the canvas rules come from the Design type read in step 3 of that section;
+   a recorded canvas that is unreadable (not-found or no-access) follows that section's
+   *Unreadable recorded artifact* rule, never STUCK;
    run the direction step (step 7 of that section), passing the name on the brief's
    `**Style pack:**` line to the direction verb as its style option when `brief.md` has one,
    before `design.md`'s field. An edit adopted onto an `approved` or

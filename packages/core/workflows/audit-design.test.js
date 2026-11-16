@@ -167,6 +167,57 @@ describe('audit-design visual critique (DQ-B008)', () => {
     expect(result.critique.find((c) => c.screen === '01-b').out).toBe('/tmp/o1');
   });
 
+  describe('reused components and recorded caveats (#152)', () => {
+    const sentFindings = (agent) => {
+      const p = byLabel(agent, 'reconcile').prompt;
+      return JSON.parse(p.slice(p.indexOf('[\n'), p.indexOf('\n]', p.indexOf('[\n')) + 2));
+    };
+    const measure = (extra = {}) => ({ out: '/tmp/o1', render_errors: [], scores: [], measures: [{ board: '01-b', check: 'contrast', verdict: 'below-floor', value: '3.1:1', floor: '4.5:1', count: 2, ...extra }] });
+    const caveats = (reused_build_side) => ({ items: reused_build_side ? ['reused buttons are fixed in the build'] : [], reused_build_side, sources: [] });
+
+    it('ranks a reused below-floor measure low and known_caveat when a ruling is recorded', async () => {
+      const { agent } = await run({ 'verify:visual-01-b': measure({ reused: true }) }, { caveats: caveats(true) });
+      const f = sentFindings(agent).find((x) => x.check === 'contrast');
+      expect(f).toMatchObject({ rank: 'low', known_caveat: true });
+      expect(f.why).toMatch(/^known build-side caveat \(reused component\)/);
+    });
+
+    it('keeps a reused below-floor measure high, with the record-it hint, when nothing is recorded', async () => {
+      for (const args of [{ caveats: caveats(false) }, {}]) {
+        const { agent } = await run({ 'verify:visual-01-b': measure({ reused: true }) }, args);
+        const f = sentFindings(agent).find((x) => x.check === 'contrast');
+        expect(f.rank).toBe('high');
+        expect(f.known_caveat).toBeUndefined();
+        expect(f.why).toContain('## Accessibility caveats');
+        expect(f.why).toContain('brief.md');
+      }
+    });
+
+    it('keeps a drawn (not reused) below-floor measure high whatever is recorded', async () => {
+      for (const reused of [undefined, false]) {
+        const { agent } = await run({ 'verify:visual-01-b': measure(reused === undefined ? {} : { reused }) }, { caveats: caveats(true) });
+        const f = sentFindings(agent).find((x) => x.check === 'contrast');
+        expect(f.rank).toBe('high');
+        expect(f.known_caveat).toBeUndefined();
+        expect(f.why).not.toContain('Accessibility caveats');
+      }
+    });
+
+    it('has the command run design-map.js caveats and pass caveats in the workflow args', () => {
+      const md = require('fs').readFileSync(require('path').join(__dirname, '..', 'commands', 'audit-design.md'), 'utf8').replace(/\s+/g, ' ');
+      expect(md).toContain('design-map.js caveats --dir docs/ui/<slug>');
+      expect(md).toMatch(/Workflow\(\{ name: "audit-design", args: \{[^]*caveats: <the caveats result>/);
+      expect(md).toContain('known build-side caveat');
+      expect(md).toContain('## Accessibility caveats');
+    });
+
+    it('applies to target-size too and tells the reconcile agent to keep known caveats listed', async () => {
+      const { agent } = await run({ 'verify:visual-01-b': { ...measure(), measures: [{ board: '01-b', check: 'target-size', verdict: 'below-floor', value: '30 px', reused: true, count: 1 }] } }, { caveats: caveats(true) });
+      expect(sentFindings(agent).find((x) => x.check === 'target-size')).toMatchObject({ rank: 'low', known_caveat: true });
+      expect(byLabel(agent, 'reconcile').prompt).toMatch(/known build-side caveat/);
+    });
+  });
+
   it('ranks scores 1, 2 and 3 as high, medium and low and 4 or 5 as nothing', async () => {
     const sc = (score) => ({ board: '01-b', dimension: 'density', score, frames: ['f.png'], reason: 'r', vs_predecessor: 'same' });
     const { result } = await run({

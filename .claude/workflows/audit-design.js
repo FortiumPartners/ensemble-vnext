@@ -16,7 +16,7 @@ export const meta = {
 //
 // args: { slug, dir, brief, sources, project, map, conventions, stale, priorCnv,
 //         direction, stylePack, rubric, floor,
-//         drift, routes, systemVersions, capture, driftRubric, environment }
+//         caveats, drift, routes, systemVersions, capture, driftRubric, environment }
 //   dir         docs/ui/<slug>
 //   map         design-map.json text (the command ran `design-map.js read`)
 //   conventions the designing-on-canvas rules, as text
@@ -24,6 +24,8 @@ export const meta = {
 //   priorCnv    the previous report's ## Could Not Verify rows, or empty
 //   direction   `design-map.js direction` result (an object: latitude, floor, text) or its text; the
 //               latitude level and direction text go to the visual critics and the reuse verifier
+//   caveats     `design-map.js caveats` result { items, reused_build_side, sources }, or absent (nothing recorded);
+//               a below-floor measure on a REUSED component is a known build-side caveat only when reused_build_side is true
 //   stylePack   the style pack's SKILL.md text, or empty
 //   rubric      contract section 8 (Visual critique) text; the critics score against it
 //   floor       { contrast, target } for the render measures; defaults to direction.floor
@@ -64,6 +66,7 @@ const DIRECTION = a.direction && typeof a.direction === 'object' ? a.direction :
 const DIRECTION_TEXT = typeof a.direction === 'string' ? a.direction : (DIRECTION.text || '')
 const LATITUDE = DIRECTION.latitude || 'refine'
 const STYLE_PACK = a.stylePack || ''
+const REUSED_BUILD_SIDE = !!(a.caveats && a.caveats.reused_build_side)
 const RUBRIC = a.rubric || ''
 const FLOOR = a.floor || DIRECTION.floor || {}
 const DRIFT = a.drift === true || a.drift === 'true'
@@ -147,7 +150,7 @@ const OTHERS = LIVE.filter((b) => b.kind !== 'to-be' && !pairedAsIs.has(b.id))
 
 const MEASURE_SCHEMA = {
   type: 'object', additionalProperties: true, required: ['board', 'check'],
-  properties: { board: { type: 'string' }, check: { type: 'string' }, verdict: { type: 'string' }, value: {}, element: {}, count: {} },
+  properties: { board: { type: 'string' }, check: { type: 'string' }, verdict: { type: 'string' }, value: {}, element: {}, count: {}, reused: { type: 'boolean' } },
 }
 const DIMENSIONS = ['usability', 'hierarchy', 'craft', 'brand', 'consistency', 'responsiveness', 'states', 'copy', 'density', 'distinctiveness']
 const VISUAL_SCHEMA = {
@@ -431,7 +434,13 @@ function visualFindings(v, r) {
   for (const m of r.measures || []) {
     const base = { board: m.board, why: `${m.check} ${m.verdict}${m.detail ? ` (${m.detail})` : ''}${m.state ? ` in state ${m.state}` : ''}: ${m.value}${m.element ? ` at ${m.element}` : ''}`, confidence: 'high', source_ref: r.out }
     if (m.verdict === 'not-measured') notMeasured.push(`${m.board}: ${m.check} not measured (${m.value})`)
-    else if (m.verdict === 'below-floor' && (m.check === 'contrast' || m.check === 'target-size')) out.push({ ...base, check: m.check, rank: 'high' })
+    else if (m.verdict === 'below-floor' && (m.check === 'contrast' || m.check === 'target-size')) {
+      // A reused (library) element is build-side work: with the owner's ruling recorded it is a known
+      // caveat (low), without one it stays high and says where to record the call (#152).
+      if (m.reused && REUSED_BUILD_SIDE) out.push({ ...base, why: `known build-side caveat (reused component): ${base.why}`, check: m.check, rank: 'low', known_caveat: true })
+      else if (m.reused) out.push({ ...base, why: `${base.why}. Reused component with no accept-or-fix call recorded: record one under "## Accessibility caveats" in brief.md`, check: m.check, rank: 'high' })
+      else out.push({ ...base, check: m.check, rank: 'high' })
+    }
     else if (m.check === 'layout' && m.verdict === 'fault') out.push({ ...base, check: 'layout', rank: 'medium' })
     // A failed x-import is an off-token value naming the import (TRD §3.2).
     else if (m.check === 'fidelity' && (m.verdict === 'off-token' || m.verdict === 'import-failed')) out.push({ ...base, check: 'fidelity', rank: 'medium' })
@@ -539,7 +548,8 @@ Then list, omitting empty headings, one line per finding naming the board and li
   CAVEAT (what this run did NOT check)
 VISUAL FINDINGS are the findings with check critique, contrast, target-size, layout or fidelity; render errors keep
 their own RENDER ERRORS heading. Each carries a rank (high, medium, low), computed in code: keep it on the accepted
-finding. Check a critique finding by confirming its frame exists (the frame path is in source_ref or line) and that
+finding. A finding marked known_caveat (why starting "known build-side caveat") is the owner's recorded accept-or-fix
+call: keep it listed under VISUAL FINDINGS with that wording and rank low, and do not reject it for being known. Check a critique finding by confirming its frame exists (the frame path is in source_ref or line) and that
 its reason names an element and a change; do NOT reject a finding for being a judgement. Visual findings never raise
 the verdict above "proceed with these caveats": only a no-board or no-source finding does.
 One screen: count sourced boards on one line.`,
@@ -554,7 +564,7 @@ One screen: count sourced boards on one line.`,
           items: {
             // check is required: the drift result's undesigned_screens is read from it.
             type: 'object', additionalProperties: false, required: ['board', 'why', 'check'],
-            properties: { board: { type: 'string' }, line: { type: 'string' }, check: { type: 'string' }, why: { type: 'string' }, rank: { type: 'string', enum: ['high', 'medium', 'low'] } },
+            properties: { board: { type: 'string' }, line: { type: 'string' }, check: { type: 'string' }, why: { type: 'string' }, rank: { type: 'string', enum: ['high', 'medium', 'low'] }, known_caveat: { type: 'boolean' } },
           },
         },
         rejected: {

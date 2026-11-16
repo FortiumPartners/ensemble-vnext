@@ -20,6 +20,10 @@
  *     --items: boards that serve those brief items, as { boards, unmatched, held }; an item no returned
  *     board serves is listed in `unmatched` with the boards that record it; an empty value is an error.
  *     Without --items, `buildable` prints a board array as before.
+ *   node .claude/lib/design-map.js republished --dir docs/ui/<slug> --kind canvas|system --new <url> [--old <url>]
+ *     records that the recorded canvas (or design system) was republished at a new URL; see republished().
+ *   node .claude/lib/design-map.js caveats --dir docs/ui/<slug>
+ *     reads (never writes) the brief's `## Accessibility caveats` bullets and design.md section 4; see caveats().
  *   node .claude/lib/design-map.js unsynced --all [--trd <path>]   (scans every design under docs/ui)
  *   node .claude/lib/design-map.js setup [--dir <project>] [--file <design.md path>]   (--file: e.g. owner-rules.js path design.md)
  *   ... unsynced ... --merged-into <ref> [--merged-head <sha>]   (only boards whose feature's audited commit is merged)
@@ -508,6 +512,38 @@ function direction(projectDir, { style } = {}) {
   };
 }
 
+/**
+ * The owner's recorded accept-or-fix calls on accessibility, read from two places and never written:
+ * the bullets of brief.md's `## Accessibility caveats` section (in order) and the line of design.md
+ * section 4 that calls reused or library components build-side work. `reused_build_side` is true when
+ * either is present. A missing file or heading, or an unfilled design.md, gives an empty result.
+ * Example: caveats('docs/ui/checkout').reused_build_side // true when the brief lists a caveat
+ */
+function caveats(dir, { root = '.' } = {}) {
+  const sectionOf = (lines, re) => {
+    const at = lines.findIndex((l) => re.test(l));
+    if (at < 0) return [];
+    const end = lines.findIndex((l, i) => i > at && /^## /.test(l));
+    return lines.slice(at + 1, end < 0 ? undefined : end);
+  };
+  const lines = (file) => {
+    try { return normText(fs.readFileSync(file, 'utf8')).split('\n'); } catch { return null; }
+  };
+  const sources = [];
+  const brief = lines(path.join(dir, 'brief.md'));
+  // "None" under the heading is an answer, not a caveat.
+  const items = brief ? sectionOf(brief, /^##\s+Accessibility caveats\s*$/i)
+    .map((l) => /^\s*(?:[-*+]|\d+[.)])\s+(.+?)\s*$/.exec(l))
+    .filter((m) => m && !/^(none|n\/a|nothing)\.?$/i.test(m[1]))
+    .map((m) => m[1]) : [];
+  if (items.length) sources.push(path.join(dir, 'brief.md'));
+  const rules = lines(path.join(root, DESIGN_RULES));
+  const ruling = rules ? sectionOf(rules, /^## 4\. Design rules/)
+    .find((l) => /(?:reused|library)[^.\n]*components?[^.\n]*build[- ]side|build[- ]side[^.\n]*(?:reused|library)[^.\n]*components?/i.test(l)) : undefined;
+  if (ruling) sources.push(path.join(root, DESIGN_RULES));
+  return { items, reused_build_side: items.length > 0 || !!ruling, sources };
+}
+
 /** SKILL.md paths of the skills framework-skills.txt marks `design`, style packs excluded. */
 function craftSkills(projectDir) {
   const roles = frameworkSkillRoles(projectDir) || {};
@@ -594,6 +630,46 @@ async function approve(dir, { ids, commit, runtime, reapprove = false, message, 
   return { commit, approved: moved, kept, rendered, renderSkipped, errors };
 }
 
+/**
+ * Record that a canvas or the design system was republished at a new URL because the recorded one
+ * could not be read (not found, or no access for this account). Returns the updated map and writes
+ * it; throws, writing nothing, when the old URL is not in the map or the result would not validate.
+ *
+ * canvas: sets the entry's `url`, keeps the old one as `previous_url`, repoints every board whose
+ *   `canvas` was the old URL, and clears `version`, `synced_at`, `files` and the legacy
+ *   `synced_version`. The new canvas has no sync base, so `design-mirror.js check` reads `changed`
+ *   until `design-mirror.js record` stores one. `old` may be omitted only when there is one canvas.
+ * system: sets `design_system.url` and `previous_url` (`old` defaults to the current url).
+ *
+ * Example: republished('docs/ui/checkout', { kind: 'canvas', old: 'https://a/1', new: 'https://a/2' })
+ */
+function republished(dir, { kind, old, new: next }) {
+  if (!next || typeof next !== 'string') throw new Error('republished needs --new <url>');
+  const map = read(dir);
+  if (kind === 'canvas') {
+    const canvases = map.canvases || [];
+    const entry = old ? canvases.find((c) => c.url === old) : (canvases.length === 1 ? canvases[0] : undefined);
+    if (!entry) throw new Error(old ? `no canvas with url ${old} in the design map` : 'several canvases: --old <url> says which one was republished');
+    if (canvases.some((c) => c !== entry && c.url === next)) throw new Error(`canvas ${next} is already listed in the design map`);
+    const from = entry.url;
+    for (const b of map.boards || []) if (b.canvas === from) b.canvas = next;
+    entry.previous_url = from;
+    entry.url = next;
+    for (const f of ['version', 'synced_at', 'files', 'synced_version']) delete entry[f];
+  } else if (kind === 'system') {
+    if (!map.design_system) throw new Error('the design map has no design_system');
+    if (old && map.design_system.url !== old) throw new Error(`design_system.url is not ${old}`);
+    map.design_system.previous_url = map.design_system.url;
+    map.design_system.url = next;
+  } else {
+    throw new Error('--kind must be canvas or system');
+  }
+  const errors = validate(map);
+  if (errors.length) throw new Error(`the map would not validate: ${errors.join('; ')}`);
+  write(dir, map);
+  return map;
+}
+
 function parseArgs(argv) {
   const [verb, ...rest] = argv;
   const opts = {};
@@ -646,6 +722,8 @@ async function main(argv) {
       write(opts.dir, next);
       return next;
     }
+    case 'caveats': return caveats(opts.dir);
+    case 'republished': return republished(opts.dir, { kind: opts.kind, old: opts.old, new: opts.new });
     case 'approve': return approve(opts.dir, {
       ids: idList(opts.ids), commit: opts.commit, runtime: opts.runtime, reapprove: !!opts.reapprove, message: opts.message,
     });
@@ -653,7 +731,7 @@ async function main(argv) {
   }
 }
 
-module.exports = { read, write, validate, derive, refresh, transition, stale, approved, buildable, buildableByItems, held, unsynced, unsyncedAll, setup, direction, approve, parseArgs, KINDS, STATUSES };
+module.exports = { read, write, validate, derive, refresh, transition, stale, approved, buildable, buildableByItems, held, unsynced, unsyncedAll, setup, direction, caveats, approve, republished, parseArgs, KINDS, STATUSES };
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(

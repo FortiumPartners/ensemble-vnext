@@ -32,7 +32,7 @@ and never publishes. Findings are for the owner to act on with `/refine-design`.
 | `traceability` | A board with no source (the verifier). A brief item with no board, and a to-be board serving no brief item, are decided in code from the map's `brief_items` (the workflow only; when no board records the field the verifier decides no-board and the second check is skipped, with a Could Not Verify row). |
 | `conventions` | Boards against the canvas conventions (`designing-on-canvas`). |
 | `reuse` | A component drawn by hand when the design system or codebase already has one. |
-| `visual` | One per screen (a to-be board with its as-is board, paired by the id `<id>--as-is`), and one for parts, flow boards and an as-is board with no to-be. It renders with `design-render.js` into a scratch folder, never `screens/png/` or anywhere under `docs/ui/<slug>/`, relays the render errors and measured values, and scores the to-be board on the ten dimensions of contract section 8 against its as-is board. Parts, flow and as-is boards are measured, never scored. Findings are ranked in code (render error and below-floor contrast or target high; layout fault and off-token value medium; score 1 high, 2 medium, 3 low) and listed under `VISUAL FINDINGS`; they never raise the verdict above "proceed with these caveats". |
+| `visual` | One per screen (a to-be board with its as-is board, paired by the id `<id>--as-is`), and one for parts, flow boards and an as-is board with no to-be. It renders with `design-render.js` into a scratch folder, never `screens/png/` or anywhere under `docs/ui/<slug>/`, relays the render errors and measured values, and scores the to-be board on the ten dimensions of contract section 8 against its as-is board. Parts, flow and as-is boards are measured, never scored. Findings are ranked in code (render error and below-floor contrast or target high; layout fault and off-token value medium; score 1 high, 2 medium, 3 low) and listed under `VISUAL FINDINGS`; they never raise the verdict above "proceed with these caveats". A below-floor measure on a reused component (the measure carries `reused: true`) is ranked low and marked "known build-side caveat (reused component)" when `caveats.reused_build_side` is true, and stays high, with a hint to record the call under `## Accessibility caveats` in `brief.md`, when it is not; the known caveats are listed under `VISUAL FINDINGS` with that wording. |
 
 **`--drift`** (AC-F13.7, runnable at any time, usually after `/sync-design`) adds verifiers:
 
@@ -79,9 +79,11 @@ zero findings is a legitimate result.
    (Visual critique) text. The render uses the pinned runtime, so no runtime is read or saved. Add the
    ISSUES lines section 1 step 7 asks for, and one when the visual critique did not run (a critic
    with no report, or a missing Playwright or Chromium).
+   **Read the recorded accessibility caveats:** `node .claude/lib/design-map.js caveats --dir docs/ui/<slug>`
+   (read-only; returns `{ items, reused_build_side, sources }`) and pass the result as `caveats`.
 3. **Run the workflow once:**
    ```
-   Workflow({ name: "audit-design", args: { slug: "<slug>", dir: "docs/ui/<slug>", brief: "docs/ui/<slug>/brief.md", sources: "<sources path or empty>", project: "<dir or empty>", map: "<design-map.json text>", conventions: "<text or empty>", stale: <stale result>, priorCnv: [<prior rows>], direction: <the direction result>, stylePack: "<style-pack text or empty>", rubric: "<contract section 8 text>", floor: <the direction result's floor> } })
+   Workflow({ name: "audit-design", args: { slug: "<slug>", dir: "docs/ui/<slug>", brief: "docs/ui/<slug>/brief.md", sources: "<sources path or empty>", project: "<dir or empty>", map: "<design-map.json text>", conventions: "<text or empty>", stale: <stale result>, priorCnv: [<prior rows>], direction: <the direction result>, stylePack: "<style-pack text or empty>", rubric: "<contract section 8 text>", floor: <the direction result's floor>, caveats: <the caveats result> } })
    ```
    **With `--drift`**, add `"drift": true` and five more inputs only this session can supply:
    `routes` (the product's routes from `.claude/rules/design.md`, or empty), `systemVersions`
