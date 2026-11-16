@@ -5996,3 +5996,173 @@ describe('verify-functional: mirror parity', () => {
     expect(mirrored).toBe(SOURCE);
   });
 });
+
+// --------------------------------------------------------------------------- evidence-only and Core must-pass (CBD-B004, D13, D14)
+
+describe('verify-functional: evidence-only criteria and Core must-pass ids', () => {
+  const three = [criterion('FS-1'), criterion('FS-2'), criterion('FS-3')];
+  const met = (id) => ({ id, status: 'met', tier1: 'pass', artifact: `${id}.png`, reason: null, files: [] });
+  const notMet = (id, extra = {}) => ({ id, status: 'not_met', tier1: 'fail', artifact: null, reason: 'pixels differ', cause: 'wrong-output', files: ['src/a.js'], ...extra });
+  const gapFor = (id) => ({ id, statement: `statement for ${id}`, reason: 'pixels differ', artifact: null, files: ['src/a.js'] });
+  const claims = () => exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }, { criterion: 'FS-3', artifact: 'c' }]);
+
+  function run({ judges, args = {} }) {
+    let n = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return claims();
+      if (opts.label === 'judge') return judges[Math.min(n++, judges.length - 1)];
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-3', addressed: true, result: 'tried' }], filesChanged: [] };
+      return null;
+    });
+    return runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: three, ...args }) }).then((r) => ({ ...r, agent }));
+  }
+  const debugCalls = (agent) => agent.calls.filter((c) => c.opts.label === 'debug');
+
+  it('settles an evidence-only build defect, never dispatches Debug for it, and returns satisfied', async () => {
+    const judge = satisfiedJudge({
+      action: 'remediate',
+      reason: 'FS-3 not met',
+      criteria: [met('FS-1'), met('FS-2'), notMet('FS-3')],
+      gaps: ['FS-3'],
+      debugGaps: [gapFor('FS-3')],
+    });
+    // The Judge's next call would be a satisfied exit; the first already shows no gap to fix.
+    const { result, agent } = await run({ judges: [judge, satisfiedJudge({ criteria: [met('FS-1'), met('FS-2'), met('FS-3')] })], args: { evidenceOnlyIds: ['FS-3'] } });
+    expect(debugCalls(agent)).toHaveLength(0);
+    expect(result.outcome).toBe('satisfied');
+    expect(result.gaps).not.toContain('FS-3');
+    const fs3 = result.criteria.find((c) => c.id === 'FS-3');
+    expect(fs3).toMatchObject({ status: 'not_met', settled: 'evidence-only' });
+  });
+
+  it('an evidence-only not_met on an exit is not a gap, not a follow-up under must-pass only, and settled', async () => {
+    const judge = satisfiedJudge({ criteria: [met('FS-1'), met('FS-2'), notMet('FS-3')], gaps: ['FS-3'] });
+    const { result } = await run({
+      judges: [judge],
+      args: { evidenceOnlyIds: ['FS-3'], mustPassIds: ['FS-1', 'FS-2'], blocking: 'must-pass' },
+    });
+    expect(result.outcome).toBe('satisfied');
+    expect(result.gaps).toEqual([]);
+    expect(result.nonBlocking).toEqual([]);
+    expect(result.criteria.find((c) => c.id === 'FS-3').settled).toBe('evidence-only');
+  });
+
+  it('does not offer an evidence-only id for re-capture, and the next Judge prompt lists it as settled', async () => {
+    const first = satisfiedJudge({
+      action: 'remediate',
+      reason: 'FS-2 not met',
+      criteria: [met('FS-1'), notMet('FS-2', { cause: 'wrong-output' }), notMet('FS-3', { cause: 'screenshot-missing' })],
+      gaps: ['FS-2', 'FS-3'],
+      debugGaps: [gapFor('FS-2'), gapFor('FS-3')],
+    });
+    const prompts = [];
+    let n = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return claims();
+      if (opts.label === 'judge') {
+        prompts.push(prompt);
+        return n++ === 0 ? first : satisfiedJudge({ criteria: [met('FS-1'), met('FS-2')] });
+      }
+      if (opts.label === 'debug') return { results: [{ cause: 'criterion:FS-2', addressed: true, result: 'tried' }], filesChanged: [] };
+      return null;
+    });
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: three, evidenceOnlyIds: ['FS-3'] }) });
+    const exercises = agent.calls.filter((c) => c.opts.label === 'exercise');
+    expect(exercises[1].prompt).not.toContain('FS-3');
+    expect(prompts[1]).toMatch(/"settledEvidenceGaps":<\["FS-3"\]/);
+    // FS-2, the ordinary not_met beside it, did go to Debug.
+    expect(debugCalls(agent)).toHaveLength(1);
+  });
+
+  it('the Judge prompt carries "evidenceOnly": and "coreMustPass": with the ids, and the settled enum names evidence-only', async () => {
+    const { agent } = await run({
+      judges: [satisfiedJudge({ criteria: [met('FS-1'), met('FS-2'), met('FS-3')] })],
+      args: { evidenceOnlyIds: ['FS-3'], mustPassIds: ['FS-1', 'FS-2'], coreMustPassIds: ['FS-1'] },
+    });
+    const prompt = agent.calls.find((c) => c.opts.label === 'judge').prompt;
+    expect(prompt).toContain('"evidenceOnly":["FS-3"]');
+    expect(prompt).toContain('"coreMustPass":["FS-1"]');
+    expect(prompt).toMatch(/decide-next throws without them/);
+    expect(prompt).toContain('"evidence-only"');
+    expect(prompt).toContain('"evidenceOnly": ["FS-3"]'); // the report input literal
+    expect(SOURCE).toMatch(/enum: \['definition-problem', 'regression-unchecked', 'evidence-only', null\]/);
+  });
+
+  it('absent args put empty lists in the payload', async () => {
+    const { agent } = await run({ judges: [satisfiedJudge({ criteria: [met('FS-1'), met('FS-2'), met('FS-3')] })] });
+    const prompt = agent.calls.find((c) => c.opts.label === 'judge').prompt;
+    expect(prompt).toContain('"evidenceOnly":[],"coreMustPass":[]');
+  });
+
+  it('coverage is counted over the other criteria, with the evidence-only count beside it', async () => {
+    const judge = satisfiedJudge({ criteria: [met('FS-1'), met('FS-2'), notMet('FS-3')], gaps: ['FS-3'] });
+    const { result } = await run({ judges: [judge], args: { evidenceOnlyIds: ['FS-3'] } });
+    expect(result.coverage).toEqual({ proven: 2, total: 2, uncovered: [], evidenceOnly: 1 });
+  });
+
+  it('without the arg, coverage counts every criterion and carries no evidenceOnly key', async () => {
+    const { result } = await run({ judges: [satisfiedJudge({ criteria: [met('FS-1'), met('FS-2'), met('FS-3')] })] });
+    expect(result.coverage).toEqual({ proven: 3, total: 3, uncovered: [] });
+  });
+
+  it('a met evidence-only id that regresses in the regression pass is not sent to Debug', async () => {
+    // Iteration 1 proves FS-1 and FS-3 and fails FS-2 (Debug runs for it). The exit's regression pass
+    // re-checks the proven ones: FS-3 regresses, FS-1 holds.
+    const first = satisfiedJudge({
+      action: 'remediate',
+      reason: 'FS-2 not met',
+      criteria: [met('FS-1'), notMet('FS-2'), met('FS-3')],
+      gaps: ['FS-2'],
+      debugGaps: [gapFor('FS-2')],
+    });
+    const exit = satisfiedJudge({ criteria: [met('FS-2')] });
+    const regression = satisfiedJudge({ criteria: [met('FS-1'), notMet('FS-3')], gaps: ['FS-3'] });
+    const { result, agent } = await run({
+      judges: [first, exit, regression],
+      args: { evidenceOnlyIds: ['FS-3'] },
+    });
+    const sent = debugCalls(agent).map((c) => c.prompt).join('\n');
+    expect(sent).not.toContain('FS-3');
+    expect(result.outcome).toBe('satisfied');
+    expect(result.gaps).not.toContain('FS-3');
+  });
+
+  // A stalled exit whose only open failure is outside the must-pass set becomes satisfied when the
+  // must-pass-only policy is active, and stays stalled when it is not.
+  const stalledOnFs2 = () => satisfiedJudge({ action: 'exit-stalled', reason: 'FS-2 did not move', criteria: [met('FS-1'), notMet('FS-2'), met('FS-3')], gaps: ['FS-2'] });
+
+  it('under Blocking: must-pass with every must-pass id Core, an ordinary not_met still blocks (the policy is not active)', async () => {
+    const { result } = await run({
+      judges: [stalledOnFs2()],
+      args: { mustPassIds: ['FS-1'], coreMustPassIds: ['FS-1'], blocking: 'must-pass' },
+    });
+    expect(result.outcome).toBe('stalled');
+    expect(result.nonBlocking).toEqual([]);
+  });
+
+  it('under Blocking: must-pass with a non-Core must-pass id the policy is active and an ordinary not_met is let through', async () => {
+    const { result } = await run({
+      judges: [stalledOnFs2()],
+      args: { mustPassIds: ['FS-1', 'FS-3'], coreMustPassIds: ['FS-1'], blocking: 'must-pass' },
+    });
+    expect(result.outcome).toBe('satisfied');
+    expect(result.nonBlocking.map((n) => n.id)).toEqual(['FS-2']);
+  });
+
+  describe('arg validation, before any agent runs', () => {
+    const bad = [
+      ['evidenceOnlyIds not an array', { evidenceOnlyIds: 'FS-2' }, /args\.evidenceOnlyIds/],
+      ['evidenceOnlyIds holding a non-string', { evidenceOnlyIds: ['FS-2', 7] }, /args\.evidenceOnlyIds/],
+      ['evidenceOnlyIds naming an id not in criteria', { evidenceOnlyIds: ['FS-9'] }, /args\.evidenceOnlyIds names FS-9/],
+      ['evidenceOnlyIds also in mustPassIds', { evidenceOnlyIds: ['FS-2'], mustPassIds: ['FS-2'] }, /evidenceOnlyIds and args\.mustPassIds both list FS-2/],
+      ['coreMustPassIds not an array', { coreMustPassIds: 'FS-2' }, /args\.coreMustPassIds/],
+      ['coreMustPassIds holding an empty string', { coreMustPassIds: [''] }, /args\.coreMustPassIds/],
+      ['coreMustPassIds naming an id not in mustPassIds', { coreMustPassIds: ['FS-2'], mustPassIds: ['FS-1'] }, /args\.coreMustPassIds names FS-2/],
+    ];
+    it.each(bad)('%s throws', async (_name, overrides, pattern) => {
+      const agent = makeAgentStub(() => satisfiedJudge());
+      await expect(runWorkflow(SOURCE, { agent, args: baseArgs(overrides) })).rejects.toThrow(pattern);
+      expect(agent.calls).toHaveLength(0);
+    });
+  });
+});

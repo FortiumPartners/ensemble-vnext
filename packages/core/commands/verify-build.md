@@ -339,7 +339,9 @@ sweep file (chained or not) the feature is `<slug>-sweep`.
 **Identical to `/implement-trd` §8.1b — read that section and follow it.** `criteria` now
 exists (step 3 or 3a); select the checks the TRD's `## Verification Artifacts` section names
 (or the same defaults §8.1b applies when it is absent or silent), append their rows, and
-resolve `checks`, `checkComments` and `pagesDir` exactly as §8.1b documents.
+resolve `checks`, `checkComments` and `pagesDir` exactly as §8.1b documents. **Stop before
+§8.1b's last two steps** (the must-pass-coverage read and the class cross-check): they run at step
+3c, once, so they are not run twice.
 
 **Under `--criteria`, skip this step entirely** (no check-skill rows; `checks` is `{}`,
 `checkComments` `[]`, `pagesDir` still set, under `reverify/`).
@@ -372,22 +374,26 @@ nothing is dispatched. Under `--chained` it ends on the `RETURN → STUCK: <reas
 Under `--criteria` the policy is passed as read; it changes nothing there because the subset is
 must-pass criteria.
 
-**Must-pass coverage — identical to `/implement-trd` §8.1; read that section and follow it.** For
-a TRD, run `node .claude/lib/functional-verification.js must-pass-coverage --trd <TRD> --definition
-.trd-state/<feature>/success-definition.md` and hold its `criteria` as `mustPassIds` and its
-`uncovered` as `mustPassUncovered`, unchanged — never read the `Must pass` column yourself. A
-sweep file has no TRD and declares no must-pass (D19): skip the call and use `[]` for both.
+**Must-pass coverage — identical to `/implement-trd` §8.1b steps 7 and 8; read them and follow
+them.** For a TRD, run `node .claude/lib/functional-verification.js must-pass-coverage --trd <TRD>
+--definition .trd-state/<feature>/success-definition.md` and hold its `criteria` as `mustPassIds`,
+its `uncovered` as `mustPassUncovered`, its `evidenceOnly` as `evidenceOnly` (sent as
+`evidenceOnlyIds`) and its `coreCriteria` as `coreCriteria` (sent as `coreMustPassIds`), unchanged
+— never read the `Must pass` or `Board class` column yourself — then run §8.1b's class cross-check
+against step 3b's `comparisonRows`. A sweep file has no TRD and declares no must-pass (D19): skip
+the call and use `[]` for all four.
 
 **Under `--criteria`, 3c's coverage floor and must-pass are overridden** — a subset is not the
 whole definition, so a floor measured over it is meaningless: `coverageFloor` is `null`,
-`mustPassIds` is the must-pass-coverage `criteria` restricted to the named ids, and
-`mustPassUncovered` is `[]`. `fullRunCommand` is `""` (no end-of-run full deploy).
+`mustPassIds` is the must-pass-coverage `criteria` restricted to the named ids,
+`evidenceOnlyIds` is `evidenceOnly` and `coreMustPassIds` is `coreCriteria`, each restricted to the
+named ids too, and `mustPassUncovered` is `[]`. `fullRunCommand` is `""` (no end-of-run full deploy).
 `preclassified` is `[]` (D25: a subset is not the whole definition, and the workflow throws on a
 preclassified id that is not in `criteria`).
 
 ### 4. Dispatch
 
-All 32 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
+All 34 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
 command's own resolution (Steps 1–3c), not copied from `/implement-trd`:
 
 `criterionCovers` is derived first, from the definition as it now stands (after Step 3 or 3a
@@ -454,6 +460,8 @@ Workflow({ name: "verify-functional", args: {
   pagesDir,                                                       // resolved per implement-trd.md §8.1b (step 3b here) -- ".trd-state/<feature>/verification-artifacts"; always set
   mustPassIds,                                                   // must-pass-coverage's `criteria`, unchanged (step 3c here); [] for a sweep file or when none is declared
   mustPassUncovered,                                             // must-pass-coverage's `uncovered` ([{id, text}]), unchanged (step 3c here); [] for a sweep file or when none
+  evidenceOnlyIds,                                               // must-pass-coverage's `evidenceOnly` (step 3c here); [] for a sweep file or when none
+  coreMustPassIds,                                               // must-pass-coverage's `coreCriteria` (step 3c here), a subset of mustPassIds; [] for a sweep file or when none
   verificationDigest,                                            // resolved per implement-trd.md §8.1a step 8 (step 3c here) -- verification-digest's `digest`; "" when verification.md is absent
   preclassified,                                                 // resolved per implement-trd.md §8.1a step 8 (step 3c here) -- preclassify's output; [] when none
   offHostProofs,                                                 // `node .claude/lib/functional-verification.js off-host-proofs` (see above) -- its `proofs`, fresh before every dispatch; [] for a sweep file, when none is declared or the call fails
@@ -465,11 +473,11 @@ Workflow({ name: "verify-functional", args: {
 **Under `--criteria`**, apply the "`--criteria`" section's overrides to the fields above:
 `feature` stays `<feature>`, but `evidenceDir`, `statePath`, `reportPath` and `pagesDir` sit
 under `.trd-state/<feature>/reverify/`, `cap` is `1`, `criteria` is the filtered subset, and
-`checks`, `fullRunCommand`, `coverageFloor`, `mustPassIds` and `mustPassUncovered` are as above,
+`checks`, `fullRunCommand`, `coverageFloor`, `mustPassIds`, `evidenceOnlyIds`, `coreMustPassIds` and `mustPassUncovered` are as above,
 and `preclassified` is `[]` (a subset is not the whole definition).
 After this dispatch, the "`--criteria`" section's one retry may dispatch the workflow once more
 into `.trd-state/<feature>/reverify/retry/`.
-`criterionCovers` is the one field the regression pass added: the list is the 32 fields, `blockingNote` last.
+`criterionCovers` is the one field the regression pass added: the list is the 34 fields, `blockingNote` last.
 
 ### 5. Report
 
@@ -680,7 +688,7 @@ belong to its full run, so a subset must never overwrite them. Under it:
   timestamp: a ruling stands until superseded. Only the rulings are read; the plan's fixes and
   stop rule are ignored and the run still builds nothing.
 - **Only the named criteria**: read the feature's `success-definition.md` (present, as for any
-  run), then filter `criteria` to the named ids. Restrict `mustPassIds` to them, call `off-host-proofs` with `--ids <the named ids>`,
+  run), then filter `criteria` to the named ids. Restrict `mustPassIds`, `evidenceOnlyIds` and `coreMustPassIds` to them, call `off-host-proofs` with `--ids <the named ids>`,
   `mustPassUncovered: []`, `preclassified: []` (D25: a subset is not the whole definition; D12
   throws on an id outside `criteria`), `coverageFloor: null` (no coverage floor).
 - **One retry, no Debug**: a re-proof can fail on a flaky first look, so it gets at most once
@@ -688,8 +696,8 @@ belong to its full run, so a subset must never overwrite them. Under it:
   `node .claude/lib/functional-verification.js reproof-retry-set .trd-state/<feature>/reverify/verification-state.json`.
   An empty `retry` list means no retry: report as today. Otherwise remove
   `.trd-state/<feature>/reverify/retry/` left by any earlier re-proof, then dispatch the
-  `verify-functional` workflow once more, with the same 32 fields except: `criteria` is the
-  retry set, `mustPassIds` is restricted to it, `offHostProofs` is recomputed with `--ids <retry set>`, `resume: null`, `preclassified: []`, `statePath`, `reportPath`,
+  `verify-functional` workflow once more, with the same 34 fields except: `criteria` is the
+  retry set, `mustPassIds`, `evidenceOnlyIds` and `coreMustPassIds` are restricted to it, `offHostProofs` is recomputed with `--ids <retry set>`, `resume: null`, `preclassified: []`, `statePath`, `reportPath`,
   `evidenceDir` and `pagesDir` all sit under `.trd-state/<feature>/reverify/retry/`, and
   `since` recomputed as the later of the HEAD commit time and the retry's own start. `cap` stays
   `1` and `--no-fix` holds: no Debug pass, no code edit and no build. Then run

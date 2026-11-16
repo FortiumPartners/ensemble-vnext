@@ -99,4 +99,9 @@ describe('audit-design --drift prose', () => {
     expect(auditDesign).toMatch(/scratch folder/);
     expect(auditDesign).toMatch(/lists each undesigned screen for `\/create-design`/);
   });
+
+  test('the new as-is board carries no core key (CBD-B006)', () => {
+    const raw = fs.readFileSync(path.join(__dirname, 'sync-design.md'), 'utf8').replace(/\s+/g, ' ');
+    expect(raw).toMatch(/The new as-is board carries no `core` key/);
+  });
 });

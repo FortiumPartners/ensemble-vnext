@@ -83,4 +83,12 @@ describe('audit-design command prose', () => {
     expect(text).toMatch(/never under `docs\/ui\/<slug>\/`, and the scratch frames stay out of the tree/);
     expect(text).toMatch(/never `screens\/png\/` or anywhere under `docs\/ui\/<slug>\/`/);
   });
+
+  test('reads the Core set read-only and reports it (CBD-B006, D22)', () => {
+    expect(text).toMatch(/design-map\.js core --dir docs\/ui\/<slug>\s+node/);
+    expect(text).not.toContain('core --dir docs/ui/<slug> --ids');
+    expect(text).toMatch(/over the cap, or any `core` validation error, is an \*\*ISSUES\*\* line pointing at `\/refine-design`/);
+    expect(text).toContain('legacy: every screen board reads Core');
+    expect(text).toMatch(/the only additions are STATE lines about the report itself and this command's own Core lines/);
+  });
 });

@@ -72,6 +72,16 @@ describe('packages/skills/designing-on-canvas/SKILL.md', () => {
     expect((section.match(/^\d+\. /gm) || []).length).toBe(7);
   });
 
+  test('states the Core marker in an unnumbered paragraph under Conventions (D19)', () => {
+    const section = parsed.body.split(/^## Conventions$/m)[1].split(/^## /m)[0];
+    expect(section).toContain('[Core] ');
+    expect(section).toContain('core-marks');
+    expect(section).toMatch(/after the agent writes the plain title/);
+    expect(section.match(/^\d+\. [^\n]*\[Core\]/m)).toBeNull();
+    const never = parsed.body.split(/^## Never$/m)[1];
+    expect(never).toMatch(/Type the `\[Core\] ` marker/);
+  });
+
   test('says the rules come live from the Design type, via a canvas url, and are not in the skill (AC-F7.2, NG4)', () => {
     expect(parsed.body).toContain('artifact-type/reference/');
     expect(parsed.body).toMatch(/type_url[^\n]*(only|just)[^\n]*SKILL\.md/);

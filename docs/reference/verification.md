@@ -154,6 +154,7 @@ Contract, "Deriving the success definition":
 | Tier 1 | `locator` (default; blank reads as this) or `judge-only — <why no text assertion is possible>` | `tier1` |
 | Parts | A count, only when the statement itself names one ("each of the 32 frames"). Blank never means 1. Nothing downstream reads it yet | not parsed |
 | Must pass | The id or ids of the TRD `## Objectives` rows (the ones marked `yes` in that table's own `Must pass` column) this criterion proves, e.g. `O3` or `O3, O4`. Blank, or an absent column, means ordinary. The deriver marks it (**model**); on the spec path `spec-scope.js criteria --trd` copies it (**code**); a sweep file's column stays blank. `must-pass-coverage` reads it by header name (**code**) | by `must-pass-coverage`, not by the criteria parser |
+| Board class | Optional, only on `verify-design-comparison` rows built from a design map: `core` (the default-state frame of a Core board), `evidence-only` (every other frame) or blank (ordinary: a handoff with no map, and every other row). `design-criteria.js comparison-rows` decides it (**code**, [design.md](design.md)); nothing else writes it. Read by header name by `must-pass-coverage` (**code**), which normalises case and `**`/backticks; any other value is ordinary and reported. A `core` row is must-pass without naming an objective, so it is never uncovered and needs no `Must pass` cell. An `evidence-only` row is shown for review and never blocks (§9). An `evidence-only` row whose `Must pass` cell names a declared must-pass objective stays must-pass and is reported | by `must-pass-coverage`, not by the criteria parser |
 
 **Tier 1** is the deterministic evidence check that runs before any agent reads the evidence
 (§8). Which kind a row gets is decided when the definition is written, never by the exerciser: `judge-only` is
@@ -196,6 +197,8 @@ flowchart TD
 | 4 | Re-read `success-definition.md`, keep every derived row verbatim, **replace** all `check:` rows with the fresh set, add `Tier 1`/`Parts` columns if missing, set `**Check criteria**: <n>` | model | §8.1b step 4 |
 | 5 | `checks[<skill>]` = the skill's SKILL.md text. Read open comment threads on each check's published page (`ArtifactComments`), mapping a thread to a criterion when it names the card's ID label. Failure = `[]`, never STUCK | model | §8.1b step 5 |
 | 6 | Drop `check:` entries §8.1 already parsed, then append the new ones (else each counts twice) | model | §8.1b step 6 |
+
+A selected `verify-design-comparison` whose design folder holds a `design-map.json` does not have its rows written from the skill's Criteria section at step 3: `/implement-trd` and `/verify-build` run `design-criteria.js comparison-rows --dir docs/ui/<slug>` and use its rows (**code**), then read the classes back with `must-pass-coverage` and check that the sets agree (§8.1b steps 7 and 8). A design with no map keeps the model-written rows, `Board class` blank.
 
 Check rows follow the ordinary rules with three exceptions (contract, "Check criteria"): the
 deriver never writes one; `Cites` names the design input rather than a source line; and **a
@@ -410,7 +413,7 @@ next round, never built against.
 | Order | Condition | Action → outcome |
 |---|---|---|
 | 1 | any criterion `unbuilt` | `exit-unbuilt` → **unbuilt** (wins even over zero gaps) |
-| 2 | no `not_met` gaps (after removing `settledEvidenceGaps` and `awaitingRegression`, both required inputs) | `exit-satisfied` → **satisfied** |
+| 2 | no `not_met` gaps (after removing `settledEvidenceGaps`, `awaitingRegression` and `evidenceOnly`, all required inputs) | `exit-satisfied` → **satisfied** |
 | 3 | `refreshFailed`: the last Debug pass's refresh ran and exited non-zero | `exit-setup-failure` → **setup-failure** |
 | 4 | last iteration had gaps and this one closed none, and closed no cause either (`closedCauses`, from the required `causes` and `previousCauses`) | `exit-stalled` → **stalled** |
 | 5 | `iteration >= cap` (default 3; `--cap N` on `/verify-build`) | `exit-stuck` → **stuck** |
@@ -424,7 +427,21 @@ set, `total > 0`, and `met / total` is below it, the action becomes `exit-insuff
 ratio and the base cause in the reason. It never re-labels `unbuilt` (the truer statement) or
 `remediate` (it must not stop a run that is converging) or `setup-failure` (the environment,
 not coverage, is the truer statement). Missing `gaps`, `unbuilt`, `met`, `mustPass`,
-`mustPassUncovered` or `refreshFailed` throws rather than defaulting.
+`mustPassUncovered`, `refreshFailed`, `evidenceOnly` or `coreMustPass` throws rather than
+defaulting.
+
+**Evidence-only rows** (the `Board class` column, §4). `evidenceOnly` lists the ids of
+comparison rows that are shown for review and never block. `decideNext` takes them out of
+`gaps` and `previousGaps` up front, so an unmet one is not a gap, counts as no closure and holds
+the run to no cap. They leave **both sides** of the coverage ratio: with 3 Core frames met and
+4 state frames unmet, the ratio is 3/3, not 3/7. `unbuilt` is not filtered. An id in both
+`evidenceOnly` and `mustPass` throws. The workflow settles an evidence-only `not_met` the
+iteration it is ruled (`settled: "evidence-only"`): never sent to Debug, never put in a
+re-capture list, never filed as a follow-up under `Blocking: must-pass only`. Its card stays on
+the page, and the report carries an **Evidence only** line (§10). `coreMustPass` lists the
+`mustPass` ids that are must-pass only because their class is `core` (a subset of `mustPass`;
+anything else throws): they block under both blocking policies, but they never switch the
+`must-pass only` waiver on (next section).
 
 **Then the must-pass step** (**code**, `decideNext`). It runs after the re-label and sees its
 result. A must-pass criterion is unproven when it is not in `met`; a must-pass objective is
@@ -464,7 +481,12 @@ with the returned outcome.
 `not_met` criterion that proves no must-pass objective does not block, but it is not dropped:
 each is filed as a defect issue in the project's declared tracker (GitHub, Linear or Jira), and
 the run reports `satisfied`. The setting needs a declared tracker and nothing else; with none
-declared or reachable the run blocks as under `all criteria`.
+declared or reachable the run blocks as under `all criteria`. Two classes of design-comparison row
+sit outside that rule. A `core` row is must-pass, so it blocks under this setting as under `all
+criteria`; but the setting takes effect only when some must-pass criterion is not a `core` row
+(`coreMustPass` above), so a design whose only must-pass criteria are Core rows leaves every
+other failure blocking. An `evidence-only` row never blocks under either setting and, unlike the
+non-blocking failures above, is not filed as an issue.
 
 The two `not run` reports are rendered by the same `render-report` with `outcome: "not-run"`,
 without calling the workflow (`implement-trd.md` §8.1). Only the five short outcomes get a
@@ -484,6 +506,7 @@ without calling the workflow (`implement-trd.md` §8.1). Only the five short out
 | **Setup** | Only under `setup-failure`: one line per problem, "environment — problem; fix: …" |
 | **Criteria**, **Coverage** | Counts per status; "K of N proven — uncovered: ids" |
 | **Must pass** | Only when the TRD declares any (otherwise the report is unchanged): "K of N proven", then "unproven: id (status)", then "no criterion for: objective id" for each objective nothing covers |
+| **Evidence only** | Only when the definition has evidence-only rows: "N frame(s) shown for review, never blocking", and each such card in the proven or unproven tables is marked "evidence only, never blocks". Absent otherwise, so earlier reports are unchanged |
 | **Proven off-host** | Only when a criterion was proven by a CI job: `id — workflow#job, run <runId> (<url>)`, comma-separated, directly after the `Must pass` row's line. Absent otherwise, so earlier reports are unchanged |
 | **Diagnosis**, **Next** | Only on stalled, stuck, unbuilt, insufficient-coverage and must-pass-unproven (`DIAGNOSIS_OUTCOMES`); never on `setup-failure`, which has no cause counts because nothing was judged. Diagnosis counts open criteria by cause, most common first, in words — "14 open — 6 evidence missing, 5 judged failed, 3 not built"; no cause counts as `unrecorded`. Next names `/refine-verification` then `/verify-build`, except at the run limit, where it names `ruling-request.md` instead. The readout repeats both and never re-judges |
 | Unrecognised Status | Any status that is none of the four, so a typo cannot hide a criterion |
@@ -521,7 +544,7 @@ previous publish carried that the report no longer embeds — so no file list is
 | `render-report` | Writes `verification-report.md` |
 | `decide-fix-round` | Continue or stop the fix loop (§12) |
 | `render-fix-summary` | The `## Fix run` section |
-| `must-pass-coverage` | Reads the TRD and the definition: must-pass criterion ids, must-pass objectives with no criterion, cell ids that are not declared must-pass objectives |
+| `must-pass-coverage` | `--trd <path> --definition <path>`: reads the TRD and the definition. Prints `criteria` (must-pass ids; every `Board class: core` row is added), `uncovered` (must-pass objectives with no criterion), `unknown` (cell ids that are not declared must-pass objectives), `evidenceOnly` (`evidence-only` rows that are not also must-pass), `classIssues` (a `Board class` value that is neither, or an evidence-only row that names a must-pass objective) and `coreCriteria` (the subset of `criteria` that is must-pass only because it is `core`) |
 | `off-host-proofs` | `--trd <path> --definition <path> [--covers <json file>] [--ids a,b] [--base <ref>]`: joins the TRD's `Off-host proof` cells to the definition's must-pass criteria and looks each declared job up on `HEAD` with `gh`. Prints `{proofs, ignored}`; each proof has a `status` of `green` (job succeeded; the only status that proves anything), `red` (completed, any other conclusion, and green or unknown on the base branch), `baseline` (completed unsuccessfully on both `HEAD` and the base commit, `git merge-base HEAD <base>`; not this change's failure, and it proves nothing), `pending` (run or job not finished; **not waited for**, a later `/verify-build` settles it), `missing` (no run of that workflow for `HEAD`, or no job of that name), `dirty` (an uncommitted path matching the criterion's covers, or with no covers record any shipped-class path, which CI never saw) or `error` (`git`/`gh` failed or returned unparseable output), plus `runId`, `jobId`, `url`, `commit` and a `reason`. `ignored` lists declarations dropped as not must-pass, malformed, or not declared for every named objective. Exit 0 even with `gh` absent (each entry reads `error`); exit 1 only for bad input. Run fresh before every `verify-functional` dispatch, never reused |
 | `off-host-proven` | `--state-dir <dir>`: the criteria `met` with an off-host `proof`, from `verification-state.json` overlaid by `reverify/verification-state.json`: `[{id, statement, workflow, job, runId, url, commit}]` (what `/ship-build` reads) |
 | `report-publish-plan` | The publish batches for a report and its images (§10) |
@@ -579,7 +602,7 @@ The other three:
 |---|---|---|---|
 | Question | Does each screen look like its design frame? | Does each designed journey run that way, with its data changes? | Does each data screen show exactly what its source returns? |
 | Applies when | The PRD/TRD points at design frames the build must match (exported PNGs or Figma frames) | The PRD has an interaction diagram or named journeys | Screens render rows from an API or store — **selected by default** unless omitted with a reason |
-| One row per | Non-spec frame | Journey | Data view |
+| One row per | Frame: with a design map, one per frame of each board the map selects (generated by `design-criteria.js`, class `core` or `evidence-only`); with no map, each non-spec frame (class blank) | Journey | Data view |
 | ID | `DC-<frame stem>` | `FL-<journey slug>` | `DF-<view slug>` |
 | Tier 1 | `judge-only` (pictorial) | `locator` | `locator` |
 | Capture | Reuse a prior screenshot newest-first only if its commit is known and the files rendering it are unchanged against the **working tree** (never on a later iteration while the frame is still open); else re-capture. Crop, normalise, blur, paint the diff (red = in design only, blue = in build only, amber = colour differs), write `stitched/<stem>.png` and `manifest/<stem>.json` | Read the code for the journey's navigation and API edges first; then walk it end to end, recording screen → route → API call → data before → data after; write one transcript per journey | Reach the screen, fetch the source read-only at the same moment, compare field by field (sample large views and say how); write `rows/<slug>.txt` and a manifest |

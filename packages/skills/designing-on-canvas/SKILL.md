@@ -40,6 +40,11 @@ design system. Apply these conventions on top of the canvas rules passed to you 
 7. **No inline copies of components.** If a component is not importable, say so in the brief;
    do not paste its markup into a board.
 
+A Core board (one the owner marks as must-pass) shows `[Core] ` at the start of its `title` in
+`canvas.json`. You never write that prefix: write the plain title as convention 6 says, and
+`design-map.js core-marks` adds or strips the prefix after the agent writes the plain title,
+from the map.
+
 ## Canvas rules arrive live
 
 The canvas rules (format, craft, view state, design-system components, the runtime) are not in
@@ -57,3 +62,4 @@ not launch a browser.
 - Copy canvas rules, or any part of the Design type's text, into a board, brief or skill.
 - Draw a component that exists in the library.
 - Put `is_interactive` or a title inside the board file.
+- Type the `[Core] ` marker into a title, or strip it. `design-map.js core-marks` owns it.

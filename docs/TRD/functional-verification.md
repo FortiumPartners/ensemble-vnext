@@ -1,9 +1,9 @@
 # TRD: Functional Verification of Delivered Software
 
-**Version**: 2.15.0
+**Version**: 2.16.0
 **Status**: Draft
 **Created**: 2026-08-17
-**Last Updated**: 2026-11-12
+**Last Updated**: 2026-11-16
 **Author**: @technical-architect
 **Source PRD**: `docs/PRD/functional-verification.md`
 **Task ID Prefix**: FV
@@ -14,6 +14,7 @@
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
+| 2.16.0 | 2026-11-16 | **Synced to `docs/TRD/core-boards-in-designs.md` (CBD-B004, its D13 and D14).** §3.3 `VerifyFunctionalArgs` gains `evidenceOnlyIds?: string[]` and `coreMustPassIds?: string[]` (34 fields; both absent = `[]`; both validated before any agent is dispatched: an `evidenceOnlyIds` id must be a criterion id and not in `mustPassIds`, a `coreMustPassIds` id must be in `mustPassIds`). Both are written into the Judge's decide-next payload as `"evidenceOnly"` and `"coreMustPass"`. An evidence-only `not_met` is settled `settled: 'evidence-only'` the iteration it is ruled, whatever its kind, so it is never an open gap, never sent to Debug (the loop's or the regression pass's), never filed as a non-blocking follow-up and not in the result's `gaps`. `'must-pass'` blocking is active only when some must-pass id is not Core. `VerifyFunctionalResult.coverage` is counted over the criteria that are not evidence-only and gains `evidenceOnly: <count>` when there are any | @backend-implementer (CBD-B004) |
 | 2.15.0 | 2026-11-12 | **Synced to `docs/TRD/block-only-on-material-failures.md` (FIX-004).** §3.3 `VerifyFunctionalArgs` gains `blocking?: 'all' \| 'must-pass'` (31 fields; absent = `'all'`; any other value throws before any agent is dispatched) and `VerifyFunctionalResult` gains `nonBlocking` on every return path. The workflow, never the Judge, applies the policy in `applyBlockingPolicy`, inside the regression pass after its rounds and before its one state sync: under either setting a `satisfied` exit over an open failing must-pass criterion, or any unbuilt one, becomes `exit-stuck` (an `insufficient-coverage` exit is left alone: it already blocks, and decide-next legitimately re-labels a stalled or stuck base to it); under `'must-pass'` with at least one must-pass criterion, a `stalled` or `stuck` exit whose open failures all lie outside the must-pass set (and none unbuilt) becomes `satisfied` (`insufficient-coverage` when the floor is missed). The Judge's decide-next payload does not carry `blocking`. The state file and report input gain top-level `blocking` and `nonBlocking` only when `nonBlocking` is non-empty. `verify-functional-trd-sync.test.js`'s read-field count moves from 30 to 31 | @backend-implementer (FIX-004) |
 | 2.14.0 | 2026-11-12 | **Synced to `docs/TRD/accepted-gaps-for-not-checkable-must-pass-criteria.md` (OHP-B002).** §3.3 `VerifyFunctionalArgs` gains `offHostProofs` (30 fields, its D6) with its `OffHostProofArg` shape: a green CI job can settle a not-checkable must-pass criterion `met` with a `proof` record, under that TRD's D7 rules, and lift an `exit-must-pass-unproven` exit to `exit-satisfied` (its D8). | @backend-implementer (OHP-B002) |
 | 2.13.0 | 2026-11-12 | **Synced to `docs/TRD/one-full-regression-pass-at-the-end.md` (REGR-D001, its D16).** The end-of-run confirmation pass is replaced by a regression pass scoped by the files Debug changed. Inline AMENDED markers extended, original wording kept: §3.3 (the `exercised` entry gains `regression?: 1 | 2`; `criterionCovers` and the result's `regression` were added with the code; the state file gains a `regression` key), §3.3a (the regression-mode Judge), §3.5 (Debug returns a measured `filesChanged`; one repair Debug may follow round 1), §3.6 (the `## Regression pass` section). | @backend-implementer (REGR-D001) |
@@ -622,6 +623,15 @@ interface VerifyFunctionalArgs {
                                   //   `must-pass-coverage`: ids of the criteria that carry a
                                   //   must-pass mark. Absent = []. An array of non-empty strings,
                                   //   or the workflow throws before any agent is dispatched
+  evidenceOnlyIds?: string[];     // NEW (`docs/TRD/core-boards-in-designs.md` D14). The CLI's
+                                  //   `evidenceOnly`: ids shown for review that never block.
+                                  //   Absent = []. Non-empty strings, each an id in `criteria` and
+                                  //   none in `mustPassIds`, or it throws before any agent is
+                                  //   dispatched. Settled `evidence-only` when ruled `not_met`
+  coreMustPassIds?: string[];     // NEW (same). The CLI's `coreCriteria`: the `mustPassIds` that
+                                  //   are must-pass only because their board is Core. Absent = [].
+                                  //   Each must be in `mustPassIds`, or it throws. 'must-pass'
+                                  //   blocking is active only when some must-pass id is not Core
   mustPassUncovered?: Array<{ id: string; text: string }>;  // NEW (same). The CLI's `uncovered`:
                                   //   declared must-pass objectives no criterion names. Absent =
                                   //   []. Each entry needs a non-empty string `id`, or it throws.
@@ -706,9 +716,11 @@ interface VerifyFunctionalResult {
                              //   dead slice is visible, not laundered
   debugAttempts: Array<{ iteration: number; gaps: string[]; result: string }>;
   notesUpdated: boolean;
-  coverage: { proven: number; total: number; uncovered: string[] };
+  coverage: { proven: number; total: number; uncovered: string[]; evidenceOnly?: number };
                              // over the WHOLE definition (VC OQ-5): `met` ids over every
-                             //   criterion; present on every return, including both no-Judge exits
+                             //   criterion that is not evidence-only (core-boards D14); present
+                             //   on every return, including both no-Judge exits. `evidenceOnly`
+                             //   is the count left out, present only when it is above 0
   finalRun: { command: string; status: 'pass' | 'fail' | 'skipped' } | null;
                              // the end-of-run full-environment gate (§3.3a, VC D14); null on the
                              //   two paths where no Judge exit ran — see Error handling

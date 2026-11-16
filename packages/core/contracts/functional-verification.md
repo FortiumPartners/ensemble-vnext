@@ -258,12 +258,24 @@ contract already states — so a definition written before this change still par
 
 ## Must pass — the objectives a criterion proves
 
-The success-definition table's `Must pass` column is the **last** column, after `Parts`. A
+The success-definition table's `Must pass` column follows `Parts`; a `Board class` column
+(below) may follow it. Columns are read by header name, so position is free. A
 cell holds the objective id or ids the criterion proves (`O3` or `O3, O4`), naming objectives
 the TRD's `## Objectives` table marked `Must pass`. **Blank means ordinary.** An absent
 column, or an absent cell, reads as blank — the same convention `Tier 1` uses — so a
 definition written before this column existed, and a check row appended afterwards, parse
-unchanged. A check row leaves `Must pass` blank and never carries a mark.
+unchanged. A check row's `Must pass` cell is blank; a `core` row carries its must-pass standing in
+`Board class` instead (next paragraph).
+
+**`Board class` — the design-comparison classes.** An optional column valued `core`,
+`evidence-only` or blank (ordinary), read by header name like `Tier 1`; an absent column or
+cell reads blank. Only `check:verify-design-comparison` rows built from a `design-map.json`
+carry a value (`design-criteria.js comparison-rows` decides it). A `core` row is must-pass
+with no objective id: it joins the must-pass set without naming a `## Objectives` entry, so
+it is never uncovered and never needs a `Must pass` cell. An `evidence-only` row never blocks: its card is produced for review, but a failure on it is not a gap for Debug, is not
+filed as a follow-up, and the row is left out of the
+coverage ratio. A value that is neither is ordinary and reported. An `evidence-only` row
+whose `Must pass` cell names a declared must-pass objective stays must-pass and is reported.
 
 **Naming the objective, not a bare yes, is what makes coverage checkable:** a must-pass
 objective that no criterion names is *uncovered*, and an uncovered objective blocks
@@ -289,9 +301,9 @@ deriver never writes a `check:` row** — it works from the source alone, per th
 rule above, and does not know which checks a TRD selected; a deriver that started writing
 them would be reading a task list it is deliberately kept blind to.
 
-A check row uses the same eight columns as any other row (it leaves `Must pass` blank, by the
-absent-cell rule), with three of them fixed by this
-convention rather than left to the writer:
+A check row uses the same columns as any other row (it leaves `Must pass` blank, by the
+absent-cell rule, and a design-comparison row built from a design map adds `Board class`),
+with three of them fixed by this convention rather than left to the writer:
 
 - **Derivation** is always `check:<skill>` — the name of the skill that produced the row
   (for example `check:verify-design-comparison`).
@@ -680,7 +692,7 @@ is the case a "passing" run can otherwise hide: a run whose criteria mostly reso
 nothing.
 
 **`must-pass-unproven`** says the core of the feature was not shown to work: a criterion
-marked `Must pass` is not `met`, or a must-pass objective has no criterion at all, while no
+marked `Must pass` (or a `core` row) is not `met`, or a must-pass objective has no criterion at all, while no
 criterion is `not_met` or `unbuilt` and the run would otherwise exit `satisfied`. It is a
 distinct outcome rather than a case of `insufficient-coverage`, which is a percentage
 statement and would hide which core item failed. It is reached only from
@@ -696,7 +708,7 @@ base outcomes are unchanged.
 **Blocking: must-pass only.** When `verification.md` sets this and at least one criterion is
 marked `Must pass`, a `satisfied` run may carry non-blocking failures: `not_met` criteria that
 prove no must-pass objective. Each is filed as a defect issue in the declared tracker (the run blocks as under
-`all criteria` when none is declared or reachable) and listed on the result, not built. Check rows never carry a mark, so they never block under it. An `unbuilt` criterion
+`all criteria` when none is declared or reachable) and listed on the result, not built. Check rows carry no `Must pass` mark, so they never block under it, except Core rows block under `Blocking: must-pass only` as under `all criteria` (their class makes them must-pass), though they never make the setting active: it needs a must-pass criterion that is not a `core` row. `evidence-only` rows never block under either policy. An `unbuilt` criterion
 still blocks, and with no must-pass criterion the setting changes nothing.
 
 **`setup-failure`** says the environment, not the code, was broken, so the run did not

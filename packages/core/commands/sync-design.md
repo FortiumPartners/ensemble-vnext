@@ -77,7 +77,8 @@ owner comment on the page. A TRD decision the architect wrote does not.
    ```
    For each matched to-be board, make it the as-is for its screen: set the old as-is board
    `superseded`, move its entry to a **History** page in `canvas.json`, and add the to-be file as
-   the screen's as-is board. Rebuilt boards stay `building` and get their ruling noted on the
+   the screen's as-is board. The new as-is board carries no `core` key; the to-be board's Core flag
+   is not copied onto it. Rebuilt boards stay `building` and get their ruling noted on the
    canvas. Then `design-map.js refresh` and `validate`.
 5. **Paths changed?** If the build changed any of the design system's component or token paths
    (`design-map.js stale`), run

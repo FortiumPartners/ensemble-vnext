@@ -149,6 +149,25 @@ function stateSlugs(names, reserved = []) {
   return slugs;
 }
 
+/**
+ * The state frames of one board, as render() writes them: [{ state, slug }] for each state that
+ * has `props` (a state without props renders no frame), in `states` order. `reserved` is the
+ * `<rest>` of every OTHER board id `<board id>--<rest>` in `boards`. design-criteria.js reads the
+ * same list, so a frame's file name is computed in one place.
+ */
+function stateFrames(board, boards = []) {
+  const prefix = `${board.id}--`;
+  const reserved = boards.filter((x) => x && typeof x.id === 'string' && x.id !== board.id && x.id.startsWith(prefix)).map((x) => x.id.slice(prefix.length));
+  const states = board.states || {};
+  const slugs = stateSlugs(Object.keys(states), reserved);
+  const out = [];
+  for (const [name, st] of Object.entries(states)) {
+    if (!st || !st.props) continue;
+    out.push({ state: name, slug: slugs.get(name) });
+  }
+  return out;
+}
+
 /** A missing or unusable tool: the CLI exits 2 and the message names the install step (D13). */
 class ToolError extends Error {
   constructor(message) {
@@ -855,12 +874,10 @@ async function render(o) {
       try {
         for (const b of group) {
           const targets = [{ state: null, file: b.file, png: `${b.id}.png` }];
-          const prefix = `${b.id}--`;
-          const reserved = map.boards.filter((x) => x && typeof x.id === 'string' && x.id !== b.id && x.id.startsWith(prefix)).map((x) => x.id.slice(prefix.length));
-          const slugs = stateSlugs(Object.keys(b.states || {}), reserved);
-          for (const [name, st] of Object.entries(b.states || {})) {
-            if (!st || !st.props) continue; // a state without props has nothing to override
-            const slug = slugs.get(name); // a file name only; the frame's state stays the real name
+          // A state without props has nothing to override; the slug is a file name only, and the
+          // frame's state stays the real name.
+          for (const { state: name, slug } of stateFrames(b, map.boards)) {
+            const st = b.states[name];
             const copy = path.join(path.dirname(b.file), `${b.id}--${slug}.dc.html`);
             fs.writeFileSync(path.join(root, copy), withProps(fs.readFileSync(path.join(root, b.file), 'utf8'), st.props, b.id));
             targets.push({ state: name, file: copy, png: `${b.id}--${slug}.png` });
@@ -932,7 +949,7 @@ async function main(argv) {
   return render({ ...opts, floor: Object.keys(floor).length ? floor : undefined, boards: opts.boards ? opts.boards.split(',') : null });
 }
 
-module.exports = { stateSlug, stateSlugs, copyTree, render, runtimeCheck, readTokens, normalizeColor, PINNED_RUNTIME, PINNED_RUNTIME_SHA256, serve, resolveTool, withProps, parseArgs, ToolError };
+module.exports = { stateSlug, stateSlugs, stateFrames, copyTree, render, runtimeCheck, readTokens, normalizeColor, PINNED_RUNTIME, PINNED_RUNTIME_SHA256, serve, resolveTool, withProps, parseArgs, ToolError };
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(
