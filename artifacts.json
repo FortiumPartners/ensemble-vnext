@@ -17,5 +17,11 @@
     "url": "",
     "updated_at": "2026-11-16T21:22:14.480Z",
     "command": "/implement-trd"
+  },
+  "verification-plan": {
+    "path": ".trd-state/core-boards-in-designs/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-11-16T21:23:50.262Z",
+    "command": "/refine-verification"
   }
 }
