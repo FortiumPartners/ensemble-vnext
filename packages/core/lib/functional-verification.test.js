@@ -3579,6 +3579,21 @@ describe('renderReport: the must-pass line and outcome (D13)', () => {
       expect(plain).toContain('| FS-2 | s FS-2 | a | 3 |');
     });
 
+    test('a round carrying scopeWord and counts prints the Scope line (D12)', () => {
+      const rec = { ...record, rounds: [{ ...record.rounds[0], scopeWord: 'targeted', counts: { 'covers-changed': 2, 'no-covers': 1 } }, record.rounds[1]] };
+      const out = renderReport(input({ outcome: 'stuck', criteria: crits(), regression: rec }));
+      expect(out).toContain('Scope: targeted — re-checked 3: covers-changed 2, no-covers 1');
+      expect(out.match(/^Scope: /gm)).toHaveLength(1);
+      expect(out.indexOf('### Round 1')).toBeLessThan(out.indexOf('Scope: targeted'));
+    });
+
+    test('an empty scope prints Scope: none, and rounds without the fields render as before', () => {
+      const rec = { ...record, rounds: [{ round: 1, iteration: 3, scope: [], caught: [], scopeWord: 'none', counts: {} }] };
+      expect(renderReport(input({ criteria: crits(), regression: rec }))).toContain('Scope: none — re-checked 0');
+      const plain = renderReport(input({ outcome: 'stuck', criteria: crits(), regression: record }));
+      expect(plain).not.toContain('Scope:');
+    });
+
     test('a regression-unchecked entry is listed in the section, not under definition problems', () => {
       const out = renderReport(input({ outcome: 'stuck', criteria: crits(), regression: record }));
       expect(out).toContain('Captures the pass could not make');
@@ -5210,7 +5225,7 @@ describe('off-host-proofs and off-host-proven verbs (D4, D5, D14)', () => {
       '[ -n "$STUB_FAIL" ] && { echo "HTTP 500" >&2; exit 1; }',
       'case "$1 $2" in',
       '  "run list") cat "$STUB_LIST" ;;',
-      '  "run view") cat "$STUB_VIEW" ;;',
+      '  "run view") if [ -f "$STUB_VIEW.$3" ]; then cat "$STUB_VIEW.$3"; else cat "$STUB_VIEW"; fi ;;',
       '  *) exit 1 ;;',
       'esac', '',
     ].join('\n'), { mode: 0o755 });
@@ -5220,7 +5235,7 @@ describe('off-host-proofs and off-host-proven verbs (D4, D5, D14)', () => {
     fs.writeFileSync(path.join(root, '.stub-view'), JSON.stringify({ jobs }));
   };
   const runOf = (over = {}) => ({ databaseId: 4242, status: 'completed', conclusion: 'success', url: 'https://example.test/runs/4242', headSha: head, createdAt: '2026-11-12T00:00:00Z', ...over });
-  const jobOf = (over = {}) => ({ name: 'read-aloud', status: 'completed', conclusion: 'success', ...over });
+  const jobOf = (over = {}) => ({ name: 'read-aloud', databaseId: 777, status: 'completed', conclusion: 'success', ...over });
   const proofs = (extra = []) => {
     const r = spawnSync('node', [MODULE_PATH, 'off-host-proofs', '--trd', 'trd.md', '--definition', 'def.md', ...extra], { cwd: root, env, encoding: 'utf8' });
     return { ...r, json: r.stdout ? JSON.parse(r.stdout) : null };
@@ -5282,6 +5297,101 @@ describe('off-host-proofs and off-host-proven verbs (D4, D5, D14)', () => {
     expect(proofs().json.proofs[0].status).toBe('error');
     expect(fs.readFileSync(log, 'utf8')).not.toMatch(/run view/);
   });
+  test('every entry carries jobId from gh run view, null when there is no job', () => {
+    expect(proofs().json.proofs[0]).toMatchObject({ status: 'green', jobId: 777 });
+    reply([runOf()], [jobOf({ conclusion: 'failure', databaseId: 991 })]);
+    expect(proofs().json.proofs[0]).toMatchObject({ status: 'red', jobId: 991 });
+    reply([runOf({ headSha: 'f'.repeat(40) })], []);
+    expect(proofs().json.proofs[0]).toMatchObject({ status: 'missing', jobId: null });
+  });
+
+  describe('baseline (D13)', () => {
+    let baseSha;
+    const viewFor = (id, jobs) => fs.writeFileSync(path.join(root, `.stub-view.${id}`), JSON.stringify({ jobs }));
+    const logged = () => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '');
+    // HEAD moves one commit past the base, so the merge base is a different commit from HEAD.
+    beforeEach(() => {
+      baseSha = head;
+      sh('git', ['branch', 'base', baseSha]);
+      fs.writeFileSync(path.join(root, 'src', 'b.js'), 'b');
+      sh('git', ['add', '-A']); sh('git', ['commit', '-qm', 'feature']);
+      head = sh('git', ['rev-parse', 'HEAD']);
+    });
+    const both = (headJob, baseRun) => {
+      const runs = [runOf({ databaseId: 4242, headSha: head })];
+      if (baseRun) runs.push(runOf({ databaseId: 4343, headSha: baseSha, ...baseRun }));
+      fs.writeFileSync(path.join(root, '.stub-list'), JSON.stringify(runs));
+      viewFor(4242, [headJob]);
+    };
+
+    test('red on HEAD and red on the base head is baseline, and keeps HEAD run and job ids', () => {
+      both(jobOf({ conclusion: 'failure', databaseId: 991 }), {});
+      viewFor(4343, [jobOf({ conclusion: 'failure', databaseId: 992 })]);
+      expect(proofs(['--base', 'base']).json.proofs[0]).toMatchObject({ status: 'baseline', runId: 4242, jobId: 991, commit: head });
+      expect(proofs(['--base', 'base']).json.proofs[0].reason).toContain(baseSha.slice(0, 7));
+    });
+    test('red on HEAD and green on the base head stays red', () => {
+      both(jobOf({ conclusion: 'failure' }), {});
+      viewFor(4343, [jobOf()]);
+      expect(proofs(['--base', 'base']).json.proofs[0].status).toBe('red');
+    });
+    test('red on HEAD with no base run, or an unfinished one, stays red', () => {
+      both(jobOf({ conclusion: 'failure' }), null);
+      expect(proofs(['--base', 'base']).json.proofs[0].status).toBe('red');
+      both(jobOf({ conclusion: 'failure' }), { status: 'in_progress', conclusion: '' });
+      expect(proofs(['--base', 'base']).json.proofs[0].status).toBe('red');
+    });
+    test('the base is looked up only for a red job', () => {
+      both(jobOf(), {});
+      expect(proofs(['--base', 'base']).json.proofs[0].status).toBe('green');
+      expect(logged()).not.toContain(`--commit=${baseSha}`);
+    });
+    test('the base commit is the merge base, not the moving tip', () => {
+      sh('git', ['checkout', '-q', 'base']);
+      fs.writeFileSync(path.join(root, 'src', 'tip.js'), 't');
+      sh('git', ['add', '-A']); sh('git', ['commit', '-qm', 'tip moves on']);
+      sh('git', ['checkout', '-q', '-']);
+      both(jobOf({ conclusion: 'failure' }), {});
+      viewFor(4343, [jobOf({ conclusion: 'failure' })]);
+      expect(proofs(['--base', 'base']).json.proofs[0].status).toBe('baseline');
+      expect(logged()).toContain(`--commit=${baseSha}`);
+    });
+    test('no --base, no PR and no origin/HEAD is today\'s red, with no base lookup', () => {
+      both(jobOf({ conclusion: 'failure' }), {});
+      viewFor(4343, [jobOf({ conclusion: 'failure' })]);
+      expect(proofs().json.proofs[0].status).toBe('red');
+      expect(logged()).not.toContain(`--commit=${baseSha}`);
+    });
+    test('the open PR\'s base branch is used when --base is absent', () => {
+      sh('git', ['update-ref', 'refs/remotes/origin/main', baseSha]);
+      fs.writeFileSync(path.join(bin, 'gh'), fs.readFileSync(path.join(bin, 'gh'), 'utf8')
+        .replace('case "$1 $2" in', 'case "$1 $2" in\n  "pr view") echo \'{"baseRefName":"main"}\' ;;'));
+      both(jobOf({ conclusion: 'failure' }), {});
+      viewFor(4343, [jobOf({ conclusion: 'failure' })]);
+      expect(proofs().json.proofs[0].status).toBe('baseline');
+    });
+    test('origin/HEAD is the last fallback', () => {
+      sh('git', ['update-ref', 'refs/remotes/origin/main', baseSha]);
+      sh('git', ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main']);
+      both(jobOf({ conclusion: 'failure' }), {});
+      viewFor(4343, [jobOf({ conclusion: 'failure' })]);
+      expect(proofs().json.proofs[0].status).toBe('baseline');
+    });
+    test('a base that is HEAD itself gives no baseline check', () => {
+      sh('git', ['branch', 'same']);
+      both(jobOf({ conclusion: 'failure' }), {});
+      expect(proofs(['--base', 'same']).json.proofs[0].status).toBe('red');
+      expect(logged().match(/^run list /gm)).toHaveLength(1);
+    });
+    test('--base starting with a dash is refused, and an unknown ref means no baseline', () => {
+      const r = proofs(['--base', '-x']);
+      expect(r.status).toBe(1);
+      expect(r.stderr).toMatch(/Usage/);
+      both(jobOf({ conclusion: 'failure' }), {});
+      expect(proofs(['--base', 'no-such-ref']).json.proofs[0].status).toBe('red');
+    });
+  });
+
   test('error, exit 0, when gh is absent', () => {
     const r = spawnSync('node', [MODULE_PATH, 'off-host-proofs', '--trd', 'trd.md', '--definition', 'def.md'], { cwd: root, env: { ...process.env, PATH: path.dirname(process.execPath) }, encoding: 'utf8' });
     expect(r.status).toBe(0);
