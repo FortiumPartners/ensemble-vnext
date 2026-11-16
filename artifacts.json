@@ -11,5 +11,11 @@
     "url": "",
     "updated_at": "2026-11-16T10:59:12.358Z",
     "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/narrow-reproof-scope/verification-report.md",
+    "url": "https://claude.ai/artifact/1KLcQ1edyKKZ7QnpbTmUiz",
+    "updated_at": "2026-11-16T12:08:40.179Z",
+    "command": "/implement-trd"
   }
 }
