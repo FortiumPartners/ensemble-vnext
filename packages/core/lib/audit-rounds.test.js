@@ -251,6 +251,97 @@ describe('ledger', () => {
   });
 });
 
+describe('deferred close on the ledger', () => {
+  let dir;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-rounds-dc-')); });
+  afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const DC = (n, extra = {}) => ({
+    runId: `r${n}`, closeDeferred: true, ts: `2026-10-01T00:01:0${n}Z`,
+    close: { trdHash: 'after-fix', anchorCommit: 'abc', report: '.trd-state/f/audit-build-report.md', caveats: [] },
+    ...extra,
+  });
+
+  test('a deferred-close line folds into its round and keeps the round ts and top-level trdHash', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1));
+    const rs = A.readRounds(dir);
+    expect(rs).toHaveLength(1);
+    expect(rs[0]).toMatchObject({ round: 1, ts: '2026-10-01T00:00:01Z', trdHash: 'h', closeDeferred: true });
+    expect(rs[0].close.trdHash).toBe('after-fix');
+  });
+  test('the re-audit count is unchanged by the fold', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1)); A.record(dir, R(2));
+    const rs = A.readRounds(dir);
+    expect(rs).toHaveLength(2);
+    expect(A.decide({ rounds: rs, verdict: 'proceed', defects: 1 }).reaudit).toBe(true);
+  });
+  test('stale-wake still matches the run id', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1));
+    expect(A.staleWake({ rounds: A.readRounds(dir, { all: true }), runId: 'r1' })).toBe(true);
+  });
+  test('lines with no runId are never folded', () => {
+    A.record(dir, R(1, { runId: undefined })); A.record(dir, R(2, { runId: undefined }));
+    expect(A.readRounds(dir)).toHaveLength(2);
+  });
+  test('pendingClose returns the last round when it is a deferred close', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1));
+    expect(A.pendingClose(dir).runId).toBe('r1');
+  });
+  test('pendingClose is null when a later round follows', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1)); A.record(dir, R(2));
+    expect(A.pendingClose(dir)).toBeNull();
+  });
+  test('pendingClose is null after a later closed.json', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1));
+    fs.writeFileSync(path.join(dir, 'closed.json'), JSON.stringify({ closedAt: '2026-10-01T00:05:00Z' }));
+    expect(A.pendingClose(dir)).toBeNull();
+  });
+  test('pendingClose is null with no ledger', () => expect(A.pendingClose(dir)).toBeNull());
+  test('pendingClose with a runId returns null for another run', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1));
+    expect(A.pendingClose(dir, { runId: 'other' })).toBeNull();
+    expect(A.pendingClose(dir, { runId: 'r1' }).runId).toBe('r1');
+  });
+
+  describe('pending-close CLI', () => {
+    const run = (input) => {
+      const r = spawnSync('node', [path.join(__dirname, 'audit-rounds.js'), 'pending-close'], { input: JSON.stringify(input), encoding: 'utf8' });
+      return { status: r.status, out: r.stdout ? JSON.parse(r.stdout) : null, err: r.stderr };
+    };
+    test('round-trips the pending round', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1));
+      const r = run({ stateDir: dir });
+      expect(r.status).toBe(0);
+      expect(r.out.pending).toMatchObject({ runId: 'r1', closeDeferred: true });
+    });
+    test('null pending with no ledger', () => expect(run({ stateDir: dir }).out).toEqual({ pending: null }));
+    test('mismatch names the pending round run id', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1));
+      expect(run({ stateDir: dir, runId: 'zzz' }).out).toEqual({ pending: null, mismatch: 'r1' });
+    });
+    test.each([
+      ['close.trdHash', (d) => { d.close.trdHash = undefined; return [R(1), d]; }],
+      ['close.report', (d) => { d.close.report = undefined; return [R(1), d]; }],
+      ['verdict', (d) => [R(1, { verdict: undefined }), d]],
+      ['auditedCommit', (d) => [R(1, { auditedCommit: undefined }), d]],
+    ])('a pending round missing %s gives an error', (field, build) => {
+      build(DC(1)).forEach((l) => A.record(dir, l));
+      const r = run({ stateDir: dir });
+      expect(r.status).toBe(0);
+      expect(r.out.pending).toBeNull();
+      expect(r.out.error).toContain(field);
+    });
+    test('exits 1 without stateDir', () => {
+      const r = run({});
+      expect(r.status).toBe(1);
+      expect(r.err).toMatch(/pending-close needs stateDir/);
+    });
+    test('usage string names pending-close', () => {
+      const r = spawnSync('node', [path.join(__dirname, 'audit-rounds.js'), 'nope'], { input: '{}', encoding: 'utf8' });
+      expect(r.stderr).toContain('pending-close');
+    });
+  });
+});
+
 describe('CLI', () => {
   const run = (cmd, input) => {
     const r = spawnSync('node', [path.join(__dirname, 'audit-rounds.js'), cmd], { input: JSON.stringify(input), encoding: 'utf8' });

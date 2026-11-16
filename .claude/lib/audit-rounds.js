@@ -27,6 +27,11 @@
  *   trd-snapshot {trd, stateDir} -> {ok, headings}; copies the TRD to <stateDir>/trd-before-audit.md
  *   trd-guard    {trd, stateDir} -> {ok:true, checked} or {ok:false, missing, restored:true};
  *               restores the TRD from the snapshot when the audit's edit deleted a heading
+ *   pending-close {stateDir, runId?} -> {pending: <round>}, or {pending: null} (plus `mismatch`
+ *               when runId differs from the pending round's, or `error` when the pending round
+ *               lacks close.trdHash, close.report, verdict or auditedCommit). A deferred close
+ *               is written through `record` as a second line carrying the round's runId, so no
+ *               write verb exists.
  */
 const fs = require('fs');
 const path = require('path');
@@ -128,6 +133,10 @@ function record(stateDir, round) {
  * Rounds since the last close (all rounds when never closed). Malformed lines are skipped.
  * `{ all: true }` ignores the close: stale-wake needs it, because an audit that closed the
  * feature wrote its round BEFORE the close, and a since-close read would hide that round.
+ *
+ * A later line with the same non-empty `runId` (a deferred-close line) is FOLDED into its round:
+ * its fields are set on the round except `ts`, so the round counts once toward the cap. Lines
+ * with no runId are never folded.
  */
 function readRounds(stateDir, { all = false } = {}) {
   let text;
@@ -147,9 +156,24 @@ function readRounds(stateDir, { all = false } = {}) {
       const t = Date.parse(r.ts);
       if (!(t > closedMs)) continue;
     }
-    rounds.push(r);
+    const prior = typeof r.runId === 'string' && r.runId ? rounds.find((x) => x.runId === r.runId) : undefined;
+    if (prior) Object.assign(prior, r, { ts: prior.ts });
+    else rounds.push(r);
   }
   return rounds;
+}
+
+/**
+ * The deferred close awaiting performance: the last round since the last close, when it has
+ * `closeDeferred: true`; else null. A later round supersedes it and a close consumes it, because
+ * both change what readRounds returns last. With a non-empty `runId`, a round of another run is
+ * not returned (the audit that deferred must be the one the caller ran).
+ */
+function pendingClose(stateDir, { runId } = {}) {
+  const last = readRounds(stateDir).pop();
+  if (!last || last.closeDeferred !== true) return null;
+  if (runId && last.runId !== runId) return null;
+  return last;
 }
 
 /**
@@ -261,15 +285,27 @@ function cli(argv) {
       fs.unlinkSync(snap);
       return missing.length ? { ok: false, missing, restored: true } : { ok: true, checked: true };
     }
+    case 'pending-close': {
+      if (!input.stateDir) throw new Error('pending-close needs stateDir');
+      const any = pendingClose(input.stateDir);
+      if (!any) return { pending: null };
+      if (input.runId && any.runId !== input.runId) return { pending: null, mismatch: any.runId };
+      const missing = [
+        ['close.trdHash', any.close && any.close.trdHash], ['close.report', any.close && any.close.report],
+        ['verdict', any.verdict], ['auditedCommit', any.auditedCommit],
+      ].filter(([, v]) => !v).map(([k]) => k);
+      if (missing.length) return { pending: null, error: `pending close is missing ${missing.join(', ')}` };
+      return { pending: any };
+    }
     case 'record':
       if (!input.stateDir || !input.round) throw new Error('record needs stateDir and round');
       record(input.stateDir, input.round);
       return { ok: true };
-    default: throw new Error('usage: audit-rounds.js tally|decide|classify|stale-wake|record|trd-hash|trd-snapshot|trd-guard [json]');
+    default: throw new Error('usage: audit-rounds.js tally|decide|classify|stale-wake|record|trd-hash|trd-snapshot|trd-guard|pending-close [json]');
   }
 }
 
-module.exports = { classify, tally, record, readRounds, decide, isDoNotProceed, staleWake, trdHash, trdHeadings, missingHeadings };
+module.exports = { classify, tally, record, readRounds, pendingClose, decide, isDoNotProceed, staleWake, trdHash, trdHeadings, missingHeadings };
 
 if (require.main === module) {
   try {
