@@ -1,0 +1,238 @@
+{
+ "requirements": [
+  {
+   "id": "O1",
+   "source": "TRD Objectives (brief §2, #150); must pass: yes",
+   "statement": "When a canvas recorded in design-map.json, or the Design System page recorded in design_system.url, is not found or not accessible from the current account, /refine-design and /design-system --sync publish a new one from the committed files, record the new URL, and carry on; they do not end STUCK.",
+   "served_by": [
+    "FIX-002",
+    "FIX-003"
+   ]
+  },
+  {
+   "id": "O1a",
+   "source": "TRD Objectives (OWNER-CALL 2026-11-16; must pass: no; filed as #160)",
+   "statement": "The no-access case of O1 (the recorded artifact exists but this account cannot open it) republishes by the same rule, sharing one code path with not-found. Not exercised in this repository.",
+   "served_by": [
+    "FIX-003"
+   ]
+  },
+  {
+   "id": "O2",
+   "source": "TRD Objectives (brief §2; owner decision: a republished canvas starts a fresh sync base; must pass: yes)",
+   "statement": "The old URL is kept as previous_url when a canvas or system URL is replaced (map entries and artifacts.json entries), the DECISIONS line says so, and a republished canvas starts a fresh sync base.",
+   "served_by": [
+    "FIX-001",
+    "FIX-002",
+    "FIX-003"
+   ]
+  },
+  {
+   "id": "O3",
+   "source": "TRD Objectives (owner decision under auto, 2026-11-16)",
+   "statement": "Republishing happens only on not-found or no-access; any other read error behaves as today.",
+   "served_by": [
+    "FIX-002",
+    "FIX-003"
+   ]
+  },
+  {
+   "id": "O4",
+   "source": "TRD Objectives (brief §4, #152; must pass: yes)",
+   "statement": "/audit-design separates a below-floor contrast or target miss on a component drawn by this design from one on a reused x-import-ed component, and a hand-drawn miss stays ranked high.",
+   "served_by": [
+    "FIX-004",
+    "FIX-006"
+   ]
+  },
+  {
+   "id": "O5",
+   "source": "TRD Objectives (brief §4; must pass: yes)",
+   "statement": "The audit reads recorded accessibility caveats from brief.md '## Accessibility caveats' and design.md section 4, never edits design.md, and shows a reused below-floor miss as a known build-side caveat only when such a ruling is recorded.",
+   "served_by": [
+    "FIX-005",
+    "FIX-006"
+   ]
+  },
+  {
+   "id": "O6",
+   "source": "TRD Objectives (owner decision under auto, 2026-11-16)",
+   "statement": "Disabled controls (disabled attribute or aria-disabled=\"true\") are exempt from the contrast floor; text explaining why is not inside the control and is still measured; target size is not exempted.",
+   "served_by": [
+    "FIX-004"
+   ]
+  },
+  {
+   "id": "O7",
+   "source": "TRD Objectives (brief §4)",
+   "statement": "/refine-design with no feedback skips findings marked as recorded build-side caveats.",
+   "served_by": [
+    "FIX-007"
+   ]
+  },
+  {
+   "id": "AC-FIX-001",
+   "source": "TRD Master Task List, FIX-001 acceptance criteria",
+   "statement": "Jest: record URL A then URL B reads back previous_url A; recording B again leaves previous_url A; first record and same-URL record have no previous_url; record with url omitted keeps previous_url; test fails against old code.",
+   "served_by": [
+    "FIX-001"
+   ]
+  },
+  {
+   "id": "AC-FIX-002",
+   "source": "TRD Master Task List, FIX-002 acceptance criteria",
+   "statement": "Jest: map after republished validates; boards' canvas follows; design-mirror.js check against new URL reports changed and record then stores a base; an --old URL not in the map throws and writes nothing.",
+   "served_by": [
+    "FIX-002"
+   ]
+  },
+  {
+   "id": "AC-FIX-003",
+   "source": "TRD Master Task List, FIX-003 acceptance criteria",
+   "statement": "New prose test scoped to the 'Unreadable recorded artifact' paragraph asserts: previous_url, 'not-found or no-access', republished, a DECISIONS line naming old and new URL, system reinstall per contract §3, audit and publish: off exclusions, and 'never STUCK'; each fails without the fix.",
+   "served_by": [
+    "FIX-003"
+   ]
+  },
+  {
+   "id": "AC-FIX-004",
+   "source": "TRD Master Task List, FIX-004 acceptance criteria",
+   "statement": "design-render.test.js real-render tests: global component low-contrast span has reused true; hand-drawn low-contrast child inside same x-import has no reused and is a separate group; same colours outside any import have no reused; dc-import part's own elements not marked reused; below-floor button[disabled] and aria-disabled=\"true\" yield no contrast measure while enabled twin does; disabled control's target-size miss still reported.",
+   "served_by": [
+    "FIX-004"
+   ]
+  },
+  {
+   "id": "AC-FIX-005",
+   "source": "TRD Master Task List, FIX-005 acceptance criteria",
+   "statement": "Jest: bullets returned in order and set reused_build_side; a design.md section 4 line 'reused components are build-side work' sets it; neither present gives { items: [], reused_build_side: false }; design.md hash unchanged before and after.",
+   "served_by": [
+    "FIX-005"
+   ]
+  },
+  {
+   "id": "AC-FIX-006",
+   "source": "TRD Master Task List, FIX-006 acceptance criteria",
+   "statement": "audit-design.test.js: below-floor measure with reused true and reused_build_side true yields rank low and known_caveat true; same without recorded ruling yields high; measure without reused stays high in both cases; command prose passes caveats.",
+   "served_by": [
+    "FIX-006"
+   ]
+  },
+  {
+   "id": "AC-FIX-007",
+   "source": "TRD Master Task List, FIX-007 acceptance criteria",
+   "statement": "refine-design-prose.test.js asserts the rule names 'known build-side caveat' and that it is skipped; a report whose only open findings are known caveats counts as the existing 'no change made' run.",
+   "served_by": [
+    "FIX-007"
+   ]
+  },
+  {
+   "id": "AC-FIX-008",
+   "source": "TRD Master Task List, FIX-008 acceptance criteria",
+   "statement": "diff -rq packages/core/lib .claude/lib (and commands, contracts, workflows) reports no difference for touched files; full Jest suite passes.",
+   "served_by": [
+    "FIX-008"
+   ]
+  },
+  {
+   "id": "AC-AMEND-001",
+   "source": "TRD Master Task List, AMEND-001 acceptance criteria",
+   "statement": "Republished canvas and Design System page must both be recorded in artifacts.json with new url and previous_url (FS-5).",
+   "served_by": [
+    "AMEND-001"
+   ]
+  }
+ ],
+ "tasks": [
+  {
+   "id": "FIX-001",
+   "description": "artifacts.js: keep the replaced URL as previous_url when record changes a non-empty URL to a different one; carry through normaliseEntry; unchanged URL adds nothing; record with no --url keeps url and previous_url. (Serves O2.)",
+   "touches": [
+    "packages/core/lib/artifacts.js",
+    "packages/core/lib/artifacts.test.js"
+   ]
+  },
+  {
+   "id": "FIX-002",
+   "description": "design-map.js: add republished(dir, {kind, old, new}) and CLI verb republished --dir D --kind canvas|system --new U [--old U]; sets new url and previous_url, repoints boards[].canvas, clears version, synced_at, files and legacy synced_version; validate must still pass. (Serves O1, O2, O3.)",
+   "touches": [
+    "packages/core/lib/design-map.js",
+    "packages/core/lib/design-map.test.js"
+   ]
+  },
+  {
+   "id": "FIX-003",
+   "description": "Prose rule 'Unreadable recorded artifact' in contract section 1 (after step 4), pointers in section 3 and 4, design-system.md steps 6-8 and refine-design.md point at it; republish only on not-found or no-access; DECISIONS line; never STUCK for this cause. (Serves O1, O1a, O2, O3.)",
+   "touches": [
+    "packages/core/contracts/design-commands.md",
+    "packages/core/commands/design-system.md",
+    "packages/core/commands/refine-design.md",
+    "packages/core/commands/design-unreadable-prose.test.js"
+   ]
+  },
+  {
+   "id": "FIX-004",
+   "description": "design-render.js measure script: mark reused: true on contrast or target measure whose element has no data-dc-tpl and sits inside .sc-host-x; reused in grouping key; skip contrast inside disabled control; document field. audit-design.js MEASURE_SCHEMA gains reused. (Serves O4, O6.)",
+   "touches": [
+    "packages/core/lib/design-render.js",
+    "packages/core/lib/design-render.test.js",
+    "packages/core/workflows/audit-design.js"
+   ]
+  },
+  {
+   "id": "FIX-005",
+   "description": "design-map.js: add caveats(dir) and CLI verb caveats --dir docs/ui/<slug> returning {items, reused_build_side, sources} from brief.md Accessibility caveats and design.md section 4; reads only. (Serves O5.)",
+   "touches": [
+    "packages/core/lib/design-map.js",
+    "packages/core/lib/design-map.test.js"
+   ]
+  },
+  {
+   "id": "FIX-006",
+   "description": "audit-design.js and audit-design.md: command runs design-map.js caveats and passes caveats in workflow args; visualFindings ranks drawn high, reused with recorded ruling low with known_caveat, reused unrecorded high with record-it hint; report lists known caveats. (Serves O4, O5.)",
+   "touches": [
+    "packages/core/workflows/audit-design.js",
+    "packages/core/workflows/audit-design.test.js",
+    "packages/core/commands/audit-design.md"
+   ]
+  },
+  {
+   "id": "FIX-007",
+   "description": "refine-design.md no-feedback rule: a VISUAL FINDINGS line marked known build-side caveat is skipped and STATE says how many. (Serves O7.)",
+   "touches": [
+    "packages/core/commands/refine-design.md",
+    "packages/core/commands/refine-design-prose.test.js"
+   ]
+  },
+  {
+   "id": "FIX-008",
+   "description": "Sync vendored copies: every changed file under packages/core/ copied to its .claude/ counterpart. (Serves O1 through O7.)",
+   "touches": [
+    ".claude/lib/artifacts.js",
+    ".claude/lib/design-map.js",
+    ".claude/lib/design-render.js",
+    ".claude/contracts/design-commands.md",
+    ".claude/commands/design-system.md",
+    ".claude/commands/refine-design.md",
+    ".claude/commands/audit-design.md",
+    ".claude/workflows/audit-design.js"
+   ]
+  },
+  {
+   "id": "AMEND-001",
+   "description": "Republished canvas and Design System page must both be recorded in artifacts.json with new url and previous_url (FS-5); promoted from a gap found by verify-build --fix (plan blocker B1, 2026-11-16).",
+   "touches": [
+    "packages/core/contracts/design-commands.md",
+    "packages/core/commands/refine-design.md",
+    "packages/core/commands/design-system.md"
+   ]
+  }
+ ],
+ "open_questions": [
+  "OQ-1: Is a dc-import part's own markup stamped data-dc-tpl like a board's? | Assumed: Yes (parts parse through the same template parser); a FIX-004 test fails if not | Owner-only: (blank)"
+ ],
+ "could_not_verify": [
+  "dart's real board render; the tests render real fixture boards, but only a live run on dart shows the full effect.",
+  "The not-found versus no-access distinction rests on the Artifact tool's read error text, which this repository cannot reproduce."
+ ]
+}

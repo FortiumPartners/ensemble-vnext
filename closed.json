@@ -1,0 +1,13 @@
+{
+  "feature": "fix-design-command-defects",
+  "trd": "docs/TRD/fix-design-command-defects.md",
+  "closedAt": "2026-11-16T11:13:26Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this is a defect TRD written from GitHub issues #150 and #152, and there is no PRD); dart's real board render is unproven here; the not-found versus no-access distinction (O1a, filed as #160) cannot be exercised from this repository",
+    "report": ".trd-state/fix-design-command-defects/audit-build-report.md",
+    "auditedCommit": "41953b02696d0d8ca3626b97babdd9813af0d0ae",
+    "anchorCommit": null
+  }
+}

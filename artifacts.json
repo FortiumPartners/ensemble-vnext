@@ -23,5 +23,11 @@
     "url": "",
     "updated_at": "2026-11-16T11:02:07.844Z",
     "command": "/verify-build"
+  },
+  "audit-build": {
+    "path": ".trd-state/fix-design-command-defects/audit-build-report.md",
+    "url": "https://claude.ai/artifact/6tXXv1RWaaZ4o7szDcdcCa",
+    "updated_at": "2026-11-16T11:13:34.215Z",
+    "command": "/audit-build"
   }
 }
