@@ -44,11 +44,35 @@ Both commands dispatch the **same** workflow with the same 28 arguments
 | `--no-fix` | Report-only: one verify pass even with a plan on disk |
 | `--fix <plan-path>` | Names a different plan, used whatever its timestamp (DECISIONS says an older plan was applied on request). `--fix` never disables anything |
 | `--resume` | Continues an interrupted loop (state `outcome: null`); builds nothing and ignores any plan. `--resume` together with an explicit `--fix` is refused before step 1 |
-| `--cap N` | Inner iteration cap, default 3; a total budget across every resume of one run |
+| `--cap N` | Inner iteration cap, default 3; a total budget across every resume of one run. It is not the per-feature run limit (below) |
 | `--chained` | Callers only, honoured only for a sweep file: ends with `[STATUS: /verify-build] RETURN → <outcome>, <met> of <total> met` instead of a readout and banner, and runs no `notify-complete.sh`. On any other input it is stripped and ignored |
 
 A plan is **used once**: it counts only while its `**Written**` time is later than the last
 `verification-report.md`, so a plain `/verify-build` after a fix run reads it as spent.
+
+### The per-feature run limit
+
+A feature gets a limited number of counted verification runs, set by `ensemble.verificationRunLimit`
+in `.claude/settings.json`: any integer of at least 1, shipped default 2. An absent or `null` value
+means 2; any other value (0, -1, "2", 2.5) or an unreadable settings file stops the command with
+`COMMAND STUCK` naming the setting. This is a different cap from `--cap N`, which bounds the
+iterations inside one run. **Code** counts, compares and refuses (`.claude/lib/verification-runs.js`,
+verbs `check`, `start`, `finish`, `request`, `record-ruling`); the ruling is the product PM's, who may
+escalate to the owner.
+
+- **What counts as a run.** The first dispatch of the verification workflow over a feature's own
+  definition, by `/implement-trd` or `/verify-build`. A `--resume` of an interrupted run is the same
+  run. A run that ended `setup-failure` counts. A custody re-proof is not a run. A targeted
+  re-check of named criteria is recorded with scope `targeted` and counts. Runs made before the
+  feature shipped this limit are not counted.
+- **`--reset-state`** clears the count, because it deletes `implement.json` where the runs are kept.
+- **At the limit.** `check` and `start` answer `allowed: false` (exit 0, nothing written) and the
+  command writes `.trd-state/<f>/ruling-request.md` instead of starting a run or a plan. The same file
+  is written when a run that reaches the limit ends short of `satisfied` (`rulingDue`). It lists the
+  runs, what is still open and three outcomes. **Ship** ships everything open as it is; **fix one
+  named thing** builds that criterion; **drop** removes what is open from the feature. Whatever is
+  shipped or dropped is filed as a defect issue. A person records the choice with `record-ruling`;
+  the framework never does.
 
 ## 2. Files
 
@@ -66,6 +90,8 @@ A plan is **used once**: it counts only while its `**Written**` time is later th
 | `.trd-state/<f>/verification-artifacts/<skill>/` | Judge (`verdicts.json`), Render agent (`index.html`, `img/`) | you, as a published page | One page per selected check |
 | `.claude/verification-notes.md` | exercisers | every Exercise and Debug prompt | What past runs learned about running this project; each line marked `[ran]` / `[read]` / `[inferred]` |
 | `.trd-state/<f>/verification-plan.md` | `/refine-verification`, on your yes (or an agent's, under `--auto`) | `/verify-build` | Blockers, slices, rulings, stop rule |
+| `.trd-state/<f>/ruling-request.md` | `verification-runs.js request`, through `/verify-build`, `/implement-trd` or `/refine-verification` at the run limit | the product PM (and the owner) | The runs, what is still open and the three outcomes ship, fix one named thing, drop |
+| `.trd-state/<f>/implement.json` `functional_verification.runs` | `verification-runs.js` (`start`, `finish`) | `verification-runs.js` | One entry per counted run: command, scope, start, outcome; the count is its length |
 | `.trd-state/<f>/artifacts.json` | the command | the command | Published page URLs, so a re-run updates the same link |
 
 ---
@@ -424,7 +450,7 @@ with the returned outcome.
 |---|---|---|
 | `satisfied` | Nothing open, and every must-pass criterion is met with no must-pass objective left without a criterion. The outcome line adds "(N of M not verifiable)" when some were never checked | `/audit-build` |
 | `unbuilt` | Something asked for was never built; the loop stopped rather than debug absent code | `/refine-verification`, then `/verify-build` |
-| `stalled` | A debug round closed nothing | same |
+| `stalled` | A debug round closed nothing | same (at the run limit: rule on `ruling-request.md`) |
 | `stuck` | The cap ran out with gaps open, or a `--resume` arrived with no budget left | same |
 | `insufficient-coverage` | Too little was proven to call it either way. When must-pass items were also unproven, the reason names them | same |
 | `must-pass-unproven` | Everything judged was met and the coverage floor (if any) was cleared, but a core item the TRD marked must-pass was not proven, or has no criterion at all. The reason names each. A must-pass criterion that can only be `not verifiable` here is never accepted as such. It has three ways out: an environment that reaches it, a CI job declared in the TRD's `Off-host proof` column whose run on `HEAD` is green (it then settles `met`; §10a), or the marking removed from the TRD | same |
@@ -458,7 +484,7 @@ without calling the workflow (`implement-trd.md` §8.1). Only the five short out
 | **Criteria**, **Coverage** | Counts per status; "K of N proven — uncovered: ids" |
 | **Must pass** | Only when the TRD declares any (otherwise the report is unchanged): "K of N proven", then "unproven: id (status)", then "no criterion for: objective id" for each objective nothing covers |
 | **Proven off-host** | Only when a criterion was proven by a CI job: `id — workflow#job, run <runId> (<url>)`, comma-separated, directly after the `Must pass` row's line. Absent otherwise, so earlier reports are unchanged |
-| **Diagnosis**, **Next** | Only on stalled, stuck, unbuilt, insufficient-coverage and must-pass-unproven (`DIAGNOSIS_OUTCOMES`); never on `setup-failure`, which has no cause counts because nothing was judged. Diagnosis counts open criteria by cause, most common first, in words — "14 open — 6 evidence missing, 5 judged failed, 3 not built"; no cause counts as `unrecorded`. Next names `/refine-verification` then `/verify-build`. The readout repeats both and never re-judges |
+| **Diagnosis**, **Next** | Only on stalled, stuck, unbuilt, insufficient-coverage and must-pass-unproven (`DIAGNOSIS_OUTCOMES`); never on `setup-failure`, which has no cause counts because nothing was judged. Diagnosis counts open criteria by cause, most common first, in words — "14 open — 6 evidence missing, 5 judged failed, 3 not built"; no cause counts as `unrecorded`. Next names `/refine-verification` then `/verify-build`, except at the run limit, where it names `ruling-request.md` instead. The readout repeats both and never re-judges |
 | Unrecognised Status | Any status that is none of the four, so a typo cannot hide a criterion |
 | Unbuilt / Met / Not Met / Not Verifiable | One table each. Met shows *proven at* iteration; Not Met shows tier 1, reason, blocker, and the debugger's attempt per iteration |
 | **Screenshots** | Only when a criterion's proof is an image or a criterion is a UI one: "N shown", then any UI criteria proven without a screenshot (still `met`, but flagged), then any images left out |
@@ -579,6 +605,10 @@ loop is still running.
 ## 12. Recovery: `/refine-verification` then `/verify-build`
 
 ### The chat (`/refine-verification`)
+
+At the per-feature run limit (`ensemble.verificationRunLimit`, default 2) there is no chat: a plan
+would only set up a run that cannot start. The command writes `ruling-request.md` through
+`verification-runs.js request` and ends `COMMAND STUCK` pointing at it.
 
 A refine command — interactive by default, `--auto` for an unattended answer (`autonomy.md`'s
 "Refine commands"). Since 4.13.7 an agent may also start it with `Skill()`; one doing so
