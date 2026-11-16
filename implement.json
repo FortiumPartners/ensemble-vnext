@@ -79,26 +79,40 @@
     "ABFV-D001": {
       "description": "Update every statement of the end-of-run order to audit-first and close-after-verification: CLAUDE.md (Development Workflow block), README.md, .claude/rules/process.md and packages/core/templates/process.md.template, packages/core/templates/CLAUDE.md.template, docs/guides/{PROCESS,QUICK-REFERENCE,CONCEPTS,README,ARCHITECTURE}.md, docs/guides/ship-build.md (the closed-feature gate and the custody anchor, per D18), docs/reference/{implement-trd,verification,README,other-commands}.md (including /plan --implement's chain, which now audits and closes), and FRAMEWORK_HINT in packages/router/hooks/router.py with its copy .claude/hooks/router.py (§3.5); add one sentence to .claude/rules/command-status.md's Enforcement section naming /implement-trd → /audit-build --chained, copied to packages/core/templates/claude-directory/rules/command-status.md; and any further file the grep below finds",
       "phase": 4,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "CLAUDE.md",
+        "README.md",
+        ".claude/rules/process.md",
+        "packages/core/templates/process.md.template",
+        ".claude/rules/command-status.md",
+        "docs/guides/PROCESS.md",
+        "docs/reference/implement-trd.md",
+        "packages/router/hooks/router.py",
+        ".claude/hooks/router.py"
+      ],
       "commit": null,
       "started_at": "2026-11-16T21:03:06.561Z",
-      "completed_at": null
+      "completed_at": "2026-11-16T21:16:23.841Z",
+      "last_advanced": "2026-11-16T21:16:13.558Z"
     },
     "ABFV-T001": {
       "description": "Add packages/core/commands/audit-first-order.test.js. Slicing implement-trd.md by headings: the ### 7.3 section sits between ### 7.2 and ## Step 8 and holds the --chained --defer-close call; the ### 8.3 section holds the Workflow({ name: \"verify-functional\" call; the ## Step 9: Completion section (to ### 9.0a) holds the --chained --close-deferred call; and the three headings come in that order. In every Skill({ skill: \"audit-build\" call in implement-trd.md and verify-build.md, --chained immediately precedes the mode; every flag those calls pass appears in audit-build.md's argument-hint; every [STATUS: /audit-build] RETURN → outcome either caller branches on appears, by its fixed prefix, among audit-build.md's RETURN lines",
       "phase": 4,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/audit-first-order.test.js"
+      ],
       "commit": null,
       "started_at": "2026-11-16T21:03:06.561Z",
-      "completed_at": null
+      "completed_at": "2026-11-16T21:16:23.842Z",
+      "last_advanced": "2026-11-16T21:16:13.562Z"
     },
     "ABFV-T002": {
       "description": "[LIVE] In a fixtures slot at .trd-state/audit-before-functional-verification/evidence/live/work/slot-1, made with smoke_scaffold_project from test/smoke/lib/project.sh (scaffold, rules, its own git init, committer identity and first commit), folder-trust accepted once as verification.md §1a says, run a default /implement-trd headless against the two-requirement fixture that test/smoke/scenarios/verify-functional.sh writes (smoke_write_fv_prd, smoke_write_fv_trd); save the transcript and an order excerpt under .trd-state/audit-before-functional-verification/evidence/live/ABFV-T002/ and list them, with the command and library files exercised, in evidence/live-manifest.jsonl; destroy the slot afterwards",
@@ -137,13 +151,21 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T21:03:06.560Z"
+    },
+    {
+      "phase": 4,
+      "commit": "84f77325f584430f570af8d0076ec081ecdcb61a",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-16T21:20:41.343Z"
     }
   ],
   "recovery": {
     "interrupted": false,
     "interrupt_reason": null,
-    "last_healthy_checkpoint": "9cc4659cf892925c501f63c1959774854b4c76d0",
-    "last_checkpoint_timestamp": "2026-11-16T21:03:06.560Z"
+    "last_healthy_checkpoint": "84f77325f584430f570af8d0076ec081ecdcb61a",
+    "last_checkpoint_timestamp": "2026-11-16T21:20:41.343Z"
   },
   "functional_verification": {
     "prd_resolved": true,

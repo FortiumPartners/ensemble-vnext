@@ -18,25 +18,25 @@
   },
   "runs": {
     "unit": {
-      "tree": "06f224dee30ae6f3ea11bee27878ddb0c0005664+883f283c9ae0",
+      "tree": "9cc4659cf892925c501f63c1959774854b4c76d0+ba4e6623243e",
       "status": "fail",
       "command": "npx jest",
-      "durationSeconds": 208,
+      "durationSeconds": 230,
       "failures": [
         "packages/core/hooks/status.test.js",
         "packages/skills/design-setup/__tests__/skill-md.test.js",
         "packages/skills/ship-setup/__tests__/skill-md.test.js",
         "packages/skills/verification-setup/__tests__/skill-md.test.js"
       ],
-      "at": "2026-11-16T21:02:58.120Z"
+      "at": "2026-11-16T21:20:13.512Z"
     },
     "integration": {
-      "tree": "06f224dee30ae6f3ea11bee27878ddb0c0005664+883f283c9ae0",
+      "tree": "9cc4659cf892925c501f63c1959774854b4c76d0+ba4e6623243e",
       "status": "pass",
       "command": "bats test/integration/tests/runtime-integrity.test.sh",
-      "durationSeconds": 30,
+      "durationSeconds": 20,
       "failures": [],
-      "at": "2026-11-16T20:59:15.182Z"
+      "at": "2026-11-16T21:16:07.292Z"
     }
   }
 }
