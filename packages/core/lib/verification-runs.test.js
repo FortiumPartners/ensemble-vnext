@@ -5,6 +5,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const vr = require('./verification-runs');
 const wd = require('./waived-defects');
+const discovered = require('./discovered');
 
 const CLI = path.join(__dirname, 'verification-runs.js');
 
@@ -74,6 +75,16 @@ describe('start / check', () => {
     expect(fv.prd_path).toBe('docs/PRD/f.md');
     expect(fv.environments).toEqual(['local']);
     expect(fv.runs).toHaveLength(2);
+  });
+
+  test('starting twice while the first run is unfinished continues it and adds no entry', () => {
+    const { root, dir } = fixture({ runs: [run(1)], vstate: { outcome: null, criteria: [] } });
+    const a = vr.start(dir, { command: '/verify-build', scope: 'full', root, nowIso: '2026-11-16T00:00:00Z' });
+    const b = vr.start(dir, { command: '/verify-build', scope: 'full', root, nowIso: '2026-11-16T01:00:00Z' });
+    expect(a).toMatchObject({ allowed: true, continued: false, count: 2 });
+    expect(b).toMatchObject({ allowed: true, continued: true, count: 2 });
+    expect(b.run.started_at).toBe(a.run.started_at);
+    expect(impl(dir).functional_verification.runs).toHaveLength(2);
   });
 
   test('a limit of 5 allows a third run', () => {
@@ -172,6 +183,14 @@ describe('finish', () => {
       if (was[i].startsWith('**Next**:')) expect(l).toContain('ruling-request.md');
       else expect(l).toBe(was[i]);
     });
+  });
+
+  test('finishing twice: the second call finds no run in progress and changes nothing', () => {
+    const { root, dir } = fixture({ runs: [open1()], vstate });
+    vr.finish(dir, { outcome: 'stalled', root, nowIso: '2026-11-16T02:00:00Z' });
+    const before = fs.readFileSync(path.join(dir, 'implement.json'), 'utf8');
+    expect(() => vr.finish(dir, { outcome: 'satisfied', root })).toThrow(/no run in progress/);
+    expect(fs.readFileSync(path.join(dir, 'implement.json'), 'utf8')).toBe(before);
   });
 
   test('the report is left alone when no ruling is due', () => {
@@ -290,6 +309,54 @@ describe('record-ruling', () => {
   test('ship and drop store no criterion', () => {
     const { dir } = mk();
     expect(vr.recordRuling(dir, { outcome: 'ship', criterion: 'C-1', by: 'pm' }).ruling.criterion).toBeNull();
+  });
+
+  describe('a second ruling on the same feature', () => {
+    const T1 = '2026-11-16T00:00:00Z';
+    const T2 = '2026-11-16T05:00:00Z';
+    const nonBlockingCount = (dir, ref) =>
+      discovered.readAll(dir).filter((r) => r.ref === ref && String(r.summary).startsWith('[non-blocking] ')).length;
+
+    test('replaces functional_verification.ruling with the second one', () => {
+      const { dir } = mk();
+      vr.recordRuling(dir, { outcome: 'ship', by: 'pm-one', nowIso: T1 });
+      const second = vr.recordRuling(dir, { outcome: 'drop', by: 'pm-two', nowIso: T2 });
+      expect(impl(dir).functional_verification.ruling).toEqual({ outcome: 'drop', criterion: null, by: 'pm-two', recorded_at: T2 });
+      expect(second.ruling).toEqual(impl(dir).functional_verification.ruling);
+    });
+
+    test('keeps one [non-blocking] row per criterion and reports the repeats as skipped', () => {
+      const { dir } = mk();
+      vr.recordRuling(dir, { outcome: 'ship', by: 'pm', nowIso: T1 });
+      const second = vr.recordRuling(dir, { outcome: 'drop', by: 'pm', nowIso: T2 });
+      expect(second.waived.skipped.sort()).toEqual(['C-1', 'C-2']);
+      expect(second.waived.recorded).toEqual([]);
+      expect(nonBlockingCount(dir, 'C-1')).toBe(1);
+      expect(nonBlockingCount(dir, 'C-2')).toBe(1);
+      expect(wd.listWaived(dir)).toHaveLength(2);
+    });
+
+    test('fix C-1 then ship: C-1 gets its row on the second call, the others are skipped', () => {
+      const { dir } = mk();
+      const first = vr.recordRuling(dir, { outcome: 'fix', criterion: 'C-1', by: 'pm', nowIso: T1 });
+      expect(first.waived.recorded).toEqual(['C-2']);
+      expect(nonBlockingCount(dir, 'C-1')).toBe(0);
+      const second = vr.recordRuling(dir, { outcome: 'ship', by: 'pm', nowIso: T2 });
+      expect(second.waived.recorded).toEqual(['C-1']);
+      expect(second.waived.skipped).toEqual(['C-2']);
+      expect(nonBlockingCount(dir, 'C-1')).toBe(1);
+      expect(nonBlockingCount(dir, 'C-2')).toBe(1);
+      expect(impl(dir).functional_verification.ruling).toMatchObject({ outcome: 'ship', recorded_at: T2 });
+    });
+
+    test('neither call changes functional_verification.runs', () => {
+      const { dir } = mk();
+      const before = impl(dir).functional_verification.runs;
+      vr.recordRuling(dir, { outcome: 'ship', by: 'pm', nowIso: T1 });
+      expect(impl(dir).functional_verification.runs).toEqual(before);
+      vr.recordRuling(dir, { outcome: 'drop', by: 'pm', nowIso: T2 });
+      expect(impl(dir).functional_verification.runs).toEqual(before);
+    });
   });
 });
 
