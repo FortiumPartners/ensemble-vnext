@@ -1,7 +1,9 @@
 # TRD: publish-artifacts-per-kind
 
 **Source PRD**: None — small change decided by the owner; roadmap item 4 of workplan
-`storybook-framework-requests` (`docs/plans/storybook-framework-requests/roadmap.md`, feature F-4)
+`storybook-framework-requests` (`docs/plans/storybook-framework-requests/roadmap.md`, feature F-4;
+committed on `main` in bf2cf062, after this branch was cut, so read it with
+`git show main:docs/plans/storybook-framework-requests/roadmap.md`)
 
 **Kind**: change
 
@@ -48,8 +50,10 @@ audit-prd and audit-trd reports never publish.
    (it never publishes; not in the brief).
 4. A design command whose kind resolves off still ends STUCK as today (contract §5); its
    message names the per-kind setting.
-5. **On `publish: off`, the record step passes `--url ""`**, the convention `audit-prd.md:148`
-   and `refine-verification.md:285` already use for a kind that is never published. A stored
+5. **On `publish: off`, the record step passes `--url ""`**, the convention
+   `refine-verification.md:285` already uses for a kind that is never published (audit-prd and
+   audit-trd used it too before this change; their record lines are now `audit-prd.md:163` and
+   `audit-trd.md:151`). A stored
    link to a page that no longer updates is cleared (the manifest keeps it as `previous_url`),
    so no later step republishes to it or reads owner comments from it
    (`implement-trd.md` §8.1b). On `publish: on` the record step is unchanged.
@@ -149,7 +153,7 @@ the call runs, and every decision is printed by the CLI)
 
 ### FIX-002
 - **Touches:** `packages/core/commands/create-prd.md`, `packages/core/commands/refine-prd.md`, `packages/core/commands/create-trd.md`, `packages/core/commands/refine-trd.md`, `packages/core/commands/plan.md`, `packages/core/commands/task.md`, `packages/core/commands/verify-build.md`, `packages/core/commands/implement-trd.md`, `packages/core/commands/audit-build.md`, `packages/core/commands/audit-docs.md`, `packages/core/commands/audit-prd.md`, `packages/core/commands/audit-trd.md`, `packages/core/commands/verify-command-surface.test.js`
-- **Reuse:** each file's existing "Artifact link" block (create-prd.md:842, refine-trd.md:285, create-trd.md:1258, refine-prd.md:251, verify-build.md:803-811, task.md:164, audit-build.md:425-449, implement-trd.md:2403-2465, plan.md:1261, audit-docs.md:135) [read]; audit-prd.md:148 and audit-trd.md:136 record steps [read]
+- **Reuse:** each file's existing "Artifact link" block (create-prd.md:841, refine-trd.md:284, create-trd.md:1258, refine-prd.md:250, verify-build.md:807-848, task.md:160-173, audit-build.md:426-449, implement-trd.md:2402-2475, plan.md:1262, audit-docs.md:133-149) [read; line numbers re-pinned to the delivered files, 2026-11-16]; audit-prd.md:149-165 and audit-trd.md:137-153 publish-and-record steps (record steps only before this change) [read]
 - **Replaces:** the sentence "Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`" and its variants, and "These reports are never published, so record passes `--url \"\"`" in audit-prd/audit-trd [read]
 - **Follow:** one wording everywhere: "Ask first: `node .claude/lib/artifacts.js publish --kind <K>` (add `--requested` when this run's arguments carry `--publish`). On `publish: on`, publish …; on `publish: off (…)`, make no publish call and name the local path." Leave every "ALWAYS record" step as is
 - **Careful:** implement-trd §9.0a also gates on `--no-verify`; keep that gate. Check pages ask per skill, not once for all. `verify-command-surface.test.js:419` asserts §9.0a wording — update, don't delete. `/plan`'s own `--implement` chain passes its args to `/implement-trd`; `--publish` must not be confused with `--implement`
@@ -158,12 +162,12 @@ the call runs, and every decision is printed by the CLI)
 - **Touches:** `packages/core/contracts/design-commands.md`, `packages/core/contracts/design-commands.test.js`, `packages/core/commands/design-system.md`, `packages/core/commands/create-design.md`, `packages/core/commands/refine-design.md`, `packages/core/commands/sync-design.md`
 - **Reuse:** §1 step 2's `publish: on|off` answer, which the lib's output matches [read]; §5 STUCK block [read]
 - **Replaces:** the inline `node -e '...publishArtifacts===false...'` at design-commands.md:24 [read]
-- **Follow:** design commands pass `--kind design`; `/design-system` passes `--kind design-system` (its manifest kind, `design-system.md:97`; `system` is only `design-map.js`'s name) and `--kind design` per canvas; both default on, so a project with `true` behaves exactly as today
+- **Follow:** design commands pass `--kind design`; `/design-system` passes `--kind design-system` (its manifest kind, `design-system.md:98`; `system` is only `design-map.js`'s name) and `--kind design` per canvas; both default on, so a project with `true` behaves exactly as today
 - **Careful:** today's inline reader treats any error as on; the CLI can exit 1 — the contract must say a non-zero exit or missing `publish:` line is off plus the reason, which then ends STUCK per §5. design-commands.test.js:61 and :110 assert the old text (`publishArtifacts`, `publishArtifacts===false`) — move them to the lib call; the STUCK `Next:` must tell the owner how to turn the kind on (`"design": true`, or remove `false`), not just "set to true"
 
 ### FIX-004
 - **Touches:** `packages/core/scripts/scaffold-project.sh`, `packages/core/scripts/scaffold-project.test.sh`, `test/integration/tests/scaffold-delivery.test.sh`, `packages/core/templates/claude-directory/settings.json`, `packages/full/.claude/settings.json`
-- **Reuse:** `ensemble.setdefault("publishArtifacts", True)` at scaffold-project.sh:1651 [read]; the false-survives tests at scaffold-project.test.sh:2683-2700 and scaffold-delivery.test.sh:136-162 [read]
+- **Reuse:** `ensemble.setdefault("publishArtifacts", True)` at scaffold-project.sh:1656 [read; was :1651 before the comment grew]; the false-survives tests at scaffold-project.test.sh:2713-2730 (was 2683-2700) and scaffold-delivery.test.sh:136-162 [read]
 - **Replaces:** only the comment above the setdefault [read]
 - **Follow:** setdefault, never assignment (the file's own stated rule)
 - **Careful:** `test/integration/tests/notify-on-complete.test.sh:568-603` asserts the template value is a boolean and `true` — still true after this change; leave it passing, do not loosen it
@@ -184,5 +188,14 @@ the call runs, and every decision is printed by the CLI)
 
 ## Could Not Verify
 
-- That `scaffold-project.sh --refresh` is how this repository updates its own `.claude/` [inferred]; FIX-006 checks by `diff -r` either way.
-- A live `Artifact` publish under each kind — not exercised; the decision is checked through the CLI's printed answer, which is what every command acts on.
+State after `/audit-build`, 2026-11-16 (5 of 5 verifiers reported; no PRD supplied).
+
+- **Fidelity to product requirements.** This TRD has no source PRD, so the audit checked the
+  delivered code against this TRD only; whether the TRD captures everything the owner asked for
+  (roadmap item 4 on `main`) and nothing more was not validated. Out of reach without a PRD.
+- **A live `Artifact` publish under each kind.** Not exercised: the change decides whether the
+  call runs, and that decision is checked through the resolver CLI's printed answer, which is
+  what every command acts on (Verification Environment, above).
+- **Whether a live command run obeys its prose.** The publish-step, `--url ""` and `--publish`
+  pass-through instructions are proven present in the command files by prose tests where such
+  tests exist; no headless model session was run to show a command follows them.
