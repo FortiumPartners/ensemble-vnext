@@ -322,8 +322,16 @@
         "maxRounds": 3,
         "closedBelow": 1
       },
-      "rounds": [],
-      "stopped": false
+      "rounds": [
+        {
+          "round": 1,
+          "tasksPromoted": 1,
+          "criteriaClosed": 7,
+          "criteriaOpen": 1,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
     }
   },
   "audit": {
