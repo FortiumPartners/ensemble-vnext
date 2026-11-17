@@ -23,5 +23,11 @@
     "url": "",
     "updated_at": "2026-11-17T17:45:29.187Z",
     "command": "/implement-trd"
+  },
+  "verification-plan": {
+    "path": ".trd-state/fix-implement-skips-verification-loop/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-11-17T17:48:53.658Z",
+    "command": "/refine-verification"
   }
 }
