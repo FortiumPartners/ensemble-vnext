@@ -12,6 +12,20 @@ the work is actually released.
 
 ## [Unreleased]
 
+## [4.17.9] - 2026-11-17
+
+Eight changes since 4.17.8. **The audit runs before functional verification** (#171), so audit fixes no
+longer land after verification and throw its evidence away. **Verification runs are capped per
+feature** (#165), **re-proof scope is narrowed** (#153, #154, #155, #161, #164), **phase gates stop
+rerunning suites and CI gets a time budget** (#156, #158), **designs mark up to 8 Core boards** (#169),
+**publishing is set per kind** (#166), and **two design-command defects** are fixed (#150, #152; #159).
+
+**Behaviour changes to know before updating.** Reports no longer publish by default: PRDs, audit reports,
+verification reports and check pages get a link only with `--publish` or a per-kind setting;
+`ensemble.publishArtifacts: false` still means everything off. `/implement-trd` runs the audit before
+functional verification, and the feature closes only after both pass. A feature that reaches its
+verification run limit (default 2) gets a ruling request for the product PM instead of a third run.
+
 **Publishing is set per kind (#40).** `ensemble.publishArtifacts` takes three shapes: `true` (the
 per-kind defaults), `false` (every publish off, even for a `--publish` request) or an object of
 per-kind booleans. By default TRDs, `/task` reports, design rounds and the design system publish;
@@ -28,6 +42,20 @@ the full set.
 
 ### Added
 
+- **Audit before functional verification (#171).** `/implement-trd` runs the code audit before the
+  functional-verification loop; the feature closes only after both pass.
+- **Core boards (#169).** `/create-design` marks at most 8 Core boards (main screens in their normal
+  state) with a visible `[Core]` mark. Only a Core board's default frame is must-pass; every other board
+  is evidence for review and never fails verification.
+- **A shared rerun-scope rule (#157, #161).** New contract `rerun-scope.md`: before any re-verification,
+  re-audit, re-proof or CI rerun, read the change since the last green result and choose `none`,
+  `targeted` or `full`, and say why. The five re-running commands read it, and a small helper lists the
+  files changed since an anchor without deciding anything.
+- **Phase gates and CI time (#156, #158, #162).** `/implement-trd` no longer runs a suite again on a
+  tree it already ran on, narrows integration and e2e to related tests, runs long suites in the
+  background, and records the base branch's failing tests once per feature as a baseline. `ship-setup`
+  records a CI budget (default 10 minutes, at most 15), `wait-ci` records wall time against it, and
+  `ci-baseline.js` reports a missing superseded-run cancellation. Over budget is one ISSUES line, never a gate.
 - **Per-feature verification run limit.** A feature gets at most `ensemble.verificationRunLimit`
   counted verification runs (any integer of at least 1, default 2; an invalid value stops the
   command). At the limit `/verify-build`, `/implement-trd` and `/refine-verification` write
@@ -36,12 +64,13 @@ the full set.
   `verification-runs.js` in `implement.json`; `--reset-state` clears the count, `setup-failure`
   counts, runs before this release are not counted. Refine-verification TRD O4 is marked amended.
 
-### Not yet proven
-
-- The limit end to end in a live model session (VRL-T001) has not been run.
-
 ### Fixed
 
+- **Design commands (#159, fixes #150 and #152).** `/refine-design` and `/design-system --sync`
+  republish from committed files when a recorded canvas or Design System page is not found or not
+  readable from this account, keeping the old link as `previous_url`. `/audit-design` separates
+  components a design draws from reused library components, reads recorded accessibility caveats, and
+  shows a reused component's miss as a known build-side caveat; the design's own faults stay high.
 - **Custody no longer doubts proofs over framework files, and narrows by directory (#153).**
   `.claude/**` (except `.claude/rules/**`), `CLAUDE.md`, `.gitattributes` and `.gitignore` are not
   shipped code. When a merge-up changes a shipped file no covers record names, only the criteria
@@ -60,6 +89,14 @@ the full set.
   `not_verifiable`). The TRD authoring contract no longer allows a criterion whose only proof is a
   full manual CI run, and the commands that handle a voided, missing or red proof name the
   single-job re-run.
+
+### Not yet proven
+
+- Live runs not made: the verification run limit end to end (#167); the audit-before-verification order
+  in a live session (#172); the Core mark on the hosted canvas and the `canvas.json` shape it is written
+  into (#170); a republish for a canvas another account owns (#160); a real phase gate on a suite over
+  10 minutes and a real `/ship-build` reporting CI time against a budget (#162).
+- Follow-ups filed: per-kind publishing (#168), re-proof scope (#163).
 
 ## [4.17.8] - 2026-11-13
 
