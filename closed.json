@@ -1,0 +1,13 @@
+{
+  "feature": "fix-implement-skips-verification-loop",
+  "trd": "docs/TRD/fix-implement-skips-verification-loop.md",
+  "closedAt": "2026-11-17T18:12:15Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; the readout line that tells the owner why verification did not run (half of the must-pass objective O2) has no test; the test for the blocking-policy not-run exit (FIX-002) would still pass if that exit reverted",
+    "report": ".trd-state/fix-implement-skips-verification-loop/audit-build-report.md",
+    "auditedCommit": "20b21ddeaea722eacba7ed3ce8c8b6c6daef94cf",
+    "anchorCommit": "529fcc2d18e4962c403736992a964a3c834ede8d"
+  }
+}

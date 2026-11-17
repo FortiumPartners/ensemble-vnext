@@ -11,7 +11,12 @@
       "provenAt": 2,
       "image": null,
       "ui": false,
-      "imageExcluded": null
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-2",
@@ -23,7 +28,12 @@
       "provenAt": 1,
       "image": null,
       "ui": false,
-      "imageExcluded": null
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-3",
@@ -35,21 +45,29 @@
       "provenAt": 1,
       "image": null,
       "ui": false,
-      "imageExcluded": null
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-4",
-      "status": "not_met",
-      "tier1": "fail",
-      "artifact": null,
-      "reason": "No captured final readout from a run that took a not-run exit; no model run producing one was performed. State-file and report halves are proven by FS-5/FS-6. Re-captured once already: evidence gap.",
-      "cause": "evidence-missing",
-      "provenAt": 2,
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-implement-skips-verification-loop/evidence/fs4-live-run.txt",
+      "reason": "Live headless /implement-trd on a fixture with no PRD or fallback section recorded not-run, and its final readout's ISSUES section states: Verification did not run because there is no source to check against: no PRD exists and the TRD has no reproduction, intended-change or behaviour-preserved section.",
+      "cause": null,
+      "provenAt": 1,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "kind": "evidence-gap",
-      "settled": "definition-problem"
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-5",
@@ -61,7 +79,12 @@
       "provenAt": 1,
       "image": null,
       "ui": false,
-      "imageExcluded": null
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-6",
@@ -73,7 +96,12 @@
       "provenAt": 1,
       "image": null,
       "ui": false,
-      "imageExcluded": null
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-7",
@@ -85,7 +113,12 @@
       "provenAt": 1,
       "image": null,
       "ui": false,
-      "imageExcluded": null
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-8",
@@ -97,21 +130,29 @@
       "provenAt": 2,
       "image": null,
       "ui": false,
-      "imageExcluded": null
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-9",
-      "status": "not_met",
-      "tier1": "fail",
-      "artifact": null,
-      "reason": "No run output showing an empty first derive pass, a second dispatch, then a not-run record; no such model run was performed. Nothing shows the build misbehaving. Re-captured once already: evidence gap.",
-      "cause": "evidence-missing",
-      "provenAt": 2,
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/fix-implement-skips-verification-loop/evidence/fs9-live-run.txt",
+      "reason": "Live headless /implement-trd: the background derive Agent wrote nothing, a second foreground derive Agent was dispatched, and only after it also wrote nothing was record-not-run called, with reason: no definition produced: neither the background derive pass nor the foreground re-derive wrote one.",
+      "cause": null,
+      "provenAt": 1,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "kind": "evidence-gap",
-      "settled": "definition-problem"
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-10",
@@ -123,53 +164,49 @@
       "provenAt": 1,
       "image": null,
       "ui": false,
-      "imageExcluded": null
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-11",
-      "status": "not_met",
+      "status": "met",
       "tier1": "pass",
-      "artifact": ".trd-state/fix-implement-skips-verification-loop/evidence/iter2-fs11-recheck.txt",
-      "reason": "Artifact shows the repeat-once instruction is in the Exercise prompt and a test asserting it, but no Exercise-stage output of a failing request actually repeated; the stub tests cover the setup re-check (FS-10). Behaviour never observed, nothing shows it wrong. Re-captured once already: evidence gap.",
-      "cause": "evidence-missing",
+      "artifact": ".trd-state/fix-implement-skips-verification-loop/evidence/iter4-fs11-repeat-once.txt",
+      "reason": "Judged against the narrowed criterion agreed in the verification plan (ruling R3): the Exercise prompt the loop sends carries the repeat-once rule (verify-functional.js:732-735, quoted verbatim) and the jest test asserting the dispatched Exercise prompt contains it passes (1 passed). Not proven, named rather than dropped: no run shows an exerciser actually obeying the rule.",
+      "cause": null,
       "provenAt": 2,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "kind": "evidence-gap",
-      "settled": "definition-problem"
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     }
   ],
   "gapsClosed": [
     0,
-    0
+    1
   ],
-  "outcome": "must-pass-unproven",
+  "outcome": "satisfied",
   "causes": [],
   "exercised": [
     {
       "iteration": 1,
       "ids": [
-        "FS-1",
-        "FS-2",
-        "FS-3",
         "FS-4",
-        "FS-5",
-        "FS-6",
-        "FS-7",
-        "FS-8",
         "FS-9",
-        "FS-10",
         "FS-11"
       ]
     },
     {
       "iteration": 2,
       "ids": [
-        "FS-1",
-        "FS-4",
-        "FS-8",
-        "FS-9",
         "FS-11"
       ]
     }

@@ -21,8 +21,8 @@
   "verification-report": {
     "path": ".trd-state/fix-implement-skips-verification-loop/verification-report.md",
     "url": "",
-    "updated_at": "2026-11-17T17:45:29.187Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-17T18:11:51.702Z",
+    "command": "/verify-build"
   },
   "verification-plan": {
     "path": ".trd-state/fix-implement-skips-verification-loop/verification-plan.md",

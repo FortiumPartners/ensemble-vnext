@@ -148,6 +148,15 @@
           "FS-9",
           "FS-11"
         ]
+      },
+      {
+        "n": 2,
+        "command": "/verify-build",
+        "started_at": "2026-11-17T17:51:54.309Z",
+        "scope": "targeted",
+        "outcome": "satisfied",
+        "finished_at": "2026-11-17T18:11:46.504Z",
+        "open": []
       }
     ],
     "derive_dispatched": true,
@@ -176,6 +185,23 @@
         "status": "unusable",
         "reason": "verification.md section 1: must not be touched"
       }
+    },
+    "fix": {
+      "plan": ".trd-state/fix-implement-skips-verification-loop/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1
+      },
+      "rounds": [
+        {
+          "round": 1,
+          "tasksPromoted": 0,
+          "criteriaClosed": 3,
+          "criteriaOpen": 0,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
     }
   },
   "run_started_at": "2026-11-17T16:37:45.646Z",
