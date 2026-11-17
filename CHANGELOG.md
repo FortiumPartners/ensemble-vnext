@@ -12,6 +12,20 @@ the work is actually released.
 
 ## [Unreleased]
 
+## [4.17.10] - 2026-11-17
+
+Two fixes requested by customer products. **`/implement-trd` no longer ends without running the verification loop or saying why** (#174, from Forge's PM, measured on dart's plan). **`/plan` sizes work against a recently merged feature and states a size before writing tasks** (#176, from Storybook's PM).
+
+### Fixed
+
+- **A skipped verification loop is recorded, not silent (#174).** When the loop does not run, `verification-state.json` records `outcome: "not-run"` with a reason, the report and the final readout name the same reason, and the feature can no longer close as verified. The derive agent now receives its source by file path, so a very large source can be dispatched, and a derive pass that wrote nothing is retried once. An environment problem reported by the setup check or the Exercise stage is re-checked once before the loop gives up.
+- **`/plan` stops building machinery the change does not need (#176).** When the work builds on a feature merged in the last day or two, `/plan` sizes the delta against it and flags tasks that rebuild or re-test what the predecessor already provides. Before writing tasks it states a size as a count of files touched, and the readout says "the description asks for X beyond the change; kept / cut" when the acceptance criteria ask for more than that size supports. A criterion marked must-pass is never cut.
+
+### Not yet proven
+
+- A live `/plan` run on a description that lists extra test suites as acceptance criteria has not been made (#176). A `/plan` run on a project whose `verification.md` allows the loop, and a source near 740 KB, were not run live (#174).
+- Follow-ups from the audits are filed as #175 (the readout line has no test; the blocking-policy exit test would pass if the exit were reverted) and in the #176 audit report (three review corrections in `plan.md` have no test pinning them).
+
 ## [4.17.9] - 2026-11-17
 
 Eight changes since 4.17.8. **The audit runs before functional verification** (#171), so audit fixes no
