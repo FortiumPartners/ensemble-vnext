@@ -5859,6 +5859,36 @@ describe('record-not-run and read-outcome', () => {
       expect(JSON.parse(run(['read-outcome', '--state-dir', dir]).stdout).fresh).toBe(true);
     });
 
+    test('a checkpoint newer than the state file makes it stale even after an older run start', () => {
+      const sp = path.join(dir, 'verification-state.json');
+      fs.writeFileSync(sp, '{"outcome":"satisfied"}');
+      const old = new Date(Date.now() - 3600e3);
+      fs.utimesSync(sp, old, old);
+      fs.writeFileSync(
+        path.join(dir, 'implement.json'),
+        JSON.stringify({
+          functional_verification: { runs: [{ n: 1, started_at: new Date(Date.now() - 7200e3).toISOString() }] },
+          checkpoints: [{ phase: 2, timestamp: new Date().toISOString() }],
+        })
+      );
+      expect(JSON.parse(run(['read-outcome', '--state-dir', dir]).stdout).fresh).toBe(false);
+    });
+
+    test('a later /implement-trd run start (run_started_at) makes an earlier state stale', () => {
+      const sp = path.join(dir, 'verification-state.json');
+      fs.writeFileSync(sp, '{"outcome":"satisfied"}');
+      const old = new Date(Date.now() - 3600e3);
+      fs.utimesSync(sp, old, old);
+      fs.writeFileSync(
+        path.join(dir, 'implement.json'),
+        JSON.stringify({
+          functional_verification: { runs: [{ n: 1, started_at: new Date(Date.now() - 7200e3).toISOString() }] },
+          run_started_at: new Date().toISOString(),
+        })
+      );
+      expect(JSON.parse(run(['read-outcome', '--state-dir', dir]).stdout).fresh).toBe(false);
+    });
+
     test('unreadable implement.json makes fresh false; reason is reported', () => {
       fs.writeFileSync(path.join(dir, 'verification-state.json'), '{"outcome":"not-run","reason":"why"}');
       fs.writeFileSync(path.join(dir, 'implement.json'), '{not json');

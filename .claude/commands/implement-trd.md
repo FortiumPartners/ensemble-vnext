@@ -852,10 +852,15 @@ plus the section name (for the report header only — Step 8 renders it, nothing
 
    ```javascript
    // PRD unresolvable:
-   state.functional_verification = { ...state.functional_verification, prd_resolved: false, prd_path: null };
+   state.functional_verification = { ...state.functional_verification, prd_resolved: false, prd_path: null, derive_dispatched: false };
    // PRD resolved (set before the step-2 dispatch below):
-   state.functional_verification = { ...state.functional_verification, prd_resolved: true, prd_path: "<resolved PRD path>" };
+   state.functional_verification = { ...state.functional_verification, prd_resolved: true, prd_path: "<resolved PRD path>", derive_dispatched: false };
    ```
+
+   In the same mutation, set `state.run_started_at` to the current time (ISO 8601). It marks
+   when THIS `/implement-trd` run began: Step 9's `read-outcome` treats any
+   `verification-state.json` older than it as an earlier run's, so a run that builds nothing new
+   and then skips the loop can never close on the previous run's `satisfied`.
 
    then persist it with the only sanctioned writer, which needs no prior file to exist:
 
@@ -904,7 +909,8 @@ kind is recorded (in memory first, then `save()`, as above):
 `state.functional_verification = { ...state.functional_verification, derive_dispatched: true };`.
 §8.1 reads it to say whether a missing definition was never asked for or was asked for and not
 written. A run that skipped the dispatch (the run-limit refusal in step 1b, an unresolved
-source) leaves it unset.
+source) leaves it `false`, as step 1 reset it: the spread would otherwise carry an earlier run's
+`true` forward.
 
 **2a. The must-pass objectives.** Read them with the library, never by parsing the table in
 prose:
@@ -917,7 +923,7 @@ Keep the entries with `mustPass: true` and pass each as its `id` and `text` and 
 A TRD with no `## Objectives` table, or no mark, passes an empty block. A sweep file has no
 Objectives and declares none (D19): skip this call for it.
 
-`<the source>` is whatever step 1 resolved: the **PRD path** for `source_kind: prd`, or the
+`<source file path>` is whatever step 1 resolved: the **PRD path** for `source_kind: prd`, or the
 **path of `derive-source.md`** (holding the extracted section text) for `reproduction` /
 `intended-change` / `behaviour-preserved`.
 
@@ -1845,14 +1851,17 @@ numbering is not the running order and stays as it is because other documents ci
    happened, so `derive-source.md` and `prd_path` may not exist), write a section source to
    `.trd-state/<feature>/derive-source.md` and bind `prd_path` as §3.6 does, then run the same
    `Agent(subagent_type="product-manager", …)` call with the same contract, the source by path
-   and the same output path, without `run_in_background`. Read the file again.
+   and the same output path, without `run_in_background`. Read the file again. If the
+   re-resolution finds no source at all, take the `no success definition derivable` exit above
+   instead.
 
-   Still absent → record the not-run through the same call, with a reason saying which it was
-   (read `derive_dispatched` from the state file you read in step 1):
+   Still absent → record the not-run through the same call. The foreground re-derive always ran
+   by now, so the reason names what §3.6 did (read `derive_dispatched` from the state file you
+   read in step 1) and that the re-derive also wrote nothing:
 
    ```bash
    node .claude/lib/functional-verification.js record-not-run --state-dir ".trd-state/<feature>" \
-     --feature "<feature>" --reason "<no definition produced: the derive pass was never dispatched | no definition produced: the derive pass ran and wrote nothing>" \
+     --feature "<feature>" --reason "<no definition produced: the background derive pass was never dispatched and the foreground re-derive wrote nothing | no definition produced: neither the background derive pass nor the foreground re-derive wrote one>" \
      --prd "<prd_path from the state file>" --definition ".trd-state/<feature>/success-definition.md"
    ```
 
@@ -2626,7 +2635,9 @@ ISSUES
   {if outcome is setup-failure, for each entry in `setup.problems`: "{environment}: {problem}
    — fix: {fix}." You act; the run did not judge the code.}
   {if Step 8 recorded a not-run through `record-not-run`: "Verification did not run: {reason}." with
-    the `reason` that `read-outcome --state-dir .trd-state/<feature>` prints, in words, and who acts
+    the `reason` that `read-outcome --state-dir .trd-state/<feature>` prints, in words — or, when it
+    prints `outcome: null` (`record-not-run` kept an interrupted run's state for resuming, so the
+    state holds no reason), the `**Reason**:` line of `verification-report.md` — and who acts
     (for `no definition produced`, `/verify-build`; for a blocking policy that does not parse,
     `/verification-setup`). Never leave a not-run to be inferred from a missing report.}
   {if the outcome is `not run: verification run limit reached`: "Verification did not run: this

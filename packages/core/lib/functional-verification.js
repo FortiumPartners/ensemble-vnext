@@ -3031,9 +3031,11 @@ function recordNotRun({
 
 /**
  * Reads the verification outcome from disk, so a close decision never trusts remembered state.
- * `fresh` is true only when the state file was written at or after the latest verification run's
- * `started_at` in implement.json; an unreadable implement.json, no recorded run, or an unreadable
- * state file makes it false.
+ * `fresh` is true only when the state file was written at or after BOTH the latest verification
+ * run's `started_at` and the latest phase checkpoint's timestamp in implement.json. The checkpoint
+ * floor is what catches a run that built new phases and then skipped the loop: the earlier run's
+ * state file is newer than that run's own start, but older than the work built since. An
+ * unreadable implement.json, no recorded run, or an unreadable state file makes it false.
  *
  * @returns {{present: boolean, outcome: *, reason: *, startedAt: ?string, fresh: boolean}}
  */
@@ -3053,32 +3055,46 @@ function readOutcome(stateDir) {
       fresh: false,
     };
   }
+  // The latest parseable timestamp among `values`, as [iso, ms]; [null, NaN] when none parses.
+  const latest = (values) =>
+    values.reduce(
+      (best, v) => {
+        const ms = typeof v === 'string' ? Date.parse(v) : NaN;
+        return Number.isFinite(ms) && !(ms <= best[1]) ? [v, ms] : best;
+      },
+      [null, NaN],
+    );
   let startedAt = null;
+  let startMs = NaN;
+  let checkpointMs = NaN;
   try {
     const impl = JSON.parse(
       fs.readFileSync(path.join(stateDir, 'implement.json'), 'utf8'),
     );
     const runs =
       (impl.functional_verification && impl.functional_verification.runs) || [];
-    for (const r of runs) {
-      if (
-        r &&
-        r.started_at &&
-        (startedAt === null || Date.parse(r.started_at) > Date.parse(startedAt))
-      ) {
-        startedAt = r.started_at;
-      }
-    }
+    [startedAt, startMs] = latest(runs.map((r) => r && r.started_at));
+    const checkpoints = Array.isArray(impl.checkpoints) ? impl.checkpoints : [];
+    [, checkpointMs] = latest([
+      ...checkpoints.map((c) => c && c.timestamp),
+      impl.recovery && impl.recovery.last_checkpoint_timestamp,
+      // The /implement-trd run's own start (§3.6): a run that builds nothing new and skips the
+      // loop must not read an earlier run's state as its own.
+      impl.run_started_at,
+    ]);
   } catch (e) {
     startedAt = null;
+    startMs = NaN;
   }
-  const startMs = startedAt === null ? NaN : Date.parse(startedAt);
   return {
     present: true,
     outcome: state && state.outcome !== undefined ? state.outcome : null,
     reason: state && state.reason !== undefined ? state.reason : null,
     startedAt,
-    fresh: Number.isFinite(startMs) && mtimeMs >= startMs,
+    fresh:
+      Number.isFinite(startMs) &&
+      mtimeMs >= startMs &&
+      (!Number.isFinite(checkpointMs) || mtimeMs >= checkpointMs),
   };
 }
 

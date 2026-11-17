@@ -1332,9 +1332,10 @@ function buildSetupPrompt(iteration, stage, targets, debugRefresh, firstResult) 
     ? `The first check ended the run as a setup failure: ${JSON.stringify(firstResult.problems)}. ` +
       `Before the run is ended for that, gather EVERY fact again from scratch -- do not reuse an ` +
       `answer from the first check. A cold start, a slow first response or a one-off error can look ` +
-      `like a broken environment. For each problem reported above, record in that target's "reach" ` +
-      `or "identity" detail the ACTUAL response you got this time (status code, error text or exit ` +
-      `code), quoted. Run NO refresh, rebuild or restart yourself.\n\n`
+      `like a broken environment. For each problem reported above, record the ACTUAL response you got ` +
+      `this time, quoted: a reach problem's status code or error text in that target's "reach.detail", ` +
+      `an identity problem's stdout and exit code in its "identity.output" and "identity.exitCode". ` +
+      `Run NO refresh, rebuild or restart yourself.\n\n`
     : `Run NO refresh, rebuild or restart yourself: the refresh command below is a fact for the ` +
       `payload, not a command for you.\n\n`
   return (
@@ -2610,34 +2611,34 @@ async function runSetupCheck(iteration, targets) {
   // first.action === 'refresh': the one authorized repair.
   return refreshOnce(first)
 
-  async function refreshOnce(first) {
-  setupState.refreshed += 1
-  const second = await agent(buildSetupPrompt(iteration, 'setup-refresh', targets, debugRefresh, first), {
-    label: 'setup-refresh',
-    phase: 'Setup',
-    model: 'sonnet',
-    schema: SETUP_SCHEMA,
-  })
-  if (!second) {
-    // The problems were found and not shown repaired.
-    return problemsOf(first, 'the setup check found problems and its refresh agent returned nothing')
-  }
-  addSetupFlags(second.flags)
-  if (second.refreshesRun === 0) {
-    // The authorized repair never ran. A clean re-gather proves nothing here: at refreshCount 1
-    // decide-setup no longer reads the Debug pass's failed refresh, and an unreported exit code is
-    // only a flag, so a "proceed" would send Exercise to measure the same stale build.
-    return rejected('the setup check was authorized to run the declared refresh once and ran it 0 times', first.problems)
-  }
-  if (second.refreshesRun > 1) {
-    return rejected(`the setup check ran ${second.refreshesRun} refreshes; one is allowed`, second.problems)
-  }
-  if (second.action === 'refresh') {
-    return rejected('the setup check asked for a second refresh', second.problems)
-  }
-  if (second.action === 'setup-failure') return problemsOf(second, 'the setup check failed after the refresh')
-  lastDebugRefresh = null
-  return null
+  async function refreshOnce(found) {
+    setupState.refreshed += 1
+    const second = await agent(buildSetupPrompt(iteration, 'setup-refresh', targets, debugRefresh, found), {
+      label: 'setup-refresh',
+      phase: 'Setup',
+      model: 'sonnet',
+      schema: SETUP_SCHEMA,
+    })
+    if (!second) {
+      // The problems were found and not shown repaired.
+      return problemsOf(found, 'the setup check found problems and its refresh agent returned nothing')
+    }
+    addSetupFlags(second.flags)
+    if (second.refreshesRun === 0) {
+      // The authorized repair never ran. A clean re-gather proves nothing here: at refreshCount 1
+      // decide-setup no longer reads the Debug pass's failed refresh, and an unreported exit code is
+      // only a flag, so a "proceed" would send Exercise to measure the same stale build.
+      return rejected('the setup check was authorized to run the declared refresh once and ran it 0 times', found.problems)
+    }
+    if (second.refreshesRun > 1) {
+      return rejected(`the setup check ran ${second.refreshesRun} refreshes; one is allowed`, second.problems)
+    }
+    if (second.action === 'refresh') {
+      return rejected('the setup check asked for a second refresh', second.problems)
+    }
+    if (second.action === 'setup-failure') return problemsOf(second, 'the setup check failed after the refresh')
+    lastDebugRefresh = null
+    return null
   }
 }
 
