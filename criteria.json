@@ -1,0 +1,112 @@
+[
+ {
+  "id": "FS-1",
+  "statement": "When `verification.md` allows functional verification, a `/implement-trd` run reaches and runs the functional-verification loop rather than ending before it",
+  "cites": "§Expected item 1, lines 40-41 (\"The functional-verification loop runs whenever `verification.md` allows it\")",
+  "evidence": "A run transcript (headless fixture session or test output) showing the loop's dispatch, plus the `verification-state.json` that loop wrote, carrying an outcome other than `not-run`",
+  "derivation": "[read]",
+  "tier1": "locator",
+  "parts": "",
+  "mustPass": ""
+ },
+ {
+  "id": "FS-2",
+  "statement": "Neither `/implement-trd` nor `/plan --implement` accepts a scripted check (a Playwright script, curl) plus unit tests in place of the functional-verification loop",
+  "cites": "§Expected item 1, lines 41-42; §Actual lines 35-36 (cause B: nothing forbids the substitution)",
+  "evidence": "The command text of each of the two commands stating the loop may not be substituted, quoted from the vendored command files; or a fixture run in which a session that ran only a scripted check is refused as verified",
+  "derivation": "[read]",
+  "tier1": "locator",
+  "parts": "",
+  "mustPass": ""
+ },
+ {
+  "id": "FS-3",
+  "statement": "A run that did not run the functional-verification loop cannot close the feature as verified",
+  "cites": "§Expected item 1, lines 42-43 (\"a run that did not run the loop cannot close the feature as verified\")",
+  "evidence": "Output of a run (or test) taking a not-run exit, showing the feature is not recorded as closed-verified: no `closed.json` claiming verification `satisfied`, and the readout's outcome line saying verification did not run",
+  "derivation": "[read]",
+  "tier1": "locator",
+  "parts": "",
+  "mustPass": ""
+ },
+ {
+  "id": "FS-4",
+  "statement": "When the loop does not run, the final readout states why it did not run",
+  "cites": "§Expected item 2, line 44 (\"A loop that does not run says why in the final readout\")",
+  "evidence": "Captured final readout of a run that took a not-run exit, containing the stated reason text",
+  "derivation": "[read]",
+  "tier1": "locator",
+  "parts": "",
+  "mustPass": "O2"
+ },
+ {
+  "id": "FS-5",
+  "statement": "Each of the 3 not-run exits (no resolved source, a resolved source with no `success-definition.md`, and the blocking-policy exit) leaves `.trd-state/<slug>/verification-state.json` holding `outcome: \"not-run\"` and a non-empty `reason` string",
+  "cites": "§Expected item 2, lines 44-46; §Steps item 1, lines 5-9 (names the three exits); §Actual lines 27-28 (state file absent after a not-run exit)",
+  "evidence": "For each of the three exits: the `verification-state.json` written after it, showing `\"outcome\": \"not-run\"` and a `reason` field with a string value",
+  "derivation": "[read]",
+  "tier1": "locator",
+  "parts": "3",
+  "mustPass": "O2"
+ },
+ {
+  "id": "FS-6",
+  "statement": "After a not-run exit, `verification-report.md` names the same reason the state file's `reason` holds",
+  "cites": "§Expected item 2, line 46 (\"`verification-report.md` names the same reason\")",
+  "evidence": "The `verification-state.json` and `verification-report.md` from one not-run exit, paired: the state file's `reason` string found verbatim (or as the same stated reason) in the report",
+  "derivation": "[read]",
+  "tier1": "locator",
+  "parts": "",
+  "mustPass": "O2"
+ },
+ {
+  "id": "FS-7",
+  "statement": "An interrupted run's state file (`outcome: null`) is never overwritten by a not-run record",
+  "cites": "§Expected item 2, lines 46-47 (\"An interrupted run's state file (`outcome: null`) is never overwritten by such a record\")",
+  "evidence": "A `verification-state.json` seeded with `outcome: null`, then a not-run exit taken, then the same file read back still showing `outcome: null` with its prior contents intact (test output or before/after file contents)",
+  "derivation": "[read]",
+  "tier1": "locator",
+  "parts": "",
+  "mustPass": ""
+ },
+ {
+  "id": "FS-8",
+  "statement": "The derive agent receives its source by file path, never pasted into its prompt, so a source of any size, including one of about 740 KB, can be dispatched",
+  "cites": "§Expected item 3, lines 48-50; §Actual line 33 (a ~740 KB source could not be dispatched)",
+  "evidence": "The derive agent's dispatched prompt showing a file path for the source and not the source's contents, from a run whose source is about 740 KB, plus that run's written `success-definition.md`",
+  "derivation": "[read]",
+  "tier1": "locator",
+  "parts": "",
+  "mustPass": ""
+ },
+ {
+  "id": "FS-9",
+  "statement": "A derive pass that never ran, or ran and wrote nothing, is retried once before verification is recorded as not run",
+  "cites": "§Expected item 3, lines 50-51; §Actual lines 31-32 (never-dispatched and died derive agents read the same, with no second attempt)",
+  "evidence": "Run output showing a first derive pass that produced no `success-definition.md`, a second derive dispatch, and only then (if the second also produced nothing) a not-run record",
+  "derivation": "[read]",
+  "tier1": "locator",
+  "parts": "",
+  "mustPass": ""
+ },
+ {
+  "id": "FS-10",
+  "statement": "An environment problem reported by the setup check is re-checked once (the check run again and the diagnosis re-derived from the actual response) before the loop gives up on it",
+  "cites": "§Expected item 4, lines 51-53; §Actual line 34 (one wrong environment diagnosis ended the loop)",
+  "evidence": "Run output (or test of the setup-check path) showing a first `setup-failure` verdict, a second run of the check, and the diagnosis taken from the second response before any `setup-failure` exit",
+  "derivation": "[read]",
+  "tier1": "locator",
+  "parts": "",
+  "mustPass": ""
+ },
+ {
+  "id": "FS-11",
+  "statement": "An environment problem reported by the Exercise stage is re-checked once (the request run again and the diagnosis re-derived from the actual response) before the loop gives up on it",
+  "cites": "§Expected item 4, lines 51-53 (\"or by the Exercise stage\"); §Actual line 34",
+  "evidence": "Exercise-stage output showing a failing request repeated once, with the environment diagnosis stated from the repeated request's actual response",
+  "derivation": "[read]",
+  "tier1": "locator",
+  "parts": "",
+  "mustPass": ""
+ }
+]

@@ -1,0 +1,278 @@
+{
+  "feature": "fix-implement-skips-verification-loop",
+  "prd": "docs/TRD/fix-implement-skips-verification-loop.md ## Reproduction",
+  "definitionPath": ".trd-state/fix-implement-skips-verification-loop/success-definition.md",
+  "outcome": "must-pass-unproven",
+  "reason": "must-pass criteria not proven: FS-4 — the core was not shown to work",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "When `verification.md` allows functional verification, a `/implement-trd` run reaches and runs the functional-verification loop rather than ending before it",
+      "cites": "§Expected item 1, lines 40-41",
+      "status": "met",
+      "artifact": ".trd-state/fix-implement-skips-verification-loop/evidence/fs1-live-implement-trd-run.txt",
+      "reason": "Live headless default /implement-trd on a fixture dispatched the verify-functional Workflow after review and audit (confirmed in evidence/live/fs1-session.jsonl); the loop wrote verification-state.json with outcome satisfied.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met (evidence gap)"
+        },
+        {
+          "iteration": 2,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "tier1": "pass"
+    },
+    {
+      "id": "FS-2",
+      "statement": "Neither `/implement-trd` nor `/plan --implement` accepts a scripted check (a Playwright script, curl) plus unit tests in place of the functional-verification loop",
+      "cites": "§Expected item 1, lines 41-42; §Actual lines 35-36",
+      "status": "met",
+      "artifact": ".trd-state/fix-implement-skips-verification-loop/evidence/iter1-command-text-excerpts.txt",
+      "reason": "Vendored implement-trd.md (lines 1789-1794) and plan.md (lines 1129-1134) both state that a scripted check, Playwright script or unit tests never stand in for the Step 8 loop; .claude twins identical.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "tier1": "pass"
+    },
+    {
+      "id": "FS-3",
+      "statement": "A run that did not run the functional-verification loop cannot close the feature as verified",
+      "cites": "§Expected item 1, lines 42-43",
+      "status": "met",
+      "artifact": ".trd-state/fix-implement-skips-verification-loop/evidence/iter1-not-run-exits-live.txt",
+      "reason": "Each live not-run exit left no closed.json and read-outcome reports outcome not-run; implement-trd Step 9 closes only on a satisfied, fresh outcome, and the readout template prints Verification did not run with the reason.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "tier1": "pass"
+    },
+    {
+      "id": "FS-4",
+      "statement": "When the loop does not run, the final readout states why it did not run",
+      "cites": "§Expected item 2, line 44",
+      "status": "not_met",
+      "artifact": null,
+      "reason": "No captured final readout from a run that took a not-run exit; no model run producing one was performed. State-file and report halves are proven by FS-5/FS-6. Re-captured once already: evidence gap.",
+      "cause": "evidence-missing",
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met (evidence gap)"
+        },
+        {
+          "iteration": 2,
+          "result": "not_met"
+        }
+      ],
+      "blocker": "evidence the build does not produce in this lane",
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "tier1": "fail",
+      "kind": "evidence-gap",
+      "settled": "definition-problem"
+    },
+    {
+      "id": "FS-5",
+      "statement": "Each of the 3 not-run exits (no resolved source, a resolved source with no `success-definition.md`, and the blocking-policy exit) leaves `.trd-state/<slug>/verification-state.json` holding `outcome: \"not-run\"` and a non-empty `reason` string",
+      "cites": "§Expected item 2, lines 44-46; §Steps item 1, lines 5-9; §Actual lines 27-28",
+      "status": "met",
+      "artifact": ".trd-state/fix-implement-skips-verification-loop/evidence/iter1-not-run-exits-live.txt",
+      "reason": "All three exits (no-source, no-definition, blocking-policy) wrote verification-state.json with outcome not-run and a non-empty reason string.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "tier1": "pass"
+    },
+    {
+      "id": "FS-6",
+      "statement": "After a not-run exit, `verification-report.md` names the same reason the state file's `reason` holds",
+      "cites": "§Expected item 2, line 46",
+      "status": "met",
+      "artifact": ".trd-state/fix-implement-skips-verification-loop/evidence/iter1-not-run-exits-live.txt",
+      "reason": "For each exit the report Reason line matches the state file reason verbatim.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "tier1": "pass"
+    },
+    {
+      "id": "FS-7",
+      "statement": "An interrupted run's state file (`outcome: null`) is never overwritten by a not-run record",
+      "cites": "§Expected item 2, lines 46-47",
+      "status": "met",
+      "artifact": ".trd-state/fix-implement-skips-verification-loop/evidence/iter1-not-run-exits-live.txt",
+      "reason": "A seeded outcome:null state was byte-identical before and after record-not-run (stateKept true); read-outcome still reports outcome null.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "tier1": "pass"
+    },
+    {
+      "id": "FS-8",
+      "statement": "The derive agent receives its source by file path, never pasted into its prompt, so a source of any size, including one of about 740 KB, can be dispatched",
+      "cites": "§Expected item 3, lines 48-50; §Actual line 33",
+      "status": "met",
+      "artifact": ".trd-state/fix-implement-skips-verification-loop/evidence/iter2-fs8-derive-prompt.txt",
+      "reason": "The real derive-agent prompt (1427 chars) names derive-source.md by path and does not contain its contents; that run wrote success-definition.md. Since only the path is in the prompt, source size cannot change the prompt.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met (evidence gap)"
+        },
+        {
+          "iteration": 2,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "tier1": "pass"
+    },
+    {
+      "id": "FS-9",
+      "statement": "A derive pass that never ran, or ran and wrote nothing, is retried once before verification is recorded as not run",
+      "cites": "§Expected item 3, lines 50-51; §Actual lines 31-32",
+      "status": "not_met",
+      "artifact": null,
+      "reason": "No run output showing an empty first derive pass, a second dispatch, then a not-run record; no such model run was performed. Nothing shows the build misbehaving. Re-captured once already: evidence gap.",
+      "cause": "evidence-missing",
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met (evidence gap)"
+        },
+        {
+          "iteration": 2,
+          "result": "not_met"
+        }
+      ],
+      "blocker": "evidence the build does not produce in this lane",
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "tier1": "fail",
+      "kind": "evidence-gap",
+      "settled": "definition-problem"
+    },
+    {
+      "id": "FS-10",
+      "statement": "An environment problem reported by the setup check is re-checked once (the check run again and the diagnosis re-derived from the actual response) before the loop gives up on it",
+      "cites": "§Expected item 4, lines 51-53; §Actual line 34",
+      "status": "met",
+      "artifact": ".trd-state/fix-implement-skips-verification-loop/evidence/iter1-jest-fv.txt",
+      "reason": "verify-functional.test.js passes the setup re-check tests: a re-check that says proceed reaches Exercise, one that also fails ends setup-failure with the re-check problems, and the re-check prompt gathers facts from scratch.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "tier1": "pass"
+    },
+    {
+      "id": "FS-11",
+      "statement": "An environment problem reported by the Exercise stage is re-checked once (the request run again and the diagnosis re-derived from the actual response) before the loop gives up on it",
+      "cites": "§Expected item 4, lines 51-53; §Actual line 34",
+      "status": "not_met",
+      "artifact": ".trd-state/fix-implement-skips-verification-loop/evidence/iter2-fs11-recheck.txt",
+      "reason": "Artifact shows the repeat-once instruction is in the Exercise prompt and a test asserting it, but no Exercise-stage output of a failing request actually repeated; the stub tests cover the setup re-check (FS-10). Behaviour never observed, nothing shows it wrong. Re-captured once already: evidence gap.",
+      "cause": "evidence-missing",
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met (evidence gap)"
+        },
+        {
+          "iteration": 2,
+          "result": "not_met"
+        }
+      ],
+      "blocker": "evidence the build does not produce in this lane",
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "tier1": "pass",
+      "kind": "evidence-gap",
+      "settled": "definition-problem"
+    }
+  ],
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  },
+  "mustPass": [
+    "FS-4",
+    "FS-5",
+    "FS-6"
+  ],
+  "evidenceOnly": [],
+  "mustPassUncovered": [],
+  "causes": []
+}
