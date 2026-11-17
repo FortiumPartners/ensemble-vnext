@@ -37,9 +37,9 @@ describe('run limit reference docs', () => {
     expect(row).toMatch(/NEXT is `\/refine-verification`, then `\/verify-build`/);
   });
 
-  test('CHANGELOG [Unreleased] names the feature', () => {
+  test('CHANGELOG release section names the feature', () => {
     const c = read('CHANGELOG.md');
-    const unreleased = c.slice(c.indexOf('## [Unreleased]'), c.indexOf('## [4.17.8]'));
+    const unreleased = c.slice(c.indexOf('## [4.17.9]'), c.indexOf('## [4.17.8]'));
     expect(unreleased).toMatch(/Per-feature verification run limit/);
   });
 });
