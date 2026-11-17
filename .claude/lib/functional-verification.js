@@ -2960,7 +2960,147 @@ function preclassifyNotCheckable(input) {
   return out;
 }
 
+/**
+ * Records that a verification run did not happen, for state and report together.
+ *
+ * Writes `<stateDir>/verification-state.json` (the setup-failure state's shape plus `reason`)
+ * and `<stateDir>/verification-report.md` rendered from the same `reason`, so the two cannot
+ * disagree. When the state file on disk has `outcome: null` (an interrupted run), the state is
+ * left untouched so the run stays resumable; the report is still written. A finished earlier
+ * state is overwritten: readers of the file then fail toward re-proving.
+ *
+ * @example
+ *   recordNotRun({ stateDir: '.trd-state/f', feature: 'f', reason: 'no definition produced',
+ *                  prd: 'docs/TRD/f.md ## Intended Change', definition: '.trd-state/f/success-definition.md' })
+ *   // => { outcome: 'not-run', reason: 'no definition produced', stateKept: false, ... }
+ *
+ * @returns {{outcome: string, reason: string, statePath: string, reportPath: string, stateKept: boolean}}
+ */
+function recordNotRun({
+  stateDir,
+  feature,
+  reason,
+  prd = '',
+  definition = '',
+}) {
+  if (!stateDir || !feature || !reason)
+    throw new Error('recordNotRun needs stateDir, feature and reason');
+  const statePath = path.join(stateDir, 'verification-state.json');
+  const reportPath = path.join(stateDir, 'verification-report.md');
+  const prior = readTextOrEmpty(statePath);
+  let interrupted = false;
+  if (prior) {
+    try {
+      interrupted = JSON.parse(prior).outcome === null;
+    } catch (e) {
+      interrupted = false; // unparseable is not a resumable run; overwrite it
+    }
+  }
+  const implementState = require('./implement-state'); // lazy, sibling of this file
+  if (!interrupted) {
+    implementState.save(statePath, {
+      iteration: 0,
+      criteria: [],
+      gapsClosed: [],
+      outcome: 'not-run',
+      reason,
+      causes: [],
+      exercised: [],
+    });
+  }
+  fs.mkdirSync(stateDir, { recursive: true });
+  fs.writeFileSync(
+    reportPath,
+    renderReport({
+      feature,
+      prd,
+      definitionPath: definition,
+      outcome: 'not-run',
+      reason,
+      criteria: [],
+    }) + '\n',
+  );
+  return {
+    outcome: 'not-run',
+    reason,
+    statePath,
+    reportPath,
+    stateKept: interrupted,
+  };
+}
+
+/**
+ * Reads the verification outcome from disk, so a close decision never trusts remembered state.
+ * `fresh` is true only when the state file was written at or after BOTH the latest verification
+ * run's `started_at` and the latest phase checkpoint's timestamp in implement.json. The checkpoint
+ * floor is what catches a run that built new phases and then skipped the loop: the earlier run's
+ * state file is newer than that run's own start, but older than the work built since. An
+ * unreadable implement.json, no recorded run, or an unreadable state file makes it false.
+ *
+ * @returns {{present: boolean, outcome: *, reason: *, startedAt: ?string, fresh: boolean}}
+ */
+function readOutcome(stateDir) {
+  const statePath = path.join(stateDir, 'verification-state.json');
+  let state = null;
+  let mtimeMs = null;
+  try {
+    state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    mtimeMs = fs.statSync(statePath).mtimeMs;
+  } catch (e) {
+    return {
+      present: false,
+      outcome: null,
+      reason: null,
+      startedAt: null,
+      fresh: false,
+    };
+  }
+  // The latest parseable timestamp among `values`, as [iso, ms]; [null, NaN] when none parses.
+  const latest = (values) =>
+    values.reduce(
+      (best, v) => {
+        const ms = typeof v === 'string' ? Date.parse(v) : NaN;
+        return Number.isFinite(ms) && !(ms <= best[1]) ? [v, ms] : best;
+      },
+      [null, NaN],
+    );
+  let startedAt = null;
+  let startMs = NaN;
+  let checkpointMs = NaN;
+  try {
+    const impl = JSON.parse(
+      fs.readFileSync(path.join(stateDir, 'implement.json'), 'utf8'),
+    );
+    const runs =
+      (impl.functional_verification && impl.functional_verification.runs) || [];
+    [startedAt, startMs] = latest(runs.map((r) => r && r.started_at));
+    const checkpoints = Array.isArray(impl.checkpoints) ? impl.checkpoints : [];
+    [, checkpointMs] = latest([
+      ...checkpoints.map((c) => c && c.timestamp),
+      impl.recovery && impl.recovery.last_checkpoint_timestamp,
+      // The /implement-trd run's own start (§3.6): a run that builds nothing new and skips the
+      // loop must not read an earlier run's state as its own.
+      impl.run_started_at,
+    ]);
+  } catch (e) {
+    startedAt = null;
+    startMs = NaN;
+  }
+  return {
+    present: true,
+    outcome: state && state.outcome !== undefined ? state.outcome : null,
+    reason: state && state.reason !== undefined ? state.reason : null,
+    startedAt,
+    fresh:
+      Number.isFinite(startMs) &&
+      mtimeMs >= startMs &&
+      (!Number.isFinite(checkpointMs) || mtimeMs >= checkpointMs),
+  };
+}
+
 module.exports = {
+  recordNotRun,
+  readOutcome,
   checkEvidence,
   decideNext,
   decideSetup,
@@ -3037,6 +3177,11 @@ module.exports = {
 //   node functional-verification.js decide-fix-round --file <path>
 //   node functional-verification.js decide-fix-round -
 //   node functional-verification.js render-fix-summary '<input-json>'
+//   node functional-verification.js record-not-run --state-dir <dir> --feature <slug> --reason <text> [--prd <source line>] [--definition <path>]
+//       (writes verification-state.json and verification-report.md; prints {outcome, reason, stateKept};
+//        exit 1 for a missing required flag, writing nothing; a state file with outcome null is kept)
+//   node functional-verification.js read-outcome --state-dir <dir>
+//       (prints {present, outcome, reason, startedAt, fresh})
 //   node functional-verification.js render-fix-summary --file <path>
 //   node functional-verification.js render-fix-summary -
 //   node functional-verification.js report-publish-plan --report <path> [--published-file <path>]
@@ -3183,6 +3328,30 @@ if (require.main === module) {
       usage();
     } else {
       console.log(renderReport(JSON.parse(inputJson)));
+    }
+  } else if (subcommand === 'record-not-run') {
+    // Free text arrives as argv values, never through a shell-interpolated JSON string.
+    const stateDir = flag('--state-dir');
+    const feature = flag('--feature');
+    const reason = flag('--reason');
+    if (!stateDir || !feature || !reason) {
+      usage();
+    } else {
+      const r = recordNotRun({
+        stateDir,
+        feature,
+        reason,
+        prd: flag('--prd') || '',
+        definition: flag('--definition') || '',
+      });
+      console.log(JSON.stringify({ outcome: r.outcome, reason: r.reason, stateKept: r.stateKept }));
+    }
+  } else if (subcommand === 'read-outcome') {
+    const stateDir = flag('--state-dir');
+    if (!stateDir) {
+      usage();
+    } else {
+      console.log(JSON.stringify(readOutcome(stateDir)));
     }
   } else if (subcommand === 'decide-fix-round') {
     const [inputJson] = resolveJsonPayload(rest);

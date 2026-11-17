@@ -5781,3 +5781,124 @@ describe('renderReport: evidence-only label (core-boards D15)', () => {
     expect(lines.find((l) => l.startsWith('| DC-1 |'))).not.toContain('evidence only');
   });
 });
+
+describe('record-not-run and read-outcome', () => {
+  const run = (args) => spawnSync('node', [MODULE_PATH, ...args], { encoding: 'utf8' });
+  let dir;
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fv-notrun-'));
+  });
+  afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const args = () => [
+    'record-not-run', '--state-dir', dir, '--feature', 'f',
+    '--reason', 'no definition produced', '--prd', 'docs/TRD/f.md ## Intended Change',
+    '--definition', path.join(dir, 'success-definition.md'),
+  ];
+
+  test('writes state and report from the same reason', () => {
+    const r = run(args());
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout)).toMatchObject({ outcome: 'not-run', stateKept: false });
+    const state = JSON.parse(fs.readFileSync(path.join(dir, 'verification-state.json'), 'utf8'));
+    expect(state).toEqual({
+      iteration: 0, criteria: [], gapsClosed: [], outcome: 'not-run',
+      reason: 'no definition produced', causes: [], exercised: [],
+    });
+    const report = fs.readFileSync(path.join(dir, 'verification-report.md'), 'utf8');
+    expect(report).toContain('**Reason**: no definition produced');
+    expect(report).toContain('**Source PRD**: docs/TRD/f.md ## Intended Change');
+  });
+
+  test('missing --reason exits 1 and writes nothing', () => {
+    const a = args();
+    a.splice(a.indexOf('--reason'), 2);
+    const r = run(a);
+    expect(r.status).toBe(1);
+    expect(fs.readdirSync(dir)).toEqual([]);
+  });
+
+  test('keeps an interrupted (outcome null) state byte-identical but writes the report', () => {
+    const sp = path.join(dir, 'verification-state.json');
+    fs.writeFileSync(sp, '{"outcome":null,"iteration":2}');
+    const r = run(args());
+    expect(JSON.parse(r.stdout).stateKept).toBe(true);
+    expect(fs.readFileSync(sp, 'utf8')).toBe('{"outcome":null,"iteration":2}');
+    expect(fs.existsSync(path.join(dir, 'verification-report.md'))).toBe(true);
+  });
+
+  test('overwrites a finished earlier state', () => {
+    const sp = path.join(dir, 'verification-state.json');
+    fs.writeFileSync(sp, '{"outcome":"satisfied","criteria":[]}');
+    run(args());
+    expect(JSON.parse(fs.readFileSync(sp, 'utf8')).outcome).toBe('not-run');
+  });
+
+  describe('read-outcome', () => {
+    const writeImpl = (startedAt) =>
+      fs.writeFileSync(
+        path.join(dir, 'implement.json'),
+        JSON.stringify({ functional_verification: { runs: [{ n: 1, started_at: startedAt }] } })
+      );
+
+    test('absent state reports present: false, fresh: false', () => {
+      expect(JSON.parse(run(['read-outcome', '--state-dir', dir]).stdout)).toMatchObject({
+        present: false, fresh: false,
+      });
+    });
+
+    test('state older than the latest run start is not fresh; newer is', () => {
+      const sp = path.join(dir, 'verification-state.json');
+      fs.writeFileSync(sp, '{"outcome":"satisfied"}');
+      const old = new Date(Date.now() - 3600e3);
+      fs.utimesSync(sp, old, old);
+      writeImpl(new Date().toISOString());
+      expect(JSON.parse(run(['read-outcome', '--state-dir', dir]).stdout)).toMatchObject({
+        present: true, outcome: 'satisfied', fresh: false,
+      });
+      writeImpl(new Date(Date.now() - 7200e3).toISOString());
+      expect(JSON.parse(run(['read-outcome', '--state-dir', dir]).stdout).fresh).toBe(true);
+    });
+
+    test('a checkpoint newer than the state file makes it stale even after an older run start', () => {
+      const sp = path.join(dir, 'verification-state.json');
+      fs.writeFileSync(sp, '{"outcome":"satisfied"}');
+      const old = new Date(Date.now() - 3600e3);
+      fs.utimesSync(sp, old, old);
+      fs.writeFileSync(
+        path.join(dir, 'implement.json'),
+        JSON.stringify({
+          functional_verification: { runs: [{ n: 1, started_at: new Date(Date.now() - 7200e3).toISOString() }] },
+          checkpoints: [{ phase: 2, timestamp: new Date().toISOString() }],
+        })
+      );
+      expect(JSON.parse(run(['read-outcome', '--state-dir', dir]).stdout).fresh).toBe(false);
+    });
+
+    test('a later /implement-trd run start (run_started_at) makes an earlier state stale', () => {
+      const sp = path.join(dir, 'verification-state.json');
+      fs.writeFileSync(sp, '{"outcome":"satisfied"}');
+      const old = new Date(Date.now() - 3600e3);
+      fs.utimesSync(sp, old, old);
+      fs.writeFileSync(
+        path.join(dir, 'implement.json'),
+        JSON.stringify({
+          functional_verification: { runs: [{ n: 1, started_at: new Date(Date.now() - 7200e3).toISOString() }] },
+          run_started_at: new Date().toISOString(),
+        })
+      );
+      expect(JSON.parse(run(['read-outcome', '--state-dir', dir]).stdout).fresh).toBe(false);
+    });
+
+    test('unreadable implement.json makes fresh false; reason is reported', () => {
+      fs.writeFileSync(path.join(dir, 'verification-state.json'), '{"outcome":"not-run","reason":"why"}');
+      fs.writeFileSync(path.join(dir, 'implement.json'), '{not json');
+      expect(JSON.parse(run(['read-outcome', '--state-dir', dir]).stdout)).toMatchObject({
+        outcome: 'not-run', reason: 'why', fresh: false,
+      });
+    });
+
+    test('missing --state-dir exits 1', () => {
+      expect(run(['read-outcome']).status).toBe(1);
+    });
+  });
+});

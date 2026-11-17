@@ -2932,7 +2932,8 @@ describe('implement-trd audit before verification (ABFV-B003)', () => {
     expect(t).toMatch(/--chained --close-deferred"/);
     expect(t).toMatch(/`--verified`/);
     expect(t).toMatch(/`passed, close deferred`/);
-    expect(t).toMatch(/outcome is `satisfied`/);
+    expect(t).toMatch(/read-outcome --state-dir/);
+    expect(t).toMatch(/outcome: "satisfied"` AND `fresh: true`/);
     expect(t).toMatch(/settled: 'definition-problem'/);
     expect(t).toMatch(/`--no-verify`/);
   });

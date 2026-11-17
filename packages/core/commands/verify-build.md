@@ -277,12 +277,14 @@ Resolve the source exactly as `/implement-trd` §3.6 step 1 does — PRD, else t
 `not run: no success definition derivable`, and STOP**; that one is a real dead end, because
 nothing states what success means.
 
-With a source, dispatch the same agent §3.6 dispatches, with the same contract text, and
-**wait for it**:
+With a source, write it to a file and pass the file's path, never the pasted text: a TRD
+section source goes to `.trd-state/<feature>/derive-source.md` (the section only, never the
+TRD), and a PRD source is passed by its own path. Then dispatch the same agent §3.6
+dispatches, with the same contract text, and **wait for it**:
 
 ```
 Agent(subagent_type="product-manager",
-      prompt="<packages/core/contracts/functional-verification.md text> + <the source> + <must-pass objectives: id and text only> + <output path .trd-state/<feature>/success-definition.md>")
+      prompt="<packages/core/contracts/functional-verification.md text> + <source file path: .trd-state/<feature>/derive-source.md, or the PRD's path> + <must-pass objectives: id and text only> + <output path .trd-state/<feature>/success-definition.md>")
 ```
 
 The must-pass objectives are read exactly as `/implement-trd` §3.6 step 2a reads them
@@ -290,10 +292,11 @@ The must-pass objectives are read exactly as `/implement-trd` §3.6 step 2a read
 passed as its `id` and `text` and nothing else, an empty block when none is marked). The prompt
 still carries no TRD path, no TRD excerpt and no task list.
 
-**Foreground, not background — and that is the difference from Step 8.** §3.6 backgrounds the
-derive because it has a phase loop to get on with; Step 8 then cannot wait for it, since no
-attested primitive lets a lead block on a specific background `Agent`. This command has
-nothing else to do, so it simply waits, and both of Step 8's objections evaporate:
+**Foreground, not background — the same fallback `/implement-trd` §8.1 now takes.** §3.6
+backgrounds the derive because it has a phase loop to get on with; Step 8 cannot wait for that
+background agent, since no attested primitive lets a lead block on a specific background
+`Agent`, so when its file is missing §8.1 re-derives once in the foreground, as this step does.
+This command has nothing else to do, so it simply waits, and both objections evaporate:
 
 - *nothing to race* — no derive was dispatched earlier in this run, so an absent file here
   means "never asked for", not "the agent died".
