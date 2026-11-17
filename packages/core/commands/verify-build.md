@@ -498,7 +498,7 @@ A missing `audit.runId`, or a `pending` of null, is no pending close; an `error`
 close, plus one ISSUES line naming the ledger and the error. With a pending close, call
 `Skill({ skill: "audit-build", args: "<trd> --chained --close-deferred --verified" })`
 (`--verified` only when this run walked every criterion afresh, so it just proved every commit up to the head; a `--resume` or targeted run carried `met` verdicts forward from an earlier loop whose evidence may predate later commits, so it calls without `--verified` and `/ship-build`'s custody check re-proves what it did not see), then NEXT follows its one
-`[STATUS: /audit-build] RETURN →` line:
+`[STATUS: /audit-build] RETURN →` line. Print its one RETURN line as text, as at implement-trd §7.3, then branch on it:
 
 - `closed; PR …`: the feature is closed. NEXT is shipping: `/ship-build`, the PR in words and
   the unsynced-board steps printed above the RETURN line.

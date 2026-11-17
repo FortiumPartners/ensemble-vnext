@@ -137,6 +137,11 @@ describe('the caller-only RETURN line is printed even when the audit runs inline
   test('implement-trd.md Step 9: the close-deferred RETURN line is printed before it is branched on', () => {
     expect(flat(s9)).toContain('Print its one RETURN line as text, as at §7.3, then branch on it:');
   });
+
+  test('verify-build.md held-back close: the close-deferred RETURN line is printed as text before it is branched on', () => {
+    const t = flat(section(verify, '**The held-back close (D11).**', 'Which runs may close'));
+    expect(t).toContain('Print its one RETURN line as text, as at implement-trd §7.3, then branch on it:');
+  });
 });
 
 // AMEND-002 / AMEND-004: carried-forward verdicts never anchor the close at HEAD. The rule lives in
