@@ -481,7 +481,12 @@ skip/failed reason, in one line — never STUCK, never retried. No close, no PR.
 
 For callers only (see "Parse the caller-only modes" above). Under `--chained` the run ends with
 exactly one `[STATUS: /audit-build] RETURN → …` line, the same shape `/implement-trd --chained`
-uses, and it is the only terminator of either mode. Every exit that ends `COMMAND STUCK` standalone
+uses, and it is the only terminator of either mode. **Print it, every time, as its own line of your reply text.**
+A caller reaches these modes through a `Skill` call, which runs this command inline, in the caller's own session and turn:
+no tool result carries the line back, so it exists only if you write it out. Print it once this
+command's last step is done and before you go back to any of the caller's steps (its
+`implement.json` write, its next stage). A caller recording the outcome in its own state file
+does not replace the line, and neither does a readout, a STATE line or a summary of the run. Every exit that ends `COMMAND STUCK` standalone
 ends `RETURN → STUCK: <why>` instead (the No TRD, `trd-guard`, gate-refusal and rerun-scope
 exits). `--report-only` with either mode wins: nothing is recorded, deferred or closed.
 
@@ -637,7 +642,7 @@ readout names.
 
 ## Output discipline (see `.claude/rules/command-status.md`)
 
-**Under `--chained` (either mode), emit no banner, run no programmatic completion notify and send no PushNotification:** the run ends with its one `RETURN →` line (see "Caller-only modes"), and its caller's banner ends the run. Everything below is the standalone form.
+**Under `--chained` (either mode), emit no banner, run no programmatic completion notify and send no PushNotification:** the run ends with its one `RETURN →` line, printed as its own line of text even when the run is inline in its caller's turn (see "Caller-only modes"), and its caller's banner ends the run. Everything below is the standalone form.
 
 **End your final turn with the banner — last line of output, nothing after it:**
 

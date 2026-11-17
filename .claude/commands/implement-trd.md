@@ -1686,7 +1686,11 @@ Skill({ skill: "audit-build", args: "<trd> --prd <prd> --chained --defer-close" 
 The audit runs its verifier wave, chains its own fix run (`/implement-trd --reconcile
 --chained`), writes and publishes its report, and, where it would close, records the close on its
 round ledger instead of performing it. It ends with one `[STATUS: /audit-build] RETURN → …`
-line. While that line is `re-audit needed`, make the same call again: **at most three calls in
+line. **The skill runs inline in this turn, so printing that line is your job:** when the audit's
+last step is done, print its RETURN line verbatim, as its own line of text, before anything
+below (a further call, `pending-close`, the `implement.json` write), once per call. `audit.return`
+is copied from the line you printed; a return recorded with no printed line does not replace it.
+While that line is `re-audit needed`, make the same call again: **at most three calls in
 all** (1 + `MAX_REAUDITS`, which `audit-rounds.js` sets to 2 and does not export, so it is stated
 here). A third `re-audit needed` is read as `cap reached`, and `audit.return` below records it as
 `cap reached`. Then go to Step 8 whatever the last
@@ -2339,7 +2343,7 @@ Step 8 not run for any other reason (`not run: no success definition derivable` 
 definition produced`), and any outcome other than `satisfied`, close nothing. The call reads the
 ledger itself, runs the waived-defect gate, writes `closed.json` with `closedBy: "audit"`, and
 opens the PR when `ensemble.openPullRequest` is `auto`; it writes no records, because §9.1's one
-write below carries `closed.json`. Branch on its one RETURN line:
+write below carries `closed.json`. Print its one RETURN line as text, as at §7.3, then branch on it:
 
 - `closed; PR <opened|updated|skipped|failed>: …`: the feature is closed. Carry the lines printed
   above the RETURN (the close record, PR URL or reason, unsynced-board steps, caveats) into STATE.

@@ -111,6 +111,34 @@ describe('RETURN outcomes the callers branch on exist in audit-build.md', () => 
   });
 });
 
+// FS-6 (verification run, 2026-11-16): a Skill call runs /audit-build inline in the caller's turn,
+// so no tool result carries its RETURN line; a run that recorded `audit.return` in implement.json
+// and never printed the line was observed. Both sides must say the line is printed as text.
+describe('the caller-only RETURN line is printed even when the audit runs inline', () => {
+  const callerModes = flat(section(audit, '## Caller-only modes', '### `--chained --defer-close`'));
+  const discipline = flat(section(audit, '## Output discipline', '**End your final turn'));
+
+  test('audit-build.md: caller-only modes say to print the RETURN line as its own line of text', () => {
+    expect(callerModes).toContain('**Print it, every time, as its own line of your reply text.**');
+    expect(callerModes).toContain('runs this command inline, in the caller\'s own session and turn');
+    expect(callerModes).toContain('does not replace the line');
+    expect(discipline).toContain('printed as its own line of text even when the run is inline in its caller\'s turn');
+  });
+
+  test('implement-trd.md 7.3: print each call\'s RETURN line before the ledger read and the implement.json write', () => {
+    const t = flat(s73);
+    const print = t.indexOf('**The skill runs inline in this turn, so printing that line is your job:');
+    expect(print).toBeGreaterThanOrEqual(0);
+    expect(print).toBeLessThan(t.indexOf('audit-rounds.js pending-close'));
+    expect(print).toBeLessThan(t.indexOf('**Write the result into `implement.json`'));
+    expect(t).toContain('a return recorded with no printed line does not replace it');
+  });
+
+  test('implement-trd.md Step 9: the close-deferred RETURN line is printed before it is branched on', () => {
+    expect(flat(s9)).toContain('Print its one RETURN line as text, as at §7.3, then branch on it:');
+  });
+});
+
 // AMEND-002 / AMEND-004: carried-forward verdicts never anchor the close at HEAD. The rule lives in
 // model-read prose, so the pins slice each caller's close section by markers and check structure:
 // every `--verified` call sits in a block that also excludes carried-forward runs, and every
