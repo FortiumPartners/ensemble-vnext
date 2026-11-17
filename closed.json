@@ -1,0 +1,13 @@
+{
+  "feature": "audit-before-functional-verification",
+  "trd": "docs/TRD/audit-before-functional-verification.md",
+  "closedAt": "2026-11-17T06:57:54Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: planned, not built yet: ABFV-T002 (the live fixture run that shows the audit running before verification, O7), set aside by the TRD because it is a [LIVE] model session; the verification run's own fixture transcript already shows O7",
+    "report": ".trd-state/audit-before-functional-verification/audit-build-report.md",
+    "auditedCommit": "cf09d8fc32a74c51a9c36ea4699b916cc4e278c2",
+    "anchorCommit": null
+  }
+}

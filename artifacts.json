@@ -21,9 +21,10 @@
   },
   "audit-build": {
     "path": ".trd-state/audit-before-functional-verification/audit-build-report.md",
-    "url": "https://claude.ai/artifact/75ir8sDg7mxfEqcJPbZHZZ",
-    "updated_at": "2026-11-16T23:32:42.744Z",
-    "command": "/audit-build"
+    "url": "https://claude.ai/artifact/Dz1jWwtqTzcYvME5B3TzRp",
+    "updated_at": "2026-11-17T06:58:08.273Z",
+    "command": "/audit-build",
+    "previous_url": "https://claude.ai/artifact/75ir8sDg7mxfEqcJPbZHZZ"
   },
   "verification-plan": {
     "path": ".trd-state/audit-before-functional-verification/verification-plan.md",
