@@ -37,7 +37,8 @@ than a dozen places that a renumber would break.
 The "much more machinery than the size supports" threshold is a model judgment with no formula,
 matching Step 4 (OWNER-CALL, brief's open question 1). The stated size is a figure, not a
 ceiling: Step 4's "no task-or-file ceiling" sentence stays true. The predecessor is found by
-`git log <base branch>` over the touched files; "recent" is a day or two by merge date, no fixed
+`git log origin/<base branch> --first-parent` over the touched files (first-parent so merge
+commits and squash merges both show; fetched first, since a local copy lags origin); "recent" is a day or two by merge date, no fixed
 count (OWNER-CALL, brief's open question 2). A must-pass criterion is never cut by this rule
 (OWNER-CALL, brief's Decisions line). The default for a criterion beyond the change is **cut**,
 kept only when the change cannot be shown to work without it.
@@ -85,7 +86,7 @@ none — the brief's two open questions were resolved as OWNER-CALLs (see Decisi
 
 ### FIX-001
 - **Touches:** `packages/core/commands/plan.md`, `.claude/commands/plan.md`
-- **Reuse:** 2f's "suspect the inputs before the work" framing and its per-item counterfactual line format (plan.md lines 301-308 and 340-344, after 2e.1 was inserted; 238-245 and 277-281 before it) [read]
+- **Reuse:** 2f's "suspect the inputs before the work" framing and its per-item counterfactual line format (plan.md lines 340-344 and 301-308 respectively, after 2e.1 was inserted; 277-281 and 238-245 before it) [read]
 - **Replaces:** nothing; Step 4's "no task-or-file ceiling to consult" sentence stays and is qualified, not removed [read]
 - **Follow:** the CLAUDE.md prose rules — plain words, name the thing then its id; the vendored copy is a straight `cp` (the two files are identical today) [ran]
 - **Careful:** do not renumber 2g (cited as §2g throughout); do not put the example lines in a ```` ```markdown ```` fence starting `# TRD:` (`fix-template.test.js:29` extracts the first such fence), and any ```` ```bash ```` block is syntax-checked by `command-heredocs.test.js`; the `<X>` placeholder in the readout line must survive whitespace normalisation for the test [read]
@@ -99,14 +100,17 @@ none — the brief's two open questions were resolved as OWNER-CALLs (see Decisi
 ### AMEND-001
 
 - **Touches:** `packages/core/commands/plan-sizing-delta-prose.test.js`
+- **Fixed:** the "owner marked" means-the-brief clause; the must-pass `kept - the owner marked it must-pass` line form; "The default is cut"; "fetch it first"; "so no task is written for it in Step 5"
 
 ### AMEND-002
 
 - **Touches:** `packages/core/commands/plan-sizing-delta-prose.test.js`
+- **Fixed:** the kept/cut placement in `## Decision` and DECISIONS, asserted between the criteria paragraph and the kept/cut example lines
 
 ### AMEND-003
 
 - **Touches:** `packages/core/commands/plan-sizing-delta-prose.test.js`
+- **Fixed:** 2e.1's restate sentence (one contiguous assertion); Step 4's "as restated after 2f" clause; Step 4's "a kept one counts for the work it adds, a cut one counts for nothing"
 
 ## Could Not Verify
 
