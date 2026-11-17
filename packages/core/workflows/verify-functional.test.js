@@ -3297,6 +3297,57 @@ describe('verify-functional: refresh-once is decided by the script', () => {
   });
 });
 
+describe('verify-functional: the single setup re-check', () => {
+  const failing = () => setupResult({ action: 'setup-failure', problems: [BROKEN], reason: 'broken' });
+
+  it('a re-check that says proceed reaches Exercise', async () => {
+    const agent = makeAgentStub(setupPlan({ setup: failing(), 'setup-recheck': setupResult() }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
+    expect(labelsOf(agent)).toEqual(['setup', 'setup-recheck', 'exercise', 'judge']);
+    expect(result.outcome).not.toBe('setup-failure');
+  });
+
+  it('a re-check that also fails ends setup-failure with the re-check\'s problems', async () => {
+    const again = { environment: 'local', problem: 'still nothing answers', fix: 'start it' };
+    const agent = makeAgentStub(setupPlan({ setup: failing(), 'setup-recheck': setupResult({ action: 'setup-failure', problems: [again] }), record: { recorded: true } }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
+    expect(labelsOf(agent)).toEqual(['setup', 'setup-recheck', 'record']);
+    expect(result.outcome).toBe('setup-failure');
+    expect(result.setup.problems).toEqual([again]);
+  });
+
+  it('a dead re-check keeps the first problems', async () => {
+    const agent = makeAgentStub(setupPlan({ setup: failing(), 'setup-recheck': null, record: { recorded: true } }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
+    expect(result.outcome).toBe('setup-failure');
+    expect(result.setup.problems).toEqual([BROKEN]);
+  });
+
+  it('a re-check that ran a refresh is rejected', async () => {
+    const agent = makeAgentStub(setupPlan({ setup: failing(), 'setup-recheck': setupResult({ refreshesRun: 1 }), record: { recorded: true } }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
+    expect(result.outcome).toBe('setup-failure');
+    expect(result.setup.problems[0].problem).toMatch(/re-check ran 1 refreshes/);
+    expect(result.setup.problems).toContainEqual(BROKEN);
+  });
+
+  it('the re-check prompt asks for facts from scratch and its own payload file', async () => {
+    const agent = makeAgentStub(setupPlan({ setup: failing(), 'setup-recheck': setupResult() }));
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
+    const prompt = agent.calls.find((c) => c.opts.label === 'setup-recheck').prompt;
+    expect(prompt).toMatch(/gather EVERY fact again from scratch/);
+    expect(prompt).toMatch(/setup-decide-\d+-recheck\.json/);
+  });
+
+  it('the Exercise prompt carries the repeat-once rule', async () => {
+    const agent = makeAgentStub(setupPlan({ setup: setupResult() }));
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
+    const prompt = agent.calls.find((c) => c.opts.label === 'exercise').prompt;
+    expect(prompt).toMatch(/BEFORE BLAMING THE ENVIRONMENT/);
+    expect(prompt).toMatch(/repeat the failing step ONCE/);
+  });
+});
+
 describe('verify-functional: the setup-failure exit', () => {
   it('dispatches one Record agent and no Judge, Debug or Render, and rewrites only open criteria', async () => {
     const agent = makeAgentStub(
@@ -3308,7 +3359,7 @@ describe('verify-functional: the setup-failure exit', () => {
     const resume = { iteration: 1, criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, provenAt: 1 }], gapsClosed: [2] };
     const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ resume, setupTargets: [setupTarget()], fullRunCommand: 'make all' }) });
 
-    expect(labelsOf(agent)).toEqual(['setup', 'record']);
+    expect(labelsOf(agent)).toEqual(['setup', 'setup-recheck', 'record']);
     expect(result.outcome).toBe('setup-failure');
     expect(result.iterations).toBe(1); // iteration 2 failed; 2 - 1 completed
     expect(result.finalRun).toBeNull();
@@ -3324,7 +3375,7 @@ describe('verify-functional: the setup-failure exit', () => {
     });
     expect(result.criteria.find((c) => c.id === 'FS-2').reason).toBe('not exercised: the setup check failed — local: nothing answers at http://localhost:3000');
 
-    const recordCall = agent.calls[1];
+    const recordCall = agent.calls[2];
     expect(recordCall.opts.model).toBe('sonnet');
     expect(recordCall.prompt).toContain('render-report --file');
     expect(recordCall.prompt).toContain('save(');

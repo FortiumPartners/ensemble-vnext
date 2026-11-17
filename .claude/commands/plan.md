@@ -1126,6 +1126,13 @@ Then do exactly what `plan()` returns, and nothing else:
 | `notify` | run `.claude/hooks/notify-complete.sh "plan" "complete" "<summary>"` |
 | `verificationSection` | which TRD section carries the success definition, per kind |
 
+**The chained `/implement-trd` runs its own verification loop, and nothing substitutes for it.**
+When this run chains, the loop in `/implement-trd` Step 8 is the only verification: a scripted
+check, a Playwright script or the unit tests never stand in for it, and this command runs none
+of its own. Step 8 ends without the `Workflow` call only through its listed exits, each of which
+records a `not-run`; so when the chain returns, take the verification outcome from
+`/implement-trd`'s record, never from a check run here.
+
 **Do not re-derive any of this in prose, and do not second-guess a `null` banner.**
 `banner: null` on a chained run is correct: `command-status.md` forbids anything following
 `COMMAND COMPLETE`, and whichever command the chain lands in emits the run's terminator.
