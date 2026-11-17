@@ -34,6 +34,48 @@
       "started_at": "2026-11-17T17:56:21.193Z",
       "completed_at": "2026-11-17T17:58:41.640Z",
       "last_advanced": "2026-11-17T17:58:06.121Z"
+    },
+    "AMEND-001": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/plan-sizing-delta-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-17T18:13:39.939Z",
+      "completed_at": "2026-11-17T18:15:03.794Z",
+      "last_advanced": "2026-11-17T18:14:32.142Z"
+    },
+    "AMEND-002": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/plan-sizing-delta-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-17T18:13:39.939Z",
+      "completed_at": "2026-11-17T18:15:03.796Z",
+      "last_advanced": "2026-11-17T18:14:32.143Z"
+    },
+    "AMEND-003": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/plan-sizing-delta-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-17T18:13:39.939Z",
+      "completed_at": "2026-11-17T18:15:03.796Z",
+      "last_advanced": "2026-11-17T18:14:32.143Z"
     }
   },
   "checkpoints": [
@@ -44,13 +86,21 @@
         "findings": 0
       },
       "timestamp": "2026-11-17T18:06:30.073Z"
+    },
+    {
+      "phase": 1,
+      "commit": "9298931dcf1c626f308074c71b490b488b17f0fa",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-17T18:15:05.377Z"
     }
   ],
   "recovery": {
     "interrupted": false,
     "interrupt_reason": null,
-    "last_healthy_checkpoint": "a1ee69d8a6ab1a03a1892569f1302ae792d9798a",
-    "last_checkpoint_timestamp": "2026-11-17T18:06:30.073Z"
+    "last_healthy_checkpoint": "9298931dcf1c626f308074c71b490b488b17f0fa",
+    "last_checkpoint_timestamp": "2026-11-17T18:15:05.377Z"
   },
   "functional_verification": {
     "prd_resolved": true,
