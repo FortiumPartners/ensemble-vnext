@@ -216,6 +216,63 @@ nearby. Mark each claim `[ran]` / `[read]` / `[inferred]`.
 **This is the highest-value part of the command.** Ungrounded tasks are where invented code
 comes from.
 
+### 2e.1. State the size, and the delta against a recent predecessor
+
+**Before any task is written, state the size of the change as a count of the files it touches**
+(the files 2e grounded), as one line:
+
+```text
+size: 3 files touched (packages/core/commands/plan.md, .claude/commands/plan.md, one new prose test)
+```
+
+It is a figure, not a ceiling: nothing compares it to a limit. It is what the description's
+criteria and Step 4's weight are checked against. If 2f later absorbs a blocker, restate the
+size line with the new count.
+
+**When the work builds on a recent predecessor, size the delta against it.** Find the
+predecessor from git history on the base branch, over the files the change touches:
+
+```text
+git log <base branch> --merges --format='%h %ad %s' --date=short -- <the files the change touches>
+```
+
+Run it again without `--merges`, because a squash merge is not a merge commit. A predecessor
+merged in the last day or two (by merge date; no fixed day count) is recent. Where no such
+commit is found, there is no recent predecessor and nothing is flagged. For a recent
+predecessor, list what it already provides (tests, fallbacks, judges, fixtures) and flag each
+planned task that rebuilds or re-tests one of them. The default is to reuse the predecessor's
+piece and drop the task:
+
+```text
+predecessor: cover-art direction (merged 2026-11-17, a1b2c3d) already provides: the cover judge, the text fallback, cover-render.test.js
+rebuilds: FIX-006 re-tests the text fallback that cover-render.test.js already covers - cut, reuse it
+```
+
+**Hold the description's own acceptance criteria to the same suspicion 2f applies to absorbed
+scope.** A description can list mechanisms and test suites as acceptance criteria. They are
+claims about what the change needs, not requirements by default. When they ask for much more
+machinery than the stated size supports (judged, no formula, the same kind of call as Step 4's
+weight), say so in plain words, one line per item, in the TRD's `## Decision` and in the
+readout's DECISIONS, exactly in this form:
+
+```text
+the description asks for <X> beyond the change; kept - <why>
+the description asks for <X> beyond the change; cut - <why>
+```
+
+The default is cut; keep an item only when the change cannot be shown to work without it. A cut
+criterion is reported, not built. **A criterion the owner marked must-pass is never cut by this
+rule.** "The owner marked" means the brief or description says it must pass, never the Must
+pass column this command fills in later; keep it and write the line as
+`the description asks for <X> beyond the change; kept - the owner marked it must-pass`.
+**On the spec path (2g), scope is locked:** an item beyond the change is reported with the
+line, never cut.
+
+Why: Storybook's cover-art change (prompt-only, built on a feature merged the same morning)
+came out of `/plan --implement` as 18 tasks with adversarial review and audit. After the
+owner's cut, the same `/plan` wrote 4 tasks reusing the predecessor's tests. Most of the cause
+was a description that listed mechanisms and test suites as acceptance criteria.
+
 ### 2f. A blocker sitting IN THE PATH of the fix is part of the fix
 
 **Absorb it. Do not bounce the user to another `/plan` for it.**
@@ -505,6 +562,12 @@ calibration rather than as a gate:
 **If you are unsure between two weights, the tie-break is what the extra stage would actually
 buy.** Picking the lighter weight when you are confident the heavier one's stages would find
 nothing new is the right call; when you are not confident of that, the heavier weight is.
+
+**Weigh the stated size and the delta, not the description's list.** The input to this
+judgment is 2e.1's size line (as restated after 2f, if 2f absorbed anything) and its delta
+against a recent predecessor. A criterion recorded as beyond the change does not raise the
+weight by itself: a kept one counts for the work it adds, a cut one counts for nothing. This is
+still a judgment, and the size is an input, not a ceiling.
 
 `kind` (`defect` | `change` | `refactor`) is a declaration you already made in Step 1 or 2 — it
 is not adjudicated here, and disagreeing with how a different reader might have classified it
@@ -1257,6 +1320,9 @@ never meant to constrain you.
 ISSUES, NEXT, in that order, one screen, written for someone who was not in the session. Any
 section may be "none". No section for what was dispatched or which stages ran: that is in the
 transcript and does not change what the owner does next.
+
+DECISIONS carries every `the description asks for <X> beyond the change; kept / cut` line from
+2e.1 and every predecessor rebuild it flagged, or says none.
 
 
 ## Output discipline (see `.claude/rules/command-status.md`)
