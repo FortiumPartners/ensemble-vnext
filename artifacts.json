@@ -14,8 +14,8 @@
   },
   "verification-report": {
     "path": ".trd-state/audit-before-functional-verification/verification-report.md",
-    "url": "",
-    "updated_at": "2026-11-16T23:10:34.521Z",
+    "url": "https://claude.ai/artifact/GZcwtdZ7pCSaJxso6crFm2",
+    "updated_at": "2026-11-17T01:57:51.417Z",
     "command": "/implement-trd"
   },
   "audit-build": {

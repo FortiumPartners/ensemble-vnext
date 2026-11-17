@@ -281,5 +281,10 @@
         "reason": "must not be touched (verification.md §1)"
       }
     }
+  },
+  "audit": {
+    "return": "open: the coverage objective (O10, unit >= 60% / integration >= 50%) has no task and was never measured; deciding how to measure it is design work",
+    "runId": null,
+    "calls": 1
   }
 }
