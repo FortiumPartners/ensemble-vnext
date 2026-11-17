@@ -46,8 +46,15 @@ describe('plan.md sizing delta and claims', () => {
     expect(section).toContain('the description asks for <X> beyond the change; cut - <why>');
   });
 
+  test('the kept / cut lines are placed in the TRD Decision and the readout DECISIONS', () => {
+    const hold = section.indexOf("Hold the description's own acceptance criteria");
+    expect(hold).toBeGreaterThan(-1);
+    expect(section.indexOf("in the TRD's `## Decision` and in the readout's DECISIONS", hold)).toBeGreaterThan(hold);
+  });
+
   test('a must-pass criterion is never cut, and the spec path reports rather than cuts', () => {
     expect(section).toContain('A criterion the owner marked must-pass is never cut by this rule');
+    expect(section).toContain('"The owner marked" means the brief or description says it must pass, never the Must pass column this command fills in later');
     expect(section).toContain('On the spec path (2g), scope is locked');
     expect(section).toContain("run 2g's `spec-scope.js extract` check first");
     expect(section).toContain('reported, not built');
@@ -57,6 +64,12 @@ describe('plan.md sizing delta and claims', () => {
   test('Step 4 weighs the stated size and delta and keeps the no-ceiling wording', () => {
     expect(step4).toContain('**Weigh the stated size and the delta, not the description\'s list.**');
     expect(step4).toContain('no task-or-file ceiling to consult');
+  });
+
+  test('2e.1 restates the size line when 2f absorbs a blocker, and Step 4 weighs the restated line', () => {
+    expect(section).toContain('If 2f later absorbs a blocker, restate the');
+    expect(section).toContain('size line with the new count.');
+    expect(step4).toContain("(as restated after 2f, if 2f absorbed anything)");
   });
 
   test('the readout carries the size line and the beyond-the-change lines', () => {

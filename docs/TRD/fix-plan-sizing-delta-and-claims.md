@@ -77,12 +77,15 @@ none — the brief's two open questions were resolved as OWNER-CALLs (see Decisi
 |---------|-------------|--------|--------------|---------------------|
 | FIX-001 | Add sub-step 2e.1 (size, predecessor delta, description-criteria check), the Step 4 paragraph and the Readout line to `packages/core/commands/plan.md`; copy it to `.claude/commands/plan.md` | O1, O2, O3, O4 | None | The step-3 grep prints a non-zero count; 2e.1 sits before Step 4 and Step 5; the two files are byte-identical |
 | FIX-002 | New Jest prose test `packages/core/commands/plan-sizing-delta-prose.test.js` pinning the new wording and the vendored parity | O1, O2, O3, O4 | FIX-001 | Fails against today's plan.md (no "already provides", no "beyond the change"); passes after FIX-001 |
+| AMEND-001 | [test-gap] plan.md 2e.1's clause that 'the owner marked' means the brief or description, never the Must pass column /plan fills in, has no test assertion (`packages/core/commands/plan-sizing-delta-prose.test.js`) — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/commands/plan.md:270-273 has the text; packages/core/commands/plan-sizing-delta-prose.test.js has no expectation containing 'Must pass column' or 'never the Must') | amendment — no objective recorded | None | [test-gap] plan.md 2e.1's clause that 'the owner marked' means the brief or description, never the Must pass column /plan fills in, has no test assertion no longer holds |
+| AMEND-002 | [test-gap] Nothing asserts that 2e.1 puts the kept/cut 'beyond the change' lines in the TRD's ## Decision. The test pins that placement only for the size line (`packages/core/commands/plan-sizing-delta-prose.test.js`) — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/commands/plan.md:260-262 ('in the TRD's `## Decision` and in the readout's DECISIONS'); plan-sizing-delta-prose.test.js:66 covers the size line only) | amendment — no objective recorded | None | [test-gap] Nothing asserts that 2e.1 puts the kept/cut 'beyond the change' lines in the TRD's ## Decision. The test pins that placement only for the size line no longer holds |
+| AMEND-003 | [test-gap] Step 4's 'as restated after 2f' clause and 2e.1's 'restate the size line' sentence have no test assertion (`packages/core/commands/plan-sizing-delta-prose.test.js`) — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/commands/plan.md:229 and :573 have the text; plan-sizing-delta-prose.test.js:57-60 asserts only the heading and the no-ceiling wording) | amendment — no objective recorded | None | [test-gap] Step 4's 'as restated after 2f' clause and 2e.1's 'restate the size line' sentence have no test assertion no longer holds |
 
 ## Task Grounding
 
 ### FIX-001
 - **Touches:** `packages/core/commands/plan.md`, `.claude/commands/plan.md`
-- **Reuse:** 2f's "suspect the inputs before the work" framing and its per-item counterfactual line format (lines 238-245, 275-280) [read]
+- **Reuse:** 2f's "suspect the inputs before the work" framing and its per-item counterfactual line format (plan.md lines 301-308 and 340-344, after 2e.1 was inserted; 238-245 and 277-281 before it) [read]
 - **Replaces:** nothing; Step 4's "no task-or-file ceiling to consult" sentence stays and is qualified, not removed [read]
 - **Follow:** the CLAUDE.md prose rules — plain words, name the thing then its id; the vendored copy is a straight `cp` (the two files are identical today) [ran]
 - **Careful:** do not renumber 2g (cited as §2g throughout); do not put the example lines in a ```` ```markdown ```` fence starting `# TRD:` (`fix-template.test.js:29` extracts the first such fence), and any ```` ```bash ```` block is syntax-checked by `command-heredocs.test.js`; the `<X>` placeholder in the readout line must survive whitespace normalisation for the test [read]
@@ -93,6 +96,19 @@ none — the brief's two open questions were resolved as OWNER-CALLs (see Decisi
 - **Follow:** `'use strict';`, a one-line header comment naming the TRD [read]; vendored parity is also checked by `verify-command-surface.test.js:65`, kept here as one line because the brief names it [read]
 - **Careful:** assert ordering (2e.1 before `## Step 4`), not just presence, so the size is provably stated before tasks [inferred]
 
+### AMEND-001
+
+- **Touches:** `packages/core/commands/plan-sizing-delta-prose.test.js`
+
+### AMEND-002
+
+- **Touches:** `packages/core/commands/plan-sizing-delta-prose.test.js`
+
+### AMEND-003
+
+- **Touches:** `packages/core/commands/plan-sizing-delta-prose.test.js`
+
 ## Could Not Verify
 
-- The live check — a `/plan` run on a description that lists extra test suites as criteria reporting the "beyond the change" line — waits on the owner; no fixture run is made here.
+- The live check — a `/plan` run on a description that lists extra test suites as criteria reporting the "beyond the change" line — was not run by the build audit (2026-11-17): it needs a live model session in a fixture repo, and the audit reads code and tests only. It still waits on the owner.
+- Validation against product requirements was not checked: there is no PRD (the source is the brief `docs/plans/fix-plan-sizing-delta-and-claims/brief.md`), so the build audit checked only that the TRD's tasks and decisions are built and tested, not that the TRD captured everything the brief asked for.
