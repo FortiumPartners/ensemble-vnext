@@ -205,6 +205,21 @@
       "files_deleted": [],
       "current_problem": null,
       "completed_at": "2026-11-17T02:01:41.873Z"
+    },
+    "AMEND-007": {
+      "description": "plan blocker B1: chained audit RETURN line printed inline",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/audit-first-order.test.js"
+      ],
+      "current_problem": null,
+      "last_advanced": "2026-11-17T02:06:30.326Z",
+      "completed_at": "2026-11-17T02:06:43.665Z"
     }
   },
   "checkpoints": [
@@ -255,13 +270,21 @@
         "findings": 0
       },
       "timestamp": "2026-11-16T23:29:14.142Z"
+    },
+    {
+      "phase": 4,
+      "commit": "3064a0fe410d203d7d7a827fa2751706eb9179b2",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-17T02:06:44.137Z"
     }
   ],
   "recovery": {
     "interrupted": false,
     "interrupt_reason": null,
-    "last_healthy_checkpoint": "6986ce186b62d94e77881a41984c9bda7d51f326",
-    "last_checkpoint_timestamp": "2026-11-16T23:29:14.142Z"
+    "last_healthy_checkpoint": "3064a0fe410d203d7d7a827fa2751706eb9179b2",
+    "last_checkpoint_timestamp": "2026-11-17T02:06:44.137Z"
   },
   "functional_verification": {
     "prd_resolved": true,
@@ -292,6 +315,15 @@
         "status": "unusable",
         "reason": "must not be touched (verification.md §1)"
       }
+    },
+    "fix": {
+      "plan": ".trd-state/audit-before-functional-verification/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1
+      },
+      "rounds": [],
+      "stopped": false
     }
   },
   "audit": {
