@@ -14,9 +14,10 @@
   },
   "verification-report": {
     "path": ".trd-state/audit-before-functional-verification/verification-report.md",
-    "url": "https://claude.ai/artifact/GZcwtdZ7pCSaJxso6crFm2",
-    "updated_at": "2026-11-17T04:29:36.899Z",
-    "command": "/verify-build"
+    "url": "https://claude.ai/artifact/WCoL1TvXQMtzssh9fxmJPW",
+    "updated_at": "2026-11-17T06:54:14.123Z",
+    "command": "/verify-build",
+    "previous_url": "https://claude.ai/artifact/GZcwtdZ7pCSaJxso6crFm2"
   },
   "audit-build": {
     "path": ".trd-state/audit-before-functional-verification/audit-build-report.md",

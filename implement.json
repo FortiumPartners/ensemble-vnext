@@ -325,9 +325,9 @@
       "rounds": [
         {
           "round": 1,
-          "tasksPromoted": 1,
-          "criteriaClosed": 7,
-          "criteriaOpen": 1,
+          "tasksPromoted": 0,
+          "criteriaClosed": 1,
+          "criteriaOpen": 0,
           "buildable": 0
         }
       ],

@@ -1,0 +1,781 @@
+{
+  "feature": "audit-before-functional-verification",
+  "prd": "docs/plan/audit-before-functional-verification.investigation.md",
+  "definitionPath": ".trd-state/audit-before-functional-verification/success-definition.md",
+  "outcome": "satisfied",
+  "reason": "no gaps remain — every criterion is met, not verifiable here, or settled as an evidence gap",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "In a default `/implement-trd` run (not `--chained`), the code audit (`Skill(audit-build, \"<trd> --prd <prd> --defer-close\")`) is called after the end-of-run code review and before the `Workflow(verify-functional)` dispatch",
+      "cites": "L11-14, L19-21, L56-58, L88-89",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-default-order.txt",
+      "reason": "Fresh default run: the code-review Skill (L90) comes first, then Skill audit-build --chained --defer-close (L119), then the run's one verify-functional Workflow (L432).",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-2",
+      "statement": "The audit's fix run (and any re-audit, up to the audit cap) finishes before verification starts, so the verification loop is dispatched once, on code that already carries the audit's fixes",
+      "cites": "L13-14, L24-25, L60-62, L111-113",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-default-order.txt",
+      "reason": "The fix run's checkpoint commit (22:11:47) and its review commit (22:13:35) come before the verification evidence (22:14:42) and report (22:15:08); verify-functional was dispatched once.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-3",
+      "statement": "`/implement-trd --chained` skips the audit step, so audit → fix run → audit does not recurse",
+      "cites": "L58-59, L152",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-chained-tool-sequence.txt",
+      "reason": "The fresh --chained run made no audit-build Skill or Workflow call; it ended on its RETURN line.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-4",
+      "statement": "`/implement-trd --no-verify` still runs the audit step",
+      "cites": "L59-60",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-noverify-tool-sequence.txt",
+      "reason": "The fresh --no-verify run called Skill audit-build --chained --defer-close after code review, dispatched no verify-functional, and closed by audit.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-5",
+      "statement": "`/audit-build --defer-close` on a passing audit runs no waived-defect gate, writes no `closed.json`, publishes nothing and opens no PR; it records a pending close (verdict, report path, `auditedCommit`, `anchorCommit` by today's rule) as a line in `audit-rounds.jsonl` carrying the round's run id and `closeDeferred: true`, and writes the records ref",
+      "cites": "L61-65, L114-117",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-defer-audit-rounds.jsonl",
+      "reason": "The passing --defer-close run wrote a closeDeferred:true line (runId, trdHash, report, anchorCommit null, correct by step 4's rule because no fix run was chained) beside the round line that carries verdict and auditedCommit. No closed.json was written, no PR was opened, and the records ref holds both lines.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-6",
+      "statement": "`/audit-build --defer-close` ends with one `[STATUS: /audit-build] RETURN → …` line and emits no `COMMAND COMPLETE` banner, does not call `notify-complete.sh`, and sends no `PushNotification`",
+      "cites": "L65-67",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-defer-final.txt",
+      "reason": "The run ends on \"[STATUS: /audit-build] RETURN → passed, close deferred\". The transcript has no COMMAND COMPLETE banner, no notify-complete call and no PushNotification.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-7",
+      "statement": "Under `--defer-close`, the non-close outcomes (re-audit, cap reached, uncovered) behave as they do today except that each ends with a RETURN line instead of a banner",
+      "cites": "L67-68",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-fs7-nonclose-branches.txt",
+      "reason": "The command text gives a RETURN line for each branch that does not close (re-audit needed, cap reached, open). The live uncovered branch ended \"RETURN → open: …\" with no banner, no closed.json and no pending close.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-8",
+      "statement": "Under `--defer-close`, the stale-wake check still applies, and `anchorCommit` still waits for the fix run's end-of-run review that can finish after the RETURN line",
+      "cites": "L153-154",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/fs8-audit-build-defer-close.txt",
+      "reason": "At 0abb1b75, audit-build.md's --defer-close path says that step 0's stale-wake check and the anchorCommit wait for the fix run's end-of-run review apply as they do standalone.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-9",
+      "statement": "`/audit-build --close-deferred` with a pending close performs today's close tail from it — waived-defect gate, close step with `closedBy: \"audit\"` and the pending audit fields, commit of the TRD if needed, publish, records ref, PR per `ensemble.openPullRequest` — without re-running any verifier, then clears the pending close and ends with one RETURN line",
+      "cites": "L69-73, L98-102, L118-119",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-close-closed.json",
+      "reason": "--chained --close-deferred wrote closed.json with closedBy audit and the pending close's auditedCommit and anchorCommit. It dispatched no verifier, and pending-close then returned null. It ended \"RETURN → closed; PR skipped: openPullRequest is never\". The auto-PR path could not run: the fixture has no remote.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-10",
+      "statement": "`/audit-build --close-deferred` with no pending close on record returns `RETURN → nothing to close` and closes nothing",
+      "cites": "L73",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-fs10-final.txt",
+      "reason": "With no ledger on record, --close-deferred returned \"RETURN → nothing to close\", and the listing shows no closed.json.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-11",
+      "statement": "When `/implement-trd`'s audit step returned \"passed, close deferred\" and verification's outcome is `satisfied` with no `definition-problem` criterion, `/implement-trd` runs `audit-build --close-deferred` before its readout, and the readout's STATE says the feature is closed and names the PR (or the reason the PR was skipped or failed)",
+      "cites": "L74-78",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-fs11-tool-sequence.txt",
+      "reason": "After verify-functional came back satisfied, the run called Skill audit-build --chained --close-deferred --verified before the readout. closed.json was written, and STATE says the feature is closed and that no PR was opened because openPullRequest is never.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-12",
+      "statement": "When the audit step returned \"passed, close deferred\" and verification was skipped by `--no-verify`, `/implement-trd` closes the feature through `--close-deferred`",
+      "cites": "L74-76",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-fs12-state/audit-rounds.jsonl",
+      "reason": "The --resume --no-verify run with a passing audit closed the feature: closed.json with closedBy audit and the pending close's auditedCommit and anchorCommit, a closeConsumedAt line in the ledger, and pending-close null afterwards. It did not call the Skill. It performed the --close-deferred tail inline instead: pending-close with the run id, a trd-hash check, the waived-defect gate, then the close step. The result matches the criterion; how it got there differs from the command text.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-13",
+      "statement": "A passing audit followed by a verification whose outcome is not `satisfied` (or is `satisfied` with a `definition-problem` criterion) closes nothing and opens no PR; the pending close stays on record; NEXT follows the verification outcome (`/refine-verification` → `/verify-build`, or the setup-failure fix)",
+      "cites": "L15-16, L76-79, L89-90",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-fs13-pending.txt",
+      "reason": "The default run passed its audit, then verification ended insufficient-coverage. No closed.json was written, pending-close still reports the deferred close, no PR was opened, and NEXT is /refine-verification then /verify-build.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-14",
+      "statement": "When the audit does not pass, `/implement-trd` closes nothing, and NEXT follows the audit's own result (cap reached → `/close-feature`, uncovered → design work); a re-audit runs inside the audit step rather than being handed to the owner as a standalone `/audit-build`",
+      "cites": "L79-80, L111-113",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-nv-final.txt",
+      "reason": "Uncovered-requirement seed: none of 3 fresh runs (nv, nv2, def) wrote a closed.json. Both --no-verify runs ended NEXT on the design work (an /amend for FR-3) with no /audit-build. The default run, whose verification also fell short, correctly gave verification's NEXT. The cap-reached branch did not reproduce live in 4 attempts; decide returns capReached:true and the Step 9 template gives /close-feature alone. The earlier defect, a standalone /audit-build handed over after an open audit, did not recur.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-15",
+      "statement": "`/implement-trd`'s readout NEXT never names `/audit-build` merely because verification passed",
+      "cites": "L11-13, L80",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/fs15-implement-trd-step9.txt",
+      "reason": "implement-trd.md Step 9 NEXT says it never names /audit-build merely because verification passed; a satisfied run routes to /ship-build (see the FS-11 run).",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-16",
+      "statement": "`/verify-build` with outcome `satisfied` (no `definition-problem` criterion) and a pending close on record runs `audit-build --close-deferred`, and its NEXT is shipping (`/ship-build`) or the PR step",
+      "cites": "L11-14, L81-83",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-fs16-tool-sequence.txt",
+      "reason": "With a seeded pending close, /verify-build ran verify-functional, then Skill audit-build --chained --close-deferred --verified. It wrote closed.json, and NEXT is /ship-build docs/TRD/smoke-fv.md.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-17",
+      "statement": "`/verify-build` with outcome `satisfied`, no pending close and no closed feature names `/audit-build` as NEXT",
+      "cites": "L83-85",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/fs17-verify-build.txt",
+      "reason": "verify-build.md: with no pending close, NEXT is shipping when closed.json exists, else /audit-build <trd>.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-18",
+      "statement": "`/verify-build --chained`, and `/verify-build` on a sweep file, behave as they did before this change",
+      "cites": "L85",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/fs18-verify-build-diff-main.txt",
+      "reason": "No hunk of this feature's verify-build.md diff against main edits the --chained or sweep-file behaviour; the close paths say those cases are unchanged. The §1a rerun-scope hunk came from the separately merged rerun-scope feature (#157), not this change.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-19",
+      "statement": "`/audit-build` invoked by the owner with neither flag behaves as today: audits, chains its fix run, and on a pass runs the waived-defect gate, writes `closed.json` with `closedBy: \"audit\"`, commits the TRD, publishes, writes the records ref, opens the PR when `ensemble.openPullRequest` is `auto`, and ends with its `COMMAND COMPLETE` banner",
+      "cites": "L15-16, L46-52, L86, L90-91",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/live/y1-standalone-order.txt",
+      "reason": "Standalone /audit-build passed the waived-defect gate and wrote closed.json with closedBy audit. It then made the TRD commit 914fbb9, wrote the records ref, called notify-complete and ended on the COMMAND COMPLETE banner. The PR-opening path for openPullRequest auto was not exercised, and publishing was skipped without failing the run because the Artifact tool is unavailable in headless sessions.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-20",
+      "statement": "When the close follows a satisfied verification in the same run, the recorded `anchorCommit` is the head at close time, and code changed by verification's Debug stage after the audit does not invalidate the pending close",
+      "cites": "L106-109",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-fs23b-state/closed.json",
+      "reason": "A seeded debug-stage commit followed the audited commit 4c50696. The close still proceeded, and anchorCommit d3ab35c2 equals the head at close time.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-21",
+      "statement": "A pending close is superseded by any later audit round, and becomes stale when the TRD has changed since the audit (its TRD hash, taken after the fix run, no longer matches); neither is closed from",
+      "cites": "L109-110, L114-117",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/fs21-22-pending-close-cli.txt",
+      "reason": "pending-close reports the deferred round, then {\"pending\":null} once a later round is recorded. trd-hash changes after a TRD edit, and the --close-deferred text returns \"stale: the TRD changed since the audit\" on a hash mismatch. The Jest pending tests pass.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-22",
+      "statement": "`audit-rounds.js` (source `packages/core/lib/`, mirror `.claude/lib/`) offers a `pending-close` CLI verb that reports the pending close recorded by a `--defer-close` round, folding a round's lines by run id",
+      "cites": "L114-118",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/fs21-22-pending-close-cli.txt",
+      "reason": "The pending-close CLI verb returns the folded pending round with its verdict, report path, auditedCommit and anchorCommit, and reports a mismatch for another run id.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-23",
+      "statement": "The waived-defect gate runs after verification (inside `--close-deferred`), so it sees and files the failures verification waived under `Blocking: must-pass only`",
+      "cites": "L103-105",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/r2-fs23a-final.txt",
+      "reason": "Inside --close-deferred, after verification, the waived-defect gate saw the waived failure FS-9 and refused the close until it was filed (the fixture tracker has no Project). Once it was recorded as filed, the second run closed (r2-fs23b-state/closed.json).",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-24",
+      "statement": "The pending close and other run records go to the feature's records ref and are never committed on the branch",
+      "cites": "L118-120",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/fs24-records-ref.txt",
+      "reason": "No .trd-state path appears in main..HEAD, and none is tracked. The feature's records ref holds audit-rounds.jsonl, and the fixture's records ref holds the closeDeferred line (r2-defer-records-ref.txt).",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-25",
+      "statement": "Every edited command is byte-identical between `packages/core/commands/` and `.claude/commands/`, `audit-rounds.js` is identical between `packages/core/lib/` and `.claude/lib/`, and `packages/full/` is refreshed by the repo's existing sync",
+      "cites": "L121-123",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/fs25-mirror-identity.txt",
+      "reason": "Every edited command .md and lib/audit-rounds.js is identical between packages/core and .claude. packages/full reads commands through its core link.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-26",
+      "statement": "The command text and the docs that describe the order state audit-first, and a grep finds no command text still saying verification runs before the audit",
+      "cites": "L15-17, L19-20",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/fs26-grep-regression2.txt",
+      "reason": "The grep for wording that puts verification before the audit returns nothing over the command dirs and docs. implement-trd.md line 70 and PROCESS.md line 273 state the audit-first order.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    },
+    {
+      "id": "FS-27",
+      "statement": "The tests that pin the order assert audit-first, and `npx jest` and `bats` for the touched command-surface tests pass",
+      "cites": "L16-17, L19-20",
+      "status": "met",
+      "artifact": ".trd-state/audit-before-functional-verification/evidence/regression-2/fs27-jest.txt",
+      "reason": "npx jest over the command-surface tests and audit-rounds.test.js: 28 suites, 1063 passed, 0 failed, including audit-first-order.test.js. No .test.sh file was touched.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": null,
+      "blocker": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 2
+    }
+  ],
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  },
+  "mustPass": [
+    "FS-1",
+    "FS-2",
+    "FS-5",
+    "FS-9",
+    "FS-11",
+    "FS-12",
+    "FS-13",
+    "FS-14",
+    "FS-19"
+  ],
+  "mustPassUncovered": [],
+  "causes": [
+    {
+      "key": "readout-pr-reason-not-in-state",
+      "representative": "FS-11",
+      "members": [
+        "FS-11"
+      ],
+      "status": "closed",
+      "closedAt": 2
+    },
+    {
+      "key": "step9-next-audit-build-after-open-audit",
+      "representative": "FS-14",
+      "members": [
+        "FS-14"
+      ],
+      "status": "closed",
+      "closedAt": 2
+    }
+  ],
+  "regression": {
+    "rounds": [
+      {
+        "round": 1,
+        "iteration": 2,
+        "scope": [
+          {
+            "id": "FS-1",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-2",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-3",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-4",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-5",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-6",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-7",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-8",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-9",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-10",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-12",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-13",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-14",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-15",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-16",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-17",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-18",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-20",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-21",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-22",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-23",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-24",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-25",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-26",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-27",
+            "reason": "no-covers"
+          }
+        ],
+        "counts": {
+          "covers-changed": 7,
+          "no-covers": 18
+        },
+        "scopeWord": "targeted",
+        "caught": [
+          "FS-14"
+        ],
+        "debug": {
+          "causes": [
+            "step9-next-audit-build-after-open-audit"
+          ],
+          "filesChanged": [
+            ".claude/commands/implement-trd.md",
+            "packages/core/commands/implement-trd.md"
+          ]
+        }
+      },
+      {
+        "round": 2,
+        "iteration": 2,
+        "scope": [
+          {
+            "id": "FS-1",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-2",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-3",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-4",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-5",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-6",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-7",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-8",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-9",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-10",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-11",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-12",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-13",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/commands/implement-trd.md",
+              "packages/core/commands/implement-trd.md"
+            ]
+          },
+          {
+            "id": "FS-14",
+            "reason": "sent-to-debug"
+          },
+          {
+            "id": "FS-15",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-16",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-17",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-18",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-20",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-21",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-22",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-23",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-24",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-25",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-26",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-27",
+            "reason": "no-covers"
+          }
+        ],
+        "counts": {
+          "covers-changed": 7,
+          "no-covers": 18,
+          "sent-to-debug": 1
+        },
+        "scopeWord": "targeted",
+        "caught": []
+      }
+    ],
+    "notRewalked": [
+      "FS-19"
+    ],
+    "unclaimedChanges": [],
+    "gateBeforeEdits": false
+  }
+}
