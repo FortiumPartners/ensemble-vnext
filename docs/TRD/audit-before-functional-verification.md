@@ -511,9 +511,11 @@ None apply — this change has no UI design, no interaction diagram and renders 
 
 ## Could Not Verify
 
-Updated by `/audit-build` on 2026-11-16 (five of five verifiers reported, against the
-investigation; 10 requirements and 9 tasks checked). Gaps that audit found are in its report,
-not here. What is listed here was not checked by that audit, and why:
+Updated by `/audit-build` on 2026-11-16 (re-audit; five of five verifiers reported, against the
+investigation; 10 requirements and 13 tasks indexed). This round was limited to whether the
+previous round's defects are fixed and to the files changed since commit 5cb9bd6; it raised no
+findings and took no fresh sample. It therefore does NOT confirm that every requirement is
+implemented and tested, and every row below was outside its scope and was not checked by it:
 
 - **A standalone `/audit-build` after a satisfied `/verify-build` closes on code no verification
   saw, when its fix run changes code (D20, TR4).** It is reached only when no deferred close is
