@@ -106,7 +106,17 @@
     "prd_resolved": true,
     "source_kind": "intended-change",
     "prd_path": "docs/TRD/fix-plan-sizing-delta-and-claims.md § Intended Change",
-    "runs": [],
+    "runs": [
+      {
+        "n": 1,
+        "command": "/implement-trd",
+        "started_at": "2026-11-17T18:18:54.277Z",
+        "scope": "full",
+        "outcome": "satisfied",
+        "finished_at": "2026-11-17T18:25:53.772Z",
+        "open": []
+      }
+    ],
     "target": {
       "environment": null,
       "source": "none"
@@ -133,5 +143,10 @@
         "reason": "must not be touched"
       }
     }
+  },
+  "audit": {
+    "return": "passed, close deferred",
+    "runId": "wf_8ac78a0a-828",
+    "calls": 1
   }
 }

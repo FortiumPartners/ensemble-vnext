@@ -11,5 +11,17 @@
     "url": "",
     "updated_at": "2026-11-17T18:18:01.234Z",
     "command": "/audit-build"
+  },
+  "success-definition": {
+    "path": ".trd-state/fix-plan-sizing-delta-and-claims/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-17T18:18:09.326Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/fix-plan-sizing-delta-and-claims/verification-report.md",
+    "url": "",
+    "updated_at": "2026-11-17T18:26:28.262Z",
+    "command": "/implement-trd"
   }
 }
