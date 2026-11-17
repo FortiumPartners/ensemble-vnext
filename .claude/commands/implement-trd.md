@@ -2349,6 +2349,12 @@ write below carries `closed.json`. Print its one RETURN line as text, as at §7.
 
 - `closed; PR <opened|updated|skipped|failed>: …`: the feature is closed. Carry the lines printed
   above the RETURN (the close record, PR URL or reason, unsynced-board steps, caveats) into STATE.
+  **The STATE line that says the feature is closed also names the PR, in that same line**: its
+  URL when the RETURN says `opened` or `updated`, or the reason it was `skipped` or `failed`, in
+  words, e.g. "The feature is closed (`.trd-state/<feature>/closed.json`); no PR was opened
+  because `ensemble.openPullRequest` is `never`." The PR's fate is part of what the close left,
+  so it goes in STATE whatever it was, never only in ISSUES; a `failed` PR also gets one ISSUES
+  line saying who acts.
 - `stale: the TRD changed since the audit` or `nothing to close`: one STATE line saying why
   (the TRD gained rows after the audit passed, or no deferred close is on record); nothing closed.
   When an `error` was printed above a `nothing to close` RETURN, add one ISSUES line naming the
@@ -2380,7 +2386,10 @@ STATE
     its report link (from `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind audit-build`)
     or path, how many audits ran (`audit.calls`), and whether the feature is now closed, the close
     waits for verification (say what verification found), or why it stays open (the audit hit
-    its cap, stayed open, or stopped; the close returned `stale` or `nothing to close`).}
+    its cap, stayed open, or stopped; the close returned `stale` or `nothing to close`).
+    When the feature is now closed, the same line names the PR: its URL, or why it was skipped
+    or failed (e.g. "no PR was opened because `ensemble.openPullRequest` is `never`") — in
+    STATE, not left to ISSUES.}
   {if verification ran (--no-verify not set): "The delivered software {does | does not} do
     what the PRD asked: {plain sentence}." For `insufficient-coverage`, say the ratio and
     what it means, not the outcome name — e.g. "Only 11 of 62 criteria were proven; the rest
@@ -2507,9 +2516,13 @@ NEXT
    Each branch is complete on its own; a block under one branch never applies to another.}
   {`cap reached`: `/close-feature docs/TRD/<feature>.md`, alone in its block:}
   1. /close-feature docs/TRD/<feature>.md
-  {`open: <why>`: the design work it names, in words, as plain lines, and nothing else. No fenced
-   block and never `/audit-build`: Step 7.3 already re-audited in place, and a requirement with
-   no task needs design work before any audit can pass.}
+  {`open: <why>`: the design work it names, and nothing after it: the design work is the LAST
+   step of NEXT. A command that does that work (e.g. `/amend` to add the missing task) may sit in
+   its own block, as any slash command does. No "then re-audit" or "then re-run the audit" step
+   follows it, and never `/audit-build`, not even as the step after the design work: Step 7.3
+   already re-audited in place, and once the TRD gains the task, the next `/implement-trd` run
+   builds it and audits inside its own Step 7.3, so a standalone `/audit-build` here would only
+   audit (and, on a pass, close) code that verification never saw.}
   {`STUCK: <why>` or `error: <why>` (or no `audit` field), and only these: the fix it names in
    words, then:}
   1. /audit-build <trd> --prd <prd>
@@ -2538,6 +2551,10 @@ the old template listed it under NEXT STEPS.
   returned — none of that changes what the owner does next. It is in the transcript.
 - **Commit SHAs are not a section.** `git log` shows them. Name a commit only when the owner
   needs that specific one.
+- **After an `open` audit, NEXT ends at the design work.** Two of three `--resume --no-verify`
+  runs with a requirement that had no task listed the design work and then added "2. Then
+  re-audit: `/audit-build <trd> --prd <prd>`". That step is never written: the audit already ran
+  inside this command, and the owner's next `/implement-trd` run audits again on its own.
 
 ### 9.0a Artifact link (see `.claude/rules/command-status.md`)
 
