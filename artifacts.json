@@ -23,5 +23,11 @@
     "url": "https://claude.ai/artifact/75ir8sDg7mxfEqcJPbZHZZ",
     "updated_at": "2026-11-16T23:32:42.744Z",
     "command": "/audit-build"
+  },
+  "verification-plan": {
+    "path": ".trd-state/audit-before-functional-verification/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-11-17T02:03:35.548Z",
+    "command": "/refine-verification"
   }
 }
