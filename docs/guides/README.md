@@ -29,7 +29,7 @@ has an answer built into the framework ([CONCEPTS.md](CONCEPTS.md) takes each in
 ## How the work flows
 
 ```
-new feature            /create-prd → /audit-prd → /create-trd → /audit-trd → /implement-trd → /audit-build → PR
+new feature            /create-prd → /audit-prd → /create-trd → /audit-trd → /implement-trd (audits, verifies, closes) → PR
   with screens         ... /create-prd → /create-design → /audit-design → /create-trd --design → ... → PR → /sync-design
 a bug or small change  /plan   (writes a plan sized to the risk; --implement builds it)
 a list of small fixes  /sweep
@@ -40,9 +40,9 @@ finished work to push, merge, release       /ship-build   (steps listed in .clau
 ```
 
 `/implement-trd` builds in phases, reviews the whole branch once, and then verifies the running
-software against criteria written from the PRD. That verification runs by default.
-`/audit-build` then checks the delivered code against the TRD and PRD; a passing audit closes
-the feature and, if you allow it, opens the pull request. You merge, unless you have set up
+software against criteria written from the PRD, after `/audit-build` has checked the delivered
+code against the TRD and PRD and fixed what it found. Both run by default. A passing audit plus
+a satisfied verification closes the feature and, if you allow it, opens the pull request. You merge, unless you have set up
 `/ship-build`, which can run the steps your `ship.md` lists; an outward step (merge, release)
 also needs your authorization in `autonomy.md` ([ship-build.md](ship-build.md)). The full map,
 with a diagram for every command, is in [PROCESS.md](PROCESS.md).
@@ -82,7 +82,6 @@ before building, also run `/design-setup`, which writes `.claude/rules/design.md
 /create-trd
 /audit-trd
 /implement-trd docs/TRD/<feature>.md
-/audit-build
 ```
 
 Each command picks up the file the previous one wrote, except `/implement-trd`: give it the

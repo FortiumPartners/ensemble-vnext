@@ -92,7 +92,7 @@ describe('implement-trd run limit (cap-verification-runs-per-feature)', () => {
     expect(flat(next)).toMatch(/ruling-request\.md/);
     expect(flat(next)).toMatch(/replaces .{0,80}\/refine-verification/);
     expect(flat(next)).toMatch(/ruling request wins over the setup-failure/i);
-    expect(next).toContain('passing `/audit-build` opens the PR when `ensemble.openPullRequest` is `auto`');
+    expect(flat(next)).toContain('The PR opens when this run closes the feature');
   });
 
   test('§9.0a records and publishes the ruling-request (D10)', () => {

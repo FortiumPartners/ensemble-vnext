@@ -257,8 +257,9 @@ First hit wins:
 ### The closed-feature gate
 
 A **full feature** (Source PRD names a `docs/PRD/` file, or no Source PRD line) needs
-`.trd-state/<feature>/closed.json`, which a passing `/audit-build` writes; without it the command
-stops and points at `/audit-build`. A `/plan` TRD and a sweep have no gate.
+`.trd-state/<feature>/closed.json`, which a passing `/audit-build` or a finished `/implement-trd` writes (the audit passed and
+verification was satisfied);
+without it the command stops and points at `/audit-build`. A `/plan` TRD and a sweep have no gate.
 
 ### The loop
 
@@ -321,8 +322,8 @@ action runs a project slash command from the vendored `.claude/` directory on a 
 ## Custody: ship what was verified
 
 The principle: the code that ships is the code that was verified. `custody.js` keeps one anchor
-commit in `<state-dir>/custody.json`: the head after `/audit-build`'s own fix run
-(`closed.json` `audit.anchorCommit`) when there is one, else the audited commit
+commit in `<state-dir>/custody.json`: the head at close after a satisfied verification
+(`closed.json` `audit.anchorCommit`), else the head after `/audit-build`'s own fix run, else the audited commit
 (`audit.auditedCommit`), otherwise `HEAD` at the first push.
 
 **Code equality** between two commits is `git diff --no-renames --name-only`, with every

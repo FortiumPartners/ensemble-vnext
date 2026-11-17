@@ -682,9 +682,13 @@ describe('Step 9 readout NEXT matches renderReport\'s wording (O4)', () => {
     );
   });
 
-  test('satisfied branch: NEXT names /audit-build', () => {
+  // ABFV-B003: the audit ran before verification, so a satisfied verification no longer
+  // sends the owner to /audit-build; Step 9 closes the feature itself when the audit passed.
+  test('satisfied branch: NEXT follows the audit result, not /audit-build for the satisfied outcome alone', () => {
     const text = read(CORE_IMPLEMENT);
     const step9 = flat(text.split('## Step 9: Completion')[1].split('### 9.0a')[0]);
+    expect(step9).not.toMatch(/verify delivery against the TRD and PRD/);
+    expect(step9).toMatch(/`\/ship-build`/);
     expect(step9).toMatch(/\/audit-build <trd> --prd <prd>/);
   });
 });
@@ -728,9 +732,15 @@ describe('verify-build.md readout NEXT matches renderReport\'s wording (O4)', ()
     );
   });
 
-  test('satisfied branch: NEXT names /audit-build', () => {
+  // ABFV-B004 (§3.4, D11, D20): a satisfied run completes the held-back close; /audit-build is
+  // named only when no usable audit pass is on record.
+  test('satisfied branch: NEXT follows the held-back close, /audit-build only with no audit on record', () => {
     const section = flat(read(CORE_VERIFY_BUILD).split('## Readout')[1].split("## `--fix")[0]);
-    expect(section).toMatch(/outcome `satisfied` → `\/audit-build`/);
+    expect(section).not.toMatch(/outcome `satisfied` → `\/audit-build`/);
+    expect(section).toMatch(/outcome `satisfied` with no criterion carrying `settled: 'definition-problem'`/);
+    expect(section).toMatch(/audit-rounds\.js pending-close/);
+    expect(section).toMatch(/`audit\.runId`/);
+    expect(section).toMatch(/--chained --close-deferred --verified/);
   });
 });
 
@@ -810,8 +820,9 @@ describe('the cycle-ending commands open the pull request', () => {
     expect(between(closeFeature, '- **NEXT**', 'Then the banner')).not.toMatch(/git (add|commit)/);
   });
 
-  test('implement-trd.md says /audit-build opens the PR when openPullRequest is auto', () => {
-    expect(implementTrd).toMatch(/passing `\/audit-build` opens the PR when `ensemble\.openPullRequest` is `auto`/);
+  test('implement-trd.md says the PR opens when the run closes the feature and openPullRequest is auto', () => {
+    expect(implementTrd).toMatch(/The PR opens when this run closes the feature[^.]*`ensemble\.openPullRequest` is `auto`/);
+    expect(implementTrd).not.toMatch(/passing `\/audit-build` opens the PR/);
   });
 
   test('autonomy.md names openPullRequest', () => {
@@ -1233,7 +1244,7 @@ describe('implement-trd.md and verify-build.md NEXT list ordered steps', () => {
   test('implement-trd.md NEXT is ordered steps with the PR in words', () => {
     const next = flat(implementNext());
     expect(next).toMatch(/in order/);
-    expect(next).toMatch(/passing `\/audit-build` opens the PR when `ensemble.openPullRequest` is `auto`/);
+    expect(next).toMatch(/The PR opens when this run closes the feature[^.]*`ensemble\.openPullRequest` is `auto`/);
   });
 
   test('verify-build.md states the ordered fenced-steps rule and the first-step-as-text rule', () => {
@@ -2397,8 +2408,8 @@ describe('ship-build: implement-trd --shipping and Step 7.2 recording', () => {
     expect(s72).toMatch(/still running/);
   });
 
-  test('the openPullRequest NEXT wording is unchanged', () => {
-    expect(text).toMatch(/passing `\/audit-build` opens the PR when `ensemble\.openPullRequest` is `auto`/);
+  test('the openPullRequest NEXT wording says the closing run opens the PR, and `never` is told in words', () => {
+    expect(flat(text)).toMatch(/The PR opens when this run closes the feature \(the audit passed and verification allowed it\) and `ensemble\.openPullRequest` is `auto`; when it is `never`, NEXT says in words to open it once the feature has closed/);
   });
 });
 
@@ -2682,6 +2693,365 @@ describe('O7 CI re-run wording', () => {
     expect(t).toContain('`gh run rerun <run-id> --job <job-id>`');
     expect(t).toContain('`gh run rerun <run-id> --failed` when `jobId` is null');
     expect(t).toContain('never `gh workflow run`, which starts a full manual CI run');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ABFV-B002 (audit-before-functional-verification): /audit-build gains two caller-only modes,
+// `--chained --defer-close` (audit, record the close on the ledger) and `--chained
+// --close-deferred` (perform it later). Standalone /audit-build is unchanged (O4).
+// ---------------------------------------------------------------------------
+describe('audit-build caller-only modes (ABFV-B002)', () => {
+  const raw = read(path.join(REPO, 'packages/core/commands/audit-build.md'));
+  const ab = flat(raw);
+  const between = (text, start, end) => {
+    const from = text.indexOf(start);
+    expect(from).toBeGreaterThan(-1);
+    const to = end === undefined ? text.length : text.indexOf(end, from + start.length);
+    expect(to).toBeGreaterThan(from);
+    return text.slice(from, to);
+  };
+  const modes = () => between(ab, '## Caller-only modes', '## Readout');
+  const deferMode = () => between(modes(), '### `--chained --defer-close`', '### `--chained --close-deferred`');
+  const closeMode = () => between(modes(), '### `--chained --close-deferred`', undefined);
+
+  test('the argument-hint names --chained, --defer-close, --close-deferred and --verified', () => {
+    const hint = raw.split('\n').find((l) => l.startsWith('argument-hint:'));
+    for (const f of ['--chained', '--defer-close', '--close-deferred', '--verified']) expect(hint).toContain(f);
+  });
+
+  test('User Input says both modes are for callers only and parses them', () => {
+    expect(between(ab, '## User Input', '## What this command is for')).toMatch(/for callers only, never typed by hand/);
+  });
+
+  test.each([
+    'RETURN → passed, close deferred',
+    'RETURN → re-audit needed',
+    'RETURN → cap reached',
+    'RETURN → open: ',
+    'RETURN → STUCK: ',
+    'RETURN → closed; PR ',
+    'RETURN → nothing to close',
+    'RETURN → stale: the TRD changed since the audit',
+    'RETURN → STUCK: close refused: ',
+  ])('the RETURN line "%s" is present', (line) => {
+    expect(modes()).toContain(`[STATUS: /audit-build] ${line}`);
+  });
+
+  test('--defer-close: trd-hash after the fix run RETURN and the anchorCommit wait, then closeDeferred through record', () => {
+    const t = deferMode();
+    expect(t).toMatch(/trd-hash[^.]*after the fix run's RETURN line and the `anchorCommit` wait/);
+    expect(t).toContain('closeDeferred');
+    expect(t).toMatch(/audit-rounds\.js record/);
+  });
+
+  test('--defer-close makes its own one records write, after the deferred-close record line and before the RETURN lines', () => {
+    const t = deferMode();
+    const recordLine = t.indexOf('"closeDeferred":true');
+    const write = t.indexOf('"Write the records, once, last"');
+    const ret = t.indexOf('`RETURN → passed, close deferred`');
+    expect(recordLine).toBeGreaterThan(-1);
+    expect(write).toBeGreaterThan(recordLine);
+    expect(ret).toBeGreaterThan(write);
+    expect(t).toMatch(/artifacts\.js record` as today, then "Write the records, once, last", then end/);
+  });
+
+  test('"Write the records, once, last" is one record-ref.js write per run, re-audit, capped and --report-only included', () => {
+    const t = between(ab, '**Write the records, once, last.**', '**With `publish: off`');
+    expect(t).toContain('node .claude/lib/record-ref.js write --state-dir .trd-state/<feature> --command /audit-build');
+    expect(t).toMatch(/exactly one, a re-audit, a capped audit and `--report-only` included/);
+    expect(t).toMatch(/never a gate and never STUCK/);
+  });
+
+  test('--close-deferred does not write records itself: the caller makes the one write', () => {
+    const t = closeMode();
+    expect(t).toMatch(/Skip the TRD commit and the publish \(the `--defer-close` run made them\) and "Write the records, once, last"/);
+    expect(t).toMatch(/the caller makes the one records write, and it carries `closed\.json`/);
+    // That this mode's text runs no `record-ref.js write` is pinned for both modes below.
+  });
+
+  test('--defer-close skips the gate, the close step and the PR', () => {
+    const t = deferMode();
+    expect(t).toMatch(/skips? the waived-defect gate, the close step, the unsynced-boards check and the pull request/);
+  });
+
+  test('step 4 close-true bullet carries the deferred branch', () => {
+    const step4 = between(ab, '**4. Close, or re-audit.**', '- `reaudit` true');
+    expect(step4).toContain('`--chained --defer-close`');
+    expect(step4).toContain('closeDeferred');
+  });
+
+  test('the PR paragraph and step 4 each say what --defer-close skips', () => {
+    expect(between(ab, '**Open the pull request.**', '## Caller-only modes')).toMatch(/`--defer-close` opens no PR/);
+  });
+
+  test('--close-deferred reads pending-close with audit.runId, checks trd-hash, closes by audit', () => {
+    const t = closeMode();
+    expect(t).toContain('pending-close');
+    expect(t).toContain('audit.runId');
+    expect(t).toContain('trd-hash');
+    expect(t).toContain('--closed-by audit');
+    expect(t).toContain('closedBy: "audit"');
+    expect(t).toMatch(/`--verified`.{0,200}`git rev-parse HEAD`/);
+    expect(t).toContain('pull-request.js ensure');
+    expect(t).toMatch(/stale/);
+    expect(t).toMatch(/nothing to close/);
+  });
+
+  test('--close-deferred dispatches no workflow', () => {
+    expect(closeMode()).not.toContain('Workflow(');
+  });
+
+  test('the new text writes no records and sends no completion notification', () => {
+    expect(modes()).not.toContain('record-ref.js write');
+    expect(modes()).not.toContain('notify-complete.sh');
+  });
+
+  test('--chained exits read RETURN → STUCK: trd-guard, gate refusal, rerun scope', () => {
+    expect(between(ab, '## Guarding the TRD edit', '## Writing the audit report')).toMatch(/Under `--chained`[^.]*RETURN → STUCK: the audit's TRD edit deleted/);
+    expect(modes()).toMatch(/RETURN → STUCK: close refused/);
+    expect(between(ab, '**Before a re-audit, choose its scope.**', '**On a re-audit**')).toMatch(/under `--chained`[^.]*RETURN → STUCK: <the question>; default: <the default>/i);
+  });
+
+  test('Output discipline says neither mode emits a banner or notification', () => {
+    expect(between(ab, '## Output discipline', '## Autonomous-execution discipline')).toMatch(/Under `--chained` \(either mode\), emit no banner/);
+  });
+
+  test('step 2 counts rounds readRounds returns, not ledger lines', () => {
+    expect(ab).not.toMatch(/`round` is the number of ledger lines/);
+    expect(ab).toMatch(/`round` is the number of rounds `readRounds` returns since the last close, counting this one/);
+  });
+
+  test('the mirror is byte-identical', () => {
+    expect(read(path.join(REPO, '.claude/commands/audit-build.md'))).toBe(raw);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ABFV-B003 (audit-before-functional-verification): /implement-trd runs the code audit
+// (Step 7.3, `/audit-build --chained --defer-close`) after the end-of-run review and BEFORE
+// the functional-verification loop, and Step 9 performs the held-back close
+// (`--chained --close-deferred`) only when verification allows it (D4, D5, D9, D10, D12,
+// D13, D14, D18, D19).
+// ---------------------------------------------------------------------------
+describe('implement-trd audit before verification (ABFV-B003)', () => {
+  const raw = read(CORE_IMPLEMENT);
+  const text = flat(raw);
+  const between = (src, start, end) => {
+    const from = src.indexOf(start);
+    expect(from).toBeGreaterThan(-1);
+    const to = src.indexOf(end, from + start.length);
+    expect(to).toBeGreaterThan(from);
+    return src.slice(from, to);
+  };
+  const s73 = () => between(text, '### 7.3', '## Step 8');
+  const step9 = () => between(text, '## Step 9: Completion', '### 9.0a');
+  const header = () => text.split('## User Input')[0];
+
+  test('mirror is byte-identical', () => {
+    expect(read(CLAUDE_IMPLEMENT)).toBe(raw);
+  });
+
+  test('a ### 7.3 section sits between ### 7.2 and ## Step 8', () => {
+    const i72 = raw.indexOf('### 7.2 ');
+    const i73 = raw.indexOf('### 7.3');
+    const i8 = raw.indexOf('## Step 8');
+    expect(i72).toBeGreaterThan(-1);
+    expect(i73).toBeGreaterThan(i72);
+    expect(i8).toBeGreaterThan(i73);
+  });
+
+  test('Step 7.3 makes the --defer-close call, bounded at three calls, and records the audit field', () => {
+    const t = s73();
+    expect(t).toMatch(/Skill\(\{ skill: "audit-build", args: "<trd> --prd <prd> --chained --defer-close" \}\)/);
+    expect(t).toMatch(/re-audit needed/);
+    expect(t).toMatch(/at most three calls/);
+    expect(t).toMatch(/`MAX_REAUDITS`/);
+    expect(t).toMatch(/skipped under `--chained`/);
+    expect(t).toMatch(/not by `--no-verify`/);
+    expect(t).toMatch(/`implement\.json`[^.]*`audit`/);
+    expect(t).toMatch(/audit-rounds\.js pending-close/);
+    expect(t).toMatch(/the review's completion re-invokes the session/);
+    expect(t).not.toMatch(/Workflow\(/);
+  });
+
+  test('Step 7.3 passes --chained immediately before the mode, with no wake-up claim', () => {
+    expect(s73()).not.toMatch(/--defer-close --chained/);
+    expect(s73()).not.toMatch(/ScheduleWakeup/);
+  });
+
+  test('Step 7.2 still says it does not block, and Step 7 intro names Step 7.3 between 7.2 and 8', () => {
+    const intro = between(text, '## Step 7: End-of-Run Review', '### 7.1');
+    expect(intro).toMatch(/Step 7\.3/);
+    expect(intro).not.toMatch(/before Step 8's functional verification \(unless `--no-verify` was set\) and Step 9's completion report/);
+    const s72 = between(text, '### 7.2 End-of-run full-branch code review', '## Step 8');
+    expect(s72).toMatch(/does not block waiting for it to finish/);
+  });
+
+  test('section 3.7 lists Step 7.3 among what --chained skips and keeps its two pinned phrases within 4000 characters', () => {
+    const start = raw.indexOf('### 3.7 `--chained` mode');
+    const win = flat(raw.slice(start, start + 4000));
+    expect(win).toMatch(/`\/audit-build` runs the fix/);
+    expect(win).toMatch(/`\/verify-build`'s fix loop, `\/audit-build` and `\/ship-build` pass it/);
+    const s37 = between(text, '### 3.7 `--chained` mode', '## Step 4: Main Execution Loop');
+    expect(s37).toMatch(/\*\*Step 7\.3's audit is skipped\.\*\*/);
+    expect(s37).toMatch(/§7\.2's review still runs and Step 7\.3 does not/);
+  });
+
+  test('the Execution Model orders REVIEW -> AUDIT -> FUNCTIONAL VERIFICATION -> CLOSE', () => {
+    const model = between(text, '## Execution Model', '## Step 1');
+    expect(model).toMatch(/END-OF-RUN REVIEW -> AUDIT -> FUNCTIONAL VERIFICATION -> CLOSE \(when verification allows\) -> COMPLETE/);
+    expect(model).toMatch(/AUDIT \(Step 7\.3/);
+  });
+
+  test('the usage header and User Input say --chained skips Step 7.3 and --no-verify does not', () => {
+    expect(header()).toMatch(/Step 7\.3's audit/);
+    const userInput = between(text, '## User Input', '## Execution Model');
+    expect(userInput).toMatch(/Step 7\.3/);
+    expect(userInput).toMatch(/`--no-verify` does not skip/);
+  });
+
+  test('section 1.5 lets a --chained run in the same session proceed under its caller lock', () => {
+    const s15 = between(text, '### 1.5 Concurrent Execution Check', '### 1.6');
+    expect(s15).toMatch(/`session_id` is this session/);
+    expect(s15).toMatch(/`--chained` run in the same session proceeds without the wait\/force\/abort prompt/);
+  });
+
+  test('the state-file schema carries the audit field', () => {
+    const schema = between(raw, '### State File Schema', '## Step 7');
+    expect(schema).toMatch(/"audit": \{/);
+    expect(schema).toMatch(/"return":/);
+    expect(schema).toMatch(/"runId":/);
+    expect(schema).toMatch(/"calls":/);
+  });
+
+  test('Step 9 holds the --close-deferred call, reads audit.return, names both close conditions and --verified', () => {
+    const t = step9();
+    expect(t).toMatch(/`audit\.return`/);
+    expect(t).toMatch(/Skill\(\{ skill: "audit-build", args: "<trd> --chained --close-deferred --verified" \}\)/);
+    expect(t).toMatch(/--chained --close-deferred"/);
+    expect(t).toMatch(/`--verified`/);
+    expect(t).toMatch(/`passed, close deferred`/);
+    expect(t).toMatch(/outcome is `satisfied`/);
+    expect(t).toMatch(/settled: 'definition-problem'/);
+    expect(t).toMatch(/`--no-verify`/);
+  });
+
+  test('Step 9 handles every RETURN of the close call', () => {
+    const t = step9();
+    expect(t).toMatch(/`closed; PR /);
+    expect(t).toMatch(/`stale/);
+    expect(t).toMatch(/`nothing to close`/);
+    expect(t).toMatch(/`STUCK: close refused/);
+    expect(t).toMatch(/any other `STUCK: <why>`/);
+  });
+
+  test('Step 9 NEXT names the two not-run branches of D10 and has no re-audit needed branch', () => {
+    const t = step9();
+    expect(t).toMatch(/not run: no definition produced`[^.]*`\/verify-build`/);
+    expect(t).toMatch(/not run: no success definition derivable`[^.]*`\/close-feature docs\/TRD\/<feature>\.md`/);
+    expect(t).not.toMatch(/re-audit needed/);
+    expect(t).not.toMatch(/verify delivery against the TRD and PRD/);
+  });
+
+  test('Step 9 STATE gains an audit line and the PR paragraph is rewritten', () => {
+    const t = step9();
+    expect(t).toMatch(/audit line/i);
+    expect(t).toMatch(/artifacts\.js get[^`]*--kind audit-build/);
+    expect(t).toMatch(/The PR opens when this run closes the feature/);
+    expect(t).not.toMatch(/A passing `\/audit-build` opens the PR/);
+  });
+
+  test('Step 8 is not given an audit call and the write count is unchanged', () => {
+    const s8 = between(text, '## Step 8: Functional Verification', '## Step 9');
+    expect(s8).not.toMatch(/audit-build/);
+    expect((raw.match(/record-ref\.js write/g) || []).length).toBe(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ABFV-B004 (audit-before-functional-verification §3.4, D11, D20): /verify-build completes the
+// held-back close at exactly the two places it routed to /audit-build before -- readout rule O4
+// and the fix loop's step 6 -- and nowhere else.
+// ---------------------------------------------------------------------------
+
+describe('verify-build.md completes the held-back close (ABFV-B004)', () => {
+  const raw = read(CORE_VERIFY_BUILD);
+  const readout = () => flat(raw.split('## Readout')[1].split('## `--chained`')[0]);
+  const step6 = () => flat(raw.split('6. **Render and close.**')[1].split('## Output discipline')[0]);
+  const nonSweepReadout = () => readout().split('A sweep file\'s NEXT replaces the rule above.')[0];
+
+  test('O4 runs pending-close with audit.runId and the --verified close call', () => {
+    const t = nonSweepReadout();
+    expect(t).toMatch(/audit-rounds\.js pending-close/);
+    expect(t).toMatch(/Skill\(\{ skill: "audit-build", args: "<trd> --chained --close-deferred --verified" \}\)/);
+  });
+
+  test('O4 maps every RETURN of the close call to a NEXT', () => {
+    const t = nonSweepReadout();
+    expect(t).toMatch(/`closed; PR [^`]*`.*`\/ship-build`/);
+    expect(t).toMatch(/`stale[^`]*`[^.]*`\/audit-build <trd>`/);
+    expect(t).toMatch(/the TRD changed since the audit/);
+    expect(t).toMatch(/`nothing to close`[^.]*`closed\.json`/);
+    expect(t).toMatch(/`STUCK: close refused/);
+    expect(t).toMatch(/any other `STUCK: <why>`/i);
+  });
+
+  test('O4 with no pending close: shipping when closed.json exists, else /audit-build', () => {
+    const t = nonSweepReadout();
+    expect(t).toMatch(/no pending close[^.]*shipping[^.]*`closed\.json` exists[^.]*`\/audit-build <trd>`/i);
+  });
+
+  test('O4 never closes under an explicit --no-fix, and a --resume run may', () => {
+    const t = nonSweepReadout();
+    expect(t).toMatch(/explicit `--no-fix`[^.]*never closes/);
+    expect(t).toMatch(/plain `\/verify-build`/);
+    expect(t).toMatch(/`--resume`[^.]*may (complete|close)/);
+  });
+
+  test('O4 says closing happens after the report and before the readout, and states the stale reason', () => {
+    const t = nonSweepReadout();
+    expect(t).toMatch(/after the report is written and before the readout/i);
+    expect(t).toMatch(/closes directly only when its fix loop built nothing/);
+  });
+
+  test('step 6 names the same close at its nothing-buildable point and routes the rest unchanged', () => {
+    const t = step6();
+    expect(t).toMatch(/otherwise the held-back close/);
+    // The fix loop carries `met` verdicts forward (step 4's synthesised resume), so it never
+    // walked every criterion afresh: its close call drops --verified (AMEND-002's rule).
+    expect(t).toMatch(/--chained --close-deferred`/);
+    expect(t).toMatch(/never with `--verified` here/);
+    expect(t).not.toMatch(/otherwise `\/audit-build`/);
+    expect(t).toMatch(/`\/refine-verification`, then `\/verify-build`/);
+  });
+
+  test('the close call appears only in the Readout and the fix loop step 6', () => {
+    const calls = raw.split('--close-deferred').length - 1;
+    const inReadout = nonSweepReadout().split('--close-deferred').length - 1;
+    const inStep6 = step6().split('--close-deferred').length - 1;
+    expect(inReadout).toBeGreaterThan(0);
+    expect(inStep6).toBeGreaterThan(0);
+    // every other mention sits in the Readout section's refusal/STATE prose or step 6; none in --chained or --criteria
+    const chained = flat(raw.split('## `--chained`')[1].split('## `--criteria')[0]);
+    expect(chained).not.toMatch(/close-deferred/);
+    expect(flat(raw.split('## `--criteria <ids>`')[1].split('## `--fix')[0])).not.toMatch(/close-deferred/);
+    expect(calls).toBeGreaterThanOrEqual(inReadout + inStep6);
+  });
+
+  test('the sweep NEXT still never points at /audit-build and the write count is unchanged', () => {
+    expect(readout()).toMatch(/Never `\/refine-verification` or `\/audit-build`\./);
+    expect((raw.match(/record-ref\.js write/g) || []).length).toBe(2);
+  });
+
+  test('a refused close ends COMMAND STUCK after the records write', () => {
+    const t = nonSweepReadout();
+    expect(t).toMatch(/COMMAND STUCK/);
+    expect(t).toMatch(/records write[^.]*(still runs|runs first|before the banner)/i);
+  });
+
+  test('mirror is byte-identical', () => {
+    expect(read(CLAUDE_VERIFY_BUILD)).toBe(raw);
   });
 });
 

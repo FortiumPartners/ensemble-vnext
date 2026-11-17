@@ -42,9 +42,11 @@ FULL PIPELINE (new feature)
 /create-trd            --> Technical Requirements Document
 /audit-trd             --> Verify the TRD against the PRD
 /refine-trd            --> (optional) Iterate on the TRD with feedback
-/implement-trd         --> Execute implementation (review runs INSIDE it)
-/audit-build           --> Verify delivered code against TRD and PRD; a passing audit
-                           closes the feature
+/implement-trd         --> Execute implementation (review, audit and verification run
+                           INSIDE it; both passing closes the feature)
+/audit-build           --> Re-audit delivered code against TRD and PRD, on its own or
+                           after an audit that did not pass; a standalone pass closes
+                           the feature
 /close-feature         --> Close a feature on your say-so: records it and clears its
                            in-flight state
 

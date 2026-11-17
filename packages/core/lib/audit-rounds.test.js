@@ -251,6 +251,150 @@ describe('ledger', () => {
   });
 });
 
+describe('deferred close on the ledger', () => {
+  let dir;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-rounds-dc-')); });
+  afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const DC = (n, extra = {}) => ({
+    runId: `r${n}`, closeDeferred: true, ts: `2026-10-01T00:01:0${n}Z`,
+    close: { trdHash: 'after-fix', anchorCommit: 'abc', report: '.trd-state/f/audit-build-report.md', caveats: [] },
+    ...extra,
+  });
+
+  test('a deferred-close line folds into its round and keeps the round ts and top-level trdHash', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1));
+    const rs = A.readRounds(dir);
+    expect(rs).toHaveLength(1);
+    expect(rs[0]).toMatchObject({ round: 1, ts: '2026-10-01T00:00:01Z', trdHash: 'h', closeDeferred: true });
+    expect(rs[0].close.trdHash).toBe('after-fix');
+  });
+  test('the re-audit count is unchanged by the fold', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1)); A.record(dir, R(2));
+    const rs = A.readRounds(dir);
+    expect(rs).toHaveLength(2);
+    expect(A.decide({ rounds: rs, verdict: 'proceed', defects: 1 }).reaudit).toBe(true);
+  });
+  test('stale-wake still matches the run id', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1));
+    expect(A.staleWake({ rounds: A.readRounds(dir, { all: true }), runId: 'r1' })).toBe(true);
+  });
+  test('lines with no runId are never folded', () => {
+    A.record(dir, R(1, { runId: undefined })); A.record(dir, R(2, { runId: undefined }));
+    expect(A.readRounds(dir)).toHaveLength(2);
+  });
+  test('pendingClose returns the last round when it is a deferred close', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1));
+    expect(A.pendingClose(dir).runId).toBe('r1');
+  });
+  test('pendingClose is null when a later round follows', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1)); A.record(dir, R(2));
+    expect(A.pendingClose(dir)).toBeNull();
+  });
+  test('pendingClose is null after a later closed.json', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1));
+    fs.writeFileSync(path.join(dir, 'closed.json'), JSON.stringify({ closedAt: '2026-10-01T00:05:00Z' }));
+    expect(A.pendingClose(dir)).toBeNull();
+  });
+  test('pendingClose is null with no ledger', () => expect(A.pendingClose(dir)).toBeNull());
+  test('pendingClose with a runId returns null for another run', () => {
+    A.record(dir, R(1)); A.record(dir, DC(1));
+    expect(A.pendingClose(dir, { runId: 'other' })).toBeNull();
+    expect(A.pendingClose(dir, { runId: 'r1' }).runId).toBe('r1');
+  });
+
+  describe('consumeClose', () => {
+    const closeAndReopen = () => {
+      const f = path.join(dir, 'closed.json');
+      fs.writeFileSync(f, JSON.stringify({ closedAt: '2026-10-01T00:05:00Z' }));
+      return f;
+    };
+    test('a consumed deferred close stays spent after closed.json is deleted', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1));
+      A.consumeClose(dir, 'r1');
+      const f = closeAndReopen();
+      expect(A.pendingClose(dir)).toBeNull();
+      fs.unlinkSync(f);
+      expect(A.pendingClose(dir)).toBeNull();
+      expect(A.pendingClose(dir, { runId: 'r1' })).toBeNull();
+    });
+    test('without consumeClose, deleting closed.json revives the deferred close (the defect)', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1));
+      fs.unlinkSync(closeAndReopen());
+      expect(A.pendingClose(dir)).not.toBeNull();
+    });
+    test('adds no round, with or without closed.json', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1));
+      A.consumeClose(dir, 'r1');
+      expect(A.readRounds(dir)).toHaveLength(1);
+      const f = closeAndReopen();
+      expect(A.readRounds(dir)).toHaveLength(0);
+      fs.unlinkSync(f);
+      expect(A.readRounds(dir)).toHaveLength(1);
+      expect(A.readRounds(dir)[0]).toMatchObject({ closeDeferred: false });
+      expect(typeof A.readRounds(dir)[0].closeConsumedAt).toBe('string');
+    });
+    test('does not count toward the cap after a close', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1)); A.consumeClose(dir, 'r1');
+      closeAndReopen();
+      A.record(dir, R(2, { ts: '2026-10-01T00:09:00Z' }));
+      expect(A.readRounds(dir)).toHaveLength(1);
+    });
+    test('throws for an unknown run id and appends nothing', () => {
+      A.record(dir, R(1));
+      expect(() => A.consumeClose(dir, 'nope')).toThrow(/no round/);
+      expect(fs.readFileSync(path.join(dir, 'audit-rounds.jsonl'), 'utf8').trim().split('\n')).toHaveLength(1);
+    });
+    test('consume-close CLI works', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1));
+      const r = spawnSync('node', [path.join(__dirname, 'audit-rounds.js'), 'consume-close'], { input: JSON.stringify({ stateDir: dir, runId: 'r1' }), encoding: 'utf8' });
+      expect(r.status).toBe(0);
+      expect(JSON.parse(r.stdout)).toEqual({ ok: true });
+      expect(A.pendingClose(dir)).toBeNull();
+      const bad = spawnSync('node', [path.join(__dirname, 'audit-rounds.js'), 'consume-close'], { input: JSON.stringify({ stateDir: dir }), encoding: 'utf8' });
+      expect(bad.status).toBe(1);
+    });
+  });
+
+  describe('pending-close CLI', () => {
+    const run = (input) => {
+      const r = spawnSync('node', [path.join(__dirname, 'audit-rounds.js'), 'pending-close'], { input: JSON.stringify(input), encoding: 'utf8' });
+      return { status: r.status, out: r.stdout ? JSON.parse(r.stdout) : null, err: r.stderr };
+    };
+    test('round-trips the pending round', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1));
+      const r = run({ stateDir: dir });
+      expect(r.status).toBe(0);
+      expect(r.out.pending).toMatchObject({ runId: 'r1', closeDeferred: true });
+    });
+    test('null pending with no ledger', () => expect(run({ stateDir: dir }).out).toEqual({ pending: null }));
+    test('mismatch names the pending round run id', () => {
+      A.record(dir, R(1)); A.record(dir, DC(1));
+      expect(run({ stateDir: dir, runId: 'zzz' }).out).toEqual({ pending: null, mismatch: 'r1' });
+    });
+    test.each([
+      ['close.trdHash', (d) => { d.close.trdHash = undefined; return [R(1), d]; }],
+      ['close.report', (d) => { d.close.report = undefined; return [R(1), d]; }],
+      ['verdict', (d) => [R(1, { verdict: undefined }), d]],
+      ['auditedCommit', (d) => [R(1, { auditedCommit: undefined }), d]],
+    ])('a pending round missing %s gives an error', (field, build) => {
+      build(DC(1)).forEach((l) => A.record(dir, l));
+      const r = run({ stateDir: dir });
+      expect(r.status).toBe(0);
+      expect(r.out.pending).toBeNull();
+      expect(r.out.error).toContain(field);
+    });
+    test('exits 1 without stateDir', () => {
+      const r = run({});
+      expect(r.status).toBe(1);
+      expect(r.err).toMatch(/pending-close needs stateDir/);
+    });
+    test('usage string names pending-close', () => {
+      const r = spawnSync('node', [path.join(__dirname, 'audit-rounds.js'), 'nope'], { input: '{}', encoding: 'utf8' });
+      expect(r.stderr).toContain('pending-close');
+    });
+  });
+});
+
 describe('CLI', () => {
   const run = (cmd, input) => {
     const r = spawnSync('node', [path.join(__dirname, 'audit-rounds.js'), cmd], { input: JSON.stringify(input), encoding: 'utf8' });

@@ -48,6 +48,10 @@ const MODULE_PATH = path.join(__dirname, 'functional-verification.js');
 // checkEvidence
 // ---------------------------------------------------------------------------
 
+// ABFV-B004 (§3.5): the satisfied non-sweep Next names both branches the readouts take.
+const SATISFIED_NEXT =
+  '**Next**: close the feature — the command that ran this check closes it when an audit has already passed (its readout says whether it did); otherwise run `/audit-build`';
+
 describe('checkEvidence', () => {
   let tmpDir;
 
@@ -966,7 +970,7 @@ describe('renderReport', () => {
     });
 
     test('a non-sweep prd keeps today\'s lines', () => {
-      expect(renderReport({ ...baseInput, outcome: 'satisfied' })).toContain('**Next**: `/audit-build`');
+      expect(renderReport({ ...baseInput, outcome: 'satisfied' })).toContain(SATISFIED_NEXT);
       expect(renderReport({ ...baseInput, outcome: 'stuck' })).toContain('`/refine-verification`');
     });
   });
@@ -2946,9 +2950,9 @@ describe('renderReport: Diagnosis and Next lines', () => {
     }
   });
 
-  test('satisfied names /audit-build as Next (O4); not-run names nothing', () => {
+  test('satisfied names the close-or-audit Next (O4, ABFV §3.5); not-run names nothing', () => {
     const satisfied = renderReport(baseFor('satisfied', [criterionWithCause('FS-1', 'met', null)]));
-    expect(satisfied).toContain('**Next**: `/audit-build`');
+    expect(satisfied).toContain(SATISFIED_NEXT);
     const notRun = renderReport(baseFor('not-run', [criterionWithCause('FS-1', 'met', null)]));
     expect(notRun).not.toContain('**Next**');
   });
@@ -5121,12 +5125,12 @@ describe('renderReport: kind rendering', () => {
     expect(report).toContain('**Outcome**: Satisfied (1 of 3 not verifiable, 1 evidence gap — definition problem)');
   });
 
-  test('Next line: refine-verification for a satisfied non-sweep run with a definition problem, audit-build without', () => {
+  test('Next line: refine-verification for a satisfied non-sweep run with a definition problem, the close-or-audit line without', () => {
     const withDp = renderReport(baseFor('satisfied', [crit('FS-1', 'met', { kind: null }), settled]));
     expect(withDp).toContain('/refine-verification');
-    expect(withDp).not.toContain('**Next**: `/audit-build`');
+    expect(withDp).not.toContain(SATISFIED_NEXT);
     const without = renderReport(baseFor('satisfied', [crit('FS-1', 'met', { kind: null })]));
-    expect(without).toContain('**Next**: `/audit-build`');
+    expect(without).toContain(SATISFIED_NEXT);
     const sweep = renderReport({ ...baseFor('satisfied', [crit('FS-1', 'met', { kind: null }), settled]), prd: 'x.sweep.md' });
     expect(sweep).toContain('commit the swept fixes');
   });

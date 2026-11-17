@@ -48,8 +48,9 @@ file and section where each one is defined.
 | 6 | Classify each environment in `verification.md` from what the file says (no probing, no question), and read the TRD's optional `## Verification Environment` section | model (lead); a need only you can meet is recorded and shown in the ISSUES section | §3.6a |
 | 7 | Phase loop: dispatch, gate, record, test battery, checkpoint, commit (no push yet) | code (workflow, libs) + model (implementers, `verify-app`) | §4–§5, `implement-phase.js` |
 | 8 | Review the whole branch once, applying fixes | model (built-in `code-review` skill) | §7.2 |
-| 9 | Functional verification: does the software do what the PRD asked? | code (loop) + model (agents inside it) | §8, see [verification.md](verification.md) |
-| 10 | Push the branch once, write the readout, publish the report link, send notifications | code (push) + model (lead) | §9.0, §9, §9.0a, §9.1, "Output discipline" |
+| 9 | Audit the delivered code against the TRD and PRD (`/audit-build --chained --defer-close`): it fixes what it finds and records that it would close, but holds the close back. Skipped under `--chained`; not skipped by `--no-verify` | model (`/audit-build` and its verifier wave) | §7.3, see [other-commands.md](other-commands.md) |
+| 10 | Functional verification: does the software do what the PRD asked? | code (loop) + model (agents inside it) | §8, see [verification.md](verification.md) |
+| 11 | Close the feature (`/audit-build --chained --close-deferred`) when the audit passed and verification was `satisfied` or skipped by `--no-verify`; push the branch once, write the readout, publish the report link, send notifications | code (push) + model (lead) | §9.0, §9, §9.0a, §9.1, "Output discipline" |
 
 ---
 
@@ -72,22 +73,22 @@ flowchart TD
     F -- no --> E1["load implement.json, cursor = first unfinished phase"]
     E1 --> P
     P --> G{"--chained?"}
-    G -- yes --> H["phase loop + review only. No derive, no preflight, no Step 8, no publish, no banner"]
+    G -- yes --> H["phase loop + review only. No derive, no preflight, no audit, no Step 8, no publish, no banner"]
     G -- no --> I{"--no-verify?"}
-    I -- yes --> J["phase loop + review. No derive, Step 8 skipped"]
-    I -- no --> K["derive in background, env preflight, phase loop, review, Step 8"]
+    I -- yes --> J["phase loop + review + audit. No derive, Step 8 skipped; a passing audit closes"]
+    I -- no --> K["derive in background, env preflight, phase loop, review, audit, Step 8, close if both pass"]
 ```
 
 | Flag | What it changes | Where |
 |---|---|---|
-| *(none)* | A full run: derive in the background, environment preflight, every phase, review, verification, readout | Execution Model |
+| *(none)* | A full run: derive in the background, environment preflight, every phase, review, audit, verification, close, readout | Execution Model |
 | `--resume` / `--continue` | Loads `implement.json` and checks that the checkpoint commit exists (if it is missing it offers pull, ignore or reset). Starts at the first phase that has an unfinished task. Tasks already marked `success` are left out of the dispatch. There is no resume point smaller than a task: a task interrupted partway through is run again from the start | §2.2 |
 | `--reconcile` | Doesn't trust earlier success claims. First it promotes blocking discoveries into the TRD as new tasks. Then `reconcile()` reopens two kinds of task: those marked success where **none** of the files they claimed exist, and those left `in_progress` with `cycle_position: complete` by a killed run. After that it runs as a normal run, so tasks added to the TRD since the last run are picked up | §2.1a, `implement-state.js` `reconcile()`, `discovered.js` `promoteToTrd()` |
 | `--include-deferred` | Dispatches tasks the TRD lists as deferred by design instead of setting them aside | §4.1a |
 | `--resume --verify` (both typed) | Applies only when `verification-state.json` has `outcome: null`, which means a verification loop was interrupted. The run then goes straight to Step 8 and picks up after the last completed iteration. Any non-null outcome counts as finished and is never re-entered | §3.6 step 0, §8.2 |
 | `--verify` alone | Changes nothing, because verification runs by default | User Input |
-| `--no-verify` | No derive agent, no `success-definition.md`, and Step 8 is skipped. The readout says nobody checked the software against the PRD | §3.6, §8, §9 |
-| `--chained` | Used by `/verify-build`'s fix loop and by `/audit-build`'s own fix run (the audit's chained run, which `audit-rounds.js` allows at most two re-audits after, so three audits per feature at most), which pass it through `Skill({skill: "implement-trd", args: "<trd> --reconcile --chained"})`. It skips the derive pass, the environment preflight, Step 8, publishing, the banner and notifications. The run ends with one line, `[STATUS: /implement-trd] RETURN → …`, so the calling command's banner is the run's only one. Under `/audit-build` the fix run is chained inside the audit's own run, and it fixes test-only gaps in the same pass without causing another audit; only a true product defect triggers a re-audit, and test findings matter only when they mask a defect (then they are reported as that defect). Requirements with no covering task are never handed to it (they stop for design). A re-audit checks the previous round's defects plus the changed files only, never a fresh sample, and reuses the previous requirement list when the TRD's Objectives and Master Task List are unchanged. At the re-audit cap with defects open, the feature stays open and closing is your call (`/close-feature`). A wake-up for an audit that already ran does nothing; the full rules are in [other-commands.md](other-commands.md). Phase gates, commits and the review still run | §3.7 |
+| `--no-verify` | No derive agent, no `success-definition.md`, and Step 8 is skipped. The audit still runs, and a passing audit closes the feature. The readout says nobody checked the software against the PRD | §3.6, §8, §9 |
+| `--chained` | Used by `/verify-build`'s fix loop and by `/audit-build`'s own fix run (including the one inside this command's own Step 7.3 audit, which never audits again itself) (the audit's chained run, which `audit-rounds.js` allows at most two re-audits after, so three audits per feature at most), which pass it through `Skill({skill: "implement-trd", args: "<trd> --reconcile --chained"})`. It skips the derive pass, the environment preflight, Step 8, publishing, the banner and notifications. The run ends with one line, `[STATUS: /implement-trd] RETURN → …`, so the calling command's banner is the run's only one. Under `/audit-build` the fix run is chained inside the audit's own run, and it fixes test-only gaps in the same pass without causing another audit; only a true product defect triggers a re-audit, and test findings matter only when they mask a defect (then they are reported as that defect). Requirements with no covering task are never handed to it (they stop for design). A re-audit checks the previous round's defects plus the changed files only, never a fresh sample, and reuses the previous requirement list when the TRD's Objectives and Master Task List are unchanged. At the re-audit cap with defects open, the feature stays open and closing is your call (`/close-feature`). A wake-up for an audit that already ran does nothing; the full rules are in [other-commands.md](other-commands.md). Phase gates, commits and the review still run | §3.7 |
 | `--reset-state` | Shows the current progress and requires you to type `confirm`, then deletes the state file | §2.1 |
 | `--sweep-flag "<text>"` | Callers only: `/plan`'s sweep chain passes it when it committed a sweep file's fixes without verifying them because the environment, not the code, was broken. ISSUES prints the text verbatim; nothing else changes | User Input, §9 |
 
@@ -269,13 +270,21 @@ happens.
 
 ---
 
-## 7. End-of-run review (Step 7)
+## 7. End-of-run review and audit (Step 7)
 
 `Skill({ skill: "code-review", args: "high --fix {branch_base}...HEAD" })`, run once over the
 whole branch diff. **model.** The built-in reviewer forks its own background agents and applies
 what it finds to the working tree. The lead reports only that the review was dispatched and
 does not claim it will report back later. There is no per-phase review and no three-lens
 hardening pass. Both were removed on 2026-08-28; the reasoning is in §7.1.
+
+**Then the audit (§7.3).** Skipped under `--chained`, not by `--no-verify`. Once the review's
+result has arrived and its commit is made, the lead calls `/audit-build <trd> --prd <prd>
+--chained --defer-close` (again while it answers `re-audit needed`, three calls at most). The
+audit checks the delivered code, chains its own fix run, writes its report, and records on its
+round ledger that it would close, without closing. The lead stores the answer in `implement.json`'s
+`audit` field, so verification then runs once, on code that already carries the audit's fixes, and
+Step 9 reads that field, not memory.
 
 ---
 
@@ -306,10 +315,10 @@ evidence gate; and the stop rules `satisfied`, `stalled`, `stuck`, `unbuilt`,
 
 | Step | What happens | Kind | Where |
 |---|---|---|---|
-| Readout | Four sections: **STATE** (tasks built and not built, each with the reason; tests; the verdict as a sentence; coverage floor; one line per check; a diagnosis by cause when the outcome is not `satisfied`; one must-pass line: none declared, or K of N proven with each unproven item named), **DECISIONS** (including tasks `--reconcile` reopened), **ISSUES** (each says who acts), **NEXT** (steps in order, one fenced block per slash command: after `setup-failure`, fix the environment (in words) then `/verify-build`; after any other outcome short of `satisfied`, `/refine-verification` then `/verify-build`, except when that run reached the run limit, where it is a ruling on `ruling-request.md` instead; otherwise `/audit-build`; when `ensemble.openPullRequest` is `never`, opening the PR is said in words) | model | §9 |
+| Readout | Four sections: **STATE** (tasks built and not built, each with the reason; tests; the verdict as a sentence; coverage floor; one line per check; a diagnosis by cause when the outcome is not `satisfied`; one must-pass line: none declared, or K of N proven with each unproven item named), **DECISIONS** (including tasks `--reconcile` reopened), **ISSUES** (each says who acts), **NEXT** (steps in order, one fenced block per slash command: after `setup-failure`, fix the environment (in words) then `/verify-build`; after any other outcome short of `satisfied`, `/refine-verification` then `/verify-build`, except when that run reached the run limit, where it is a ruling on `ruling-request.md` instead; otherwise, after a close, `/ship-build` (when `ensemble.openPullRequest` is `never`, opening the PR is said in words); `/audit-build` only when no usable audit pass is on record, meaning the audit did not pass or the close came back `stale` or `nothing to close`; a run whose verification could not start routes to `/verify-build` or `/close-feature`) | model | §9 |
 | Push | `git push -u origin <branch>`, the run's one push: every phase checkpoint and the review fixes go up together. A network failure is retried 3 times, then the run pauses | code | §9.0 |
 | Publish | Unless `artifacts.js publish --kind verification-report` answers `publish: off` (off by default; `--publish` or a per-kind setting turns it on), or `--no-verify` or `--chained`, publishes `verification-report.md` (with the images its `## Evidence` section embeds, batched by `functional-verification.js report-publish-plan`) and each check page (`<pagesDir>/<skill>/index.html`) as artifacts. Each is recorded through `node .claude/lib/artifacts.js record` in `.trd-state/<feature>/artifacts.json` so the same links update in place next time. If publishing fails, the readout says so in one line and the run carries on | model | §9.0a |
-| Pull request | `/implement-trd` itself opens no pull request. `ensemble.openPullRequest` (`auto` or `never`; the shipped default is `never`, this repo sets `auto`) decides whether the closing commands do: with `auto`, a passing `/audit-build` that closes the feature opens one, and so does `/close-feature` on a feature branch. When a PR is already open it is updated instead; a closed one is ignored. A skip (setting is `never`, on the default branch, `gh` missing) or a failure is one line in the readout and never blocks. Merging is always yours | model | `/audit-build`, `/close-feature` |
+| Pull request | `/implement-trd` opens no pull request itself; its close call to `/audit-build` can. `ensemble.openPullRequest` (`auto` or `never`; the shipped default is `never`, this repo sets `auto`) decides whether the closing commands do: with `auto`, the close that ends this run (or a standalone passing `/audit-build`) opens one, and so does `/close-feature` on a feature branch. When a PR is already open it is updated instead; a closed one is ignored. A skip (setting is `never`, on the default branch, `gh` missing) or a failure is one line in the readout and never blocks. Merging is always yours | model | `/audit-build --close-deferred`, `/close-feature` |
 | Banner | `═══ COMMAND COMPLETE: /implement-trd ═══` plus a one-line summary, as the **last** line. Nothing may follow it | model | §9.1 |
 | Notify | `PushNotification` and `.claude/hooks/notify-complete.sh "implement-trd" "complete" "<summary>"`, on the final turn only. STUCK sends both with the reason | model | "Output discipline" 5–6 |
 

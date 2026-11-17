@@ -60,8 +60,8 @@ FULL PIPELINE
 /audit-prd     --> verify the PRD against its source
 /create-trd    --> docs/TRD/<feature>.md
 /audit-trd     --> verify the TRD against the PRD
-/implement-trd --> implementation + .trd-state/ tracking (review/hardening/verify INSIDE it)
-/audit-build   --> verify delivered code against TRD and PRD; a passing audit closes the feature
+/implement-trd --> build, review, audit, verify INSIDE it; both passing close it
+/audit-build   --> re-audit delivered code against TRD and PRD (standalone, or after a failed audit)
 /close-feature --> close a feature on your say-so (records it, clears its in-flight state)
 /ship-build    --> ship what a closed feature left on the branch: runs your ship.md steps in order (fill it with the ship-setup skill)
 

@@ -85,13 +85,14 @@ FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
   capture) -> /task <prompt|brief>: steps run once, outputs recorded, closed. No TRD.
   Finished work to push, merge or release -> /ship-build: runs the steps your ship.md
   lists, in order (fill it with the ship-setup skill).
-  New feature -> /create-prd -> /create-trd -> /implement-trd (review, hardening
-  and verification run INSIDE it; the functional loop runs by default, --no-verify
-  skips it) -> /audit-build, which closes the feature when it passes; /close-feature
-  closes one on your say-so. If verification ends anything but satisfied:
+  New feature -> /create-prd -> /create-trd -> /implement-trd (review, audit and
+  verification run INSIDE it; the functional loop runs by default, --no-verify
+  skips it; it closes the feature when the audit passed and verification
+  is satisfied).
+  A standalone /audit-build re-audits on its own; /close-feature closes one on your say-so. If verification ends anything but satisfied:
   /refine-verification [--auto] writes a plan -> /verify-build (builds and
   re-verifies whenever a plan exists; --no-fix for a report-only pass) -> repeat
-  until satisfied, then /audit-build.
+  until satisfied, which closes the feature.
   /implement-trd --reconcile re-attests delivered work against the TRD and re-opens
   anything only claimed done; /audit-prd and /audit-trd verify an artifact,
   /refine-prd and /refine-trd iterate one. Check .trd-state/current.json first.

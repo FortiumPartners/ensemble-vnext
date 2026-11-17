@@ -2,7 +2,7 @@
 name: audit-build
 description: Pipeline stage after /implement-trd. Runs the delivered-code audit wave against a TRD and its PRD (traceability is the headline check), writes the audit report, and chains /implement-trd --reconcile for tasks found unbuilt unless --report-only. A passing audit closes the feature.
 version: 1.0.0
-argument-hint: "[path-to-trd] [--prd <path>] [--project <dir>] [--report-only] [--publish]"
+argument-hint: "[path-to-trd] [--prd <path>] [--project <dir>] [--report-only] [--publish] [--chained --defer-close | --chained --close-deferred [--verified]]"
 # MODEL-INVOCABLE as of 2026-10-21, owner-requested ("verify and audit steps need to be model
 # invocable"), the same change /plan received on 2026-09-26. The flag guarded one thing,
 # accidental selection by description match, and the remedy is now in the description: it
@@ -48,6 +48,13 @@ Next:   /audit-build docs/TRD/<feature>.md
 the automatic `/implement-trd --reconcile` chain below applies. The flag was documented at
 §"`--report-only` suppresses the chain" before any step parsed it, so a user who typed it got
 a full implementation run anyway.
+
+**Parse the caller-only modes.** `--chained --defer-close` and `--chained --close-deferred`
+(`--verified` only with the second) are for callers only, never typed by hand: `/implement-trd`
+and `/verify-build` pass them, like `/implement-trd --chained`. `--chained` is always passed with
+exactly one mode; a mode given without `--chained` is ignored and the run is a standalone one.
+Both are stated in "Caller-only modes", below. With neither, nothing in this command changes.
+Under `--chained`, the **No TRD** exit above ends `[STATUS: /audit-build] RETURN → STUCK: no TRD path given and .trd-state/current.json names none` instead of the banner.
 
 ---
 
@@ -245,7 +252,9 @@ on: the TRD has been restored to its pre-audit text (so this run's citation fixe
 too). Still write the report, with a first finding line naming the missing headings. Record no
 round, chain nothing, close nothing and do not commit the TRD. End with
 `═══ COMMAND STUCK: /audit-build ═══`, `Reason: the audit's TRD edit deleted <headings>; the TRD was restored`,
-`Next:   /audit-build <trd-path>` (and `notify-complete.sh` with "stuck"). On `ok:true` carry on.
+`Next:   /audit-build <trd-path>` (and `notify-complete.sh` with "stuck"). Under `--chained`, end instead with
+`[STATUS: /audit-build] RETURN → STUCK: the audit's TRD edit deleted <headings>; the TRD was restored`, with no
+banner and no notify. On `ok:true` carry on.
 
 ## Writing the audit report (D1, D2, D12)
 
@@ -315,8 +324,8 @@ item's class — `defect`, `test-gap`, `note`, `deferred` or `other` — for ste
 `node .claude/lib/audit-rounds.js record '{"stateDir":".trd-state/<feature>","round":{"round":<n>,"runId":"<run id>","auditedCommit":"<the report header's commit>","trdHash":"<the trdHash above>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"notes":<n>,"deferred":<n>,"ts":"<ISO time>"}}'`,
 then write the workflow's returned `index` to `.trd-state/<feature>/audit-index.json`
 (overwritten each round). Then run `node .claude/lib/audit-rounds.js decide '{"stateDir":".trd-state/<feature>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"reportOnly":false,"deferred":[<the deferred ids>],"index":<the workflow's returned index>}'`;
-it returns `{ chain, reaudit, close, capReached, caveats }`. `round` is the number of ledger lines
-since the last close, counting this one. The cap is two re-audits after defects, so at most three
+it returns `{ chain, reaudit, close, capReached, caveats }`. `round` is the number of rounds `readRounds` returns
+since the last close, counting this one (it folds the lines of one run id into one round, so a deferred-close line adds none). The cap is two re-audits after defects, so at most three
 audits (a first audit and two re-audits).
 
 **3. Chain the fix.** When `chain` is true, record each COVERED handoff item whose class is
@@ -367,6 +376,12 @@ They are reported for design, and the feature stays open.
   stale-wake check does not apply to it). In every other close (no fix run
   chained, a STUCK return) write `"anchorCommit": null`. `auditedCommit` stays the report header's
   value either way.
+
+  **Under `--chained --defer-close` the close above is not performed, only recorded.** The gate,
+  the close step, the unsynced-boards check and the PR do not run. Once the fix run is completely
+  done (the `anchorCommit` wait above), run `trd-hash`, append the deferred-close line
+  (`closeDeferred: true`, with a `close` object) through `record`, and carry on to the TRD commit,
+  the publish and the one records write. "Caller-only modes", below, gives the line and the RETURN.
 - `reaudit` true: the feature stays open and NEXT is `/audit-build` (the next round passes
   `previous` and `trdHash`, below). The report is written to the records ref below; no close record, no PR.
 - `capReached` true: **the feature stays open. It never closes with a caveat while a defect is
@@ -385,7 +400,7 @@ Only run records, docs outside the audited TRD and PRD, or framework files chang
 the earlier verdict stands and the workflow is not dispatched. A narrow readable change: `targeted`,
 which is what `previous` below already asks of the verifiers. Wide, shared or unreadable: `full`,
 so omit `previous` and resample. When unsure, ask once with your default; under `--report-only`
-or any chained call, stop with `COMMAND STUCK` carrying the question and the default. DECISIONS
+or any chained call, stop with `COMMAND STUCK` carrying the question and the default (under `--chained`, `[STATUS: /audit-build] RETURN → STUCK: <the question>; default: <the default>`). DECISIONS
 carries the contract's one-line `Rerun scope:` statement.
 
 **On a re-audit** (the ledger already has a round), pass the workflow `previous`:
@@ -465,7 +480,96 @@ node .claude/lib/pull-request.js ensure --title "<feature>: <one line>" --body-f
 
 `--expect-branch` makes it skip when the checked-out branch is not the one the feature was built on (omit it only when `implement.json` has no `branch`). It prints one JSON line `{action, url, reason}` and always exits 0; it acts only when
 `ensemble.openPullRequest` is `auto`, and it never merges. STATE names the URL, or the
-skip/failed reason, in one line — never STUCK, never retried. No close, no PR.
+skip/failed reason, in one line — never STUCK, never retried. No close, no PR. `--defer-close` opens no PR (the close is only recorded); `--close-deferred` opens it.
+
+## Caller-only modes: `--chained --defer-close` and `--chained --close-deferred`
+
+For callers only (see "Parse the caller-only modes" above). Under `--chained` the run ends with
+exactly one `[STATUS: /audit-build] RETURN → …` line, the same shape `/implement-trd --chained`
+uses, and it is the only terminator of either mode. **Print it, every time, as its own line of your reply text.**
+A caller reaches these modes through a `Skill` call, which runs this command inline, in the caller's own session and turn:
+no tool result carries the line back, so it exists only if you write it out. Print it once this
+command's last step is done and before you go back to any of the caller's steps (its
+`implement.json` write, its next stage). A caller recording the outcome in its own state file
+does not replace the line, and neither does a readout, a STATE line or a summary of the run. Every exit that ends `COMMAND STUCK` standalone
+ends `RETURN → STUCK: <why>` instead (the No TRD, `trd-guard`, gate-refusal and rerun-scope
+exits). `--report-only` with either mode wins: nothing is recorded, deferred or closed.
+
+```
+[STATUS: /audit-build] RETURN → passed, close deferred
+[STATUS: /audit-build] RETURN → re-audit needed
+[STATUS: /audit-build] RETURN → cap reached
+[STATUS: /audit-build] RETURN → open: <why>
+[STATUS: /audit-build] RETURN → STUCK: <why>
+[STATUS: /audit-build] RETURN → closed; PR <opened|updated|skipped|failed>: <url or reason>
+[STATUS: /audit-build] RETURN → nothing to close
+[STATUS: /audit-build] RETURN → stale: the TRD changed since the audit
+[STATUS: /audit-build] RETURN → STUCK: close refused: <rows>
+```
+
+### `--chained --defer-close`
+
+Every step as today through the report, `trd-guard`, the round record, `audit-index.json`,
+`decide`, the fix-run chain, the TRD citation commit, the publish and `artifacts.js record`;
+step 0's stale-wake check and the wait for the fix run's review apply exactly as they do
+standalone. The readout is not printed; lines a caller must carry (filed issue URLs, caveats) are
+printed above the RETURN line. When the audit workflow was unavailable (the subagent fallback) and
+the round has no run id, record the round with `runId: "fallback-<the round's ts>"` so the
+deferred-close line can name it. A re-audit whose rerun scope is `none` takes the `close` true
+path: the earlier passing verdict stands and the close is deferred, not performed. No workflow
+runs and there is no workflow run id, so first record this run's round through `record` (`runId:
+"none-<the round's ts>"`, never an earlier round's id, the last passing round's
+`verdict`, `auditedCommit` and `trdHash`, every count 0): the deferred-close line must have a round of
+its run id to fold into, or `pending-close` reads it as a round with no verdict and reports an `error`.
+
+Where step 4's `close` is true, the run skips the waived-defect gate, the close step, the
+unsynced-boards check and the pull request. Instead, run `audit-rounds.js trd-hash` after the fix
+run's RETURN line and the `anchorCommit` wait (the fix run may have promoted rows into the TRD, so
+the round's earlier hash would read stale), and append the deferred-close line through `record`:
+
+```
+node .claude/lib/audit-rounds.js record '{"stateDir":".trd-state/<feature>","round":{"runId":"<this round's run id>","closeDeferred":true,"close":{"trdHash":"<trd-hash now>","anchorCommit":<step 4's rule: full commit id or null>,"report":".trd-state/<feature>/audit-build-report.md","caveats":[<each caveat decide returned, and anything the fix run did not finish>]},"ts":"<ISO time>"}}'
+```
+
+The round line from step 2 already carries `verdict` and `auditedCommit`, so this line does not
+repeat them. Then the TRD commit, the publish and `artifacts.js record` as today, then "Write the
+records, once, last", then end:
+
+- `close` true: `RETURN → passed, close deferred`.
+- `reaudit` true: `RETURN → re-audit needed`.
+- `capReached` true: `RETURN → cap reached`.
+- Neither (uncovered items, or `do not proceed` with no defects): `RETURN → open: <why>`.
+- Any exit that is STUCK standalone: `RETURN → STUCK: <why>`.
+
+### `--chained --close-deferred`
+
+Performs the close an earlier `--defer-close` recorded. No workflow is dispatched, no verifier
+runs and no round is recorded. Read `implement.json`'s `audit.runId`, then:
+
+```
+node .claude/lib/audit-rounds.js pending-close '{"stateDir":".trd-state/<feature>","runId":"<audit.runId>"}'
+```
+
+1. `pending` is null (no pending round, a later round, a closed feature, another audit's run id
+   via `mismatch`, or an `error`): end `RETURN → nothing to close`, writing nothing. Print an
+   `error` (and a `mismatch` run id) on the line above the RETURN, so the caller can name it.
+2. Run `audit-rounds.js trd-hash`; when it differs from the line's `close.trdHash`, close nothing,
+   write nothing and end `RETURN → stale: the TRD changed since the audit`.
+3. Otherwise run step 4's `close` true branch from the round's `verdict` and `auditedCommit` and
+   the line's `close.report` and `close.caveats`: the waived-defect gate with `--closed-by audit`
+   (a refusal writes no close record, opens no PR, appends nothing to the ledger, consumes nothing and ends
+   `RETURN → STUCK: close refused: <each failed row's criterion and error>`), then the close step with
+   `closedBy: "audit"` (its step 0 and step 4 skipped, as step 4 already says). With `--verified`
+   (verification proved every commit up to the head), `audit.anchorCommit` is the full output of
+   `git rev-parse HEAD` at close time; without it, the line's `close.anchorCommit`. Once `closed.json` is written,
+   consume the deferred round so the close stays spent even if `closed.json` is later deleted to reopen the feature:
+   `node .claude/lib/audit-rounds.js consume-close '{"stateDir":".trd-state/<feature>","runId":"<audit.runId>"}'`
+   (it appends a fold line to the ledger, adds no round). Then the unsynced-boards
+   check and the PR with `pull-request.js ensure`, as above.
+4. Skip the TRD commit and the publish (the `--defer-close` run made them) and "Write the records,
+   once, last": the caller makes the one records write, and it carries `closed.json`. End
+   `RETURN → closed; PR <opened|updated|skipped|failed>: <url or reason>`, printing the close
+   record, the unsynced-board steps and caveats above it.
 
 ## Readout
 
@@ -542,6 +646,8 @@ readout names.
 ---
 
 ## Output discipline (see `.claude/rules/command-status.md`)
+
+**Under `--chained` (either mode), emit no banner, run no programmatic completion notify and send no PushNotification:** the run ends with its one `RETURN →` line, printed as its own line of text even when the run is inline in its caller's turn (see "Caller-only modes"), and its caller's banner ends the run. Everything below is the standalone form.
 
 **End your final turn with the banner — last line of output, nothing after it:**
 

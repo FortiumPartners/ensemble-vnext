@@ -13,8 +13,8 @@ For someone who already knows the basics. Version 4.17.8. The full map is in
 | Check that PRD against its source and the code | `/audit-prd` |
 | Turn the PRD into a technical plan with tasks and phases | `/create-trd` |
 | Check that TRD against the PRD and the code | `/audit-trd` |
-| Build the TRD (review and functional verification run inside it) | `/implement-trd docs/TRD/<feature>.md` |
-| Check the delivered code against TRD and PRD; a passing audit closes the feature | `/audit-build` |
+| Build the TRD (review, audit and functional verification run inside it; the feature closes if both pass) | `/implement-trd docs/TRD/<feature>.md` |
+| Re-check the delivered code against TRD and PRD on its own (a build audits itself already); a standalone pass closes the feature | `/audit-build` |
 | Close a feature yourself, without an audit | `/close-feature` |
 | Ship finished work: push, PR, review rounds, merge, release (the steps `ship.md` lists; outward ones need your authorization, see [ship-build.md](ship-build.md)) | `/ship-build [trd-path]` |
 | Resume a parked ship run | `/ship-build --resume` |
@@ -118,7 +118,7 @@ exactly one COMPLETE or STUCK line, even when one command chains another.
 
 | Outcome | Means | Next |
 |---|---|---|
-| `satisfied` | Every criterion is met, including every must-pass one | `/audit-build` |
+| `satisfied` | Every criterion is met, including every must-pass one | Nothing: the feature closes if the audit passed |
 | `unbuilt` | Something asked for was never built | `/refine-verification`, then `/verify-build` |
 | `stalled` | A debug round closed nothing | same |
 | `stuck` | The iteration budget ran out with gaps still open | same |

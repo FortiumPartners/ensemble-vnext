@@ -22,7 +22,7 @@ The question is what the work is and whose plan it belongs to. Size doesn't deci
 
 | The work is… | Use | Why |
 |---|---|---|
-| A new feature, or anything where the correct behaviour is still a product decision | The full pipeline: `/create-prd` → `/create-trd` → `/implement-trd` → `/audit-build`, which closes the feature when it passes | Someone has to decide *what* to build before anyone decides *how* |
+| A new feature, or anything where the correct behaviour is still a product decision | The full pipeline: `/create-prd` → `/create-trd` → `/implement-trd`, which builds, audits and verifies, then closes the feature when the audit passed and verification is satisfied | Someone has to decide *what* to build before anyone decides *how* |
 | A bug, a small change, or a refactor | `/plan` | Sizes the work and writes a plan to match. It skips the PRD because the reproduction or your instruction already says what is wanted |
 | A list of small, unrelated fixes (say, notes from walking the app) | `/sweep` | Fixes each one in parallel, with no plan document to write |
 | One change to the feature you are already building | `/amend` | Adds the change to that feature's plan. `/plan` would fork a second plan for work that is already understood |
@@ -43,7 +43,7 @@ In the diagrams below, **blue** steps are decided by code, **purple** by an agen
 ```mermaid
 flowchart TD
     idea["An idea or a problem"]:::you --> q{"What is the work?"}
-    q -->|"new feature"| cprd["/create-prd"] --> aprd["/audit-prd<br/>optional /refine-prd"] --> ctrd["/create-trd"] --> atrd["/audit-trd<br/>optional /refine-trd"] --> impl["/implement-trd<br/>build, review, verify"] --> ab["/audit-build<br/>closes the feature if it passes;<br/>opens the PR if allowed"] --> merge["You merge the PR"]:::you
+    q -->|"new feature"| cprd["/create-prd"] --> aprd["/audit-prd<br/>optional /refine-prd"] --> ctrd["/create-trd"] --> atrd["/audit-trd<br/>optional /refine-trd"] --> impl["/implement-trd<br/>build, review, audit, verify;<br/>closes the feature if both pass;<br/>opens the PR if allowed"] --> merge["You merge the PR"]:::you
     aprd -.->|"a feature with screens"| cd["/create-design<br/>/audit-design, /refine-design"] -.->|"/create-trd --design"| ctrd
     merge -.->|"boards still building"| sd["/sync-design"]
     q -->|"bug, change, refactor"| plan["/plan"]
@@ -182,7 +182,7 @@ flowchart TD
     pp --> env["Check the environments<br/>verification will need"]:::model
     env --> im["Phase: implementers build tasks<br/>in parallel waves, fixing their own failures"]:::model --> g["Phase gate: verify-app and the test battery;<br/>a failed phase is retried, up to 3 times"]:::code --> ck["Checkpoint and commit"]:::code
     ck -->|"next phase"| im
-    ck -->|"last phase"| rv["One /code-review<br/>over the whole branch"]:::model --> vf["Functional verification<br/>against the success criteria"]:::model --> ro["Readout and report link"]:::model --> you["You: /audit-build, then the PR"]:::you
+    ck -->|"last phase"| rv["One /code-review<br/>over the whole branch"]:::model --> au["/audit-build, fixes<br/>what it finds"]:::model --> vf["Functional verification<br/>against the success criteria"]:::model --> cl["Close, if the audit passed<br/>and verification is satisfied"]:::code --> ro["Readout and report link"]:::model --> you["You: the PR"]:::you
     der -.->|"read at verification"| vf
     classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
     classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
@@ -199,7 +199,9 @@ What a run does:
    then checkpointed and committed. The branch is pushed once, at the end of the run.
 4. **Once, after the last phase:** one code review (`/code-review high --fix`) over the whole
    branch diff, with its fixes applied.
-5. **Then functional verification** (§3), on by default.
+5. **Then the code audit** (`/audit-build`, in its caller-only `--chained --defer-close` mode). It fixes what it finds and records that it would close, but holds the close back.
+6. **Then functional verification** (§3), on by default. `--no-verify` skips this step, not the audit.
+7. **Then the close.** The feature closes only if the audit passed and verification was `satisfied` (or skipped by `--no-verify`). Any other verification outcome leaves it open.
 
 Tasks the TRD itself says can't finish in a normal run (marked `[LIVE]`, or "after the next
 deploy") are set aside and reported. They are not dispatched. Implementers never run checks
@@ -213,14 +215,15 @@ come back "not verifiable here".
 | Flag | Use it when |
 |---|---|
 | `--resume` / `--continue` | A run was interrupted. Picks up from the last checkpoint and re-runs anything not marked done. |
-| `--reconcile` | You don't trust what is marked done. Re-checks every "done" task against the disk, re-opens any task none of whose claimed files exist, adds tasks written into the TRD since the last run, then builds everything outstanding. Use it after `/audit-build` finds a gap. |
+| `--reconcile` | You don't trust what is marked done. Re-checks every "done" task against the disk, re-opens any task none of whose claimed files exist, adds tasks written into the TRD since the last run, then builds everything outstanding. Use it after `/audit-build` finds a gap (an audit inside `/implement-trd` runs it for you). |
 | `--no-verify` | Skip functional verification entirely. The readout will say nobody checked the software against the PRD. |
 | `--verify` | Useful only together with `--resume`: jumps straight back into a verification loop that was interrupted partway through, without re-running the build. Verification already runs by default. |
 | `--include-deferred` | Run the tasks that would otherwise be set aside. |
 | `--reset-state` | Throw away progress tracking and start fresh. Asks you to confirm first. |
 
 (`--chained` and `--sweep-flag` also exist, but only other commands pass them: `/verify-build`
-and `/audit-build` when fixing, `/plan` in its sweep chain. Don't type them yourself.)
+and `/audit-build` when fixing, `/implement-trd` when it audits (`--chained --defer-close`, later
+`--chained --close-deferred`), `/plan` in its sweep chain. Don't type them yourself.)
 
 ### `/audit-build` — check what was delivered
 
@@ -267,7 +270,8 @@ Every run leaves a report at `.trd-state/<feature>/audit-build-report.md`. It op
 verdict, names the commit it audited, and holds the readout. It is published as a link (unless publishing is off), and on a
 feature branch the audit commits it, so it travels with the PR.
 
-**A passing audit closes the feature.** When the verdict is "safe to proceed" or "proceed with
+**A passing audit closes the feature, once verification allows it.** Inside `/implement-trd` the audit runs before verification and holds its close back; the close happens at the end of the run only if verification came back `satisfied` (or was skipped by `--no-verify`).
+A standalone `/audit-build` closes as soon as it passes. When the verdict is "safe to proceed" or "proceed with
 these caveats", no defect is open, and the run isn't `--report-only`, the audit marks the
 feature closed: it writes `.trd-state/<feature>/closed.json` with its verdict, clears
 `current.json`, and commits the record with the report. Then, when `ensemble.openPullRequest`
@@ -387,7 +391,7 @@ one to understand.
 ```mermaid
 flowchart TD
     vb["/verify-build"] --> loop["The verification loop<br/>(CONCEPTS.md, concept 8)"]:::model --> o{"Outcome"}:::code
-    o -->|"satisfied"| ab["/audit-build"]
+    o -->|"satisfied"| ab["Close the feature<br/>(the audit already passed)"]
     o -->|"stalled, stuck, unbuilt,<br/>must-pass-unproven, setup-failure,<br/>or below the coverage floor"| rec["/refine-verification<br/>optional --auto"]:::you --> plan["verification-plan.md"] --> fix["/verify-build<br/>fixes by default"]
     fix --> round["Each round: /implement-trd --reconcile --chained,<br/>then re-verify the open criteria"]:::code --> sr{"The plan's<br/>stop rule met?"}:::code
     sr -->|"no"| round
@@ -630,7 +634,7 @@ with the project, branch, feature and summary in `NOTIFY_*` variables
 ([command-status.md](../../.claude/rules/command-status.md) has examples). To run something
 on every turn end instead, see [stop-hook-notification.md](stop-hook-notification.md).
 
-**One banner per run.** When one command runs another as a step (`/audit-build` running a fix,
+**One banner per run.** When one command runs another as a step (`/implement-trd` running `/audit-build`, `/audit-build` running a fix,
 `/plan --implement` running its sweep chain, `/sync-design` re-syncing the design system), the
 inner command prints no banner of its own, and the run ends on one banner.
 
@@ -658,8 +662,8 @@ You don't need to intervene either way.
 | `.trd-state/<feature>/verification-plan.md` | The recovery plan `/refine-verification` writes and `/verify-build` runs |
 | `.trd-state/<feature>/discovered.jsonl` | Issues found along the way but not fixed. Those marked as blocking the feature become TRD tasks on the next `--reconcile`. |
 | `.trd-state/<feature>/audit-build-report.md` | The latest `/audit-build` report: its verdict, the commit it audited, and the readout |
-| `.trd-state/<feature>/closed.json` | Written by a passing `/audit-build` or by `/close-feature`: when, by whom, and the audit verdict or your note. Its presence is what marks the feature closed |
-| `.trd-state/<feature>/audit-rounds.jsonl` | One line per `/audit-build` round: what it found and what was decided. The audit cap counts these |
+| `.trd-state/<feature>/closed.json` | Written by a passing `/audit-build`, by `/implement-trd` when the audit passed and verification was satisfied, or by `/close-feature`: when, by whom, and the audit verdict or your note. Its presence is what marks the feature closed |
+| `.trd-state/<feature>/audit-rounds.jsonl` | One line per `/audit-build` round: what it found and what was decided. The audit cap counts these. A round that passed inside `/implement-trd` is recorded as a deferred close until the run's end performs or drops it |
 | `.trd-state/<feature>/audit-prd-report.md`, `audit-trd-report.md` | The latest PRD and TRD audit reports, verdict first |
 | `.trd-state/<feature>/evidence/live-manifest.jsonl` | What each `[LIVE]` task captured, with a hash of every source file it exercised, so verification can reuse it |
 | `.trd-state/<feature>/dispatch.jsonl` | Every subagent started and stopped in this feature's runs |
