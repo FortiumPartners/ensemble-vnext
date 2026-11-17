@@ -54,7 +54,20 @@ loop from one never reached.
 
 ### Expected
 
-The brief's Expected 1-4, restated as O1-O4 above.
+1. The functional-verification loop runs whenever `verification.md` allows it. A scripted
+   check (a Playwright script, curl) plus unit tests is never accepted in its place, by
+   `/implement-trd` or by `/plan --implement`, and a run that did not run the loop cannot close
+   the feature as verified.
+2. A loop that does not run says why in the final readout and leaves
+   `.trd-state/<slug>/verification-state.json` holding `outcome: "not-run"` and a `reason`
+   string; `verification-report.md` names the same reason. An interrupted run's state file
+   (`outcome: null`) is never overwritten by such a record.
+3. The derive agent's source is passed by file path, never pasted into its prompt, so a source
+   of any size (740 KB included) can be dispatched; and a derive pass that never ran, or ran
+   and wrote nothing, is retried once before verification is recorded as not run.
+4. An environment problem reported by the setup check, or by the Exercise stage, is re-checked
+   once — the check run again and the diagnosis re-derived from the actual response — before
+   the loop gives up on it.
 
 Root cause [read]: the not-run exits are rendered as report text only, by prose, never as state;
 the derive dispatch is fire-and-forget with no record and no size rule; the setup check treats
