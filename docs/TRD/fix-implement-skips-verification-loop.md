@@ -1,6 +1,6 @@
 # TRD: fix-implement-skips-verification-loop
 
-**Source PRD**: None — defect reported by Forge's PM, brief at `docs/plans/fix-implement-skips-verification-loop/brief.md` (commit 884f451f)
+**Source PRD**: None — defect reported by Forge's PM, brief at `docs/plans/fix-implement-skips-verification-loop/brief.md` in commit 884f451f (not in this branch's tree; read it with `git show 884f451f:docs/plans/fix-implement-skips-verification-loop/brief.md`)
 
 ## Objectives
 
@@ -18,6 +18,10 @@ loop from one never reached.
 ## Reproduction
 
 ### Steps
+
+Line numbers in this section and in Task Grounding are as of `e9df0bcf`, the base commit
+before FIX-001 to FIX-005; the fix has since moved them (for example `runSetupCheck` is now at
+`verify-functional.js` line 2556, and §8.1's not-run exits now call `record-not-run`).
 
 1. Read `packages/core/commands/implement-trd.md` §8.1 (lines 1793-1838) [read]: the two
    `not run` exits (`prd_resolved: false`, and a resolved source with no
@@ -179,6 +183,8 @@ work is command prose, a library and a workflow script.
 | FIX-003 | `plan.md` (both copies) Step 7: the chained `/implement-trd` runs its own loop and nothing substitutes for it; `verify-build.md` (both copies) 3a passes the source by path | O1, O3 | None | Step 7 carries the rule in words a prose test can match; `verify-build.md` 3a names `derive-source.md` and no longer shows `<the source>` pasted after the contract; each pair of copies is byte-identical |
 | FIX-004 | `verify-functional.js` (both copies): one `setup-recheck` after a first `setup-failure`; Exercise prompt repeat-once rule; update and add workflow tests | O4 | None | a plan whose `setup` returns `setup-failure` and whose `setup-recheck` returns `proceed` reaches Exercise; one whose re-check also fails ends `setup-failure` with the re-check's problems and labels `['setup', 'setup-recheck', 'record']`; a dead re-check keeps the first problems; a re-check reporting `refreshesRun > 0` is rejected; the Exercise prompt carries the repeat-once rule; existing setup tests pass with updated label lists |
 | FIX-005 | Prose test over `implement-trd.md`, `plan.md` and `verify-build.md` for FIX-002/FIX-003 | O1, O2, O3 | FIX-002, FIX-003 | `packages/core/commands/verification-not-run-prose.test.js` fails against the commit before FIX-002/FIX-003 and passes after |
+| AMEND-001 | [test-gap] The final readout's 'Verification did not run: {reason}' line (half of the must-pass objective O2) has no test asserting it — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/commands/implement-trd.md:2637; grep finds the phrase in no test file; verification-not-run-prose.test.js has no readout assertion) | amendment — no objective recorded | None | [test-gap] The final readout's 'Verification did not run: {reason}' line (half of the must-pass objective O2) has no test asserting it no longer holds |
+| AMEND-002 | [test-gap] The prose test would still pass if the blocking-policy not-run exit (§8.1a step 6) stopped calling record-not-run — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: implement-trd.md:2142; verification-not-run-prose.test.js:31-33: the regex also matches line 1793, and the count of at least 2 is met by lines 1830 and 1863 alone) | amendment — no objective recorded | None | [test-gap] The prose test would still pass if the blocking-policy not-run exit (§8.1a step 6) stopped calling record-not-run no longer holds |
 
 ## Task Grounding
 
@@ -214,9 +220,30 @@ work is command prose, a library and a workflow script.
 - **Follow:** read `packages/core/commands/*.md` and assert byte-identity with the `.claude/commands` copy
 - **Careful:** assert on behaviour-bearing phrases (subcommand names, the derive-source path, the close condition), not on whole sentences
 
+### AMEND-001
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
+### AMEND-002
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
 ## Could Not Verify
 
-- Cause D most likely arose in the Exercise and Judge stages, not the setup check: `decideSetup` counts a 401 as reachable and gathers no schema facts. The Exercise repeat-once rule is the part aimed at it; the setup re-check guards against a misgathered fact only.
+Updated by `/audit-build` on 2026-11-17. Five of five verifiers reported; four objectives and
+five tasks were checked against the delivered code and tests.
 
-- The run records for dart's runs 23068, 22854 and 24405 (in `/Users/james/dev/lightning-lane`) were not read; causes A-E are as Forge's PM reported them.
-- Whether a derive agent dispatched in the background can still be running at Step 8 is not checkable from the prose; if it writes late it can overwrite the foreground re-derive's definition, which is the same contract and agent, so the risk is a duplicate, not a wrong definition.
+- No PRD was supplied (the source is a defect brief), so the delivered code was checked against
+  this TRD only. Whether the TRD itself captures everything the brief asked for was not checked
+  by this audit.
+- Not checked by this audit (it reads code and tests, not the reporter's runs): cause D most
+  likely arose in the Exercise and Judge stages, not the setup check, because `decideSetup`
+  counts a 401 as reachable and gathers no schema facts. The Exercise repeat-once rule is the
+  part aimed at it; the setup re-check guards against a misgathered fact only.
+- Not checked by this audit (outside this repository): the run records for dart's runs 23068,
+  22854 and 24405 (in `/Users/james/dev/lightning-lane`) were not read; causes A-E are as
+  Forge's PM reported them.
+- Not checkable from prose, and not exercised by any test: whether a derive agent dispatched in
+  the background can still be running at Step 8. If it writes late it can overwrite the
+  foreground re-derive's definition; that is the same contract and agent, so the risk is a
+  duplicate, not a wrong definition.

@@ -27,15 +27,53 @@ describe('verification not-run prose', () => {
   describe('implement-trd.md', () => {
     const t = implement.flat;
 
-    test('not-run exits go through the record-not-run subcommand, not a hand-built report', () => {
-      expect((t.match(/functional-verification\.js record-not-run/g) || []).length).toBeGreaterThanOrEqual(2);
-      expect(t).toMatch(/recorded through `record-not-run`/);
+    // Slice the flattened text between two markers, so an assertion is satisfied only by its own
+    // section. A match elsewhere in the file (the Step 8 intro, a sibling exit) must not count.
+    const between = (from, to) => {
+      const start = t.indexOf(from);
+      const end = t.indexOf(to, start + from.length);
+      if (start < 0 || end < 0) throw new Error(`section markers not found: ${from} .. ${to}`);
+      return t.slice(start, end);
+    };
+    const RECORD = /functional-verification\.js record-not-run/;
+    const exits = {
+      'no source': between('### 8.1 Resolve the definition', '2. Otherwise (`prd_resolved` is `true`'),
+      'no definition': between('Still absent \u2192 record', 'Present \u2192 first record'),
+      'blocking policy does not parse': between("**Read the owner's blocking policy", '7. **Resolve `setupTargets`'),
+    };
+
+    test('the no-source exit calls the record-not-run subcommand with its reason', () => {
+      expect(exits['no source']).toMatch(RECORD);
+      expect(exits['no source']).toContain('--reason "no success definition derivable"');
+    });
+
+    test('the no-definition exit calls the record-not-run subcommand with its reason', () => {
+      expect(exits['no definition']).toMatch(RECORD);
+      expect(exits['no definition']).toContain('--reason "<no definition produced');
+    });
+
+    test('the blocking-policy exit is recorded through record-not-run, with its own outcome', () => {
+      const e = exits['blocking policy does not parse'];
+      expect(e).toMatch(/recorded through `record-not-run`/);
+      expect(e).toContain('not-run-blocking-policy');
+    });
+
+    test('the Step 8 intro lists the exits as recorded through record-not-run', () => {
+      expect(between('**The loop is not substitutable.**', '**First, the run-limit check')).toMatch(
+        /recorded through `record-not-run`/
+      );
+    });
+
+    test('no hand-built report', () => {
       expect(t).not.toMatch(/fv-report-input/);
     });
 
     test('the derive source goes by file path, never pasted', () => {
-      expect(t).toContain('.trd-state/<feature>/derive-source.md');
-      expect(t).toMatch(/never pasted/);
+      // §3.6's background dispatch and §8.1's foreground re-derive each name the path themselves.
+      const dispatch = between('### 3.6 Dispatch the background', '### 3.6a');
+      expect(dispatch).toContain('.trd-state/<feature>/derive-source.md');
+      expect(dispatch).toMatch(/never pasted/);
+      expect(between('**Absent', 'Still absent')).toContain('.trd-state/<feature>/derive-source.md');
     });
 
     test('the derive dispatch is recorded and an absent definition is re-derived once', () => {
@@ -46,6 +84,14 @@ describe('verification not-run prose', () => {
     test('Step 8 states the loop is not substitutable', () => {
       expect(t).toContain('The loop is not substitutable');
       expect(t).toMatch(/Playwright script/);
+    });
+
+    test('the readout tells the owner why verification did not run, sourced from read-outcome', () => {
+      expect(t).toContain('"Verification did not run: {reason}."');
+      expect(t).toMatch(/the `reason` that `read-outcome --state-dir \.trd-state\/<feature>` prints/);
+      // an interrupted run's state holds no reason, so it falls back to the report's Reason line
+      expect(t).toMatch(/prints `outcome: null`[^]*the `\*\*Reason\*\*:` line of `verification-report\.md`/);
+      expect(t).toMatch(/Never leave a not-run to be inferred from a missing report/);
     });
 
     test('closing reads the outcome from disk and requires satisfied and fresh', () => {
