@@ -729,6 +729,10 @@ function buildExercisePrompt(iteration, slice, concurrentSlices = 1, regressionR
     `runs after the Judge, never you -- is the one that repairs it. A rebuild you perform here ` +
     `invalidates the capture the Judge is about to read.\n\n` +
     laneNote +
+    `BEFORE BLAMING THE ENVIRONMENT: before you report the environment as the blocker for a ` +
+    `criterion (an HTTP 4xx/5xx, a schema or migration mismatch, a crashed simulator or browser, a ` +
+    `refused connection), repeat the failing step ONCE. State your reason from that second, actual ` +
+    `response, quoting it. If the repeat works, capture the criterion as usual.\n\n` +
     `Bring the system up ONCE, then walk every one of the following ${count} criteria -- your ` +
     `own slice, not the whole run's definition -- and produce one claim per criterion -- an ` +
     `artifact path under the evidence directory that proves it, or (when none exists) a stated ` +
@@ -1317,12 +1321,20 @@ function setupFailureFix() {
 // once, then re-gathers and decides again with refreshCount 1.
 function buildSetupPrompt(iteration, stage, targets, debugRefresh, firstResult) {
   const refreshing = stage === 'setup-refresh'
-  const payloadFile = `${STATE_DIR}/setup-decide-${iteration}${refreshing ? '-refresh' : ''}.json`
+  const rechecking = stage === 'setup-recheck'
+  const payloadFile = `${STATE_DIR}/setup-decide-${iteration}${refreshing ? '-refresh' : rechecking ? '-recheck' : ''}.json`
   const targetsJson = JSON.stringify(targets.map((t) => ({ environment: t.environment, url: t.url, ports: t.ports, identity: t.identity, refreshable: t.refreshable })))
   const refreshInstruction = refreshing
     ? `The first check found problems that a refresh may repair: ${JSON.stringify(firstResult.problems)}. ` +
       `Run the declared fast refresh EXACTLY ONCE, from this checkout, and record its exit code:\n  ${REFRESH_COMMAND}\n` +
       `Never run it a second time, whatever happens. Then gather the facts again, as below.\n\n`
+    : rechecking
+    ? `The first check ended the run as a setup failure: ${JSON.stringify(firstResult.problems)}. ` +
+      `Before the run is ended for that, gather EVERY fact again from scratch -- do not reuse an ` +
+      `answer from the first check. A cold start, a slow first response or a one-off error can look ` +
+      `like a broken environment. For each problem reported above, record in that target's "reach" ` +
+      `or "identity" detail the ACTUAL response you got this time (status code, error text or exit ` +
+      `code), quoted. Run NO refresh, rebuild or restart yourself.\n\n`
     : `Run NO refresh, rebuild or restart yourself: the refresh command below is a fact for the ` +
       `payload, not a command for you.\n\n`
   return (
@@ -2566,13 +2578,39 @@ async function runSetupCheck(iteration, targets) {
   if (first.refreshesRun > 0) {
     return rejected(`the setup check ran ${first.refreshesRun} refreshes; none is allowed at this step`, first.problems)
   }
-  if (first.action === 'setup-failure') return problemsOf(first, 'the setup check failed')
+  if (first.action === 'setup-failure') {
+    // One re-check before the run ends on the environment: the facts are gathered by a model
+    // agent, and a cold start or a one-off error can read as a broken environment. The re-check's
+    // verdict replaces the first; it is not itself re-checked. A dead re-check keeps the first
+    // problems.
+    const again = await agent(buildSetupPrompt(iteration, 'setup-recheck', targets, debugRefresh, first), {
+      label: 'setup-recheck',
+      phase: 'Setup',
+      model: 'sonnet',
+      schema: SETUP_SCHEMA,
+    })
+    if (!again) return problemsOf(first, 'the setup check failed')
+    addSetupFlags(again.flags)
+    if (again.refreshesRun > 0) {
+      return rejected(`the setup re-check ran ${again.refreshesRun} refreshes; none is allowed at this step`, first.problems)
+    }
+    if (again.action === 'setup-failure') return problemsOf(again, 'the setup check failed again on the re-check')
+    if (again.action === 'proceed') {
+      lastDebugRefresh = null
+      return null
+    }
+    // again.action === 'refresh': take the existing refresh path with the re-check's result.
+    return refreshOnce(again)
+  }
   if (first.action === 'proceed') {
     lastDebugRefresh = null // the check consumed the Debug pass's refresh report
     return null
   }
 
   // first.action === 'refresh': the one authorized repair.
+  return refreshOnce(first)
+
+  async function refreshOnce(first) {
   setupState.refreshed += 1
   const second = await agent(buildSetupPrompt(iteration, 'setup-refresh', targets, debugRefresh, first), {
     label: 'setup-refresh',
@@ -2600,6 +2638,7 @@ async function runSetupCheck(iteration, targets) {
   if (second.action === 'setup-failure') return problemsOf(second, 'the setup check failed after the refresh')
   lastDebugRefresh = null
   return null
+  }
 }
 
 // NEW (D8; §3.6). One Render dispatch, matching the dead-agent pattern Debug already uses

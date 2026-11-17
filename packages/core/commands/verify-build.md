@@ -277,12 +277,14 @@ Resolve the source exactly as `/implement-trd` §3.6 step 1 does — PRD, else t
 `not run: no success definition derivable`, and STOP**; that one is a real dead end, because
 nothing states what success means.
 
-With a source, dispatch the same agent §3.6 dispatches, with the same contract text, and
-**wait for it**:
+With a source, write it to a file and pass the file's path, never the pasted text: a TRD
+section source goes to `.trd-state/<feature>/derive-source.md` (the section only, never the
+TRD), and a PRD source is passed by its own path. Then dispatch the same agent §3.6
+dispatches, with the same contract text, and **wait for it**:
 
 ```
 Agent(subagent_type="product-manager",
-      prompt="<packages/core/contracts/functional-verification.md text> + <the source> + <must-pass objectives: id and text only> + <output path .trd-state/<feature>/success-definition.md>")
+      prompt="<packages/core/contracts/functional-verification.md text> + <source file path: .trd-state/<feature>/derive-source.md, or the PRD's path> + <must-pass objectives: id and text only> + <output path .trd-state/<feature>/success-definition.md>")
 ```
 
 The must-pass objectives are read exactly as `/implement-trd` §3.6 step 2a reads them

@@ -888,12 +888,23 @@ reached`. Exit code 2 means `ensemble.verificationRunLimit` is invalid: end `COM
 with the printed `error` as the Reason.
 
 **2. Dispatch the derive pass in the background** with
-`Agent(subagent_type=..., prompt="…")`:
+`Agent(subagent_type=..., prompt="…")`. **The source goes by file path, always, never pasted**
+(whatever its size: the prompt already carries the contract, and one mode is the testable one).
+A section source (`reproduction` / `intended-change` / `behaviour-preserved`) is written first to
+`.trd-state/<feature>/derive-source.md` — the extracted section only, never the TRD — and that
+path is passed; a PRD source is passed by the PRD's own path:
 
 ```
 Agent(subagent_type="product-manager", run_in_background: true,
-      prompt="<packages/core/contracts/functional-verification.md text> + <the source> + <must-pass objectives: id and text only> + <output path .trd-state/<feature>/success-definition.md>")
+      prompt="<packages/core/contracts/functional-verification.md text> + <source file path: .trd-state/<feature>/derive-source.md, or the PRD's path> + <must-pass objectives: id and text only> + <output path .trd-state/<feature>/success-definition.md>")
 ```
+
+**Record that the dispatch happened**, straight after the `Agent` call, the same way the source
+kind is recorded (in memory first, then `save()`, as above):
+`state.functional_verification = { ...state.functional_verification, derive_dispatched: true };`.
+§8.1 reads it to say whether a missing definition was never asked for or was asked for and not
+written. A run that skipped the dispatch (the run-limit refusal in step 1b, an unresolved
+source) leaves it unset.
 
 **2a. The must-pass objectives.** Read them with the library, never by parsing the table in
 prose:
@@ -907,9 +918,10 @@ A TRD with no `## Objectives` table, or no mark, passes an empty block. A sweep 
 Objectives and declares none (D19): skip this call for it.
 
 `<the source>` is whatever step 1 resolved: the **PRD path** for `source_kind: prd`, or the
-**extracted section text** for `reproduction` / `intended-change` / `behaviour-preserved`.
+**path of `derive-source.md`** (holding the extracted section text) for `reproduction` /
+`intended-change` / `behaviour-preserved`.
 
-The prompt carries the source, the must-pass objectives (id and text only, read as in step 2a
+The prompt carries the source path, the must-pass objectives (id and text only, read as in step 2a
 below, an empty block when none is marked) and the output path, and **nothing else** — no TRD
 path, no TRD excerpt, no task list (functional-verification TRD FR-1, AC-1, D5). The objectives
 are outcome statements, not plan: the deriver uses them only to fill each criterion's `Must pass`
@@ -1583,7 +1595,7 @@ the durable companion to `implement.json` — state records *what* happened, the
 
 **On `functional_verification` (present whenever verification runs — i.e. absent
 `--no-verify` — FV-B005):**
-`prd_resolved`/`source_kind`/`prd_path` are written by Step 3.6 at PRD-resolution time, not by
+`prd_resolved`/`source_kind`/`prd_path` (and `derive_dispatched`, set when the derive agent is dispatched) are written by Step 3.6 at PRD-resolution time, not by
 the loop itself — `verification-state.json` and `verification-report.md` (both written by the
 workflow's Judge agent, §3.3a) are the loop's own durable record; this field exists only to
 carry facts that predate the loop and would otherwise be lost to it. Step 3.6 runs hundreds of
@@ -1768,6 +1780,13 @@ prose, reads the TRD only at §8.1b, for its `## Verification Artifacts` section
 mutates it; never calls `Agent(` directly. Its whole job is resolving inputs from disk and
 rendering what the workflow returns.
 
+**The loop is not substitutable.** A scripted check, a Playwright script or the project's unit
+tests never stand in for this step's `Workflow` call, however well they pass: they are not the
+verification loop and write none of its records. Step 8 ends without that call only through its
+listed exits — `--no-verify`, the run-limit ruling request, and §8.1's and §8.1a's `not run`
+exits, each recorded through `record-not-run` — and Step 9 closes only on what those records
+say.
+
 **First, the run-limit check, before §8.1 reads `prd_resolved`** (cap-verification-runs-per-feature
 D7). Skipped under `--chained`. Run it here even when §3.6 ran it: §3.6 skipped the derive pass on
 a refusal, so §8.1 would find `prd_resolved: true` and no definition and misreport it as
@@ -1798,20 +1817,13 @@ numbering is not the running order and stays as it is because other documents ci
    and §8.3's `prd` argument both need (Step 3.6 ran hundreds of tool calls ago; this file,
    not memory, is where it lives). If `prd_resolved` is `false`: **no source resolved at all** —
    no PRD, no `## Reproduction`, no `## Intended Change`, no `## Behaviour Preserved`. Render
-   `not run: no success definition derivable` through the lib CLI's `render-report` — **do not
-   write this by hand** (D3, one renderer):
+   `not run: no success definition derivable` through the one library call that writes the
+   report and the state file from the same reason — **do not write either by hand** (D3):
 
    ```bash
-   node -e '
-     const fs = require("fs");
-     const input = {
-       feature: process.argv[1], prd: "", definitionPath: process.argv[2],
-       outcome: "not-run", reason: "no success definition derivable", criteria: [],
-     };
-     fs.writeFileSync(process.argv[3], JSON.stringify(input));
-   ' "<feature>" ".trd-state/<feature>/success-definition.md" "/tmp/fv-report-input-<feature>.json"
-   node .claude/lib/functional-verification.js render-report --file /tmp/fv-report-input-<feature>.json \
-     > ".trd-state/<feature>/verification-report.md"
+   node .claude/lib/functional-verification.js record-not-run --state-dir ".trd-state/<feature>" \
+     --feature "<feature>" --reason "no success definition derivable" \
+     --definition ".trd-state/<feature>/success-definition.md"
    ```
 
    Skip the rest of this step — no `Workflow` call. Record the outcome as `not-run-no-source`
@@ -1821,20 +1833,31 @@ numbering is not the running order and stays as it is because other documents ci
    whole `functional_verification` field is missing even though the flag was set — Step 3.6 writes it on both branches, so
    that can only mean the state write itself was lost, and falling through here at least
    produces a real report instead of a spurious `no success definition derivable`), check whether
-   `.trd-state/<feature>/success-definition.md` exists on disk. **Do not wait on the background
-   derive agent and do not derive a definition inline** — there is no attested primitive for a
-   lead session to block on a specific `Agent({run_in_background: true})`
-   (`.claude/rules/async-discipline.md`, "Orchestration pattern: the scheduled nudge"), and an
-   inline derivation would be a second, undisciplined production path for
-   `success-definition.md` outside FV-P001's mandatory-citation contract. Step 8 runs at the
-   tail of the run, hundreds of tool calls after the Step 3.6 dispatch — an absent file at this
-   point means the derive agent died, which is information the report must carry, not a gap to
-   paper over silently.
+   `.trd-state/<feature>/success-definition.md` exists on disk. **Do not derive a definition
+   inline** — an inline derivation would be a second, undisciplined production path for
+   `success-definition.md` outside FV-P001's mandatory-citation contract.
 
-   Absent → render `not run: no definition produced` (TR3), same renderer, same shape as
-   above but with `reason: "no definition produced"` and `prd` set to `prd_path` from the
-   state file (step 1) — which for a section source is the TRD path plus section name, a
-   display string only. Skip the rest of this step — no `Workflow` call. Record `not-run-no-definition`
+   **Absent → re-derive ONCE, in the foreground, exactly as `/verify-build` 3a does.** Step 8 runs at
+   the tail of the run, hundreds of tool calls after the §3.6 dispatch, and a background agent
+   that was never dispatched, or died, leaves no file. Waiting for the background agent is not
+   possible (no attested primitive blocks on one), but dispatching the same agent again and
+   waiting for it is: re-resolve the source in §3.6 step 1's order (the dispatch may never have
+   happened, so `derive-source.md` and `prd_path` may not exist), write a section source to
+   `.trd-state/<feature>/derive-source.md` and bind `prd_path` as §3.6 does, then run the same
+   `Agent(subagent_type="product-manager", …)` call with the same contract, the source by path
+   and the same output path, without `run_in_background`. Read the file again.
+
+   Still absent → record the not-run through the same call, with a reason saying which it was
+   (read `derive_dispatched` from the state file you read in step 1):
+
+   ```bash
+   node .claude/lib/functional-verification.js record-not-run --state-dir ".trd-state/<feature>" \
+     --feature "<feature>" --reason "<no definition produced: the derive pass was never dispatched | no definition produced: the derive pass ran and wrote nothing>" \
+     --prd "<prd_path from the state file>" --definition ".trd-state/<feature>/success-definition.md"
+   ```
+
+   `prd_path` for a section source is the TRD path plus section name, a display string only.
+   Skip the rest of this step — no `Workflow` call. Record `not-run-no-definition`
    for Step 9 and continue.
 
    Present → first record the file in the manifest, whether or not publishing is on:
@@ -2107,9 +2130,9 @@ no environment; every "exercisable" criterion resolves to exactly one.
    `'all'`, today's behaviour). Set `blockingNote` from the result's `waiverRefused` (a string), else `null`. When `waiverRefused` is present, `policy` is already `'all'` (the owner declared `must-pass` but no tracker can take the waived failures, so nothing is waived) and DECISIONS says so: "verification.md declares a must-pass-only blocking policy, but it was not applied: {waiverRefused}. Every failure blocks.". On `status: 'invalid'` — the `Blocking:` line under the
    blocking-policy section does not parse — the workflow is not dispatched and verification
    reports `not run: verification.md's blocking policy does not parse ("<raw>")` with `<raw>`
-   the result's `raw`, rendered through `render-report` exactly as §8.1's two `not run` exits
-   are (`outcome: "not-run"`, that text after `not run: ` as `reason`, `criteria: []`) so no
-   earlier run's `verification-report.md` is left standing as this run's; record the outcome as
+   the result's `raw`, recorded through `record-not-run` exactly as §8.1's two `not run` exits
+   are (`--reason` that text after `not run: `) so no earlier run's `verification-report.md` is
+   left standing as this run's; record the outcome as
    `not-run-blocking-policy` for Step 9's banner. Step 9's ISSUES says to fix it with
    `/verification-setup`. Unlike the
    coverage floor this is never defaulted: defaulting would silently ignore a policy the owner
@@ -2450,7 +2473,9 @@ the feature (not under `--chained`, which has no Step 9 readout). Read `.trd-sta
 `audit.return` (Step 7.3 wrote it), never a remembered RETURN line. Close only when
 `audit.return` is `passed, close deferred` AND one of these holds:
 
-- Step 8 ran and its outcome is `satisfied`, with no criterion carrying
+- Step 8 ran and `node .claude/lib/functional-verification.js read-outcome --state-dir
+  .trd-state/<feature>` prints `outcome: "satisfied"` AND `fresh: true` (read from disk, never the
+  session's memory of Step 8: a missing or stale state file closes nothing), with no criterion carrying
   `settled: 'definition-problem'` (such a run routes to `/refine-verification`, so it cannot close);
   call with `--verified`, except on the `--resume --verify` path (the loop re-entered from `verification-state.json` carries `met` verdicts whose evidence may predate later commits), which calls without `--verified` so custody re-proves them:
   `Skill({ skill: "audit-build", args: "<trd> --chained --close-deferred --verified" })`
@@ -2459,7 +2484,8 @@ the feature (not under `--chained`, which has no Step 9 readout). Read `.trd-sta
   `Skill({ skill: "audit-build", args: "<trd> --chained --close-deferred" })`
 
 Step 8 not run for any other reason (`not run: no success definition derivable` or `not run: no
-definition produced`), and any outcome other than `satisfied`, close nothing. The call reads the
+definition produced`), any outcome other than `satisfied`, and a `satisfied` that `read-outcome`
+does not confirm as fresh, close nothing. The call reads the
 ledger itself, runs the waived-defect gate, writes `closed.json` with `closedBy: "audit"`, and
 opens the PR when `ensemble.openPullRequest` is `auto`; it writes no records, because §9.1's one
 write below carries `closed.json`. Print its one RETURN line as text, as at §7.3, then branch on it:
@@ -2599,6 +2625,10 @@ ISSUES
    then the criteria that need it are not verifiable ({default})." You act.}
   {if outcome is setup-failure, for each entry in `setup.problems`: "{environment}: {problem}
    — fix: {fix}." You act; the run did not judge the code.}
+  {if Step 8 recorded a not-run through `record-not-run`: "Verification did not run: {reason}." with
+    the `reason` that `read-outcome --state-dir .trd-state/<feature>` prints, in words, and who acts
+    (for `no definition produced`, `/verify-build`; for a blocking policy that does not parse,
+    `/verification-setup`). Never leave a not-run to be inferred from a missing report.}
   {if the outcome is `not run: verification run limit reached`: "Verification did not run: this
     feature has already had {count} of {limit} verification runs. A person must rule on the open
     criteria first — see the ruling request below." You act.}
