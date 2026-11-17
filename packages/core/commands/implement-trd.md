@@ -2638,8 +2638,9 @@ ISSUES
     the `reason` that `read-outcome --state-dir .trd-state/<feature>` prints, in words — or, when it
     prints `outcome: null` (`record-not-run` kept an interrupted run's state for resuming, so the
     state holds no reason), the `**Reason**:` line of `verification-report.md` — and who acts
-    (for `no definition produced`, `/verify-build`; for a blocking policy that does not parse,
-    `/verification-setup`). Never leave a not-run to be inferred from a missing report.}
+    (for `no definition produced`, `/verify-build`). Never leave a not-run to be inferred from a
+    missing report. Skip this line for the blocking-policy not-run: the `read-blocking-policy`
+    line above already names it and its fix, and one problem gets one line.}
   {if the outcome is `not run: verification run limit reached`: "Verification did not run: this
     feature has already had {count} of {limit} verification runs. A person must rule on the open
     criteria first — see the ruling request below." You act.}

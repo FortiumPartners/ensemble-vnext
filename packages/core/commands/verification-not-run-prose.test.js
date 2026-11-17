@@ -36,25 +36,32 @@ describe('verification not-run prose', () => {
       return t.slice(start, end);
     };
     const RECORD = /functional-verification\.js record-not-run/;
+    // Resolved inside each test, not at collection time: a marker that goes missing then fails
+    // the tests that need it, rather than throwing from the describe and hiding every result.
     const exits = {
-      'no source': between('### 8.1 Resolve the definition', '2. Otherwise (`prd_resolved` is `true`'),
-      'no definition': between('Still absent \u2192 record', 'Present \u2192 first record'),
-      'blocking policy does not parse': between("**Read the owner's blocking policy", '7. **Resolve `setupTargets`'),
+      'no source': () => between('### 8.1 Resolve the definition', '2. Otherwise (`prd_resolved` is `true`'),
+      'no definition': () => between('Still absent \u2192 record', 'Present \u2192 first record'),
+      'blocking policy does not parse': () =>
+        between("**Read the owner's blocking policy", '7. **Resolve `setupTargets`'),
     };
 
     test('the no-source exit calls the record-not-run subcommand with its reason', () => {
-      expect(exits['no source']).toMatch(RECORD);
-      expect(exits['no source']).toContain('--reason "no success definition derivable"');
+      const e = exits['no source']();
+      expect(e).toMatch(RECORD);
+      expect(e).toContain('--reason "no success definition derivable"');
     });
 
     test('the no-definition exit calls the record-not-run subcommand with its reason', () => {
-      expect(exits['no definition']).toMatch(RECORD);
-      expect(exits['no definition']).toContain('--reason "<no definition produced');
+      const e = exits['no definition']();
+      expect(e).toMatch(RECORD);
+      expect(e).toContain('--reason "<no definition produced');
     });
 
     test('the blocking-policy exit is recorded through record-not-run, with its own outcome', () => {
-      const e = exits['blocking policy does not parse'];
+      const e = exits['blocking policy does not parse']();
       expect(e).toMatch(/recorded through `record-not-run`/);
+      // the reason the readout later prints is the not-run text, so the recipe for it is pinned too
+      expect(e).toContain('(`--reason` that text after `not run: `)');
       expect(e).toContain('not-run-blocking-policy');
     });
 
@@ -66,6 +73,9 @@ describe('verification not-run prose', () => {
 
     test('no hand-built report', () => {
       expect(t).not.toMatch(/fv-report-input/);
+      // FIX-002's criterion: no writeFileSync + render-report recipe remains in §8.1, whatever its
+      // temp file is called
+      expect(between('### 8.1 Resolve the definition', '### 8.1b')).not.toMatch(/render-report|writeFileSync/);
     });
 
     test('the derive source goes by file path, never pasted', () => {
@@ -87,11 +97,16 @@ describe('verification not-run prose', () => {
     });
 
     test('the readout tells the owner why verification did not run, sourced from read-outcome', () => {
-      expect(t).toContain('"Verification did not run: {reason}."');
-      expect(t).toMatch(/the `reason` that `read-outcome --state-dir \.trd-state\/<feature>` prints/);
+      // Scoped to the readout's own not-run item, so a phrase elsewhere in the file cannot satisfy it.
+      const item = between(
+        '{if Step 8 recorded a not-run through `record-not-run`:',
+        '{if the outcome is `not run: verification run limit reached`'
+      );
+      expect(item).toContain('"Verification did not run: {reason}."');
+      expect(item).toMatch(/the `reason` that `read-outcome --state-dir \.trd-state\/<feature>` prints/);
       // an interrupted run's state holds no reason, so it falls back to the report's Reason line
-      expect(t).toMatch(/prints `outcome: null`[^]*the `\*\*Reason\*\*:` line of `verification-report\.md`/);
-      expect(t).toMatch(/Never leave a not-run to be inferred from a missing report/);
+      expect(item).toMatch(/prints `outcome: null`.*the `\*\*Reason\*\*:` line of `verification-report\.md`/);
+      expect(item).toMatch(/Never leave a not-run to be inferred from a missing report/);
     });
 
     test('closing reads the outcome from disk and requires satisfied and fresh', () => {
