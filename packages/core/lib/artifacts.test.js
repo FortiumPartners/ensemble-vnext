@@ -26,11 +26,11 @@ const rec = (kind, entry, opts) =>
   artifacts.record(stateDir, kind, { command: '/create-prd', ...entry }, { root, now: NOW, ...opts });
 
 describe('KINDS', () => {
-  it('lists the eleven document kinds', () => {
+  it('lists the twelve document kinds', () => {
     expect(artifacts.KINDS).toEqual([
       'prd', 'trd', 'audit-prd', 'audit-trd', 'success-definition',
       'verification-plan', 'verification-report', 'audit-build', 'report',
-      'design', 'audit-design',
+      'design', 'audit-design', 'ruling-request',
     ]);
   });
 
@@ -369,5 +369,113 @@ describe('previous_url', () => {
     const entry = artifacts.read(stateDir).design;
     expect(entry.url).toBe(B);
     expect(entry.previous_url).toBe(A);
+  });
+});
+
+describe('publishDecision', () => {
+  const ON = ['trd', 'report', 'design', 'design-system'];
+  const OFF = ['prd', 'audit-prd', 'audit-trd', 'verification-report', 'audit-build',
+    'verify-design-comparison', 'docs-audit'];
+  const pub = (kind, settings, requested) => artifacts.publishDecision(kind, { settings, requested }).publish;
+
+  it.each([undefined, true, null, 'yes', 3])('setting %p gives the per-kind defaults', (s) => {
+    ON.forEach((k) => expect(pub(k, s)).toBe(true));
+    OFF.forEach((k) => expect(pub(k, s)).toBe(false));
+  });
+
+  it('false turns every kind off, even when requested', () => {
+    [...ON, ...OFF].forEach((k) => {
+      expect(pub(k, false)).toBe(false);
+      expect(pub(k, false, true)).toBe(false);
+    });
+  });
+
+  it('--requested turns an off-by-default kind on', () => {
+    expect(pub('prd', true, true)).toBe(true);
+    expect(pub('anything-else', undefined, true)).toBe(true);
+  });
+
+  it('a per-kind true enables that kind only', () => {
+    expect(pub('prd', { prd: true })).toBe(true);
+    expect(pub('trd', { prd: true })).toBe(true);
+    expect(pub('audit-prd', { prd: true })).toBe(false);
+  });
+
+  it('a per-kind false disables it, and a request turns it back on', () => {
+    expect(pub('trd', { trd: false })).toBe(false);
+    expect(pub('report', { trd: false })).toBe(true);
+    expect(pub('trd', { trd: false }, true)).toBe(true);
+  });
+
+  it('ignores non-boolean object values and prototype names', () => {
+    expect(pub('trd', { trd: 'no' })).toBe(true);
+    expect(pub('prd', { prd: 1 })).toBe(false);
+    expect(pub('constructor', {})).toBe(false);
+  });
+
+  it('gives a reason and rejects an invalid kind', () => {
+    expect(artifacts.publishDecision('prd', {}).reason).toMatch(/off by default/);
+    expect(() => artifacts.publishDecision('Bad Kind', {})).toThrow(/invalid kind/);
+    expect(() => artifacts.publishDecision('version', {})).toThrow(/invalid kind/);
+  });
+});
+
+describe('readPublishSetting and the publish CLI', () => {
+  const settingsFile = () => path.join(root, 'settings.json');
+  const write = (text) => fs.writeFileSync(settingsFile(), text);
+  const run = (...args) => spawnSync('node', [CLI, 'publish', ...args], { cwd: root, encoding: 'utf8' });
+
+  it('reads the value, or undefined for absent, missing and malformed files', () => {
+    write('{"ensemble":{"publishArtifacts":false}}');
+    expect(artifacts.readPublishSetting(settingsFile())).toBe(false);
+    write('{"ensemble":{"publishArtifacts":{"prd":true}}}');
+    expect(artifacts.readPublishSetting(settingsFile())).toEqual({ prd: true });
+    write('{}');
+    expect(artifacts.readPublishSetting(settingsFile())).toBeUndefined();
+    write('{not json');
+    expect(artifacts.readPublishSetting(settingsFile())).toBeUndefined();
+    expect(artifacts.readPublishSetting(path.join(root, 'nope.json'))).toBeUndefined();
+  });
+
+  it('prints "publish: on" or "publish: off (<reason>)" and exits 0', () => {
+    write('{"ensemble":{"publishArtifacts":true}}');
+    let r = run('--kind', 'trd', '--settings', settingsFile());
+    expect([r.status, r.stdout]).toEqual([0, 'publish: on\n']);
+    r = run('--kind', 'prd', '--settings', settingsFile());
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/^publish: off \(.+\)\n$/);
+    r = run('--kind', 'prd', '--requested', '--settings', settingsFile());
+    expect(r.stdout).toBe('publish: on\n');
+    write('{"ensemble":{"publishArtifacts":false}}');
+    r = run('--kind', 'trd', '--requested', '--settings', settingsFile());
+    expect(r.stdout).toMatch(/^publish: off \(/);
+  });
+
+  it('prints the three off reasons in the TRD wording, exactly', () => {
+    write('{"ensemble":{"publishArtifacts":true}}');
+    expect(run('--kind', 'prd', '--settings', settingsFile()).stdout)
+      .toBe('publish: off (off by default for prd: pass --publish to publish it)\n');
+    expect(run('--kind', 'no-such-kind', '--settings', settingsFile()).stdout)
+      .toBe('publish: off (off by default for no-such-kind: pass --publish to publish it)\n');
+    write('{"ensemble":{"publishArtifacts":false}}');
+    for (const args of [['--kind', 'trd'], ['--kind', 'trd', '--requested'], ['--kind', 'prd', '--requested']]) {
+      expect(run(...args, '--settings', settingsFile()).stdout).toBe('publish: off (publishArtifacts is false)\n');
+    }
+    write('{"ensemble":{"publishArtifacts":{"trd":false}}}');
+    expect(run('--kind', 'trd', '--settings', settingsFile()).stdout)
+      .toBe('publish: off (set false for trd in publishArtifacts)\n');
+  });
+
+  it('defaults --settings to .claude/settings.json under cwd, and survives a malformed one', () => {
+    fs.mkdirSync(path.join(root, '.claude'));
+    fs.writeFileSync(path.join(root, '.claude', 'settings.json'), '{"ensemble":{"publishArtifacts":false}}');
+    expect(run('--kind', 'trd').stdout).toMatch(/^publish: off/);
+    fs.writeFileSync(path.join(root, '.claude', 'settings.json'), 'garbage');
+    expect(run('--kind', 'trd').stdout).toBe('publish: on\n');
+  });
+
+  it('exits 1 on an invalid or missing kind', () => {
+    expect(run('--kind', 'Bad').status).toBe(1);
+    expect(run().status).toBe(1);
   });
 });

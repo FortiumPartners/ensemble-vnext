@@ -22,7 +22,7 @@ describe('verify-build.md --criteria (D13)', () => {
   });
 
   test('argument-hint carries --criteria <ids>', () => {
-    expect(read(CORE).split('\n')[4]).toMatch(/^argument-hint:.*\[--criteria <ids>\] \[--chained\]"/);
+    expect(read(CORE).split('\n')[4]).toMatch(/^argument-hint:.*\[--criteria <ids>\] \[--publish\] \[--chained\]"/);
   });
 
   test('the flag and its value are stripped before the path is read', () => {
@@ -43,7 +43,7 @@ describe('verify-build.md --criteria (D13)', () => {
   test('criteria filtered, mustPassIds restricted, mustPassUncovered empty, no coverage floor', () => {
     const s = criteria();
     expect(s).toMatch(/filter `criteria` to the named ids/);
-    expect(s).toMatch(/Restrict `mustPassIds` to them/);
+    expect(s).toMatch(/Restrict `mustPassIds`, `evidenceOnlyIds` and `coreMustPassIds` to them/);
     expect(s).toMatch(/`mustPassUncovered: \[\]`/);
     expect(s).toMatch(/`coverageFloor: null` \(no coverage floor\)/);
     expect(text()).toMatch(/Under `--criteria`, 3c's coverage floor and must-pass are overridden/);
@@ -68,15 +68,15 @@ describe('verify-build.md --criteria (D13)', () => {
     expect(t.split('## Output discipline')[1]).toMatch(/Under `--chained` \(a sweep file, or a TRD with `--criteria`\) none of the rest of this section applies/);
   });
 
-  test('step 4 still lists the same fields as implement-trd.md 8.3 (32)', () => {
+  test('step 4 still lists the same fields as implement-trd.md 8.3 (34)', () => {
     const fields = (src, marker, end) => {
       const block = src.split(marker)[1].split(end)[0];
       return [...block.matchAll(/^\s{2}([A-Za-z]+),?\s|^\s{2}([A-Za-z]+):/gm)].map((m) => m[1] || m[2]);
     };
     const v = fields(read(CORE), 'Workflow({ name: "verify-functional", args: {', '} })');
-    expect(v.length).toBe(32);
+    expect(v.length).toBe(34);
     expect(read(IMPLEMENT)).toContain('verify-functional');
-    expect(text()).toMatch(/`criterionCovers` is the one field the regression pass added: the list is the 32 fields, `blockingNote` last/);
+    expect(text()).toMatch(/`criterionCovers` is the one field the regression pass added: the list is the 34 fields, `blockingNote` last/);
   });
 
   test('names the derive-criteria command, the sweep-file {} and the failure fallback (REGR-B006)', () => {
@@ -117,10 +117,10 @@ describe('verify-build.md --criteria (D13)', () => {
       expect(s).toMatch(/`reverify\/verification-report\.md` stays the first run's report/);
       expect(s).toMatch(/`reverify\/retry\/verification-report\.md` is the retry's/);
     });
-    test('step 4 override names the retry and keeps 32 fields; RETURN line unchanged', () => {
+    test('step 4 override names the retry and keeps 34 fields; RETURN line unchanged', () => {
       const t = text();
       expect(t).toMatch(/\*\*Under `--criteria`\*\*.*retry.*reverify\/retry\//);
-      expect(t).toMatch(/the list is the 32 fields, `blockingNote` last/);
+      expect(t).toMatch(/the list is the 34 fields, `blockingNote` last/);
       expect(t).toContain('`RETURN → setup-failure, <met> of <total> met`');
     });
   });

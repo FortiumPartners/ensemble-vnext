@@ -267,6 +267,41 @@ describe('packages/skills/verify-design-comparison/SKILL.md', () => {
     });
   });
 
+  describe('Core boards (D9, D11, D15, D18)', () => {
+    test('Criteria: a map design runs design-criteria.js comparison-rows and does not enumerate frames itself', () => {
+      const section = sectionBody(parsed.body, 'Criteria');
+      expect(section).toMatch(/design-criteria\.js comparison-rows/);
+      expect(section).toMatch(/not\*\* a\s+spec page/);
+    });
+
+    test('Criteria: names the Board class column and its three values', () => {
+      const section = sectionBody(parsed.body, 'Criteria');
+      expect(section).toMatch(/Board class/);
+      expect(section).toMatch(/`core`/);
+      expect(section).toMatch(/`evidence-only`/);
+      expect(section.toLowerCase()).toMatch(/blank/);
+    });
+
+    test('Criteria: an as-is board is replaced by a to-be board with the same route, platform and viewport', () => {
+      const section = sectionBody(parsed.body, 'Criteria').toLowerCase();
+      expect(section).toMatch(/route, platform and viewport/);
+      expect(section).toMatch(/superseded/);
+    });
+
+    test('Criteria: a handoff with no design-map.json keeps the frame-per-row rule with the class blank (D18)', () => {
+      const section = sectionBody(parsed.body, 'Criteria');
+      expect(section).toMatch(/no `design-map\.json`/);
+      expect(section.toLowerCase()).toMatch(/class.*blank/s);
+    });
+
+    test('Page: labels each card Core or evidence only, and says an evidence-only deviation is not fixed', () => {
+      const section = sectionBody(parsed.body, 'Page');
+      expect(section).toMatch(/Core/);
+      expect(section.toLowerCase()).toMatch(/evidence only/);
+      expect(section.toLowerCase()).toMatch(/never blocks|not sent to debug/);
+    });
+  });
+
   describe('directory hygiene', () => {
     test('no script, template or image file ships alongside SKILL.md', () => {
       const entries = fs.readdirSync(SKILL_DIR, { withFileTypes: true })

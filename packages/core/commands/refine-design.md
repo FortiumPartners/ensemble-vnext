@@ -200,7 +200,27 @@ A caller with nobody to ask drives `--auto` through its argument. The record for
    `{ id, source }` too, or `validate` rejects a redrawn board that names it. Run `design-map.js refresh` and `validate`
    (refresh leaves `brief_items` as written; validate rejects a malformed one).
    Render per contract section 2.
-4. **Publish** per contract section 4, only the files that changed. Post a before/after on the
+   - **The Core set** (the boards whose default-state frame must pass in verification). The Core
+     rule: at most 8 boards are Core, and only `to-be` and `as-is` boards may be Core (never a part
+     or a flow board).
+     When the feedback asks for a Core change, or the map is legacy (`node .claude/lib/design-map.js
+     core --dir docs/ui/<slug>` prints `legacy: true`: no board carries a `core` key, so every screen
+     board reads Core) **and this run already changes something**, choose the set yourself (main
+     screens, normal state; on a legacy map, from the boards that read Core today) and write it:
+     ```bash
+     node .claude/lib/design-map.js core --dir docs/ui/<slug> --ids <id>,<id>
+     ```
+     This is the one map write besides `brief_items`. It is done under `--auto` too, unasked. A
+     no-change run on a legacy map stays a no-change run: it writes no `core` key and runs no
+     `core-marks` (the "No feedback" rule above wins). Name the boards left out in the brief's
+     `## Core boards` section and in the readout, and record one DECISIONS line for the choice.
+   - **Then mark the titles**, before step 4's publish, since it changes `canvas.json`:
+     ```bash
+     node .claude/lib/design-map.js core-marks --dir docs/ui/<slug>
+     ```
+     Step 1 has already adopted hand edits from the canvas, so a title edited there arrives first.
+4. **Publish** per contract section 4, only the files that changed (`canvas.json` among them when
+   `core-marks` retitled a board). Post a before/after on the
    canvas and reply to each comment you handled with `ArtifactComments`. A reply is attempted;
    if it fails, that is one ISSUES line and the run carries on. With publishing off, contract
    section 5 applies. You may let one agent publish one board after a whole-artifact read.
@@ -246,7 +266,8 @@ ISSUES, NEXT, one screen, written for someone who was not in the session). Contr
 applies. STATE counts boards by status and says which were approved this run (only by
 `--approve`). DECISIONS lists each decision taken by default this run and each answer applied, by id and with
 its question ("OD-2 (which currency to show): taken USD"); a weak default goes to ISSUES instead.
-ISSUES lists conflicts (each with its `.repo.dc.html` path), design-system drift,
+When the Core set was chosen this run, DECISIONS carries one line for it and STATE names the boards
+left out of it. ISSUES lists conflicts (each with its `.repo.dc.html` path), design-system drift,
 boards edited after approval, open review findings, unanswered comments and a failed reply.
 NEXT names `/design-system --sync` first when the system is stale, then `/sync-design <slug>` when
 boards are unsynced, then `/audit-design <slug>`,
@@ -294,6 +315,8 @@ destructive operation, or a STUCK condition after retries. Otherwise decide, doc
 - Approve a board `--approve` did not name (a comment, a chat remark or `--auto` alone never
   approves), or move status by editing the map by hand.
 - Edit `design.md`, or ask a question under `--auto`.
+- Write `design-map.json` except `brief_items` on redrawn boards and the Core set through
+  `core --ids`; or write a `core` key on a run that changed nothing.
 - Rewrite boards the feedback does not touch, or republish unchanged files.
 - Delete a `.repo.dc.html` conflict copy, or fold the adopt commit into another commit.
 - Chain into another command; NEXT names them.

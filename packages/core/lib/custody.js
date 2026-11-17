@@ -465,8 +465,8 @@ function readJson(p) {
 /**
  * The must-pass ids a change puts in doubt. `shipped` and `excused` are the SHIPPED-class paths that
  * differ / came in from the base. The set comes from the one reader,
- * `functional-verification.js must-pass-coverage` (an id is must-pass only when the TRD declares
- * it); every uncovered must-pass objective counts too (it never had a proof).
+ * `functional-verification.js must-pass-coverage` (an id is must-pass when the TRD declares it, or when
+ * its `Board class` is `core`; an `evidence-only` row is not); every uncovered must-pass objective counts too (it never had a proof).
  *
  * Covers per id: live-evidence artifact covers -> the criterion-covers record -> none. Everything is
  * in doubt (a) with `shipped: 'all'`, or (b) when a path was `promoted` (tier `reprove`: no covers

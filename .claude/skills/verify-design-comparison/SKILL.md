@@ -50,9 +50,14 @@ All of the above are parameters supplied per project — none is a constant of t
 
 ## Criteria
 
-The orchestrator appends one row to `success-definition.md` per frame file that is **not** a
-spec page (spec pages document behaviour, not a screen, and contribute no criterion — they
-render as their own card in Page, below).
+**With a `design-map.json`**, the rows are not enumerated by hand: run
+`node .claude/lib/design-criteria.js comparison-rows --dir docs/ui/<slug>` and append what it
+returns. It decides which boards and frames yield a row, the `Board class` of each, and lists
+any frame PNG that is `missing`. **With no `design-map.json`** (a handoff of exported PNGs or
+Figma frames), the orchestrator appends one row to `success-definition.md` per frame file that
+is **not** a spec page, and `Board class` stays blank (ordinary) on every row. Spec pages
+document behaviour, not a screen, and contribute no criterion — they render as their own card
+in Page, below.
 
 | Column | Value |
 |---|---|
@@ -64,14 +69,20 @@ render as their own card in Page, below).
 | Tier 1 | `judge-only — a pictorial comparison against the design frame; no text assertion is possible` |
 | Parts | blank |
 
-**With a `design-map.json`**, which frames get a row follows the board's `status` and `kind`:
+Every row also carries a `Board class` cell: `core` (must-pass, no objective id; the default
+frame of a board the map marks Core), `evidence-only` (a state frame, or a frame of a board
+not marked Core: shown on the page, never blocks) or blank (ordinary, the map-less rule).
+
+The command's rule for which frames get a row follows the board's `status` and `kind`:
 
 - A **to-be board** with status `approved`, `building` or `shipped` is a requirement: each of
   its frames (`NN-name--state.png` in `screens/png/`; every state is its own frame stem) yields
   a `DC-` row. A to-be board in any other status is not a requirement and yields none.
 - An **as-is board** not replaced by an in-scope to-be board is a **regression baseline**: a
   screen the design did not mean to change must still match it, and it yields a `DC-` row too,
-  except a board with `screenshot_match: false`, which yields none (its `mismatch_note` says why).
+  except a board with `screenshot_match: false`, which yields none (its `mismatch_note` says why),
+  and a `superseded` board, which is History and yields none. A to-be board that yields rows
+  replaces an as-is board with the same route, platform and viewport.
 - A **parts** or **flow** board has no screen route, so it yields no `DC-` row here. A parts
   board has no components to walk either: `verify-design-structure` gives it a row reported "not
   verifiable here" (AC-F12.5), so it is visible in the report rather than silently unchecked.
@@ -221,6 +232,9 @@ into the source tree.
   present, each carrying its frame count, plus an "All `<n>`" chip; a coloured jump strip with
   one entry per frame linking to its card.
 - **One card per frame**, each showing:
+  - a **Core** or **evidence only** label from the criterion's `Board class` (blank shows
+    neither). An evidence-only card that `deviates` is still ruled `not_met` and stays on the
+    page for review, but it never blocks the run and is not sent to Debug;
   - its **criterion ID** (`DC-<frame stem>`) as the card's visible label, so an owner comment
     naming the card resolves to a criterion (D18);
   - a plain title and the status pill;

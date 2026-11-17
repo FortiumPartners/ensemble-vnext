@@ -160,6 +160,30 @@ describe('create-design stage ground', () => {
     expect(logs.join('\n')).toMatch(/returned nothing: data/);
   });
 
+  it('caps Core at 8 in code, keeps the rest drawn with core false and names them in core_left_out', async () => {
+    const ten = { ...BRIEF, screens: Array.from({ length: 10 }, (_, i) => screen(i + 1, { core: true })), core_left_out: [{ name: 'Admin', why: 'secondary' }] };
+    const { result, agent } = await run(groundArgs(), { brief: ten });
+    expect(result.screens).toHaveLength(10);
+    expect(result.screens.filter((s) => s.core === true)).toHaveLength(8);
+    expect(result.screens.slice(0, 8).every((s) => s.core === true)).toBe(true);
+    expect(result.screens.slice(8).every((s) => s.core === false)).toBe(true);
+    expect(result.core_left_out).toEqual([
+      { name: 'Admin', why: 'secondary' },
+      { name: 'Screen 9', why: 'over the cap of 8' },
+      { name: 'Screen 10', why: 'over the cap of 8' },
+    ]);
+    const { schema } = byLabel(agent, 'brief').opts;
+    expect(schema.required).toEqual(expect.arrayContaining(['screens', 'core_left_out']));
+    expect(schema.properties.screens.items.required).toContain('core');
+    expect(flatP(byLabel(agent, 'brief').prompt)).toContain('## Core boards');
+  });
+
+  it('reads a missing core as false, never as Core', async () => {
+    const { result } = await run(groundArgs());
+    expect(result.screens[0].core).toBe(false);
+    expect(result.core_left_out).toEqual([]);
+  });
+
   it('fails loudly when the brief agent dies', async () => {
     await expect(run(groundArgs(), { brief: undefined })).rejects.toThrow(/Brief stage/);
   });
@@ -179,6 +203,21 @@ describe('create-design stage draw', () => {
     expect(tobe.every((c) => c.at > byLabel(agent, 'parts').at)).toBe(true);
     expect(parallel.waves.filter((w) => w.size === 3)).toHaveLength(2); // as-is wave and to-be wave
     expect(parallel.waves.filter((w) => w.size === 4)).toHaveLength(1); // 3 screens + the parts agent
+  });
+
+  it('puts core on to-be records, core false on as-is records and no core key on parts', async () => {
+    const { result } = await run(drawArgs(2, { boardsInScope: [screen(1, { core: true }), screen(2)] }));
+    const byId = (id) => result.boards.find((x) => x.id === id);
+    expect(byId('01-screen-1').core).toBe(true);
+    expect(byId('02-screen-2').core).toBe(false);
+    for (const b of result.boards.filter((x) => x.kind === 'as-is')) expect(b.core).toBe(false);
+    for (const b of result.boards.filter((x) => x.kind === 'part')) expect('core' in b).toBe(false);
+    expect(result.boards.some((x) => x.kind === 'part')).toBe(true);
+  });
+
+  it('carries core onto the chosen explore direction', async () => {
+    const { result } = await run(drawArgs(1, { explore: true, boardsInScope: [screen(1, { core: true })] }));
+    expect(result.boards.find((x) => x.kind === 'to-be').core).toBe(true);
   });
 
   it('requires brief_items from every to-be draw agent', async () => {

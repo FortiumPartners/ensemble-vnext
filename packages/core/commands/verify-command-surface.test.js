@@ -263,14 +263,14 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 32 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
-  test('implement-trd.md §8.3 lists 32 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered/verificationDigest/preclassified/offHostProofs/blocking/blockingNote, with setupTargets after coverageFloor', () => {
+describe('both dispatch blocks carry the same 34 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
+  test('implement-trd.md §8.3 lists 34 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered/verificationDigest/preclassified/offHostProofs/blocking/blockingNote, with setupTargets after coverageFloor', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(32);
+    expect(fields).toHaveLength(34);
     expect(fields.indexOf('criterionCovers')).toBe(fields.indexOf('liveEvidence') + 1);
     expect(fields.indexOf('setupTargets')).toBe(fields.indexOf('coverageFloor') + 1);
-    expect(fields.slice(-10)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered', 'verificationDigest', 'preclassified', 'offHostProofs', 'blocking', 'blockingNote']);
+    expect(fields.slice(-12)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered', 'evidenceOnlyIds', 'coreMustPassIds', 'verificationDigest', 'preclassified', 'offHostProofs', 'blocking', 'blockingNote']);
   });
 
   test('implement-trd.md §8.3 names the derive-criteria command, the sweep-file {} and the failure fallback (REGR-B006)', () => {
@@ -302,14 +302,14 @@ describe('both dispatch blocks carry the same 32 fields in the same order (VSET-
     expect(t).toMatch(/`offHostProofs` is recomputed with `--ids <retry set>`/);
   });
 
-  test('verify-build.md §4 lists the identical 32 fields in the identical order', () => {
+  test('verify-build.md §4 lists the identical 34 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 32 fields, not 31, 30, 29, 28, 26, 25, 23, 22, 21 or 18', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 32 fields/);
+  test('verify-build.md §4 intro says 34 fields, not 32, 31, 30, 29, 28, 26, 25, 23, 22, 21 or 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 34 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 30 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 29 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 28 fields/);
@@ -416,9 +416,13 @@ describe('implement-trd.md §8.1b appends check criteria in the right place, doi
     expect(flat(src())).toMatch(/omitted an applicable check.*reason/i);
   });
 
-  test('§9.0a publishes each check page under the same publishArtifacts switch and stores the URL under the skill name', () => {
+  test('§9.0a asks the resolver per check skill, publishes each check page on publish: on and stores the URL under the skill name', () => {
     const section = flat(src().split('### 9.0a')[1].split('### 9.1')[0]);
     expect(section).toMatch(/publish each selected check's page/);
+    expect(section).toContain('artifacts.js publish --kind <skill>');
+    expect(section).toContain('artifacts.js publish --kind verification-report');
+    expect(section).toMatch(/`--url ""`/);
+    expect(section).toMatch(/--no-verify/);
     expect(section).toMatch(/files:/);
     expect(section).toMatch(/ALWAYS record each page that is on disk/);
     expect(section).toContain('--kind <skill> --path <pagesDir>/<skill>/index.html');
@@ -715,7 +719,7 @@ describe('process docs describe the new default', () => {
 describe('verify-build.md argument-hint', () => {
   test('argument-hint carries --no-fix and --fix [plan-path]', () => {
     expect(read(CORE_VERIFY_BUILD)).toMatch(
-      /argument-hint: "\[trd-path\] \[--resume\] \[--cap N\] \[--no-fix\] \[--fix \[plan-path\]\] \[--criteria <ids>\] \[--chained\]"/
+      /argument-hint: "\[trd-path\] \[--resume\] \[--cap N\] \[--no-fix\] \[--fix \[plan-path\]\] \[--criteria <ids>\] \[--publish\] \[--chained\]"/
     );
   });
 });
@@ -1903,7 +1907,7 @@ describe('report publish sequence (verification-report-images D10): one written 
 
   test("/verify-build step 6's republish points at the Artifact link section", () => {
     const step6 = flat(read(CORE_VERIFY_BUILD).split('6. **Render and close.**')[1].split('Its `criteria` input')[0]);
-    expect(step6).toMatch(/republish it[^.]*Artifact link/i);
+    expect(step6).toMatch(/republish it.*publish --kind verification-report.*Artifact link/i);
   });
 });
 
@@ -1987,15 +1991,16 @@ describe.each([
     expect(text).toContain('One text, written once, printed as written.');
   });
 
-  test(`records through artifacts.js with --kind ${cmd}, the command, and --url "" (never published)`, () => {
+  test(`asks the resolver with --kind ${cmd}, then records through artifacts.js, clearing the link on publish: off`, () => {
+    expect(text).toContain(`node .claude/lib/artifacts.js publish --kind ${cmd}`);
+    expect(text).toContain('--requested');
+    expect(text).toContain('`publish: on`');
+    expect(text).toContain('`publish: off (…)`');
+    expect(text).not.toMatch(/never published/);
+    expect(text).not.toContain('publishArtifacts');
     expect(text).toContain(
       `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind ${cmd} --path .trd-state/<feature>/${cmd}-report.md --command /${cmd} --url ""`,
     );
-    expect(text).toMatch(/never published/);
-    // A stored link would point at an old page: the report is never published, so it is
-    // cleared, not kept and named in STATE.
-    expect(text).not.toContain(`artifacts.js get --state-dir .trd-state/<feature> --kind ${cmd}`);
-    expect(text).not.toMatch(/keeps a URL already stored/);
   });
 
   test('a failed write or record is one line in STATE, never STUCK; no commit step', () => {
@@ -2129,7 +2134,7 @@ describe('implement-trd.md verification-preflight surface (VPRE-B005)', () => {
     const t = src();
     expect(t.split('\n')[3]).toMatch(/\[--sweep-flag <text>\]/);
     expect(flat(t)).toMatch(/`--sweep-flag "<text>"` - \*\*For callers only\*\*/);
-    expect(flat(t.split('## User Input')[1].split('## Execution Model')[0])).toMatch(/`--chained`, `--shipping`, `--sweep-flag "<text>"`/);
+    expect(flat(t.split('## User Input')[1].split('## Execution Model')[0])).toMatch(/`--chained`, `--publish`, `--shipping`, `--sweep-flag "<text>"`/);
   });
 
   test('outcome lists name setup-failure', () => {
@@ -2372,7 +2377,7 @@ describe('ship-build: implement-trd --shipping and Step 7.2 recording', () => {
   const sec = (from, to) => flat(text.split(from)[1].split(to)[0]);
 
   test('argument-hint and User Input carry --shipping', () => {
-    expect(text).toMatch(/argument-hint: "[^"]*\[--chained\] \[--shipping\] \[--sweep-flag <text>\]"/);
+    expect(text).toMatch(/argument-hint: "[^"]*\[--chained\] \[--publish\] \[--shipping\] \[--sweep-flag <text>\]"/);
     expect(flat(text.split('## User Input')[1].split('## Execution Model')[0])).toMatch(/`--shipping`/);
   });
 
@@ -2629,10 +2634,10 @@ describe('blocking policy wiring in implement-trd.md and verify-build.md', () =>
     }
   });
 
-  test('the field-count prose says 32 in verify-build.md', () => {
+  test('the field-count prose says 34 in verify-build.md', () => {
     const t = vb();
-    expect(t).toMatch(/the list is the 32 fields, `blockingNote` last/);
-    expect(t).toMatch(/with the same 32 fields except/);
+    expect(t).toMatch(/the list is the 34 fields, `blockingNote` last/);
+    expect(t).toMatch(/with the same 34 fields except/);
     expect(t).not.toMatch(/the 31 fields|same 31 fields/);
   });
 
@@ -2752,7 +2757,7 @@ describe('audit-build caller-only modes (ABFV-B002)', () => {
   });
 
   test('"Write the records, once, last" is one record-ref.js write per run, re-audit, capped and --report-only included', () => {
-    const t = between(ab, '**Write the records, once, last.**', '**With publishing off');
+    const t = between(ab, '**Write the records, once, last.**', '**With `publish: off`');
     expect(t).toContain('node .claude/lib/record-ref.js write --state-dir .trd-state/<feature> --command /audit-build');
     expect(t).toMatch(/exactly one, a re-audit, a capped audit and `--report-only` included/);
     expect(t).toMatch(/never a gate and never STUCK/);
@@ -3047,5 +3052,59 @@ describe('verify-build.md completes the held-back close (ABFV-B004)', () => {
 
   test('mirror is byte-identical', () => {
     expect(read(CLAUDE_VERIFY_BUILD)).toBe(raw);
+  });
+});
+
+// CBD-B008 (core-boards-in-designs D16, D17): where must-pass coverage is read, and the class fields.
+describe('Core boards: coverage read at the end of 8.1b, class fields dispatched (CBD-B008)', () => {
+  const impl = () => flat(read(CORE_IMPLEMENT));
+  const sec = (a, b) => {
+    const t = read(CORE_IMPLEMENT);
+    return flat(t.slice(t.indexOf(a), t.indexOf(b)));
+  };
+  const s81 = () => sec('### 8.1 Resolve the definition', '### 8.1b Append the check criteria');
+  const s81b = () => sec('### 8.1b Append the check criteria', '### 8.2 The `--resume` composition');
+
+  test('the must-pass-coverage call lives once, in 8.1b, not in 8.1', () => {
+    expect(s81()).not.toMatch(/functional-verification\.js must-pass-coverage/);
+    expect(s81b()).toMatch(/functional-verification\.js must-pass-coverage/);
+    expect(impl().match(/functional-verification\.js must-pass-coverage/g)).toHaveLength(1);
+  });
+
+  test('the stale "nothing here needs redoing" sentence is gone and 8.1 maps Board class', () => {
+    expect(impl()).not.toMatch(/nothing here needs redoing/);
+    expect(s81()).toMatch(/`Board class` → `boardClass`/);
+  });
+
+  test('8.1b runs comparison-rows, reports missing frames, adds the column and cross-checks sets', () => {
+    const t = s81b();
+    expect(t).toMatch(/design-criteria\.js comparison-rows --dir docs\/ui\/<slug>/);
+    expect(t).toMatch(/`missing`/);
+    expect(t).toMatch(/add the header, its separator cell and a blank cell/);
+    expect(t).toMatch(/compare sets, not counts/);
+    expect(t).toMatch(/second mismatch is one ISSUES line/);
+    expect(t).toMatch(/pass `\[\]`\s+for all four/);
+  });
+
+  test('8.2 repoints to 8.1b and 8.3 lists the class fields right after mustPassUncovered', () => {
+    expect(flat(read(CORE_IMPLEMENT))).toMatch(/also runs §8\.1b's `must-pass-coverage` call/);
+    const f = extractDispatchFields(read(CORE_IMPLEMENT));
+    const i = f.indexOf('mustPassUncovered');
+    expect(f.slice(i, i + 3)).toEqual(['mustPassUncovered', 'evidenceOnlyIds', 'coreMustPassIds']);
+  });
+
+  test('verify-build holds both fields, runs the tail at 3c only, and restricts both under --criteria', () => {
+    const vb = flat(read(CORE_VERIFY_BUILD));
+    expect(vb).toMatch(/Stop before §8\.1b's last two steps/);
+    expect(vb).toMatch(/§8\.1b steps 7 and 8/);
+    expect(vb).toMatch(/`evidenceOnly` \(sent as `evidenceOnlyIds`\)/);
+    expect(vb).toMatch(/`evidenceOnlyIds` is `evidenceOnly` and `coreMustPassIds` is `coreCriteria`, each restricted/);
+    expect(vb).toMatch(/Restrict `mustPassIds`, `evidenceOnlyIds` and `coreMustPassIds` to them/);
+    expect(vb).toMatch(/`mustPassIds`, `evidenceOnlyIds` and `coreMustPassIds` are restricted to it/);
+  });
+
+  test('package and .claude copies are identical', () => {
+    expect(read(CLAUDE_IMPLEMENT)).toBe(read(CORE_IMPLEMENT));
+    expect(read(CLAUDE_VERIFY_BUILD)).toBe(read(CORE_VERIFY_BUILD));
   });
 });

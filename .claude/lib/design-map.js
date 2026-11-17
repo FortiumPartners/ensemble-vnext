@@ -13,7 +13,7 @@
  * argument array, never a shell string.
  *
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1):
- *   node .claude/lib/design-map.js <read|validate|refresh|transition|stale|approved|buildable|held|unsynced|setup|direction|approve>
+ *   node .claude/lib/design-map.js <read|validate|refresh|transition|stale|approved|buildable|held|unsynced|setup|direction|approve|core|core-marks>
  *     --dir docs/ui/<slug> [--ids a,b] [--items S1,S2] [--to <status>] [--commit <sha>] [--trd <path>] [--record]
  *     approve: --ids a,b [--commit <sha>] [--runtime <path>, default the pinned runtime] [--reapprove] [--message <text>]
  *   node .claude/lib/design-map.js buildable --dir docs/ui/<slug> --items S2,S3 [--ids a,b]
@@ -24,6 +24,12 @@
  *     records that the recorded canvas (or design system) was republished at a new URL; see republished().
  *   node .claude/lib/design-map.js caveats --dir docs/ui/<slug>
  *     reads (never writes) the brief's `## Accessibility caveats` bullets and design.md section 4; see caveats().
+ *   node .claude/lib/design-map.js core --dir docs/ui/<slug> [--ids a,b]
+ *     prints the Core report (which boards are Core, the cap, the Core errors); with --ids sets exactly
+ *     those boards Core (to-be and as-is only, at most 8), validates, writes, and prints the report.
+ *     An empty --ids value, an unknown id, a part or flow id, or a ninth id is an error and writes nothing.
+ *   node .claude/lib/design-map.js core-marks --dir docs/ui/<slug>
+ *     makes each canvas.json board title carry "[Core] " exactly when its board is Core; see coreMarks().
  *   node .claude/lib/design-map.js unsynced --all [--trd <path>]   (scans every design under docs/ui)
  *   node .claude/lib/design-map.js setup [--dir <project>] [--file <design.md path>]   (--file: e.g. owner-rules.js path design.md)
  *   ... unsynced ... --merged-into <ref> [--merged-head <sha>]   (only boards whose feature's audited commit is merged)
@@ -41,6 +47,11 @@ const MAP_FILE = 'design-map.json';
 const KINDS = ['as-is', 'to-be', 'part', 'flow'];
 const STATUSES = ['draft', 'approved', 'building', 'shipped', 'superseded'];
 const REQUIRED_BOARD_FIELDS = ['id', 'file', 'kind', 'platform', 'viewport', 'status'];
+// Core boards: the few main screens whose build is held to a pixel comparison. See isCore().
+const CORE_CAP = 8;
+const CORE_KINDS = ['to-be', 'as-is'];
+const CORE_MARK = '[Core] ';
+const CANVAS_JSON = 'canvas.json'; // design-mirror.js owns this literal but requires this module: repeated, not imported
 const DEFAULT_MIRROR_DIR = 'canvas/project';
 const DESIGN_RULES = path.join('.claude', 'rules', 'design.md');
 const DESIGN_TEMPLATE = path.join('.claude', 'skills', 'design-setup', 'template.md');
@@ -146,7 +157,145 @@ function validate(map) {
       errors.push(`board ${name}: canvas is required when there is more than one canvas`);
     }
   }
+  errors.push(...coreErrors(map));
   return errors;
+}
+
+const hasCoreKey = (b) => !!b && typeof b === 'object' && Object.prototype.hasOwnProperty.call(b, 'core');
+
+/** The boards the cap counts: explicit `core: true` on a board that is not superseded. */
+const markedCore = (boards) => boards.filter((b) => hasCoreKey(b) && b.core === true && b.status !== 'superseded');
+
+/** The Core rules of validate(): a bad value, a core key on any board that is not to-be or as-is (a part, a flow, or one with no kind), too many Core boards. */
+function coreErrors(map) {
+  const errors = [];
+  const boards = Array.isArray(map && map.boards) ? map.boards : [];
+  for (const b of boards) {
+    if (!hasCoreKey(b)) continue;
+    const name = b.id ? b.id : '(no id)';
+    if (typeof b.core !== 'boolean') errors.push(`board ${name}: core must be true or false`);
+    if (!CORE_KINDS.includes(b.kind)) errors.push(`board ${name}: core is allowed only on to-be and as-is boards`);
+  }
+  const marked = markedCore(boards);
+  if (marked.length > CORE_CAP) {
+    errors.push(`${marked.length} Core boards; at most ${CORE_CAP} may be Core: ${marked.map((b) => b.id).join(', ')}`);
+  }
+  return errors;
+}
+
+/** True when no board carries a `core` key: a map drawn before the field, where every screen board is Core. */
+function isLegacyCore(map) {
+  return !(Array.isArray(map && map.boards) ? map.boards : []).some(hasCoreKey);
+}
+
+/**
+ * Whether a board is a Core board. A superseded board never is (it sits on the History page, and the
+ * cap and the generator exclude it). On a legacy map every to-be and as-is board is; otherwise only
+ * `core: true` is, so a board with no key on a map that has keys reads false.
+ */
+function isCore(map, board) {
+  if (!board || board.status === 'superseded') return false;
+  return isLegacyCore(map) ? CORE_KINDS.includes(board.kind) : board.core === true;
+}
+
+/** The boards isCore reads true, in map order. */
+function coreBoards(map) {
+  return (Array.isArray(map && map.boards) ? map.boards : []).filter((b) => isCore(map, b));
+}
+
+/** { legacy, core: ids, cap, over_cap, errors } -- what `core` prints. */
+function coreReport(map) {
+  const boards = Array.isArray(map && map.boards) ? map.boards : [];
+  return {
+    legacy: isLegacyCore(map),
+    core: coreBoards(map).map((b) => b.id),
+    cap: CORE_CAP,
+    over_cap: markedCore(boards).length > CORE_CAP,
+    errors: coreErrors(map),
+  };
+}
+
+/**
+ * Pure copy of the map with exactly `ids` Core: `core: true` on them, `core: false` on every other
+ * to-be and as-is board, part and flow boards untouched. Throws, naming the cause, on an unknown id,
+ * a part or flow, a superseded board, or a result that would not validate (a ninth Core board).
+ */
+function setCore(map, ids) {
+  const next = JSON.parse(JSON.stringify(map));
+  const want = new Set(ids);
+  for (const id of want) {
+    const b = next.boards.find((x) => x && x.id === id);
+    if (!b) throw new Error(`no board ${id}`);
+    if (!CORE_KINDS.includes(b.kind)) throw new Error(`board ${id}: only to-be and as-is boards can be Core, not ${b.kind}`);
+    if (b.status === 'superseded') throw new Error(`board ${id}: a superseded board cannot be Core`);
+  }
+  for (const b of next.boards) if (b && CORE_KINDS.includes(b.kind)) b.core = want.has(b.id);
+  const errors = validate(next);
+  if (errors.length) throw new Error(`the map would not validate: ${errors.join('; ')}`);
+  return next;
+}
+
+/**
+ * Make each canvas.json board title carry "[Core] " exactly when a Core board uses that file.
+ * canvas.json holds `boards` as an object keyed by board FILE name; only `boards[file].title` is
+ * edited, never the top-level title. Boards sharing one file (a shipped to-be board and the as-is
+ * board added for it) share one entry: it is marked when ANY of them is Core, whatever their order.
+ * Writes a canvas.json only when a title changed. A missing canvas.json is a no-op; malformed JSON throws.
+ * @returns {{marked: string[], unmarked: string[], missing: string[]}} board ids: titles newly
+ *   marked, titles stripped, Core boards with no entry
+ */
+function coreMarks(dir) {
+  const map = read(dir);
+  const out = { marked: [], unmarked: [], missing: [] };
+  const groups = new Map(); // canvas.json path -> Map(file -> boards)
+  for (const b of map.boards) {
+    if (!b || !b.file) continue;
+    const cj = path.join(mirrorDir(map, dir, b), CANVAS_JSON);
+    if (!groups.has(cj)) groups.set(cj, new Map());
+    const files = groups.get(cj);
+    if (!files.has(b.file)) files.set(b.file, []);
+    files.get(b.file).push(b);
+  }
+  for (const [cj, files] of groups) {
+    if (!fs.existsSync(cj)) continue;
+    let doc;
+    try {
+      doc = JSON.parse(fs.readFileSync(cj, 'utf8'));
+    } catch (e) {
+      throw new Error(`${cj} is not valid JSON: ${e.message}`);
+    }
+    const entries = doc && doc.boards && typeof doc.boards === 'object' ? doc.boards : {};
+    let changed = false;
+    for (const [file, boards] of files) {
+      const core = boards.filter((b) => isCore(map, b));
+      const entry = entries[file];
+      if (!entry || typeof entry !== 'object') {
+        out.missing.push(...core.map((b) => b.id));
+        continue;
+      }
+      const title = typeof entry.title === 'string' ? entry.title : '';
+      if (core.length > 0 && !title.startsWith(CORE_MARK)) {
+        entry.title = CORE_MARK + title;
+        out.marked.push(...core.map((b) => b.id));
+        changed = true;
+      } else if (core.length === 0 && title.startsWith(CORE_MARK)) {
+        entry.title = title.slice(CORE_MARK.length);
+        out.unmarked.push(...boards.map((b) => b.id));
+        changed = true;
+      }
+    }
+    if (changed) {
+      const tmp = `${cj}.tmp.${process.pid}.${Date.now()}`;
+      try {
+        fs.writeFileSync(tmp, JSON.stringify(doc, null, 2) + '\n');
+        fs.renameSync(tmp, cj);
+      } catch (e) {
+        try { fs.unlinkSync(tmp); } catch (_) { /* nothing to clean */ }
+        throw e;
+      }
+    }
+  }
+  return out;
 }
 
 /** Unique values in first-appearance order. */
@@ -192,8 +341,13 @@ function derive(source, fileToId) {
  */
 /** A board's source file on disk: its canvas's mirror folder (the first canvas when unnamed). */
 function boardPath(map, dir, b) {
+  return path.join(mirrorDir(map, dir, b), b.file);
+}
+
+/** A board's canvas mirror folder (the first canvas when unnamed); boardPath and coreMarks share it. */
+function mirrorDir(map, dir, b) {
   const canvas = (map.canvases || []).find((c) => c.url === b.canvas) || (map.canvases || [])[0] || {};
-  return path.join(dir, canvas.dir || DEFAULT_MIRROR_DIR, b.file);
+  return path.join(dir, canvas.dir || DEFAULT_MIRROR_DIR);
 }
 
 function refresh(dir) {
@@ -722,6 +876,18 @@ async function main(argv) {
       write(opts.dir, next);
       return next;
     }
+    case 'core': {
+      const map = read(opts.dir);
+      if (opts.ids === undefined) return coreReport(map);
+      // `--ids ""` parses as a value and idList('') is undefined: test the flag, not its truthiness,
+      // or an empty selection would fall through to the read-only report and exit 0.
+      const ids = idList(opts.ids) || [];
+      if (ids.length === 0) throw new Error('--ids needs at least one board id');
+      const next = setCore(map, ids);
+      write(opts.dir, next);
+      return coreReport(next);
+    }
+    case 'core-marks': return coreMarks(opts.dir);
     case 'caveats': return caveats(opts.dir);
     case 'republished': return republished(opts.dir, { kind: opts.kind, old: opts.old, new: opts.new });
     case 'approve': return approve(opts.dir, {
@@ -731,7 +897,7 @@ async function main(argv) {
   }
 }
 
-module.exports = { read, write, validate, derive, refresh, transition, stale, approved, buildable, buildableByItems, held, unsynced, unsyncedAll, setup, direction, caveats, approve, republished, parseArgs, KINDS, STATUSES };
+module.exports = { read, write, validate, derive, refresh, transition, stale, approved, buildable, buildableByItems, held, unsynced, unsyncedAll, setup, direction, caveats, approve, republished, parseArgs, KINDS, STATUSES, CORE_CAP, CORE_KINDS, CORE_MARK, isLegacyCore, isCore, coreBoards, coreReport, setCore, coreMarks };
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(

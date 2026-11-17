@@ -12,9 +12,33 @@ the work is actually released.
 
 ## [Unreleased]
 
+**Publishing is set per kind (#40).** `ensemble.publishArtifacts` takes three shapes: `true` (the
+per-kind defaults), `false` (every publish off, even for a `--publish` request) or an object of
+per-kind booleans. By default TRDs, `/task` reports, design rounds and the design system publish;
+PRDs, audit reports, verification reports, check pages and the docs-audit change set do not, unless
+the run passes the new `--publish` flag. Commands now ask `node .claude/lib/artifacts.js publish
+--kind <kind>` instead of reading the setting, and a kind that reads off clears its stored link.
+**Behaviour change:** projects that relied on PRDs and reports publishing under the old
+`true` now get a link only with `--publish` or `{ "prd": true }`; `false` is unchanged. A test
+(`publish-switch-prose.test.js`) fails if a command or contract reads the old boolean again.
+
 **Re-proof scope is narrowed three ways**, so a change re-proves what it can affect and no more
 (#153, #154, #155). Quality is kept: a file or criterion nothing can be related to still widens to
 the full set.
+
+### Added
+
+- **Per-feature verification run limit.** A feature gets at most `ensemble.verificationRunLimit`
+  counted verification runs (any integer of at least 1, default 2; an invalid value stops the
+  command). At the limit `/verify-build`, `/implement-trd` and `/refine-verification` write
+  `ruling-request.md` for the product PM (ship, fix one named thing, or drop; what is shipped or
+  dropped is filed as a defect issue) instead of starting another run. Runs are counted by the new
+  `verification-runs.js` in `implement.json`; `--reset-state` clears the count, `setup-failure`
+  counts, runs before this release are not counted. Refine-verification TRD O4 is marked amended.
+
+### Not yet proven
+
+- The limit end to end in a live model session (VRL-T001) has not been run.
 
 ### Fixed
 

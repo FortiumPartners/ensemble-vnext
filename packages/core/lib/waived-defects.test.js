@@ -263,6 +263,18 @@ describe('waived-defects', () => {
     );
   });
 
+  test('an issue filed from a ruling row says the PM ruled, not that must-pass-only waived it', () => {
+    const { stateDir } = setup({ waived: [] });
+    fv.recordNonBlockingFollowups(stateDir, [{ id: 'C-1', reason: 'shipped as is by ruling 2026-11-16' }]);
+    const [row] = wd.listWaived(stateDir);
+    const { body } = wd.buildIssue(stateDir, row);
+    expect(body).toContain("Shipped as is by the product PM's ruling");
+    expect(body).not.toContain('Blocking: must-pass only');
+    expect(body).not.toContain('it is not must-pass');
+    const dropped = wd.waiverLine('audit', 'drop');
+    expect(dropped).toContain("Dropped by the product PM's ruling");
+  });
+
   test('closedBy owner words the waiver line for a feature its owner closed', () => {
     const { root, stateDir } = setup();
     const s = stub();

@@ -766,6 +766,13 @@ listed is a to-be board from `docs/ui/<slug>` that this run builds, approved by 
   A board that is not in the `DESIGN SOURCE` list (a `draft` part) produces no task, is not cited as a task's reference, and is
   not argued into scope in an open question. The command has already held back any board that embeds a draft part; if you still find one, write no task for it and say so in
   the readout.
+- **Forced-state tests.** A task built from a non-Core board, or from a non-default state of a
+  Core board, names in its acceptance criteria a component test that forces that state (from the
+  board's `states.<name>.props` or tweak), because its comparison row is evidence only; a Core
+  board's default state is proven by its comparison row. Read which boards are Core from
+  `node .claude/lib/design-map.js core --dir docs/ui/<slug>` (its `core` list, which applies the
+  legacy rule), never from a board's `core` key: the list you are shown holds only to-be boards
+  in `draft` or `approved`, so it cannot tell a legacy map from an explicit one.
 - **Select the four design checks** in `## Verification Artifacts`, citing real repository paths
   as Inputs: `verify-design-comparison` (`docs/ui/<slug>/design-map.json`,
   `docs/ui/<slug>/screens/png/`), `verify-flow-as-built` (`docs/ui/<slug>/design-map.json`),

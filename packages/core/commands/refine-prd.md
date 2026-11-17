@@ -2,7 +2,7 @@
 name: refine-prd
 description: Refine and enhance existing PRD with stakeholder feedback and additional detail
 version: 1.0.0
-argument-hint: "[path-to-prd] [--auto] [feedback]"
+argument-hint: "[path-to-prd] [--auto] [--publish] [feedback]"
 # Expensive, and its description matches how a user would phrase the task —
 # so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
 disable-model-invocation: true
@@ -217,8 +217,10 @@ This command operates within the vendored `.claude/` runtime structure:
 ## Usage
 
 ```
-/refine-prd [path-to-prd] [--auto] [feedback]
+/refine-prd [path-to-prd] [--auto] [--publish] [feedback]
 ```
+
+`--publish` — publish this run's document even where the kind is off by default (a standalone flag token; `ensemble.publishArtifacts: false` still wins). A PRD does not publish by default. Strip the flag from the feedback before using it.
 
 **Path Resolution:**
 - If `<path-to-prd>` is provided, use that path directly
@@ -248,14 +250,14 @@ After refinement:
 ### Artifact link (see `.claude/rules/command-status.md`)
 
 First read any stored URL: `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind prd`
-(empty output means none). Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the refined PRD with
+(empty output means none). Ask first: `node .claude/lib/artifacts.js publish --kind prd` (add `--requested` when this run's arguments carry `--publish`). On `publish: on`, publish the refined PRD with
 `Artifact({ file_path: "docs/PRD/<feature>.md", icon: "document" })` — the markdown FILE, never a
 rendering of it — passing the stored URL as `url:` when there is one. Emit the link ABOVE the
-banner. A failed publish is one line of prose and nothing more; it never blocks the banner.
+banner. A failed publish is one line of prose and nothing more; it never blocks the banner. On `publish: off (…)`, make no publish call and name the local path. A resolver error (a non-zero exit, or output with no `publish:` line) reads as `publish: off`, never as on, plus one ISSUES line: "publish setting could not be read: <stderr>".
 
 **Then ALWAYS record the document, whether or not publishing is on** (this sits outside the
 publish switch): `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind prd --path docs/PRD/<feature>.md --command /refine-prd`,
-adding `--url <returned URL>` only when a publish returned one. No command writes `artifacts.json` by hand.
+adding `--url <returned URL>` only when a publish returned one (on `publish: off`, pass `--url ""`). No command writes `artifacts.json` by hand.
 
 **End your final turn with the banner — last line of output, nothing after it:**
 

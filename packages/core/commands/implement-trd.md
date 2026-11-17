@@ -1,7 +1,7 @@
 ---
 name: implement-trd
 description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
-argument-hint: "[trd-path] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify] [--no-verify] [--chained] [--shipping] [--sweep-flag <text>]"
+argument-hint: "[trd-path] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify] [--no-verify] [--chained] [--publish] [--shipping] [--sweep-flag <text>]"
 version: 4.0.0
 category: implementation
 ---
@@ -34,6 +34,7 @@ category: implementation
 >   dispatched, no `.trd-state/<feature>/success-definition.md` appears, and Step 8 is
 >   skipped — Step 9's banner reads `not run (--no-verify set)`. It does not skip Step 7.3's
 >   audit: the code audit still runs, and Step 9 then closes the feature on the audit alone.
+> - `--publish` - Publish this run's verification report and check pages even where `ensemble.publishArtifacts` leaves that kind off by default (a standalone flag token; `ensemble.publishArtifacts: false` still wins). Passed on by `/plan --implement`; not `--implement`.
 > - `--chained` - **For callers only** (`/verify-build`'s fix loop, verification-fix-loop TRD §3.3,
 >   D2), never typed by hand: skips the derive pass, §3.6a's environment preflight, Step 7.3's audit,
 >   Step 8, and §9.0a's publishing; emits no banner, no `notify-complete.sh`, no `PushNotification`. Ends
@@ -60,7 +61,7 @@ $ARGUMENTS
 ```
 
 Parse: TRD path, `--resume`/`--continue`, `--reconcile`, `--include-deferred`,
-`--reset-state`, `--verify`, `--no-verify`, `--chained`, `--shipping`, `--sweep-flag "<text>"`. Verification runs by default; `--no-verify` opts out;
+`--reset-state`, `--verify`, `--no-verify`, `--chained`, `--publish`, `--shipping`, `--sweep-flag "<text>"`. Verification runs by default; `--no-verify` opts out;
 `--verify` is still parsed explicitly, and doing so alongside `--resume` is exactly what §3.6
 step 0 checks for. `--chained` (§3.7) is for callers only — `/verify-build`'s fix loop, `/audit-build`
 and `/ship-build` are the things that pass it. `--shipping` (§3.7) is for `/ship-build` only. `--sweep-flag` is likewise for callers only — `/plan`'s sweep chain is the
@@ -416,6 +417,13 @@ On every start, validate state file:
 2. **Required Fields:** version, trd_file, trd_hash, phase_cursor, tasks
 3. **Task ID Match:** Compare TRD task IDs (from Step 3's parse) vs state file. Report mismatches.
 4. **Commit Verification:** Check task commits exist in git history.
+
+**A stub is not corruption.** `verification-runs.js` (the per-feature run limit) writes
+`implement.json` holding only `functional_verification` when `/verify-build` counted a run on a
+feature that has none yet. A file with `functional_verification` and no `tasks` is that stub:
+start a fresh state from it (keep its `functional_verification.runs`), do not treat it as
+corrupted, do not reconstruct from git and do not offer `--reset-state` for it (Error Handling's
+"State file corrupted" row is for a file that is unreadable or fails the checks above).
 
 ### 2.4 State Repair (Git Reconstruction)
 
@@ -834,7 +842,8 @@ plus the section name (for the report header only — Step 8 renders it, nothing
      the fact is never recorded at all.
    - Even where the file does exist (a `--resume`), Step 4.1 writes the **whole** in-memory
      `state` object through `implement-state.save()`. A key that exists only on disk is
-     clobbered by that first phase write, hundreds of tool calls before Step 8 reads it —
+     clobbered by that first phase write (the one exception is `functional_verification.runs`,
+     which `implement-state.save()` merges back from disk), hundreds of tool calls before Step 8 reads it —
      silently, and precisely into the `prd_resolved`-absent case Step 8 treats as "the PRD
      resolved". That turns `not run: no success definition derivable` into `not run: no definition produced`,
      which is the exact conflation this field exists to prevent (TR3).
@@ -843,9 +852,9 @@ plus the section name (for the report header only — Step 8 renders it, nothing
 
    ```javascript
    // PRD unresolvable:
-   state.functional_verification = { prd_resolved: false, prd_path: null };
+   state.functional_verification = { ...state.functional_verification, prd_resolved: false, prd_path: null };
    // PRD resolved (set before the step-2 dispatch below):
-   state.functional_verification = { prd_resolved: true, prd_path: "<resolved PRD path>" };
+   state.functional_verification = { ...state.functional_verification, prd_resolved: true, prd_path: "<resolved PRD path>" };
    ```
 
    then persist it with the only sanctioned writer, which needs no prior file to exist:
@@ -858,7 +867,25 @@ plus the section name (for the report header only — Step 8 renders it, nothing
    ```
 
    Because the key now lives on the in-memory object, every later `save()` — Step 4.1's and
-   every checkpoint's — carries it forward instead of dropping it.
+   every checkpoint's — carries it forward instead of dropping it. The spread keeps whatever
+   `functional_verification` already holds (the run count in `runs` above all), so a re-run
+   or a `--reconcile` never resets it.
+
+**1b. Check the run limit before spending a derive agent** (cap-verification-runs-per-feature
+D7). Skipped under `--chained` (§3.7: a caller's re-build is not a counted run; `--no-verify`
+already skips this whole step):
+
+```bash
+node .claude/lib/verification-runs.js check --state-dir .trd-state/<feature>
+```
+
+It prints `{"count","limit","allowed","continuing","runs"}`. Copy the printed `runs` into
+`state.functional_verification.runs` before the next `save()` (the merge in `save()` is only the
+backstop). `allowed: false` means this feature has already had `limit` verification runs: a
+refused run spends no derive agent, so skip steps 2 and 2a below and go on to the phase loop;
+Step 8 re-runs this check and ends the verification as `not run: verification run limit
+reached`. Exit code 2 means `ensemble.verificationRunLimit` is invalid: end `COMMAND STUCK`
+with the printed `error` as the Reason.
 
 **2. Dispatch the derive pass in the background** with
 `Agent(subagent_type=..., prompt="…")`:
@@ -1538,7 +1565,13 @@ the durable companion to `implement.json` — state records *what* happened, the
         "need": "<what the owner must do — needs-owner only>",
         "default": "criteria needing it resolve not_verifiable — needs-owner only"
       }
-    }
+    },
+    "runs": [
+      { "n": 1, "command": "/implement-trd | /verify-build", "scope": "full | targeted",
+        "started_at": "ISO8601", "finished_at": "ISO8601 | null", "outcome": "<outcome> | abandoned | null",
+        "open": ["<criterion id not met>"] }
+    ],
+    "ruling": { "outcome": "ship | fix | drop", "criterion": "<id> | null", "by": "<who>", "recorded_at": "ISO8601" }
   },
   "audit": {
     "return": "<the text after RETURN → of Step 7.3's last call, or error: <why>>",
@@ -1572,6 +1605,14 @@ then persisted, never a bare `writeFileSync` — and read back at §8.1a (and, o
 `--verify --resume` path, by §8.2 first, to decide whether §3.6a needs to run at all). Its
 keys are the environment names declared in `verification.md`'s §1 (the copy the path form prints); a name
 absent from this map is a name §3.6a did not see declared.
+
+**On `functional_verification.runs` and `ruling`** (cap-verification-runs-per-feature): `runs`
+is the append-only list of counted verification runs and its length is the count; only
+`verification-runs.js` writes it (`start`, `finish`), and `implement-state.save()` merges it back
+from disk on every save of `implement.json`, so a stale in-memory `state` cannot shorten it.
+This command copies the CLI's printed `runs` into `state` before its next save anyway. `ruling`
+is the PM's recorded decision (`record-ruling`); this command never writes it. Both are absent
+until a run is counted or a ruling is recorded, and `--reset-state` clears them.
 
 **On `cycle_position`:** reduced to `implement-state.js`'s exported `CYCLE_ORDER` —
 `implement | checks | debug | complete`. The v3.2.0 five-position enum
@@ -1727,6 +1768,24 @@ prose, reads the TRD only at §8.1b, for its `## Verification Artifacts` section
 mutates it; never calls `Agent(` directly. Its whole job is resolving inputs from disk and
 rendering what the workflow returns.
 
+**First, the run-limit check, before §8.1 reads `prd_resolved`** (cap-verification-runs-per-feature
+D7). Skipped under `--chained`. Run it here even when §3.6 ran it: §3.6 skipped the derive pass on
+a refusal, so §8.1 would find `prd_resolved: true` and no definition and misreport it as
+`not run: no definition produced` — and in-context memory of the refusal does not survive to this
+step:
+
+```bash
+node .claude/lib/verification-runs.js check --state-dir .trd-state/<feature>
+```
+
+Copy the printed `runs` into `state.functional_verification.runs`. On `allowed: false` the
+outcome is `not run: verification run limit reached`: skip §8.1 to §8.4 entirely (no `Workflow`
+call, no `start`), write no `verification-report.md` (an earlier run's report stays as it is),
+render the ruling request with `node .claude/lib/verification-runs.js request --state-dir
+.trd-state/<feature> --command /implement-trd`, record the outcome as `not-run-run-limit` for
+Step 9 and continue to Step 9. `continuing: true` (an interrupted run resumed, which is not a new
+run) is `allowed: true`: carry on. Exit code 2 is the same STUCK as in §3.6.
+
 **Running order: §8.1 (or §8.2 on the `--resume` path) → §8.1b → §8.1a → §8.3 → §8.4.** The
 numbering is not the running order and stays as it is because other documents cite it; lanes
 (§8.1a) come last because they need every criterion, check criteria included.
@@ -1783,7 +1842,8 @@ numbering is not the running order and stays as it is because other documents ci
    (no `--url`: it is not published). A failed record is one line in ISSUES, never STUCK. Then
    parse its table into `criteria` (§3.1's format; column → field: `ID` → `id`,
    `Functional statement` → `statement`, `Cites` → `cites`, `Evidence that would prove it` →
-   `evidence`, `Derivation` → `derivation`, `Tier 1` → `tier1`, valued `locator` or
+   `evidence`, `Derivation` → `derivation`, `Board class` → `boardClass` (blank, `core` or `evidence-only`; an
+   absent column or cell reads blank), `Tier 1` → `tier1`, valued `locator` or
    `judge-only` — an absent column, or an absent cell, reads as `locator` (verification-convergence
    TRD §3.8), so a definition written before this change parses unchanged). **Zero rows is
    legitimate** (AC-3) — proceed to
@@ -1792,25 +1852,9 @@ numbering is not the running order and stays as it is because other documents ci
    `outcome: 'satisfied'` with a real, rendered report — that is the correct handling for a PRD
    that yielded no functional criteria, and it is not this step's job to special-case it.
 
-   **Then read the must-pass coverage — with the library, not by reading the `Must pass` column
-   yourself (D11).** A column dropped in a prose parse would read as "nothing is must-pass" and
-   fail open; the CLI reads both files from their paths and fails closed:
-
-   ```bash
-   node .claude/lib/functional-verification.js must-pass-coverage \
-        --trd <TRD> --definition .trd-state/<feature>/success-definition.md
-   # → {"criteria": [<must-pass criterion ids>], "uncovered": [{id, text}], "unknown": [{criterion, objective}]}
-   ```
-
-   Hold `criteria` as `mustPassIds` and `uncovered` as `mustPassUncovered`, **unchanged**, for
-   §8.3 (both `[]` when the TRD marks nothing). `unknown` entries are criteria whose cell names an
-   id that is not a must-pass objective; the CLI has already left them out of `criteria`, so they
-   stay ordinary, and Step 9's ISSUES names each. Also keep the objectives' invalid cells, from
-   `node .claude/lib/spec-scope.js objectives --trd <TRD>`: each entry with an `invalidValue` is a
-   `Must pass` cell that is neither `yes` nor `no` (D17); it counts as must-pass, and ISSUES
-   names it. Check rows appended to the definition after this step carry no `Must pass` cell, which the
-   CLI reads as blank, so nothing here needs redoing once they are added. A sweep file declares no must-pass (D19) and has no
-   TRD: skip this call and pass `[]` for both.
+   **Must-pass coverage is not read here.** It is read once, after the check rows are written, at
+   the end of the next section — a `Must pass` mark or a `Board class` cell on a check row does not
+   exist until then.
 
 ### 8.1b Append the check criteria (verification-artifacts TRD §3.5, D7, D9, D15)
 
@@ -1848,6 +1892,18 @@ straight to Step 9 exactly as §8.1 already sends them.
    `docs/ui/<slug>/design-map.json`) as the `designMaps` list, empty when that check was not
    selected: §8.1a step 8 passes each one to the preclassify call, and has nothing to pass
    without them.
+
+   **The comparison check's rows come from the generator when its design has a map (D17).** For a
+   selected `verify-design-comparison`, the design folder is the `docs/ui/<slug>` that holds the
+   `screens/png/` directory its Inputs row names. When `<that folder>/design-map.json` exists, run
+   `node .claude/lib/design-criteria.js comparison-rows --dir docs/ui/<slug>` and use its `rows` as
+   this check's rows (each carries `boardClass`); do not write them from the skill's table by hand.
+   Put one ISSUES line for each path in its `missing` array (the frame the map requires but
+   `screens/png/` lacks; its row stays and fails on its own). A non-zero exit is one ISSUES line and
+   that check yields no rows. Record the generator's output as `comparisonRows` (its `rows`, with
+   `counts`) and the folder as the `comparisonDirs` list, both empty when the check was not selected
+   or its design has no map; a design with no map keeps the skill's own Criteria rule, `Board class`
+   blank on every row (D18).
 4. **Write them (D15).** Re-read `.trd-state/<feature>/success-definition.md` immediately
    before writing — §8.1a's habit of re-reading a file at the moment it is needed, applied here
    too, since another agent produced it. Keep every derived row (the deriver's own, non-`check:`
@@ -1859,6 +1915,13 @@ straight to Step 9 exactly as §8.1 already sends them.
    `locator` (§8.1's own parsing rule), so their meaning is unchanged; a `judge-only` design row
    written into a table with no `Tier 1` column at all would silently read as `locator` and fail
    tier 1, so the column must exist even when nothing else in the table needed it yet.
+   Write the generator's rows by header name, escaping every `|` inside a field as `\|` (its
+   `evidence` text holds "design | build | diff"; an unescaped pipe adds cells and shifts
+   `Board class` onto the wrong column). When any row to be written carries a `boardClass` and
+   the table has no `Board class` column, add the header, its separator cell and a blank cell on
+   every other row; the column is the table's last (after `Must pass` when the table has one, else
+   after `Parts`). Nothing else writes the header: a table with no class-bearing row keeps its
+   columns.
 5. **Collect the texts and comments.** `checks[<name>]` = the selected skill's `SKILL.md` text,
    `{}` when none are selected. For each selected skill that has a stored URL
    (`node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind <skill>`; empty output means none), read its open threads (D18) — load
@@ -1876,6 +1939,37 @@ straight to Step 9 exactly as §8.1 already sends them.
    previous pass's check rows when §8.1 read it, and they carry the same stable IDs (§3.5) as
    the rows just rebuilt. Appending without dropping them passes each check criterion twice,
    which doubles its weight in the workflow's totals and coverage.
+7. **Read the must-pass coverage — with the library, not by reading the `Must pass` or `Board class`
+   column yourself (D11, D16).** This runs on every pass through this section, including when step 2
+   selected no check at all, because `mustPassIds` is needed regardless. A column dropped in a
+   prose parse would read as "nothing is must-pass" and fail open; the CLI reads both files from
+   their paths and fails closed:
+
+   ```bash
+   node .claude/lib/functional-verification.js must-pass-coverage \
+        --trd <TRD> --definition .trd-state/<feature>/success-definition.md
+   # → {"criteria": [...], "uncovered": [{id, text}], "unknown": [{criterion, objective}],
+   #    "evidenceOnly": [...], "classIssues": [{criterion, value, reason}], "coreCriteria": [...]}
+   ```
+
+   Hold `criteria` as `mustPassIds` and `uncovered` as `mustPassUncovered`, **unchanged**, for
+   §8.3 (both `[]` when the TRD marks nothing). Hold `evidenceOnly` as `evidenceOnlyIds` and
+   `coreCriteria` as `coreMustPassIds`, both `[]` when none. `unknown` entries are criteria whose
+   cell names an id that is not a must-pass objective; the CLI has already left them out of
+   `criteria`, so they stay ordinary, and Step 9's ISSUES names each. Each `classIssues` entry is
+   one ISSUES line. Also keep the objectives' invalid cells, from
+   `node .claude/lib/spec-scope.js objectives --trd <TRD>`: each entry with an `invalidValue` is a
+   `Must pass` cell that is neither `yes` nor `no` (D17); it counts as must-pass, and ISSUES
+   names it. A sweep file declares no must-pass (D19) and has no TRD: skip this call, pass `[]`
+   for all four of `mustPassIds`, `mustPassUncovered`, `evidenceOnlyIds` and `coreMustPassIds`, and
+   skip the cross-check below.
+8. **Cross-check the classes against the generator (D17).** When `comparisonRows` is non-empty,
+   compare sets, not counts: the ids of `comparisonRows` whose `boardClass` is `core` must equal
+   `coreMustPassIds`, and those whose class is `evidence-only` must equal `evidenceOnlyIds`
+   (`mustPassIds` also holds rows that name a declared must-pass objective, so never compare against
+   it). On a mismatch, rewrite the comparison rows once from the generator's JSON (step 4) and run
+   this step's call again; a second mismatch is one ISSUES line naming the ids, never STUCK, and
+   the second call's output stands.
 
 ### 8.2 The `--resume` composition (functional-verification TRD §3.7, D13) — already gated at Step 3.6
 
@@ -1900,7 +1994,7 @@ with a log line. `outcome` is read by Step 3.6's gate, not passed to the workflo
 derives its own. On a fresh run (no prior state
 file, or a terminal one), `resume` is `null`.
 
-**After resolving `criteria` here, this path also runs §8.1's `must-pass-coverage` call** (the
+**After resolving `criteria` here, this path also runs §8.1b's `must-pass-coverage` call (its step 7)** (the
 resumed run's state file holds no must-pass set, and the TRD and definition are on disk), **and
 runs §8.1a exactly like a fresh run does** — it
 is not exempt from lane resolution merely because it skipped the phase loop. First run §3.6a's
@@ -2160,6 +2254,13 @@ full manual CI run. An entry reading `baseline` is red on the base branch head t
 feature's failure and it does not prove the criterion. After a Debug edit, push and wait for the run CI
 starts; the earlier run belongs to an earlier commit.
 
+**Then start the run, immediately before the dispatch** (cap-verification-runs-per-feature D4,
+D7): `node .claude/lib/verification-runs.js start --state-dir .trd-state/<feature> --command
+/implement-trd --scope full`. Copy the printed `runs` into `state.functional_verification.runs`.
+It prints `continued: true` for an interrupted run resumed (not a new run); `allowed: false`
+means the limit was reached after all, so treat it exactly as Step 8's refusal and make no
+`Workflow` call.
+
 ```javascript
 Workflow({ name: "verify-functional", args: {
   criteria,                                                    // §8.1
@@ -2187,8 +2288,10 @@ Workflow({ name: "verify-functional", args: {
   checks,                                                        // §8.1b -- { "<skill>": "<SKILL.md text>" } for each selected check; {} when none
   checkComments,                                                 // §8.1b -- open threads on each check's published page (D18); [] when none
   pagesDir,                                                       // §8.1b -- ".trd-state/<feature>/verification-artifacts"; always set, even with no checks selected
-  mustPassIds,                                                   // §8.1 -- must-pass-coverage's `criteria`, unchanged; [] when none is declared
-  mustPassUncovered,                                             // §8.1 -- must-pass-coverage's `uncovered` ([{id, text}]), unchanged; [] when none
+  mustPassIds,                                                   // §8.1b -- must-pass-coverage's `criteria`, unchanged; [] when none is declared
+  mustPassUncovered,                                             // §8.1b -- must-pass-coverage's `uncovered` ([{id, text}]), unchanged; [] when none
+  evidenceOnlyIds,                                               // §8.1b -- must-pass-coverage's `evidenceOnly`; [] when none (a sweep file too)
+  coreMustPassIds,                                               // §8.1b -- must-pass-coverage's `coreCriteria`, a subset of mustPassIds; [] when none
   verificationDigest,                                            // §8.1a step 8 -- verification-digest's `digest` (sha256 hex of verification.md); "" when the file is absent (nothing persists)
   preclassified,                                                 // §8.1a step 8 -- preclassify's output (entries already settled not-checkable-here, never exercised); [] when none
   offHostProofs,                                                 // `node .claude/lib/functional-verification.js off-host-proofs` (see above) -- its `proofs`, fresh before this dispatch; [] when none is declared or the call fails
@@ -2239,6 +2342,20 @@ it is what §9's STATE line for each check and §9.0a's publish step both read; 
 neither has anything to point at. Nothing beyond those eight — no re-reading the rendered
 report, no re-deriving the verdict; the report and the state file are already the durable
 record.
+
+**Finish the run, once, after the workflow returns** (cap-verification-runs-per-feature D13):
+
+```bash
+node .claude/lib/verification-runs.js finish --state-dir <state-dir> --outcome <outcome>
+```
+
+It prints `{"run","count","limit","rulingDue","runs"}`; copy the printed `runs` into
+`state.functional_verification.runs` before the next `save()`. When `rulingDue` is `true` (the
+limit is reached and the outcome is anything but a clean `satisfied`), `finish` has already
+pointed the report's `**Next**:` line at the ruling request; now render it with
+`node .claude/lib/verification-runs.js request --state-dir <state-dir> --command /implement-trd`
+and carry `rulingDue` and the request path (`.trd-state/<feature>/ruling-request.md`) into
+Step 9. A failed `finish` or `request` is one ISSUES line, never STUCK.
 
 **Record what each proven criterion covers, once, after the workflow returns.** Custody
 (`ship-custody-gate.md`) re-proves, after a later change, only the criteria whose files the change
@@ -2404,6 +2521,10 @@ STATE
     does not do what the PRD asked.}
   {if --no-verify was set: "Nobody checked whether the software does what the PRD asked
     (--no-verify set)."}
+  {if the outcome is `not run: verification run limit reached` (D8): "Nobody checked this time:
+    the feature has already had {count} of {limit} verification runs (`ensemble.verificationRunLimit`),
+    so no further run was started. The tasks were still built." This replaces the sentence above;
+    the banner stays the one the build's other work dictates, not STUCK.}
   {if verification ran: "Must pass: none declared in the TRD's Objectives" when `mustPass.criteria`
    and `mustPass.uncovered` are both empty; otherwise "Must pass: {k} of {n} proven" ({n} =
    `mustPass.criteria`, {k} = those proven — the same count the report's `**Must pass**:` line
@@ -2478,12 +2599,22 @@ ISSUES
    then the criteria that need it are not verifiable ({default})." You act.}
   {if outcome is setup-failure, for each entry in `setup.problems`: "{environment}: {problem}
    — fix: {fix}." You act; the run did not judge the code.}
+  {if the outcome is `not run: verification run limit reached`: "Verification did not run: this
+    feature has already had {count} of {limit} verification runs. A person must rule on the open
+    criteria first — see the ruling request below." You act.}
   {if none: "none"}
 
 NEXT
   {the few steps to take now, in order — one fenced block per slash command, explanation on
    the line above each block, never a shell command:}
-  {if outcome is setup-failure (D11) — this replaces both branches below: (1) the fix for each
+  {if Step 8 carried `rulingDue` true, or the outcome is `not run: verification run limit
+   reached` — this replaces `/refine-verification`, `/verify-build` and every other branch below,
+   `setup-failure` included: the ruling request wins over the setup-failure NEXT, because at the
+   limit `/verify-build` would be refused and `/refine-verification` declined. One line, in words, not a block: "the verification run limit is
+   reached; ship, fix or drop the open criteria in `.trd-state/<feature>/ruling-request.md`
+   (<link>) — it lists each open criterion and the three outcomes with their steps." When the
+   outcome was `setup-failure`, the request also lists the setup problems and their fixes.}
+  {if outcome is setup-failure (D11) — this replaces both branches below (the ruling-request branch above still wins when it applies): (1) the fix for each
    problem, as plain text, not a block; (2) re-run the check once the environment is fixed:}
   1. fix the environment named above
   2. /verify-build
@@ -2558,8 +2689,9 @@ the old template listed it under NEXT STEPS.
 
 ### 9.0a Artifact link (see `.claude/rules/command-status.md`)
 
-Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, and **unless this run
-used `--no-verify`** (i.e. Step 8 actually ran), publish the verification report, with the images it embeds (verification-report-images D10).
+**Skipped entirely when this run used `--no-verify`** (Step 8 did not run). Otherwise ask first:
+`node .claude/lib/artifacts.js publish --kind verification-report` (add `--requested` when this
+run's arguments carry `--publish`). On `publish: on`, publish the verification report, with the images it embeds (verification-report-images D10).
 The report embeds each criterion's image by a path under `evidence/`; the Artifact tool serves
 a `files` map at those same paths. **Never assemble that map by hand** — `report-publish-plan`
 reads the report and returns it. Every time this sequence runs:
@@ -2601,12 +2733,14 @@ Artifact({ file_path: ".trd-state/<feature>/verification-report.md", icon: "chec
 **Then ALWAYS record the report, whether or not publishing is on** (this sits outside the
 publish switch, but inside the `--no-verify` gate: no Step 8, no report, nothing to record):
 `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind verification-report --path .trd-state/<feature>/verification-report.md --command /implement-trd`,
-adding `--url <returned URL>` only when a publish returned one. That is what lets a later
+adding `--url <returned URL>` only when a publish returned one (on `publish: off (…)`, make no
+publish call, name the local path and pass `--url ""`; a resolver error (a non-zero exit, or output with no `publish:` line) reads as `publish: off`, never as on, plus one ISSUES line: "publish setting could not be read: <stderr>"). That is what lets a later
 `/verify-build` update the same link rather than minting a second one that competes with it.
 No command writes `artifacts.json` by hand.
 
-**Then, still under the same switch and the same `--no-verify` gate, publish each selected
-check's page** (verification-artifacts TRD §3.8, D8) that `pages` (§8.4) shows on disk — one
+**Then, under the same `--no-verify` gate, ask per skill, not once for all:
+`node .claude/lib/artifacts.js publish --kind <skill>` (add `--requested` when this run carried
+`--publish`). On `publish: on`, publish each selected check's page** (verification-artifacts TRD §3.8, D8) that `pages` (§8.4) shows on disk — one
 call per skill, in the same call shape as the report above, plus a `files` map for its images
 (read its stored URL first: `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind <skill>`, empty output meaning none):
 
@@ -2617,11 +2751,22 @@ Artifact({ file_path: "<pagesDir>/<skill>/index.html", files: { "img/…": "<pag
 
 **Then ALWAYS record each page that is on disk, whether or not publishing is on** (same
 placement as the report's record): `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind <skill> --path <pagesDir>/<skill>/index.html --command /implement-trd`,
-adding `--url <returned URL>` only when a publish returned one, so the next run's §8.1b reads
+adding `--url <returned URL>` only when a publish returned one (on `publish: off (…)`, pass `--url ""`), so the next run's §8.1b reads
 comments from the same link and a later `/verify-build` updates it in place. A page with more than 255 files (the Artifact
 tool's per-publish limit) is published in several calls to the same URL (TR4) — the page on
-disk is the deliverable either way. With publishing off, STATE names each page's local path
+disk is the deliverable either way. With `publish: off`, STATE names each page's local path
 instead of a link.
+
+**The ruling request** (cap-verification-runs-per-feature D10), when Step 8 wrote
+`.trd-state/<feature>/ruling-request.md` (a refusal or `rulingDue`), is published the same way as
+the report, under the same `--no-verify` gate but its own kind: ask `node .claude/lib/artifacts.js publish --kind ruling-request` (add `--requested` when this run carried `--publish`). A refused run wrote no report:
+skip the report's publish and record above and handle only the request. Read the stored URL first
+with `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind ruling-request`,
+then, on `publish: on`, publish the FILE with `Artifact({ file_path: ".trd-state/<feature>/ruling-request.md",
+icon: "document", url: "<the stored URL from get, if any>" })`, and ALWAYS record it, whether or
+not publishing is on: `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature>
+--kind ruling-request --path .trd-state/<feature>/ruling-request.md --command /implement-trd`,
+adding `--url <returned URL>` only when a publish returned one (on `publish: off`, pass `--url ""`). NEXT's link is that URL.
 
 **Emit the link inside the readout, above the banner.** Publishing failure — the report's or
 any check page's — is one line of prose — never a STUCK, never a retry, never a missing

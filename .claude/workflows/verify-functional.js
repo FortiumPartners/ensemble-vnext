@@ -165,7 +165,48 @@ const MUST_PASS_IDS = (() => {
 // NEW (block-only-on-material-failures). 'must-pass' bites only when something marks a failure
 // material: with no must-pass criterion the policy is inert (a sweep file, or a feature with none marked,
 // behaves as it always did).
-const BLOCKING_ACTIVE = BLOCKING === 'must-pass' && MUST_PASS_IDS.length > 0
+//
+// NEW (core-boards D13, D14). `evidenceOnlyIds` are the criteria shown for review that never block
+// (a Core board's non-default states, every frame of a non-Core board); `coreMustPassIds` are the
+// must-pass ids that are must-pass only because their board is Core. Both come unchanged from the
+// checker's `must-pass-coverage` output (`evidenceOnly`, `coreCriteria`), default to [] and are
+// validated before any agent runs, like `mustPassIds`.
+const EVIDENCE_ONLY_IDS = (() => {
+  const raw = a.evidenceOnlyIds
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw) || raw.some((id) => typeof id !== 'string' || id === '')) {
+    throw new Error('verify-functional: args.evidenceOnlyIds must be an array of non-empty criterion id strings when supplied')
+  }
+  const known = new Set(CRITERIA.map((c) => c.id))
+  const unknown = raw.filter((id) => !known.has(id))
+  if (unknown.length > 0) {
+    throw new Error(`verify-functional: args.evidenceOnlyIds names ${unknown.join(', ')}, which is not a criterion id in args.criteria`)
+  }
+  const both = raw.filter((id) => MUST_PASS_IDS.includes(id))
+  if (both.length > 0) {
+    throw new Error(`verify-functional: args.evidenceOnlyIds and args.mustPassIds both list ${both.join(', ')} (a criterion cannot be both must-pass and evidence-only)`)
+  }
+  // Deduplicated, so the count reported beside coverage matches the criteria coverageOf leaves out.
+  return [...new Set(raw)]
+})()
+const CORE_MUST_PASS_IDS = (() => {
+  const raw = a.coreMustPassIds
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw) || raw.some((id) => typeof id !== 'string' || id === '')) {
+    throw new Error('verify-functional: args.coreMustPassIds must be an array of non-empty criterion id strings when supplied')
+  }
+  const notMustPass = raw.filter((id) => !MUST_PASS_IDS.includes(id))
+  if (notMustPass.length > 0) {
+    throw new Error(`verify-functional: args.coreMustPassIds names ${notMustPass.join(', ')}, which args.mustPassIds does not (coreMustPassIds must be a subset of mustPassIds)`)
+  }
+  return raw
+})()
+// The one membership test every site below uses, so no second gap filter exists to drift.
+const EVIDENCE_ONLY_SET = new Set(EVIDENCE_ONLY_IDS)
+const isEvidenceOnly = (id) => EVIDENCE_ONLY_SET.has(id)
+// A Core must-pass id blocks under both policies but never makes the 'must-pass only' waiver active:
+// the policy bites only when some must-pass id is not Core (decideNext's step 3b, the same rule).
+const BLOCKING_ACTIVE = BLOCKING === 'must-pass' && MUST_PASS_IDS.some((id) => !CORE_MUST_PASS_IDS.includes(id))
 const MUST_PASS_UNCOVERED = (() => {
   const raw = a.mustPassUncovered
   if (raw === undefined || raw === null) return []
@@ -389,6 +430,10 @@ const OFF_HOST_PROOFS = (() => {
 // here word for word and a test checks they match the contract's.
 const KS_1 = "An image that shows a password, token, key or other credential value is never cited as a criterion's image; one that cannot be cleared is recorded as excluded, with the reason."
 const KS_2 = 'A criterion is about UI when it names a screen, element, layout or visual state, or its Tier 1 is judge-only for a visual property.'
+// NEW (core-boards D14). The `settled` markers that make a `not_met` entry a closed record, not an open
+// gap: one shared predicate for isOpenNotMet, the `settledEvidenceGaps` literal and foldRulings.
+const SETTLED_KINDS = ['definition-problem', 'regression-unchecked', 'evidence-only']
+const isSettledKind = (s) => SETTLED_KINDS.includes(s)
 function settledList(settled) {
   return Array.from(settled, ([id, v]) => ({ id, ...v }))
 }
@@ -743,7 +788,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
   const settledMetIds = settledEntries.filter((e) => e.status === 'met').map((e) => e.id)
   // D6: the evidence gaps already settled as definition problems, handed back verbatim. A capture the
   // regression pass could not make (regression pass D10) is settled the same way, not open.
-  const settledEvidenceIds = settledEntries.filter((e) => e.settled === 'definition-problem' || e.settled === 'regression-unchecked').map((e) => e.id)
+  const settledEvidenceIds = settledEntries.filter((e) => isSettledKind(e.settled)).map((e) => e.id)
   const sfx = regression ? `-regression-${regression.round}` : ''
   const claimsFile = `${STATE_DIR}/judge-claims-${iteration}${sfx}.json`
   const decideFile = `${STATE_DIR}/judge-decide-${iteration}${sfx}.json`
@@ -924,12 +969,17 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `"refreshFailed":${refreshFailed()},` +
     `"met":<the met ids, as described above>,` +
     `"total":${N},"mustPass":${JSON.stringify(MUST_PASS_IDS)},` +
+    `"evidenceOnly":${JSON.stringify(EVIDENCE_ONLY_IDS)},"coreMustPass":${JSON.stringify(CORE_MUST_PASS_IDS)},` +
     `"mustPassUncovered":${JSON.stringify(MUST_PASS_UNCOVERED.map((o) => o.id))},` +
     `"causes":${regression ? JSON.stringify(regression.causes) : causeContext.fixed ? '[]' : '<open cause keys after this ruling, built as described below>'},` +
     `"previousCauses":${JSON.stringify(causeContext.previousCauses)},` +
     `"awaitingRegression":${regression || causeContext.fixed ? '[]' : '<ids awaiting the regression pass, built as described below>'}} ` +
     `to ${decideFile}, then run:\n` +
     `  node ${CHECKER} decide-next --file ${decideFile}\n` +
+    `"evidenceOnly" are the ids of criteria shown for review that never block, and "coreMustPass" the ` +
+    `must-pass ids that are must-pass only because their board is Core; copy both exactly as given, empty ` +
+    `lists included -- decide-next throws without them. Rule an evidence-only criterion on its evidence like ` +
+    `any other, and never list its id in "gaps" or "debugGaps".\n` +
     `"mustPass" and "mustPassUncovered" are the must-pass criterion ids and the ids of must-pass ` +
     `objectives no criterion covers; copy them exactly as given, empty lists included -- decide-next ` +
     `throws without them. A must-pass criterion that is not "met", or any uncovered objective, ` +
@@ -996,7 +1046,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `number a "met"/"not_verifiable"/"unbuilt" verdict was proven at, or a "not_met" evidence gap ` +
     `was settled at (this iteration's number, ${iteration}, for one you just judged; carried ` +
     `unchanged for a settled one) and is absent/null for any other "not_met" criterion, which stays ` +
-    `open. "kind" is null for a "met" criterion; "settled" is "definition-problem" or "regression-unchecked" ` +
+    `open. "kind" is null for a "met" criterion; "settled" is "definition-problem", "regression-unchecked" or "evidence-only" ` +
     `only on an entry given to you as settled that way, otherwise null. "reason" MUST be populated (non-null, non-empty) for every criterion whose status is ` +
     `not "met"; it is the only structured record of why a not_verifiable/not_met/unbuilt ` +
     `verdict was reached, and it is what tells a later run which blockers are worth ` +
@@ -1048,7 +1098,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `${JSON.stringify(DEFINITION_PATH)} verbatim (do not invent or omit these three -- they are ` +
     `the report's header, supplied by the command that dispatched this workflow) alongside ` +
     `"outcome", "reason", "criteria" and "finalEnvironmentRun" (the object you just produced, ` +
-    `verbatim), plus "mustPass": ${JSON.stringify(MUST_PASS_IDS)} and "mustPassUncovered": ` +
+    `verbatim), plus "mustPass": ${JSON.stringify(MUST_PASS_IDS)}, "evidenceOnly": ${JSON.stringify(EVIDENCE_ONLY_IDS)} and "mustPassUncovered": ` +
     `${JSON.stringify(MUST_PASS_UNCOVERED)} copied verbatim (empty lists included) -- "criteria" is one entry per criterion IN THE WHOLE DEFINITION, same ` +
     `completeness rule as STEP 4's state file (the already-settled ones carried verbatim with ` +
     `their "provenAt", "cause" and image keys, plus the ones you judged this iteration): id, statement, ` +
@@ -1063,7 +1113,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `STEP 6: on "remediate", do not render a report and do not touch anything besides the state ` +
     `file already written in STEP 4 -- just return the gap set.\n\n` +
     `Already-settled criteria from a prior iteration (status met/not_verifiable/unbuilt, or a ` +
-    `not_met evidence gap with "settled":"definition-problem" or "settled":"regression-unchecked") -- do ` +
+    `not_met evidence gap with "settled":"definition-problem", "settled":"regression-unchecked" or "settled":"evidence-only") -- do ` +
     `NOT re-judge these. Copy them, unchanged, into the state file and the report input above; ` +
     `they do not belong in your "criteria" return below, which is for this iteration's ` +
     `judgements only:\n${settledJson}\n\n` +
@@ -1445,7 +1495,7 @@ const JUDGE_CRITERION_SCHEMA = {
     // NEW (triage D1, D5). `kind` beside `cause`; the script reconciles it against
     // KIND_BY_CAUSE and is the authority. `settled` is the script's marker; the Judge may echo it.
     kind: { type: ['string', 'null'], enum: ['build-defect', 'evidence-gap', 'not-checkable-here', null] },
-    settled: { type: ['string', 'null'], enum: ['definition-problem', 'regression-unchecked', null] },
+    settled: { type: ['string', 'null'], enum: ['definition-problem', 'regression-unchecked', 'evidence-only', null] },
     // NEW (triage D8, D20): the verification.md digest a not-checkable-here verdict was made under.
     verificationDigest: { type: ['string', 'null'] },
     // NEW (causes D1, D6). `causeKey` is the Judge's root-cause key for a not_met build defect; the
@@ -1702,10 +1752,15 @@ function computeFinalRun(judgeResult) {
 // Coverage is over the WHOLE definition (OQ-5: the denominator is every criterion), so a
 // criterion no status was returned for counts as uncovered rather than disappearing. Every
 // result this workflow returns carries it (§3.3), including the two no-Judge exits below.
+// NEW (core-boards D14, OQ-10): evidence-only criteria are left out of `proven`, `total` and `uncovered`
+// (the base decideNext's floor step uses), with their count beside them, so the script's floor test and
+// the reported ratio agree with it.
 function coverageOf(criteria) {
   const metIds = new Set((criteria || []).filter((c) => c.status === 'met').map((c) => c.id))
-  const uncovered = CRITERIA.map((c) => c.id).filter((id) => !metIds.has(id))
-  return { proven: N - uncovered.length, total: N, uncovered }
+  const counted = CRITERIA.map((c) => c.id).filter((id) => !isEvidenceOnly(id))
+  const uncovered = counted.filter((id) => !metIds.has(id))
+  // The count rides along only when there is one, so a run without evidence-only criteria returns the bytes it always did.
+  return { proven: counted.length - uncovered.length, total: counted.length, uncovered, ...(EVIDENCE_ONLY_IDS.length > 0 ? { evidenceOnly: EVIDENCE_ONLY_IDS.length } : {}) }
 }
 
 function buildFinalResult(judgeResult, iterations, debugAttempts, exercisedLabel, settled, pages, mustPassOverridden = false) {
@@ -1764,10 +1819,11 @@ function mustPassSummary(criteria, overridden) {
   }
 }
 
-// An open failure: `not_met` and not a settled definition problem or an unchecked regression capture
-// (both are `not_met` by status but are not open gaps). Shared by mustPassCheckState and openFailuresOf.
+// An open failure: `not_met` and not a settled definition problem, an unchecked regression capture or an
+// evidence-only frame (all three are `not_met` by status but are not open gaps). Shared by
+// mustPassCheckState and openFailuresOf.
 function isOpenNotMet(c) {
-  return c.status === 'not_met' && c.settled !== 'definition-problem' && c.settled !== 'regression-unchecked'
+  return c.status === 'not_met' && !isSettledKind(c.settled)
 }
 
 // NEW (off-host proof D8). The checks applyMustPassRecheck makes, over the criteria as they now stand
@@ -1785,15 +1841,15 @@ function mustPassCheckState(judgeResult, settled) {
   const unproven = mustPassSummary(criteria, false).unproven.map((u) => u.id)
   const uncoveredIds = MUST_PASS_UNCOVERED.map((o) => o.id)
   const coverage = coverageOf(criteria)
-  const floorMissed = FLOOR !== null && N > 0 && coverage.proven / N < FLOOR
+  const floorMissed = FLOOR !== null && coverage.total > 0 && coverage.proven / coverage.total < FLOOR
   return { criteria, blocked, unproven, uncoveredIds, coverage, floorMissed }
 }
 
 // Same wording as decideNext's re-label (D19): the floor as a percentage, never a bare fraction.
 function belowFloorText(coverage) {
-  const pct = ((coverage.proven / N) * 100).toFixed(1)
+  const pct = ((coverage.proven / coverage.total) * 100).toFixed(1)
   const floorPct = `${Number((FLOOR * 100).toFixed(2))}%`
-  return `proven ratio ${coverage.proven}/${N} (${pct}%) is below the coverage floor ${floorPct} — ${N - coverage.proven} criterion/criteria uncovered`
+  return `proven ratio ${coverage.proven}/${coverage.total} (${pct}%) is below the coverage floor ${floorPct} — ${coverage.total - coverage.proven} criterion/criteria uncovered`
 }
 
 // NEW (block-only-on-material-failures). The open failures of an exit's criteria, split as the blocking
@@ -1836,7 +1892,7 @@ function applyBlockingPolicy(judgeResult, settled) {
   if (open.length === 0 || unbuilt.length > 0 || open.some((id) => MUST_PASS_IDS.includes(id))) return judgeResult
   const base = `no must-pass criterion is failing; ${open.length} non-blocking gap(s) left open as follow-ups under the must-pass-only policy: ${open.join(', ')}; base cause: ${judgeResult.reason || 'none given'}`
   const coverage = coverageOf(criteria)
-  if (FLOOR !== null && N > 0 && coverage.proven / N < FLOOR) {
+  if (FLOOR !== null && coverage.total > 0 && coverage.proven / coverage.total < FLOOR) {
     return { ...judgeResult, action: 'exit-insufficient-coverage', reason: `${belowFloorText(coverage)}; ${base}` }
   }
   return { ...judgeResult, action: 'exit-satisfied', reason: base }
@@ -2115,6 +2171,14 @@ function reconcileJudgeKinds(judgeResult, iteration, recaptureIds = [], settleAs
       changed = true
       closed.add(c.id)
       log(`iteration ${iteration}: ${c.id} is not_met with cause ${c.cause} -- settling it as not verifiable here`)
+    } else if (c.status === 'not_met' && isEvidenceOnly(c.id)) {
+      // NEW (core-boards D14). Keyed on list membership, whatever the kind: a pixel mismatch on a build
+      // defect has no re-capture, so a branch tied to one would leave it open and sent to Debug. Settled
+      // the iteration it is ruled, never put in a re-capture list; its frame is still shown for review.
+      out.settled = 'evidence-only'
+      changed = true
+      closed.add(c.id)
+      log(`iteration ${iteration}: ${c.id} is not_met but evidence-only -- settling it as evidence only, never blocking, not sent to Debug`)
     } else if (c.status === 'not_met' && kind === 'evidence-gap' && recaptureIds.includes(c.id)) {
       out.settled = settleAs
       changed = true
@@ -2181,7 +2245,7 @@ function reconcileJudgeKinds(judgeResult, iteration, recaptureIds = [], settleAs
 //   - an exit return carries no `debugGaps`, so Debug's gaps are built from the Judge's `not_met`
 //     criteria entries (a Judge-written `debugGaps` entry, if there is one, wins for its id).
 function replaceStalledExit(judgeResult, iteration, closedNow) {
-  const open = (judgeResult.gaps || []).filter((id) => !isAwaiting(id))
+  const open = (judgeResult.gaps || []).filter((id) => !isAwaiting(id) && !isEvidenceOnly(id))
   const atCap = iteration >= CAP
   log(
     `iteration ${iteration}: the Judge returned exit-stalled but cause(s) ${closedNow.join(', ')} closed this iteration -- ` +
@@ -2194,7 +2258,7 @@ function replaceStalledExit(judgeResult, iteration, closedNow) {
   if (_discarded !== undefined) log(`iteration ${iteration}: the stalled exit's full-environment run is discarded; the run's real exit runs the gate again`)
   const fromJudge = new Map((judgeResult.debugGaps || []).map((g) => [g.id, g]))
   const fromCriteria = (judgeResult.criteria || [])
-    .filter((c) => c.status === 'not_met' && c.settled === undefined && !isAwaiting(c.id))
+    .filter((c) => c.status === 'not_met' && c.settled === undefined && !isAwaiting(c.id) && !isEvidenceOnly(c.id))
     .map((c) => ({
       id: c.id,
       statement: (CRITERION_BY_ID.get(c.id) || {}).statement,
@@ -2375,8 +2439,9 @@ async function reconcileOutcome(judgeResult, iteration) {
     `save(${STATE_PATH}, <the parsed contents of ${stateFile}>). Do not write ${STATE_PATH} any ` +
     `other way: save() is the repository's only sanctioned writer for a .trd-state JSON file.\n` +
     `2. Read ${reportInputFile} (JSON), set its "outcome" to ${JSON.stringify(outcome)} and its "reason" to ` +
-    `${JSON.stringify(judgeResult.reason)}, and set "mustPass" to ${JSON.stringify(MUST_PASS_IDS)} and ` +
-    `"mustPassUncovered" to ${JSON.stringify(MUST_PASS_UNCOVERED)} (these two even if the Judge left ` +
+    `${JSON.stringify(judgeResult.reason)}, and set "mustPass" to ${JSON.stringify(MUST_PASS_IDS)}, ` +
+    `"evidenceOnly" to ${JSON.stringify(EVIDENCE_ONLY_IDS)} and ` +
+    `"mustPassUncovered" to ${JSON.stringify(MUST_PASS_UNCOVERED)} (these three even if the Judge left ` +
     `them out)` +
     (BLOCKING_NOTE_CLAUSE ? `, and set its top-level ${BLOCKING_NOTE_CLAUSE}` : '') +
     `. Leave every other key exactly as it is. Write it back to ${reportInputFile}.\n` +
@@ -2434,6 +2499,7 @@ async function endOnSetupFailure(problems, iteration, openCriteria, settled, deb
     }),
     finalEnvironmentRun: null,
     mustPass: MUST_PASS_IDS,
+    evidenceOnly: EVIDENCE_ONLY_IDS,
     mustPassUncovered: MUST_PASS_UNCOVERED,
     ...(BLOCKING_NOTE ? { blockingNote: BLOCKING_NOTE } : {}),
     setup: { problems },
@@ -2671,7 +2737,7 @@ let iteration = RESUME_ITERATION + 1
 // evidence gap again, "closes nothing" and exits stalled before the re-capture ever runs. Kind is
 // read the D20 way: a non-null kindOf(cause) wins over a stored kind.
 let previousGaps = RESUME_CRITERIA
-  ? RESUME_CRITERIA.filter((c) => c.status === 'not_met' && (kindOf(c.cause) ?? c.kind) !== 'evidence-gap').map((c) => c.id)
+  ? RESUME_CRITERIA.filter((c) => c.status === 'not_met' && !isEvidenceOnly(c.id) && (kindOf(c.cause) ?? c.kind) !== 'evidence-gap').map((c) => c.id)
   : null
 
 // --------------------------------------------------------------------------- settled/open (D1, D2, §3.4)
@@ -3004,7 +3070,7 @@ function foldRulings(judgeResult, iteration) {
       log(`iteration ${iteration}: Judge returned an entry for already-settled criterion ${c.id} -- ignoring it (the carried-forward entry wins)`)
       continue
     }
-    if (c.status === 'met' || c.status === 'not_verifiable' || c.status === 'unbuilt' || c.settled === 'definition-problem' || c.settled === 'regression-unchecked') {
+    if (c.status === 'met' || c.status === 'not_verifiable' || c.status === 'unbuilt' || isSettledKind(c.settled)) {
       settled.set(c.id, {
         status: c.status,
         tier1: c.tier1 ?? null,
@@ -3514,7 +3580,7 @@ async function regressionRound(round, iteration, plan, ctx) {
   // capture) was not shown to fail, and naming it as a regression would send the owner after a fix
   // that may well have worked.
   const failing = scopeIds.filter(
-    (id) => !settled.has(id) && openEntries.has(id) && !isAwaiting(id) && openEntries.get(id).entry.kind === 'build-defect'
+    (id) => !settled.has(id) && !isEvidenceOnly(id) && openEntries.has(id) && !isAwaiting(id) && openEntries.get(id).entry.kind === 'build-defect'
   )
   return { result, scopeIds, failing }
 }
@@ -3853,6 +3919,11 @@ for (; iteration <= CAP; iteration++) {
   const buildGaps = []
   const retries = []
   for (const g of judgeResult.debugGaps || []) {
+    // NEW (core-boards D14): an evidence-only frame is never Debug's, whatever the Judge listed.
+    if (isEvidenceOnly(g.id)) {
+      log(`iteration ${iteration}: ${g.id} is evidence-only -- not sent to Debug`)
+      continue
+    }
     // Causes D4: a member awaiting the regression pass is never Debug's, whatever the Judge listed.
     if (isAwaiting(g.id)) {
       log(`iteration ${iteration}: ${g.id} is awaiting the regression pass -- not sent to Debug`)
@@ -3882,7 +3953,7 @@ for (; iteration <= CAP; iteration++) {
   // D23: no fix was attempted for a re-capture id, so "closed nothing" is not evidence of
   // non-convergence; keep it out of the gaps the next Judge's stall rule compares against.
   const retryIdSet = new Set(evidenceRetries.map((r) => r.id))
-  previousGaps = (judgeResult.gaps || []).filter((id) => !retryIdSet.has(id) && !isAwaiting(id))
+  previousGaps = (judgeResult.gaps || []).filter((id) => !retryIdSet.has(id) && !isAwaiting(id) && !isEvidenceOnly(id))
 
   // One gap per open cause (causes D7); the single Debug agent fixes each cause once (D8).
   const causeGaps = buildCauseGaps(buildGaps)

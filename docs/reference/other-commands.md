@@ -567,7 +567,15 @@ Full detail is in [verification](verification.md). In brief:
 | | `--auto` | a `product-manager` subagent answers every item, marking each `answered`, `default` or `OWNER-CALL` |
 
 `/refine-verification` is the only writer of `verification-plan.md`, and is model-invocable
-(an agent calling it unattended passes `--auto`). A plan is used once: refine, run, repeat.
+(an agent calling it unattended passes `--auto`). A plan is used once: refine, run, repeat, until the
+feature reaches its run limit.
+
+A feature gets a limited number of counted verification runs: `ensemble.verificationRunLimit` in
+`.claude/settings.json`, any integer of at least 1, shipped default 2 (an invalid value stops the
+command). At the limit `/verify-build`, `/implement-trd` and `/refine-verification` start nothing and
+write `.trd-state/<feature>/ruling-request.md` for the product PM: ship as is, fix one named
+thing, or drop what is open; whatever is shipped or dropped is filed as a defect issue. `--reset-state` clears the count. Full
+rules: [verification](verification.md#the-per-feature-run-limit).
 
 ---
 

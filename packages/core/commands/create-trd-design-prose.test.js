@@ -76,6 +76,8 @@ describe('trd-authoring.md "Design as a source"', () => {
     'New shared components first',                                        // AC-F11.6
     'verify-design-comparison', 'verify-flow-as-built',                   // AC-F11.7
     'verify-data-fidelity', 'verify-design-structure',
+    'non-default state of a Core board', 'component test that forces that state', // D23
+    'comparison row is evidence only', 'design-map.js core --dir docs/ui/<slug>', "never from a board's `core` key",
   ])('states %s', (needle) => {
     expect(section).toContain(needle);
   });
@@ -83,7 +85,7 @@ describe('trd-authoring.md "Design as a source"', () => {
 
 describe('create-trd.md --boards (DORCH-B006)', () => {
   test('argument-hint and the strip sentence name --boards', () => {
-    expect(cmd).toContain('argument-hint: "[path-to-prd] [--design docs/ui/<slug> [--boards <ids>]]"');
+    expect(cmd).toContain('argument-hint: "[path-to-prd] [--publish] [--design docs/ui/<slug> [--boards <ids>]]"');
     expect(cmd).toContain('`--boards <ids>`) are not part of the PRD path: remove each flag **and its value**');
   });
   test('named boards are checked with buildable and held --ids', () => {

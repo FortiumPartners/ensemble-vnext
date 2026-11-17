@@ -82,7 +82,7 @@ teardown_file() {
     # plan-weight is the one /plan cannot run without — it is delivered only through
     # packages/full/lib's per-file symlink, which is exactly the delivery that was
     # missing when the module was first added.
-    for m in trd-parser task-graph implement-state fix-sizing fix-plan fix-audit plan-weight pull-request trd-grounding; do
+    for m in trd-parser task-graph implement-state fix-sizing fix-plan fix-audit plan-weight pull-request trd-grounding verification-runs; do
         [ -f "$TREE/.claude/lib/${m}.js" ]
         [ ! -L "$TREE/.claude/lib/${m}.js" ]
         run node -e 'require(process.argv[1])' "$TREE/.claude/lib/${m}.js"
@@ -163,6 +163,34 @@ teardown_file() {
     ' "$off"
     local rc="$status"
     rm -rf "$off"
+    [ "$rc" -eq 0 ]
+}
+
+@test "an owner's per-kind publishArtifacts object survives two refreshes unchanged" {
+    local own
+    own="$(mktemp -d)"
+    git -C "$own" init -q .
+    git -C "$own" config user.email "test@example.com"
+    git -C "$own" config user.name "Test"
+    git -C "$own" commit -q --allow-empty -m init
+    bash "$SCAFFOLD" "$own" --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+
+    node -e '
+      const fs = require("fs"), p = process.argv[1] + "/.claude/settings.json";
+      const d = JSON.parse(fs.readFileSync(p, "utf8"));
+      d.ensemble.publishArtifacts = { prd: true, trd: false };
+      fs.writeFileSync(p, JSON.stringify(d, null, 2) + "\n");
+    ' "$own"
+
+    bash "$SCAFFOLD" "$own" --refresh --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+    bash "$SCAFFOLD" "$own" --refresh --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+
+    run node -e '
+      const v = require(process.argv[1] + "/.claude/settings.json").ensemble.publishArtifacts;
+      process.exit(JSON.stringify(v) === JSON.stringify({ prd: true, trd: false }) ? 0 : 1);
+    ' "$own"
+    local rc="$status"
+    rm -rf "$own"
     [ "$rc" -eq 0 ]
 }
 

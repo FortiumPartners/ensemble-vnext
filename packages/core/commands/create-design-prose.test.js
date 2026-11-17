@@ -25,6 +25,12 @@ describe('create-design command prose', () => {
     expect(fm).toContain('[--explore] [--style <pack>]');
   });
 
+  test('states the full Core rule: cap of 8 and only to-be/as-is boards', () => {
+    expect(text).toContain(
+      'The Core rule: at most 8 boards are Core, and only `to-be` and `as-is` boards may be Core (never a part or a flow board).'
+    );
+  });
+
   test('ends STUCK on a missing or unfilled design.md', () => {
     expect(text).toMatch(/`missing` or `unfilled` ends the command STUCK with "run `\/design-setup`"/);
   });
@@ -143,6 +149,29 @@ describe('create-design command prose', () => {
       expect(step5).toMatch(/parts `\[\]`/);
       expect(step5).toMatch(/top-level `brief_items`.*`items`/);
       expect(step5.indexOf('brief_items')).toBeLessThan(step5.indexOf('`validate`'));
+    });
+    test('core: steps 3/4 pass it through, step 5 writes it as returned, step 7 marks it before publish (D20)', () => {
+      const step2 = text.slice(at('Ground and brief.'), at('The question round'));
+      expect(step2).toMatch(/`core_left_out`/);
+      expect(step2).toMatch(/at most 8/);
+      expect(step2).toMatch(/missing `core` reads false/);
+      expect(text).toMatch(/boardsInScope: <the returned screens, `core` included>/);
+      const step5 = text.slice(at('Write the map once'), at('Commit adopted canvas edits first'));
+      expect(step5).toMatch(/board's `core` exactly as the workflow returned it/);
+      expect(step5).toMatch(/never choose or change the set here/);
+      expect(step5).not.toContain('core-marks');
+      const step7 = text.slice(at('Before any publish call'), at('Render and export'));
+      const marks = step7.indexOf('design-map.js core-marks --dir docs/ui/<slug>');
+      expect(marks).toBeGreaterThan(-1);
+      expect(step7.indexOf('canvas.json')).toBeLessThan(marks);
+      expect(marks).toBeLessThan(step7.indexOf('**Publish**'));
+      expect(step7).toMatch(/Only when publishing runs \(nothing with `publish: off`/);
+      expect(step7).toMatch(/`missing` array is one ISSUES line/);
+    });
+    test('readout names the Core set and the screens left out of it', () => {
+      const readout = text.slice(at('## Readout'), at('## Completion signal'));
+      expect(readout).toMatch(/names the Core set/);
+      expect(readout).toMatch(/left out of Core: <screen>, over the cap of 8/);
     });
     test('readout lists defaults by id in DECISIONS and weak ones in ISSUES', () => {
       const readout = text.slice(at('## Readout'), at('## Completion signal'));
