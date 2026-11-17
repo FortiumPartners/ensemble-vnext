@@ -79,6 +79,32 @@
       "last_advanced": "2026-11-17T16:42:24.251Z",
       "current_problem": null,
       "completed_at": "2026-11-17T16:48:18.157Z"
+    },
+    "AMEND-001": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verification-not-run-prose.test.js"
+      ],
+      "started_at": "2026-11-17T17:10:38.609Z",
+      "last_advanced": "2026-11-17T17:12:21.487Z",
+      "current_problem": null,
+      "completed_at": "2026-11-17T17:12:49.673Z"
+    },
+    "AMEND-002": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verification-not-run-prose.test.js"
+      ],
+      "started_at": "2026-11-17T17:10:38.609Z",
+      "last_advanced": "2026-11-17T17:12:21.488Z",
+      "current_problem": null,
+      "completed_at": "2026-11-17T17:12:49.674Z"
     }
   },
   "checkpoints": [
@@ -89,12 +115,20 @@
         "findings": 0
       },
       "timestamp": "2026-11-17T16:59:37.681Z"
+    },
+    {
+      "phase": 1,
+      "commit": "b62d4c3f446eea7ce9ee7a92736f617ba15fa682",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-17T17:12:56.984Z"
     }
   ],
   "recovery": {
     "interrupted": false,
-    "last_healthy_checkpoint": "a0f4247ac0d0e40ea840265b0d2fbf548725dee1",
-    "last_checkpoint_timestamp": "2026-11-17T16:59:37.681Z",
+    "last_healthy_checkpoint": "b62d4c3f446eea7ce9ee7a92736f617ba15fa682",
+    "last_checkpoint_timestamp": "2026-11-17T17:12:56.984Z",
     "interrupt_reason": null
   },
   "functional_verification": {
@@ -129,5 +163,6 @@
         "reason": "verification.md section 1: must not be touched"
       }
     }
-  }
+  },
+  "run_started_at": "2026-11-17T16:37:45.646Z"
 }

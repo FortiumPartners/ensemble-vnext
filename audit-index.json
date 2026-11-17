@@ -1,0 +1,97 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "The functional-verification loop runs whenever `verification.md` allows it; a scripted check plus unit tests is never accepted in its place, by `/implement-trd` or by `/plan --implement`. (Must pass: no)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "FIX-003",
+        "FIX-005"
+      ],
+      "source": "TRD, Objectives table, row O1 (source: brief, Expected 1)"
+    },
+    {
+      "id": "O2",
+      "statement": "A loop that does not run says why in the final readout and leaves `.trd-state/<slug>/verification-state.json` holding `outcome: \"not-run\"` and a `reason` string, the same reason the report shows. (Must pass: yes)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "FIX-005"
+      ],
+      "source": "TRD, Objectives table, row O2 (source: brief, Expected 2)"
+    },
+    {
+      "id": "O3",
+      "statement": "A derive-agent source is passed by file path, never pasted, so no source is too large to dispatch, and a derive pass that never ran is retried once rather than silently skipped. (Must pass: no)",
+      "served_by": [
+        "FIX-002",
+        "FIX-003",
+        "FIX-005"
+      ],
+      "source": "TRD, Objectives table, row O3 (source: brief, Expected 3 and cause A)"
+    },
+    {
+      "id": "O4",
+      "statement": "An environment problem reported by the setup check or by the loop's Exercise stage is re-checked once — the check run again and the diagnosis re-derived from the actual response — before the loop gives up on it. (Must pass: no)",
+      "served_by": [
+        "FIX-004"
+      ],
+      "source": "TRD, Objectives table, row O4 (source: brief, Expected 4)"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "Add `recordNotRun` / `record-not-run` and `readOutcome` / `read-outcome` to `functional-verification.js`, with Jest tests. Serves O1, O2. Dependencies: none. Acceptance: record-not-run writes verification-state.json with outcome not-run and the reason, and verification-report.md with matching Reason and Source PRD lines; missing --reason exits 1 and writes nothing; over a state file with outcome null it writes the report and leaves the state byte-identical (stateKept true); read-outcome reports fresh false for a state file older than the latest run's started_at and fresh true for one written after; tests fail on today's code.",
+      "touches": [
+        "packages/core/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js",
+        ".claude/lib/functional-verification.js"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "implement-trd.md (both copies): section 3.6 always passes the source by path and records derive_dispatched; section 8.1 re-derives once in the foreground (mirroring /verify-build 3a) and both not-run exits call record-not-run; section 8.1a blocking-policy exit calls it; Step 8 states the loop is not substitutable; Step 9's --verified close requires read-outcome to return satisfied and fresh; Step 9 ISSUES names the not-run reason; the two copies are byte-identical. Serves O1, O2, O3. Dependencies: FIX-001.",
+      "touches": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md"
+      ]
+    },
+    {
+      "id": "FIX-003",
+      "description": "plan.md (both copies) Step 7: the chained /implement-trd runs its own loop and nothing substitutes for it; verify-build.md (both copies) 3a passes the source by path. Serves O1, O3. Dependencies: none.",
+      "touches": [
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md",
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md"
+      ]
+    },
+    {
+      "id": "FIX-004",
+      "description": "verify-functional.js (both copies): one setup-recheck after a first setup-failure; Exercise prompt repeat-once rule; update and add workflow tests. Serves O4. Dependencies: none. Acceptance: a plan whose setup returns setup-failure and whose setup-recheck returns proceed reaches Exercise; a re-check that also fails ends setup-failure with the re-check's problems and labels ['setup','setup-recheck','record']; a dead re-check keeps the first problems; a re-check reporting refreshesRun > 0 is rejected; the Exercise prompt carries the repeat-once rule; existing setup tests pass with updated label lists.",
+      "touches": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js"
+      ]
+    },
+    {
+      "id": "FIX-005",
+      "description": "Prose test over implement-trd.md, plan.md and verify-build.md for FIX-002/FIX-003. Serves O1, O2, O3. Dependencies: FIX-002, FIX-003. Acceptance: packages/core/commands/verification-not-run-prose.test.js fails against the commit before FIX-002/FIX-003 and passes after.",
+      "touches": [
+        "packages/core/commands/verification-not-run-prose.test.js"
+      ]
+    }
+  ],
+  "could_not_verify": [
+    "Cause D most likely arose in the Exercise and Judge stages, not the setup check: decideSetup counts a 401 as reachable and gathers no schema facts. The Exercise repeat-once rule is the part aimed at it; the setup re-check guards against a misgathered fact only.",
+    "The run records for dart's runs 23068, 22854 and 24405 (in /Users/james/dev/lightning-lane) were not read; causes A-E are as Forge's PM reported them.",
+    "Whether a derive agent dispatched in the background can still be running at Step 8 is not checkable from the prose; if it writes late it can overwrite the foreground re-derive's definition, which is the same contract and agent, so the risk is a duplicate, not a wrong definition."
+  ],
+  "open_questions": [
+    "OQ-1: What size counts as too large to inline? Assumed: every size, the source always goes by file path (threshold 0), recorded as an OWNER-CALL. Owner-only.",
+    "OQ-2: Does cause E need simulator recovery? Assumed: no, the re-check and the readout only. Owner-only."
+  ]
+}
