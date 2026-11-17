@@ -2503,9 +2503,15 @@ NEXT
    standalone `/audit-build` would close on unverified code and `/verify-build` has nothing to
    derive from:}
   1. /close-feature docs/TRD/<feature>.md
-  {no close happened, by `audit.return`: `cap reached` -> `/close-feature docs/TRD/<feature>.md`
-   alone in its block; `open: <why>` -> the design work it names, in words; `STUCK: <why>` or
-   `error: <why>` (or no `audit` field) -> the fix it names in words, then:}
+  {no close happened: exactly ONE of the next three branches applies, chosen by `audit.return`.
+   Each branch is complete on its own; a block under one branch never applies to another.}
+  {`cap reached`: `/close-feature docs/TRD/<feature>.md`, alone in its block:}
+  1. /close-feature docs/TRD/<feature>.md
+  {`open: <why>`: the design work it names, in words, as plain lines, and nothing else. No fenced
+   block and never `/audit-build`: Step 7.3 already re-audited in place, and a requirement with
+   no task needs design work before any audit can pass.}
+  {`STUCK: <why>` or `error: <why>` (or no `audit` field), and only these: the fix it names in
+   words, then:}
   1. /audit-build <trd> --prd <prd>
   {the close returned `stale` or `nothing to close`: the same `/audit-build <trd> --prd <prd>`
    block, with the STATE line saying why.}

@@ -218,3 +218,36 @@ describe('held-back close drops --verified when verdicts were carried forward', 
     expect(t).toContain('With `--verified` (verification proved every commit up to the head), `audit.anchorCommit` is the full output of `git rev-parse HEAD` at close time; without it, the line\'s `close.anchorCommit`');
   });
 });
+
+// FS-14 (verification run, 2026-11-16): a --no-verify run whose audit returned `open` (a
+// requirement with no task) printed a standalone `/audit-build` as NEXT, because Step 9's NEXT
+// template put the `open` clause and the STUCK/error clause in one paragraph above a single
+// `/audit-build` block. Each audit-result branch now stands alone; only STUCK/error carries the block.
+describe('Step 9 NEXT: an `open` audit return gets design work only, never /audit-build', () => {
+  const lines = s9.split('\n');
+  const startOf = (needle) => lines.findIndex((l) => l.includes(needle));
+
+  test('`cap reached`, `open` and STUCK/error are separate branches, in that order', () => {
+    const cap = startOf('{`cap reached`:');
+    const open = startOf('{`open: <why>`:');
+    const stuck = startOf('{`STUCK: <why>` or `error: <why>`');
+    expect(cap).toBeGreaterThanOrEqual(0);
+    expect(open).toBeGreaterThan(cap);
+    expect(stuck).toBeGreaterThan(open);
+  });
+
+  test('the `open` branch carries no slash-command line and says never /audit-build', () => {
+    const open = startOf('{`open: <why>`:');
+    const stuck = startOf('{`STUCK: <why>` or `error: <why>`');
+    const branch = lines.slice(open, stuck);
+    expect(branch.some((l) => /^\s*\d+\.\s*\//.test(l))).toBe(false);
+    expect(flat(branch.join('\n'))).toContain('never `/audit-build`');
+  });
+
+  test('the `/audit-build` block sits directly under the STUCK/error branch', () => {
+    const stuck = startOf('{`STUCK: <why>` or `error: <why>`');
+    const next = lines.slice(stuck).findIndex((l) => /^\s*\d+\.\s*\//.test(l));
+    expect(lines[stuck + next].trim()).toBe('1. /audit-build <trd> --prd <prd>');
+    expect(lines.slice(stuck + 1, stuck + next).every((l) => !l.trim().startsWith('{`'))).toBe(true);
+  });
+});
