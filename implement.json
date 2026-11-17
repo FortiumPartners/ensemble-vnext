@@ -1,0 +1,133 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/fix-implement-skips-verification-loop.md",
+  "branch": "feature/3-fix-implement-skips-verification-loop",
+  "strategy": "bug-fix",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js",
+        ".claude/lib/functional-verification.js"
+      ],
+      "started_at": "2026-11-17T16:37:45.646Z",
+      "last_advanced": "2026-11-17T16:42:24.251Z",
+      "current_problem": null,
+      "completed_at": "2026-11-17T16:48:18.132Z"
+    },
+    "FIX-002": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        "packages/core/commands/implement-trd-not-run-prose.test.js"
+      ],
+      "started_at": "2026-11-17T16:37:45.647Z",
+      "last_advanced": "2026-11-17T16:42:24.251Z",
+      "current_problem": null,
+      "completed_at": "2026-11-17T16:48:18.157Z"
+    },
+    "FIX-003": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md",
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md"
+      ],
+      "started_at": "2026-11-17T16:37:45.647Z",
+      "last_advanced": "2026-11-17T16:42:24.251Z",
+      "current_problem": null,
+      "completed_at": "2026-11-17T16:48:18.157Z"
+    },
+    "FIX-004": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js"
+      ],
+      "started_at": "2026-11-17T16:37:45.647Z",
+      "last_advanced": "2026-11-17T16:42:24.251Z",
+      "current_problem": null,
+      "completed_at": "2026-11-17T16:48:18.157Z"
+    },
+    "FIX-005": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verification-not-run-prose.test.js"
+      ],
+      "started_at": "2026-11-17T16:37:45.647Z",
+      "last_advanced": "2026-11-17T16:42:24.251Z",
+      "current_problem": null,
+      "completed_at": "2026-11-17T16:48:18.157Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "a0f4247ac0d0e40ea840265b0d2fbf548725dee1",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-17T16:59:37.681Z"
+    }
+  ],
+  "recovery": {
+    "interrupted": false,
+    "last_healthy_checkpoint": "a0f4247ac0d0e40ea840265b0d2fbf548725dee1",
+    "last_checkpoint_timestamp": "2026-11-17T16:59:37.681Z",
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/fix-implement-skips-verification-loop.md ## Reproduction",
+    "runs": [],
+    "derive_dispatched": true,
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, pytest installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude logged in (claude auth status loggedIn:true); scaffold-project.sh present"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh logged in with repo/workflow scopes, ADMIN on the repo"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "verification.md section 1: must not be touched"
+      }
+    }
+  }
+}

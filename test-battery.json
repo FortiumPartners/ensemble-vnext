@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "baseline": null,
+  "runs": {
+    "unit": {
+      "tree": "55bd695abd9b81423e4f0e9c2a25972aee1715ae+2f9e53d1766f",
+      "status": "fail",
+      "command": "npx jest -c jest.config.ci.js",
+      "durationSeconds": 277,
+      "failures": [
+        "CLI exits 1 with the message on stderr for an over-cap map",
+        "comparisonRows on the 12-board fixture keeps the row for a deleted PNG and lists it in missing",
+        "comparisonRows on the 12-board fixture throws on an over-cap map",
+        "packages/skills/design-setup/SKILL.md template.md (D5) cp -RL (the scaffolding mechanism) dereferences it into a real file, never a link",
+        "packages/skills/verification-setup/SKILL.md template.md (D5) cp -RL (the scaffolding mechanism) dereferences it into a real file, never a link",
+        "template.md and the workflow link cp -RL dereferences both into real files"
+      ],
+      "at": "2026-11-17T16:59:27.533Z"
+    }
+  }
+}
