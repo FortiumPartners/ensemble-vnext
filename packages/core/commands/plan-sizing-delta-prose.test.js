@@ -15,7 +15,7 @@ const start = at('### 2e.1. State the size');
 const end = at('### 2f.', start);
 const section = text.slice(start, end);
 const step4 = text.slice(at('## Step 4:'), at('## Step 5:'));
-const readout = text.slice(at('## Readout') >= 0 ? at('## Readout') : text.length);
+const readout = text.slice(at('## Readout'), at('## Output discipline'));
 
 describe('plan.md sizing delta and claims', () => {
   test('2e.1 sits after 2e and before 2f, Step 4 and Step 5', () => {
@@ -33,9 +33,11 @@ describe('plan.md sizing delta and claims', () => {
   });
 
   test('finds a recent predecessor from git history and flags rebuilt work', () => {
-    expect(section).toContain('git log <base branch> --merges');
+    expect(section).toContain('git log origin/<base branch> --first-parent');
+    expect(section).toContain("--format='%h %cd %s'");
+    expect(section).not.toContain('--merges');
     expect(section).toContain('already provides');
-    expect(section).toContain('flag each planned task that rebuilds or re-tests');
+    expect(section).toContain('flag each piece of planned work that rebuilds or re-tests');
     expect(section).toContain('there is no recent predecessor and nothing is flagged');
   });
 
@@ -47,6 +49,7 @@ describe('plan.md sizing delta and claims', () => {
   test('a must-pass criterion is never cut, and the spec path reports rather than cuts', () => {
     expect(section).toContain('A criterion the owner marked must-pass is never cut by this rule');
     expect(section).toContain('On the spec path (2g), scope is locked');
+    expect(section).toContain("run 2g's `spec-scope.js extract` check first");
     expect(section).toContain('reported, not built');
     expect(section).toContain('is reported with the line, never cut');
   });
@@ -56,9 +59,11 @@ describe('plan.md sizing delta and claims', () => {
     expect(step4).toContain('no task-or-file ceiling to consult');
   });
 
-  test('the readout mentions the beyond-the-change lines', () => {
-    expect(text).toContain('DECISIONS carries every `the description asks for <X> beyond the change; kept / cut` line');
-    expect(at('DECISIONS carries every `the description asks for <X> beyond the change')).toBeGreaterThan(at('## Step 5:'));
+  test('the readout carries the size line and the beyond-the-change lines', () => {
+    expect(at('## Readout')).toBeGreaterThan(at('## Step 5:'));
+    expect(readout).toContain("STATE carries 2e.1's final `size:` line");
+    expect(readout).toContain('DECISIONS carries every `the description asks for <X> beyond the change; kept / cut` line');
+    expect(section).toContain("The final size line goes in the TRD's `## Decision` and in the readout's STATE");
   });
 
   test('vendored .claude/ copy is byte-identical', () => {

@@ -227,29 +227,35 @@ size: 3 files touched (packages/core/commands/plan.md, .claude/commands/plan.md,
 
 It is a figure, not a ceiling: nothing compares it to a limit. It is what the description's
 criteria and Step 4's weight are checked against. If 2f later absorbs a blocker, restate the
-size line with the new count.
+size line with the new count. The final size line goes in the TRD's `## Decision` and in the
+readout's STATE.
 
 **When the work builds on a recent predecessor, size the delta against it.** Find the
-predecessor from git history on the base branch, over the files the change touches:
+predecessor from git history on the base branch (fetch it first; a local copy can be days
+behind origin), over the files the change touches:
 
 ```text
-git log <base branch> --merges --format='%h %ad %s' --date=short -- <the files the change touches>
+git log origin/<base branch> --first-parent --format='%h %cd %s' --date=short -- <the files the change touches>
 ```
 
-Run it again without `--merges`, because a squash merge is not a merge commit. A predecessor
-merged in the last day or two (by merge date; no fixed day count) is recent. Where no such
-commit is found, there is no recent predecessor and nothing is flagged. For a recent
-predecessor, list what it already provides (tests, fallbacks, judges, fixtures) and flag each
-planned task that rebuilds or re-tests one of them. The default is to reuse the predecessor's
-piece and drop the task:
+`--first-parent` lists each change as it landed on the base branch, merge commits and squash
+merges alike; without it, git's history simplification hides a merge whose feature branch
+carried the change, and that is the common case. `%cd` is the date the commit landed, which for
+a squash merge is the merge date, not the date it was first written. A predecessor merged in the
+last day or two (by merge date; no fixed day count) is recent. Where no such commit is found,
+there is no recent predecessor and nothing is flagged. For a recent predecessor, list what it
+already provides (tests, fallbacks, judges, fixtures) and flag each piece of planned work that
+rebuilds or re-tests one of them. The default is to reuse the predecessor's piece and drop that
+work, so no task is written for it in Step 5:
 
 ```text
 predecessor: cover-art direction (merged 2026-11-17, a1b2c3d) already provides: the cover judge, the text fallback, cover-render.test.js
-rebuilds: FIX-006 re-tests the text fallback that cover-render.test.js already covers - cut, reuse it
+rebuilds: a test of the text fallback, which cover-render.test.js already covers - cut, reuse it
 ```
 
 **Hold the description's own acceptance criteria to the same suspicion 2f applies to absorbed
-scope.** A description can list mechanisms and test suites as acceptance criteria. They are
+scope.** When the work comes from a document, run 2g's `spec-scope.js extract` check first: if
+it returns criteria, the spec path applies and nothing below is cut. A description can list mechanisms and test suites as acceptance criteria. They are
 claims about what the change needs, not requirements by default. When they ask for much more
 machinery than the stated size supports (judged, no formula, the same kind of call as Step 4's
 weight), say so in plain words, one line per item, in the TRD's `## Decision` and in the
@@ -1321,8 +1327,9 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 section may be "none". No section for what was dispatched or which stages ran: that is in the
 transcript and does not change what the owner does next.
 
-DECISIONS carries every `the description asks for <X> beyond the change; kept / cut` line from
-2e.1 and every predecessor rebuild it flagged, or says none.
+STATE carries 2e.1's final `size:` line. DECISIONS carries every
+`the description asks for <X> beyond the change; kept / cut` line from 2e.1 and every
+predecessor rebuild it flagged, or says none.
 
 
 ## Output discipline (see `.claude/rules/command-status.md`)
