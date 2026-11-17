@@ -1689,7 +1689,9 @@ round ledger instead of performing it. It ends with one `[STATUS: /audit-build] 
 line. **The skill runs inline in this turn, so printing that line is your job:** when the audit's
 last step is done, print its RETURN line verbatim, as its own line of text, before anything
 below (a further call, `pending-close`, the `implement.json` write), once per call. `audit.return`
-is copied from the line you printed; a return recorded with no printed line does not replace it.
+is copied from the line you printed, except where this step rewrites it (a third `re-audit needed`
+is recorded as `cap reached`; a missing pending close as `error: …`); a return recorded with no
+printed line does not replace it.
 While that line is `re-audit needed`, make the same call again: **at most three calls in
 all** (1 + `MAX_REAUDITS`, which `audit-rounds.js` sets to 2 and does not export, so it is stated
 here). A third `re-audit needed` is read as `cap reached`, and `audit.return` below records it as
