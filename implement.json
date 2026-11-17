@@ -1,0 +1,87 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/fix-plan-sizing-delta-and-claims.md",
+  "trd_hash": "ff16961e2ea61141d35d87754f688e821a5677459b380e86b06638d786ca6618",
+  "branch": "feature/4-fix-plan-sizing-delta-and-claims",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-17T17:56:21.193Z",
+      "completed_at": "2026-11-17T17:58:41.624Z",
+      "last_advanced": "2026-11-17T17:58:06.121Z"
+    },
+    "FIX-002": {
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/plan-sizing-delta-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-17T17:56:21.193Z",
+      "completed_at": "2026-11-17T17:58:41.640Z",
+      "last_advanced": "2026-11-17T17:58:06.121Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "a1ee69d8a6ab1a03a1892569f1302ae792d9798a",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-17T18:06:30.073Z"
+    }
+  ],
+  "recovery": {
+    "interrupted": false,
+    "interrupt_reason": null,
+    "last_healthy_checkpoint": "a1ee69d8a6ab1a03a1892569f1302ae792d9798a",
+    "last_checkpoint_timestamp": "2026-11-17T18:06:30.073Z"
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/fix-plan-sizing-delta-and-claims.md § Intended Change",
+    "runs": [],
+    "target": {
+      "environment": null,
+      "source": "none"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude + scaffold script installed"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}
