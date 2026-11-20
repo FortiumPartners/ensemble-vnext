@@ -82,3 +82,31 @@ describe('aggregate', () => {
     expect(total.cacheRead).toBe(15999);
   });
 });
+
+describe('aggregate deduplicates by message.id', () => {
+  const row = (id, o = {}) => ({ usage: usage({ out: 5, cr: 100 }), id, dir: 'd', model: 'm', ts: T('2026-01-02T00:00:00Z'), ...o });
+
+  test('lines sharing one id count once; another id counts separately', () => {
+    const { total } = aggregate([row('a'), row('a'), row('a'), row('b')], 'model');
+    expect(total.msgs).toBe(2);
+    expect(total.output).toBe(10);
+    expect(total.cacheRead).toBe(200);
+  });
+
+  test('a row with no id is still counted', () => {
+    const { total } = aggregate([row(undefined), row(undefined), row('a')], 'model');
+    expect(total.msgs).toBe(3);
+  });
+
+  test('the same id in rows from different dirs counts once', () => {
+    const { total, groups } = aggregate([row('a', { dir: 'x' }), row('a', { dir: 'y' })], 'project');
+    expect(total.msgs).toBe(1);
+    expect(Object.values(groups).reduce((n, g) => n + g.msgs, 0)).toBe(1);
+  });
+
+  test('out-of-window lines never replace an in-window one', () => {
+    const since = T('2026-01-01T00:00:00Z');
+    const { total } = aggregate([row('a', { usage: usage({ out: 7 }) }), row('a', { usage: usage({ out: 99 }), ts: T('2025-12-01T00:00:00Z') })], 'model', since);
+    expect(total.output).toBe(7);
+  });
+});

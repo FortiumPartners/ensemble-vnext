@@ -9,7 +9,10 @@
  * actually cost, and where did it go" without re-deriving it each time.
  *
  * WHAT IT COUNTS. Every assistant message carries a `usage` block with four token classes,
- * and they are NOT interchangeable:
+ * and they are NOT interchangeable. Claude Code writes ONE API message as several transcript
+ * lines (one per content block: thinking, text, each tool_use), each repeating the same
+ * `message.id` and the same usage block, so rows are deduplicated by `message.id` (see
+ * `aggregate`). Counting every line inflated the totals by roughly 1.5x-2x.
  *
  *   output               generated. The expensive one, ~5x input on every published rate card.
  *   input                fresh prompt tokens, uncached.
@@ -24,8 +27,9 @@
  * change without notice, and a stale hardcoded rate produces a confident wrong number --
  * worse than none. Multiply by your own current rates.
  *
- * Subagent turns are included: they write into the same transcript tree and their tokens are
- * as real as the lead's. That is the point -- fan-out is where the spend goes.
+ * Subagent turns are NOT counted: Claude Code writes them to <session>/subagents/*.jsonl, which
+ * this reader does not scan (it reads only the top-level <project>/*.jsonl). Fan-out spend is
+ * therefore understated.
  *
  *   node token-usage.js [--days N] [--by project|model|day] [--json]
  */
@@ -48,6 +52,7 @@ const blank = () => ({ output: 0, input: 0, cacheCreate: 0, cacheRead: 0, msgs: 
  * Accumulate ONE usage block. The four classes stay separate on purpose -- see the header.
  * There is deliberately no `total` field: a caller that wants one has to decide which classes
  * to combine and own that decision, rather than inheriting a meaningless sum from here.
+ * Counts one message per call, so callers must call it once per message id (`aggregate` does).
  */
 const add = (a, u) => {
   a.output += u.output_tokens || 0;
@@ -64,13 +69,23 @@ function groupKey(by, { dir = '', model = '', ts = 0 }) {
   return dir.replace(/^-Users-[a-z]+-/, '').replace(/-/g, '/');
 }
 
-/** Fold rows -> {groups, total}. Pure: rows are {usage, dir, model, ts}. */
+/**
+ * Fold rows -> {groups, total}. Pure: rows are {usage, id, dir, model, ts}.
+ * Rows sharing an `id` (message.id) are one API message split across transcript lines, so the
+ * last one seen wins and it is counted once. A row with no id is always counted. The `since`
+ * filter runs first so an out-of-window line never replaces an in-window one.
+ */
 function aggregate(rows, by, since) {
   const groups = {};
   const total = blank();
+  const byId = new Map();
+  let anon = 0;
   for (const r of rows || []) {
     if (!r || !r.usage) continue;
     if (Number.isFinite(since) && !(r.ts >= since)) continue;
+    byId.set(r.id ? 'id:' + r.id : 'anon:' + anon++, r);
+  }
+  for (const r of byId.values()) {
     const k = groupKey(by, r);
     add((groups[k] = groups[k] || blank()), r.usage);
     add(total, r.usage);
@@ -86,8 +101,7 @@ if (require.main === module) main();
 
 function main() {
 
-const groups = {};
-const total = blank();
+const allRows = [];
 let files = 0, skipped = 0;
 
 for (const dir of fs.existsSync(ROOT) ? fs.readdirSync(ROOT) : []) {
@@ -109,15 +123,13 @@ for (const dir of fs.existsSync(ROOT) ? fs.readdirSync(ROOT) : []) {
       if (!u) continue;
       const ts = Date.parse(d.timestamp || '');
       if (!Number.isFinite(ts) || ts < since) continue;
-      const key =
-        BY === 'model' ? ((d.message || {}).model || 'unknown')
-      : BY === 'day'   ? new Date(ts).toISOString().slice(0, 10)
-      :                  dir.replace(/^-Users-[a-z]+-/, '').replace(/-/g, '/');
-      add((groups[key] = groups[key] || blank()), u);
-      add(total, u);
+      const m = d.message || {};
+      allRows.push({ usage: u, id: m.id, dir, model: m.model, ts });
     }
   }
 }
+
+const { groups, total } = aggregate(allRows, BY, since);
 
 if (AS_JSON) {
   console.log(JSON.stringify({ days: DAYS, by: BY, total, groups }, null, 2));
