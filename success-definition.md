@@ -3,7 +3,7 @@
 **Source**: docs/plan/deterministic-rebase-engine.investigation.md §Intended Change (with its §Decision and §Grounding, same file)
 **Source kind**: intended-change
 **Derived**: 2026-11-20T19:37:31Z
-**Criteria**: 27
+**Criteria**: 28
 
 Line numbers in `Cites` are lines of the source file above. The Objectives table (lines 12–30)
 is never cited; objective ids appear only in `Must pass`. "The aged fixture" is the one the
@@ -46,6 +46,7 @@ every part is proven.
 | FS-25 | A file the engine adds takes the plugin source's mode (not 0600), and a file it replaces keeps its prior mode | §Decision lines 161–163 | `stat -f %Lp` (or `stat -c %a`) of an added file and its source, equal; of a replaced file before and after, equal | [read] | locator | | |
 | FS-26 | The engine adds no library skill the target did not already have installed | §Decision lines 76–79 ("so no library skill is added that the target does not have") | Listing of the target's `.claude/skills/` before and after a `--rebase`, the only new folders being framework skills shipped by the plugin | [read] | locator | | |
 | FS-27 | `--rebase` combined with another scaffold mode is refused | §Decision lines 69–70 ("exclusive with every other mode") | Transcript of `--rebase --refresh` (and one other mode) exiting non-zero with an error message, the target unchanged | [read] | locator | | |
+| FS-28 | The engine refuses, with exit 1 and before any write, a run where a retired entry is absolute or contains `..`, or where a planned path resolves outside the target's `.claude/` (for example `.claude/commands` symlinked outside it); the `error` names the offending path | docs/TRD/deterministic-rebase-engine.md lines 45, 254, 291 (O16; D9, D17; RBE-B002 acceptance) | BATS `rebase-engine.test.sh` cases at :542 and :563 passing; plus a direct `scaffold-project.sh --rebase --plugin-dir <fixture plugin>` run against (i) a fixture whose retired list holds a `..` entry and (ii) a fixture with `.claude/commands` symlinked to a sentinel directory outside `.claude/`: each exits 1, the `error` names the path, and a tree hash of the target and the sentinel is identical before and after | [read] | locator | 2 | O16 |
 
 ## Must-pass coverage notes
 
