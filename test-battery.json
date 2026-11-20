@@ -1,22 +1,46 @@
 {
   "version": 1,
-  "baseline": null,
+  "baseline": {
+    "base": "67cee2316dd2557272a45ed40871d8882f07e7de",
+    "capturedAt": "2026-11-20T19:53:04.169Z",
+    "suites": {
+      "unit": {
+        "command": "npx jest --ci (after npm ci; 4 suites fail only in this setgid worktree: cp -RL/cpSync cannot copy the setgid bit to /tmp)",
+        "durationSeconds": 102,
+        "failures": [
+          "packages/core/hooks/status.test.js",
+          "packages/core/lib/design-criteria.test.js",
+          "packages/core/lib/live-evidence.test.js",
+          "packages/skills/design-setup/__tests__/skill-md.test.js",
+          "packages/skills/ship-setup/__tests__/skill-md.test.js",
+          "packages/skills/verification-setup/__tests__/skill-md.test.js"
+        ]
+      }
+    }
+  },
   "runs": {
     "unit": {
-      "tree": "ae4136a9c13f5e987534ddd505a0489ec16619e2+72750196fb3e",
-      "status": "pass",
+      "tree": "163c1fe7f6f0d32bbf1a025a1297af7489ae01f7+0b342217f9e1",
+      "status": "fail",
       "command": "npx jest --ci",
-      "durationSeconds": 110,
-      "failures": [],
-      "at": "2026-11-20T19:50:30.820Z"
+      "durationSeconds": 131,
+      "failures": [
+        "packages/core/hooks/status.test.js",
+        "packages/core/lib/design-criteria.test.js",
+        "packages/core/lib/live-evidence.test.js",
+        "packages/skills/design-setup/__tests__/skill-md.test.js",
+        "packages/skills/ship-setup/__tests__/skill-md.test.js",
+        "packages/skills/verification-setup/__tests__/skill-md.test.js"
+      ],
+      "at": "2026-11-20T20:05:36.738Z"
     },
     "integration": {
-      "tree": "ae4136a9c13f5e987534ddd505a0489ec16619e2+72750196fb3e",
+      "tree": "163c1fe7f6f0d32bbf1a025a1297af7489ae01f7+0b342217f9e1",
       "status": "pass",
       "command": "bats rebase-engine scaffold-project scaffold-delivery runtime-integrity",
-      "durationSeconds": 211,
+      "durationSeconds": 246,
       "failures": [],
-      "at": "2026-11-20T19:48:08.519Z"
+      "at": "2026-11-20T20:09:42.453Z"
     }
   }
 }
