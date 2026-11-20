@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "fix-brief": {
+    "path": "docs/plans/fix-token-usage-double-count/brief.md",
+    "url": "",
+    "updated_at": "2026-11-20T18:46:26.250Z",
+    "command": "/plan-fix"
+  },
+  "workplan-input": {
+    "path": "docs/plans/fix-token-usage-double-count/workplan-input.json",
+    "url": "",
+    "updated_at": "2026-11-20T18:47:26.348Z",
+    "command": "create-workplan"
+  }
+}
