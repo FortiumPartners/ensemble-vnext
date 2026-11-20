@@ -1,5 +1,5 @@
 {
-  "forge_feature_id": null,
-  "branch": "main",
+  "forge_feature_id": "0fb8b9ac-fe91-4430-9a54-9a08a7d5cc96",
+  "branch": "feature/5-fix-token-usage-double-count",
   "slug": "fix-token-usage-double-count"
 }

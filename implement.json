@@ -1,0 +1,76 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/fix-token-usage-double-count.md",
+  "trd_hash": "af0598fbcdb590746b53c8313be76ef4a736147a6483ccc2e4f0162aba967930",
+  "branch": "feature/5-fix-token-usage-double-count",
+  "strategy": "bug-fix",
+  "phase_cursor": 2,
+  "run_started_at": "2026-11-20T18:50:05.399Z",
+  "tasks": {
+    "FIX-001": {
+      "description": "Deduplicate usage by message.id in aggregate(), route CLI through aggregate(), correct comments, add Jest cases",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/scripts/token-usage.js",
+        "packages/core/scripts/token-usage.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-20T18:50:05.399Z",
+      "completed_at": "2026-11-20T18:51:42.200Z",
+      "last_advanced": "2026-11-20T18:51:25.153Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "2ac2b64c016c002750374c2daf3a18379d546b01",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-20T18:52:02.670Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "2ac2b64c016c002750374c2daf3a18379d546b01",
+    "last_checkpoint_timestamp": "2026-11-20T18:52:02.670Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/fix-token-usage-double-count.md § Reproduction",
+    "derive_dispatched": true,
+    "runs": [],
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "declared may-write; jest/bats/node installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "declared; claude CLI and scaffold script present"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "declared; gh present"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}

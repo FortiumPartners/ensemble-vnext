@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "baseline": null,
+  "runs": {
+    "unit": {
+      "tree": "82ac6c789dfc28d65f192bc368e5c8375123736e+2a78b28baeb5",
+      "status": "pass",
+      "command": "npx jest --findRelatedTests packages/core/scripts/token-usage.js packages/core/scripts/token-usage.test.js",
+      "durationSeconds": 1,
+      "failures": [],
+      "at": "2026-11-20T18:52:02.511Z"
+    }
+  }
+}
