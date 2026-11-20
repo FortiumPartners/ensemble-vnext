@@ -446,6 +446,78 @@ PY
     grep -q '`--force` - Proceed even when' "$RP"
 }
 
+@test "rebase prompt states the file-conflict rule: replace only on proven unedited install, never discard an owner change" {
+    # WHY: the engine reports owner edits as conflicts and the model resolves them. The one
+    # unsafe move is replacing a file that holds an owner change, so the prompt must say when
+    # replacement is allowed (history proves the install was unedited) and that otherwise the
+    # owner's change is merged or kept.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    STEP2="$(sed -n '/^### Step 2: Resolve reported conflicts/,/^### Step 3/p' "$RP")"
+    grep -q 'Never discard an owner change' <<<"$STEP2"
+    grep -q 'Only when the history shows this' <<<"$STEP2"
+    grep -q 'treat it as an owner change' <<<"$STEP2"
+    grep -q '\*\*Merge\*\*' <<<"$STEP2"
+    grep -q 'Keep the owner.s copy' <<<"$STEP2"
+    grep -q 'needing a manual merge' <<<"$STEP2"
+}
+
+@test "rebase prompt states the settings-conflict rule: resolve or leave, no second engine call" {
+    # WHY: a second engine call could re-stamp the version over an unresolved hooks block.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    STEP2="$(sed -n '/^### Step 2: Resolve reported conflicts/,/^### Step 3/p' "$RP")"
+    grep -q 'Resolve it only when the local value can be put into the shape the engine understands' <<<"$STEP2"
+    grep -q 'otherwise leave it' <<<"$STEP2"
+    grep -q 'Do not call the engine a second time' <<<"$STEP2"
+    grep -q 'Say in DECISIONS which settings conflicts you resolved and which you left' <<<"$STEP2"
+}
+
+@test "rebase prompt states that --dry-run lists conflicts and resolves none" {
+    # WHY: a dry run must write nothing, and resolving a conflict writes.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    STEP2="$(sed -n '/^### Step 2: Resolve reported conflicts/,/^### Step 3/p' "$RP")"
+    grep -q 'Under `--dry-run`, list every conflict' <<<"$STEP2"
+    grep -q 'resolve none' <<<"$STEP2"
+}
+
+@test "rebase prompt states the engine-error rule: planning stage wrote nothing, apply stage may be partial" {
+    # WHY: the owner needs to know whether the tree changed. Wrongly saying "unchanged" after
+    # an apply-stage failure hides a half-applied, unstamped tree.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    STEP1="$(sed -n '/^### Step 1: One engine call/,/^### Step 2/p' "$RP")"
+    grep -q 'An error from the planning stage wrote nothing' <<<"$STEP1"
+    grep -q 'An error from the apply stage' <<<"$STEP1"
+    grep -q 'partly applied tree with no version stamp' <<<"$STEP1"
+    grep -q 'git status --short .claude/' <<<"$STEP1"
+    grep -q 'git restore .claude/' <<<"$STEP1"
+    grep -q 'empty output means nothing was written' <<<"$STEP1"
+}
+
+@test "rebase prompt makes a missing REBASE_RESULT line COMMAND STUCK and forbids a by-hand update" {
+    # WHY: with no result the model has no plan; improvising the update by hand is the
+    # failure the engine exists to remove.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    STEP1="$(sed -n '/^### Step 1: One engine call/,/^### Step 2/p' "$RP")"
+    grep -q 'no `REBASE_RESULT` line at all' <<<"$STEP1"
+    grep -q 'COMMAND STUCK' <<<"$STEP1"
+    grep -q 'Never fall back to doing any part of the update by hand' <<<"$STEP1"
+    grep -q 'Read only the last line of standard output' <<<"$STEP1"
+}
+
+@test "rebase prompt routes a settings refusal or skipped stamp to ISSUES and NEXT says fix hooks then re-run" {
+    # WHY: a refused settings write can leave the version stamped over the old hooks block;
+    # the owner must be told to fix the block and re-run, not that the rebase succeeded.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    STEP2="$(sed -n '/^### Step 2: Resolve reported conflicts/,/^### Step 3/p' "$RP")"
+    grep -q '`settings.refused`' <<<"$STEP2"
+    grep -q 'settings write refused by the guard' <<<"$STEP2"
+    grep -q 'go in ISSUES' <<<"$STEP2"
+    grep -q 'bring the local `hooks` block to the shipped shape' <<<"$STEP2"
+    grep -q 'commit and run `/rebase-project` again' <<<"$STEP2"
+    # And the Error Handling table and readout carry the same rule for failed/skipped steps.
+    grep -q '`settings.refused` set | ISSUES line; NEXT: commit, then run `/rebase-project` again' "$RP"
+    grep -q 'A `stamp` that failed or was skipped means the version is not recorded: re-run' "$RP"
+}
+
 @test "every command the router banner names exists on disk" {
     # The banner is hand-maintained prose injected on EVERY UserPromptSubmit, so a
     # stale name is the most-repeated wrong statement in the framework. It pushed
