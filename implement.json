@@ -68,7 +68,17 @@
     "source_kind": "reproduction",
     "prd_path": "docs/TRD/fix-token-usage-double-count.md § Reproduction",
     "derive_dispatched": true,
-    "runs": [],
+    "runs": [
+      {
+        "n": 1,
+        "command": "/implement-trd",
+        "started_at": "2026-11-20T19:00:35.201Z",
+        "scope": "full",
+        "outcome": "satisfied",
+        "finished_at": "2026-11-20T19:02:21.483Z",
+        "open": []
+      }
+    ],
     "target": {
       "environment": "local",
       "source": "trd"
@@ -95,5 +105,10 @@
         "reason": "must not be touched"
       }
     }
+  },
+  "audit": {
+    "return": "closed; PR opened: https://github.com/FortiumPartners/ensemble-vnext/pull/179",
+    "runId": "wf_6de9c3dd-430",
+    "calls": 1
   }
 }

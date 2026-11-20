@@ -1,0 +1,13 @@
+{
+  "feature": "fix-token-usage-double-count",
+  "trd": "docs/TRD/fix-token-usage-double-count.md",
+  "closedAt": "2026-11-20T19:02:51Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this defect has a brief, not a PRD); the dedup tests cannot tell \"last row wins\" from \"first row wins\"; check 3 of the brief (the original 6,104 / 8,402 baseline transcripts) cannot be re-run from this account",
+    "report": ".trd-state/fix-token-usage-double-count/audit-build-report.md",
+    "auditedCommit": "052132fc877bd753533dde2c2b2c74eb6e782bd8",
+    "anchorCommit": "f600c283a58ad07830c7ca271a129255017acaad"
+  }
+}

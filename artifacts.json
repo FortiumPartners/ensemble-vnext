@@ -11,5 +11,17 @@
     "url": "",
     "updated_at": "2026-11-20T19:00:01.523Z",
     "command": "/audit-build"
+  },
+  "success-definition": {
+    "path": ".trd-state/fix-token-usage-double-count/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-20T19:00:12.066Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/fix-token-usage-double-count/verification-report.md",
+    "url": "",
+    "updated_at": "2026-11-20T19:03:03.199Z",
+    "command": "/implement-trd"
   }
 }
