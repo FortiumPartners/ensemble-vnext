@@ -4,7 +4,7 @@
   "trd_hash": "4cb5c4e96744239d83266bd4fd19d0c135734c0bc1f8761e6924615dbba2f0fc",
   "branch": "feature/20-deterministic-rebase-engine",
   "strategy": "tdd",
-  "phase_cursor": 3,
+  "phase_cursor": 4,
   "tasks": {
     "RBE-P001": {
       "description": "Create packages/core/templates/retired-files.json (D9), seeded from the three retired tables and the retired-hooks paragraph in rebase-project.md and from git log --diff-filter=D over the framework so",
@@ -62,38 +62,50 @@
     "RBE-B002": {
       "description": "Add rebase_engine_program() plan and apply for files (§3.2; D2, D3, D5, D6, D9's validation, D13, D14's file rules, D15, D16; D17's file writes, modes and path check) and the REBASE_RESULT line with a",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/rebase-engine.test.sh"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-11-20T21:10:34.792Z",
+      "last_advanced": "2026-11-20T21:00:57.466Z"
     },
     "RBE-B003": {
       "description": "Add the settings merge (D11), its conflicts and the guard mode wired before the one settings write (D12), and preserve-all's settings rule (D14) to the planner and applier",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/rebase-engine.test.sh"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-11-20T21:10:34.793Z",
+      "last_advanced": "2026-11-20T21:00:57.467Z"
     },
     "RBE-B004": {
       "description": "Wire the post-copy steps in D17's order (hook modes, reconcile_selected_skills, inject_agent_skills excluding conflicted agents, git files, records cutover, stamp_ensemble_version strict last) and rep",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/rebase-engine.test.sh"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-11-20T21:10:34.794Z",
+      "last_advanced": "2026-11-20T21:00:57.467Z"
     },
     "RBE-T001": {
       "description": "One aged-fixture BATS case across the whole engine, as the investigation's checkable outcomes describe (an older shipped file, a missing file, a retired file, a user agent, a user hook registration, a",
@@ -136,11 +148,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-20T20:09:58.644Z"
+    },
+    {
+      "phase": 3,
+      "commit": "dd217f57e88416e2e41749e4a3728d5f70a0b053",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-20T21:19:22.215Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "5fdd7c376a1fd6e5d90fbe997557e813c1fd8311",
-    "last_checkpoint_timestamp": "2026-11-20T20:09:58.644Z",
+    "last_healthy_checkpoint": "dd217f57e88416e2e41749e4a3728d5f70a0b053",
+    "last_checkpoint_timestamp": "2026-11-20T21:19:22.215Z",
     "interrupted": false,
     "interrupt_reason": null
   },

@@ -20,10 +20,10 @@
   },
   "runs": {
     "unit": {
-      "tree": "163c1fe7f6f0d32bbf1a025a1297af7489ae01f7+0b342217f9e1",
+      "tree": "5fdd7c376a1fd6e5d90fbe997557e813c1fd8311+e4b37d7e85e6",
       "status": "fail",
       "command": "npx jest --ci",
-      "durationSeconds": 131,
+      "durationSeconds": 104,
       "failures": [
         "packages/core/hooks/status.test.js",
         "packages/core/lib/design-criteria.test.js",
@@ -32,15 +32,15 @@
         "packages/skills/ship-setup/__tests__/skill-md.test.js",
         "packages/skills/verification-setup/__tests__/skill-md.test.js"
       ],
-      "at": "2026-11-20T20:05:36.738Z"
+      "at": "2026-11-20T21:12:18.312Z"
     },
     "integration": {
-      "tree": "163c1fe7f6f0d32bbf1a025a1297af7489ae01f7+0b342217f9e1",
+      "tree": "5fdd7c376a1fd6e5d90fbe997557e813c1fd8311+e4b37d7e85e6",
       "status": "pass",
       "command": "bats rebase-engine scaffold-project scaffold-delivery runtime-integrity",
-      "durationSeconds": 246,
+      "durationSeconds": 260,
       "failures": [],
-      "at": "2026-11-20T20:09:42.453Z"
+      "at": "2026-11-20T21:16:38.256Z"
     }
   }
 }
