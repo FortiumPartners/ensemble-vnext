@@ -94,15 +94,30 @@ describe('aggregate deduplicates by message.id', () => {
     expect(total.cacheRead).toBe(200);
   });
 
+  test('rows sharing one id with different usage count the LAST row in every class, once', () => {
+    // Identical usage blocks cannot tell last-wins from first-wins; these differ in all four classes.
+    const first = usage({ out: 1, in: 2, cw: 3, cr: 4 });
+    const mid = usage({ out: 10, in: 20, cw: 30, cr: 40 });
+    const last = usage({ out: 100, in: 200, cw: 300, cr: 400 });
+    const { total, groups } = aggregate(
+      [row('a', { usage: first }), row('a', { usage: mid }), row('a', { usage: last })], 'model');
+    expect(total).toEqual({ output: 100, input: 200, cacheCreate: 300, cacheRead: 400, msgs: 1 });
+    expect(groups.m).toEqual(total);
+  });
+
   test('a row with no id is still counted', () => {
     const { total } = aggregate([row(undefined), row(undefined), row('a')], 'model');
     expect(total.msgs).toBe(3);
   });
 
   test('the same id in rows from different dirs counts once', () => {
-    const { total, groups } = aggregate([row('a', { dir: 'x' }), row('a', { dir: 'y' })], 'project');
+    // Different usage and dir per row: the LAST row's dir group must hold the last row's usage.
+    const { total, groups } = aggregate(
+      [row('a', { dir: 'x', usage: usage({ out: 1 }) }), row('a', { dir: 'y', usage: usage({ out: 9 }) })], 'project');
     expect(total.msgs).toBe(1);
-    expect(Object.values(groups).reduce((n, g) => n + g.msgs, 0)).toBe(1);
+    expect(Object.keys(groups)).toEqual(['y']);
+    expect(groups.y.output).toBe(9);
+    expect(total.output).toBe(9);
   });
 
   test('out-of-window lines never replace an in-window one', () => {
