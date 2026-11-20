@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "slug": "rebase-project-fast",
+  "name": "Fast, mostly deterministic /rebase-project",
+  "source": {
+    "command": "/plan-feature",
+    "artifact": "docs/plans/rebase-project-fast/roadmap.md"
+  },
+  "repo": "/Users/james/dev/fortium/ensemble-vnext",
+  "base_branch": "main",
+  "rigor": "standard",
+  "features": [
+    {
+      "name": "Baseline rebase timing",
+      "description": "Baseline rebase timing - feature F-1 of workplan rebase-project-fast.\nMeasure how long `/rebase-project` takes today, before any change, so the plan has a baseline. Build one fixture project that has real drift: scaffold it from release v4.15.0 (a git worktree of tag `v4.15.0`, using its `packages/full`), commit it, then plant the cases a rebase must handle: one owner-edited vendored skill file, one user-added agent, one user-added hook registration in `.claude/settings.json`, and one retired file that the current plugin no longer ships (pattern: `test/smoke/scenarios/rebase-old-tree.sh`). Archive the committed fixture as a tarball under `.trd-state/rebase-project-fast/evidence/fixture/` with its sha256, so the after-run uses the identical tree. Against the plugin pinned at tag `v4.17.10` (a git worktree, so later merges cannot change the baseline), run headless `/rebase-project` in dry-run mode and then `/rebase-project` on fresh copies of the fixture (headless print mode, the plugin directory set to that worktree's `packages/full`, project setting sources, bypass permissions, as `test/smoke/lib/project.sh` does). For each run record total wall clock, time per step (Step 0 to Step 5, from the transcript's tool-call timestamps), tokens (`packages/core/scripts/token-usage.js`), and the resulting file tree (the porcelain git status plus a list of what changed). Write the numbers and the method to a report; no code ships.\nAcceptance: baseline.md holds wall clock, per-step seconds and tokens for a dry-run and a full run; the fixture tarball and its sha256 exist and match.\nBuilds on: none.\nDesign: docs/plans/rebase-project-fast/roadmap.md item 1.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 10,
+      "dependencies": [],
+      "entry_point": "idea",
+      "route": "task",
+      "route_rigor": "solo"
+    },
+    {
+      "name": "Deterministic rebase engine",
+      "description": "Deterministic rebase engine - feature F-2 of workplan rebase-project-fast.\nAdd a script mode that does every deterministic part of a rebase in one call, so the model no longer diffs or copies files. It must: copy every framework component (commands, agents, hooks and hook libs and prompts, workflows, libs, contracts, framework skills, framework-shipped rules), adding new files and replacing differing ones by byte comparison; remove retired files using one declared retired list (move the retired agent, skill, hook and command lists out of `rebase-project.md` prose into a data file the script reads, with a test that keeps it in step); select skills through the existing `reconcile_selected_skills()` logic rather than a second stack.md table; merge `.claude/settings.json` (regenerate the ensemble-owned `hooks` block from `hooks.manifest.json`, carry forward non-ensemble registrations per event without deduplicating by filename, keep every other local key) and refuse to write if the merged block has fewer registrations or prompt-type entries than the plugin default; drop registrations pointing at retired hooks; set hook file modes; re-inject agent skill preloads; stamp the version (the existing stamp-version mode of `scaffold-project.sh`); run the git-files and records-cutover steps it already has. It detects two kinds of conflict and leaves both untouched: a vendored framework file the owner has edited (the script must tell an owner edit apart from an older shipped version, for example by recording the hashes of the files it ships), and a settings key it cannot merge. It prints a machine-readable result (per category: added, replaced, removed, unchanged, preserved, conflicts) and, under a dry-run flag, writes nothing. It honours the preserve-all flag and never writes constitution.md, stack.md, process.md, verification.md, design.md or ship.md. The refresh mode keeps its present contract (never creates, never deletes).\nAcceptance: one script call adds, replaces and removes framework files by byte comparison and a declared retired list\nAcceptance: settings merge keeps user hooks and refuses to write below the plugin's registration and prompt counts\nAcceptance: an owner-edited framework file and an unmergeable settings key are reported as conflicts and left untouched\nAcceptance: dry-run writes nothing; a second run reports zero changes; the six owner-governed rules are byte-identical; refresh mode still deletes nothing\nAcceptance: new BATS cases prove each of the above and the full battery is green.\nBuilds on: none.\nDecisions: retired-file removal lives only in the rebase engine, refresh mode keeps never-delete: owner's call, default taken (auto, 2026-11-20). autonomy.md stays framework-shipped but an owner-edited copy is a conflict, never silently overwritten: owner's call, default taken (auto, 2026-11-20).\nDesign: docs/plans/rebase-project-fast/roadmap.md item 2.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 20,
+      "dependencies": [],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    },
+    {
+      "name": "Rebase prompt on the engine",
+      "description": "Rebase prompt on the engine - feature F-3 of workplan rebase-project-fast.\nRewrite `packages/core/commands/rebase-project.md` (and its vendored copy, `.claude/commands/rebase-project.md`) so it calls the deterministic rebase engine instead of having the model diff and update each component. The prompt keeps: Step 0 (installation check and the clean-tree precondition and its force override), the plugin-path resolution, one engine call (dry-run or apply), handling of each conflict the engine reports (an owner-edited vendored file: show the owner's change against the new shipped version and either merge or keep the owner's copy, saying which; an unmergeable settings key: resolve or leave it, saying which), and the four-section readout and banner. Step 2's per-component diff prose and Step 4's selective-update prose are removed, along with the stack.md skill table and capability-word inference. Keep the generated hook-enumeration block that `generate-hooks-artifacts.sh` writes into this file working, or retire it from the generator if the prompt no longer needs it. Update every test and smoke scenario that reads this prompt's text (`records-cutover-prose.test.js`, `check-hook-prose.py`, `test/smoke/scenarios/rebase-old-tree.sh`, `test/integration/tests/runtime-integrity.test.sh`, `scaffold-delivery.test.sh`).\nAcceptance: the prompt makes one engine call and the model only resolves reported conflicts and writes the readout\nAcceptance: Step 2 and Step 4 per-component prose and the stack.md skill table are gone\nAcceptance: lint-command-structure.js passes, generate-hooks-artifacts.sh leaves no diff, the battery is green\nAcceptance: a headless rebase on an aged fixture slot ends COMMAND COMPLETE and rebase-old-tree.sh's filesystem assertions pass.\nBuilds on: Deterministic rebase engine.\nDesign: docs/plans/rebase-project-fast/roadmap.md item 3.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 30,
+      "dependencies": [
+        {
+          "name": "Deterministic rebase engine",
+          "reason": "code_or_schema"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "standard"
+    },
+    {
+      "name": "After-change rebase timing",
+      "description": "After-change rebase timing - feature F-4 of workplan rebase-project-fast.\nTime `/rebase-project` again on the same fixture as the baseline, now with the engine and the rewritten prompt, and report before and after numbers. Unpack the baseline fixture tarball (check its sha256 against the baseline report first), then run headless `/rebase-project` in dry-run mode and `/rebase-project` against the current `packages/full`, measured exactly as the baseline was: wall clock, time per step, tokens, and the resulting file tree. Write a before/after table (each number with its unit and the baseline beside it) and compare the two resulting trees: any file the old rebase changed that the new one did not, or the reverse, is listed and explained. No code ships.\nAcceptance: after.md holds wall clock, per-step seconds and tokens for both runs beside the baseline numbers\nAcceptance: the fixture sha256 matches the baseline's and the two resulting trees are compared.\nBuilds on: Baseline rebase timing, Rebase prompt on the engine.\nDesign: docs/plans/rebase-project-fast/roadmap.md item 4.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 40,
+      "dependencies": [
+        {
+          "name": "Baseline rebase timing",
+          "reason": "code_or_schema"
+        },
+        {
+          "name": "Rebase prompt on the engine",
+          "reason": "code_or_schema"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "task",
+      "route_rigor": "solo"
+    }
+  ]
+}
