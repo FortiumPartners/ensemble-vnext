@@ -1535,7 +1535,7 @@ render_plugin_tree() {
     local render_parent
     render_parent="$(cd "$(dirname "$render_dir")" && pwd)"
     if ! GIT_CEILING_DIRECTORIES="$render_parent" \
-        "$SCRIPT_DIR/scaffold-project.sh" --plugin-dir "$PLUGIN_DIR" --copy-skills "$render_dir" >&2; then
+        bash "$SCRIPT_DIR/scaffold-project.sh" --plugin-dir "$PLUGIN_DIR" --copy-skills "$render_dir" >&2; then
         error "Rendering the plugin failed" >&2
         return 1
     fi
@@ -2530,6 +2530,9 @@ def guard_mode(argv):
 
 
 def entry_label(event, entry):
+    if not isinstance(entry, dict):
+        # Not a registration the engine understands; it is the user's and is carried as is.
+        return "hooks.%s: %s" % (event, json.dumps(entry)[:70])
     text = entry.get("command") if entry.get("type") == "command" else entry.get("prompt")
     return "hooks.%s: %s" % (event, str(text if text is not None else entry.get("type"))[:70])
 
@@ -2600,6 +2603,8 @@ def plan_settings(claude, plugin_settings_path, hook_files, shipped, retired_pat
     path = os.path.join(claude, "settings.json")
     entry = {"path": path, "pluginPath": plugin_settings_path, "content": None, "mode": None}
     sres["written"] = False
+    sres["counts"] = {"plugin": dict(zip(("registrations", "prompts"), count_hooks(plugin))),
+                      "merged": None}
     pj = collections.OrderedDict
     plugin_prompts = {h["prompt"] for g in (g for gs in plugin["hooks"].values() for g in gs)
                       for h in g["hooks"] if h.get("type") == "prompt" and isinstance(h.get("prompt"), str)}
@@ -2623,6 +2628,7 @@ def plan_settings(claude, plugin_settings_path, hook_files, shipped, retired_pat
     if not os.path.lexists(path):
         data = copy.deepcopy(plugin)
         sres["added"].extend(data.keys())
+        sres["counts"]["merged"] = dict(sres["counts"]["plugin"])
     else:
         try:
             with open(path) as fh:
@@ -2645,9 +2651,10 @@ def plan_settings(claude, plugin_settings_path, hook_files, shipped, retired_pat
             sres["added"].append("hooks")
         elif hooks != local["hooks"]:
             sres["replaced"].append("hooks")
-        else:
-            sres["unchanged"] += 1
         data["hooks"] = hooks
+        # D16: the count of top-level keys left as they were.
+        sres["unchanged"] = sum(1 for k in local if k in data and data[k] == local[k])
+        sres["counts"]["merged"] = dict(zip(("registrations", "prompts"), count_hooks(data)))
         if data == local:
             return entry  # D11 7: nothing changed, leave the bytes alone
         mode = stat.S_IMODE(os.stat(path).st_mode)
@@ -2688,7 +2695,7 @@ def plan(argv):
     preserve_all = preserve_flag == "true"
     res = {"mode": mode, "preserveAll": preserve_all, "pluginVersion": None,
            "categories": {c: empty_lists() for c in CATEGORIES},
-           "settings": dict(empty_lists(), written=False, refused=None),
+           "settings": dict(empty_lists(), written=False, refused=None, counts=None),
            "steps": {s: "not run" for s in STEPS}}
     try:
         build(res, render, target, plan_file, retired_file, shipped_file,
@@ -2929,8 +2936,13 @@ rebase_project() {
         rebase_emit_error "Rendering the plugin failed or the render is empty" "$mode"
         return 1
     fi
-    agent_normhash "$render_dir/.claude/agents" > "$work_dir/render-normhash.tsv"
-    agent_normhash "$target_dir/.claude/agents" > "$work_dir/target-normhash.tsv"
+    # Under set -e a failed hash (an agent that is not UTF-8) would end the run with no
+    # REBASE_RESULT line; report it instead.
+    if ! agent_normhash "$render_dir/.claude/agents" > "$work_dir/render-normhash.tsv" \
+        || ! agent_normhash "$target_dir/.claude/agents" > "$work_dir/target-normhash.tsv"; then
+        rebase_emit_error "Hashing the agents failed" "$mode"
+        return 1
+    fi
 
     local -a rules=()
     local rule
@@ -2951,12 +2963,21 @@ rebase_project() {
         "$PLUGIN_DIR" "$mode" "$PRESERVE_ALL" \
         "$TEMPLATES_DIR/claude-directory/settings.json" "$hook_files" "${rules[@]}")" || rc=$?
     if [[ $rc -ne 0 ]]; then
-        printf 'REBASE_RESULT %s\n' "$result"
+        # A crash (traceback on stderr) prints no JSON; the last line must still parse.
+        if [[ -z "$result" ]]; then
+            rebase_emit_error "The rebase planner failed unexpectedly (see stderr)" "$mode"
+        else
+            printf 'REBASE_RESULT %s\n' "$result"
+        fi
         return 1
     fi
 
     if [[ "$DRY_RUN" != "true" ]]; then
         result="$(python3 -c "$(rebase_engine_program)" apply "$plan_file")" || rc=$?
+        if [[ $rc -ne 0 && -z "$result" ]]; then
+            rebase_emit_error "The rebase applier failed unexpectedly (see stderr)" "$mode"
+            return "$rc"
+        fi
         # A failed file write stops the run: the post-copy steps would act on a half-applied tree.
         if [[ $rc -eq 0 ]]; then
             result="$(rebase_post_steps "$target_dir" "$manifest" "$result")"
@@ -2997,8 +3018,11 @@ rebase_post_steps() {
     if [[ ! -d "$claude/hooks" ]]; then
         printf 'modes\tskipped: no .claude/hooks directory\n' >> "$steps_file"
     else
-        _rebase_step ensure_hooks_executable "$claude/hooks" "$hook_names" || true
-        printf 'modes\tok\n' >> "$steps_file"
+        if _rebase_step ensure_hooks_executable "$claude/hooks" "$hook_names"; then
+            printf 'modes\tok\n' >> "$steps_file"
+        else
+            printf 'modes\tfailed: ensure_hooks_executable returned non-zero\n' >> "$steps_file"
+        fi
     fi
 
     # selection: selected-skills.txt follows the installed skill folders.
@@ -3050,8 +3074,14 @@ for c in json.load(sys.stdin)["categories"]["agents"]["conflicts"]:
         printf 'recordsCutover\tok\n' >> "$steps_file"
     fi
 
-    # stamp: strictly last, so a half-applied rebase never reads as complete.
-    if _rebase_step stamp_ensemble_version "$target_dir" strict; then
+    # stamp: strictly last, so a half-applied rebase never reads as complete. A settings
+    # write the guard refused leaves the old hooks block in place: that is half-applied.
+    local refused
+    refused="$(printf '%s' "$result" | python3 -c 'import json, sys
+print(json.load(sys.stdin)["settings"].get("refused") or "")')"
+    if [[ -n "$refused" ]]; then
+        printf 'stamp\tskipped: settings write refused by the guard\n' >> "$steps_file"
+    elif _rebase_step stamp_ensemble_version "$target_dir" strict; then
         printf 'stamp\tok\n' >> "$steps_file"
     else
         warn_line="$(printf '%s\n' "$STEP_OUT" | sed 's/\x1b\[[0-9;]*m//g; s/^\[[A-Z]*\] *//' | grep -v '^$' | head -n 1)"
