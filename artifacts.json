@@ -5,5 +5,11 @@
     "url": "https://claude.ai/artifact/BPa8jLnxB6Xjk5QZ1aF9ak",
     "updated_at": "2026-11-20T19:35:43.680Z",
     "command": "/plan"
+  },
+  "audit-build": {
+    "path": ".trd-state/deterministic-rebase-engine/audit-build-report.md",
+    "url": "",
+    "updated_at": "2026-11-20T22:18:09.309Z",
+    "command": "/audit-build"
   }
 }
