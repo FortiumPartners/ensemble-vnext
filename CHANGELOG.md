@@ -12,6 +12,23 @@ the work is actually released.
 
 ## [Unreleased]
 
+A rebase that takes a script run instead of a long model session: `scaffold-project.sh --rebase` works out, file by file, what to add, replace, remove or leave alone, and reports it as one line of JSON.
+
+### Added
+
+- **`scaffold-project.sh --rebase --plugin-dir DIR [project]`: a deterministic rebase of the vendored `.claude/` runtime.** It renders the plugin as a scaffold would install it (outside the project), then classifies every installed path. A framework file that matches an older shipped version is replaced. A file the owner edited is reported as a conflict and left untouched. A file on the retired list is removed. New files are added, and `settings.json` is merged with the owner's keys and registrations kept. `--dry-run` reports the same plan and writes nothing. `--preserve-all` adds new files only for agents and skills, replaces no framework rules and removes nothing. The mode is exclusive with every other mode, `--force`, `--copy-skills` and `--new-only`. The conflict handling treats `autonomy.md` as framework-shipped, not owner-governed, and only `--rebase` removes retired files; `--refresh` does not.
+- **`REBASE_RESULT <json>` as the last stdout line.** It carries `mode`, `preserveAll`, `pluginVersion`, per-category `added`, `replaced`, `removed`, `preserved`, `unchanged` (a count) and `conflicts` (`{path, reason}`), the same for `settings`, the ordered `steps` (each `ok`, `skipped` or `failed`), and `error` when the run stopped before writing. Every other message goes to stderr. Exit 0 whenever the run completed, including runs that reported conflicts.
+- **Two data files the engine reads.** `packages/core/templates/retired-files.json` lists files the framework no longer ships, so a rebase can delete them. `packages/core/templates/shipped-hashes.json` lists, per installed path, the hash of every version any `v*` release installed, so a rebase can tell "an older shipped version" from "an owner edit".
+- **`packages/core/scripts/generate-shipped-hashes.sh`** builds and checks the hash list. `--seed` renders every `v*` tag merged into HEAD and writes the list. `--append <tag>` renders one more tag and adds its hashes without removing any. `--check` exits 1, naming what is wrong, if the list is malformed or does not cover the retired list.
+- **New release step for contributors:** before cutting a release, run `packages/core/scripts/generate-shipped-hashes.sh --append <previous tag>` (the newest `v*` tag older than HEAD), so the next rebase recognises the release just before the one being cut as an older shipped version. `CLAUDE.md` does not carry this step yet; it changes through `/update-project`.
+
+### Not yet proven
+
+- `/rebase-project` does not call `--rebase` yet. Rewriting its prompt to use the engine is a separate change (F-3), and its retired-file tables stay until then.
+- No headless `/rebase-project` run was made against the engine.
+- `--refresh`, which runs at SessionStart after every plugin upgrade, still overwrites owner-edited framework files without comparing bytes. Conflict detection therefore protects only edits made since the last upgrade, or with refresh turned off.
+- Files installed from an untagged build match no recorded hash and read as conflicts.
+
 ## [4.17.10] - 2026-11-17
 
 Two fixes requested by customer products. **`/implement-trd` no longer ends without running the verification loop or saying why** (#174, from Forge's PM, measured on dart's plan). **`/plan` sizes work against a recently merged feature and states a size before writing tasks** (#176, from Storybook's PM).

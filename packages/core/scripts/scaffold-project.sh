@@ -13,6 +13,7 @@
 #   ./scaffold-project.sh --stamp-version --plugin-dir DIR [project-directory]
 #   ./scaffold-project.sh --git-files [project-directory]
 #   ./scaffold-project.sh --records-cutover [--no-push] [project-directory]
+#   ./scaffold-project.sh --rebase --plugin-dir DIR [--dry-run] [--preserve-all] [project-directory]
 #
 # Options:
 #   --plugin-dir DIR   Plugin directory containing agents, skills, hooks
@@ -48,6 +49,14 @@
 #                       leave them tracked.
 #   --no-push          With --records-cutover: keep seeded refs local (tests, offline use).
 #   --new-only         With --sync-agents: copy only new agents (--preserve-all).
+#   --rebase           Deterministic rebase of the vendored runtime (docs/TRD/
+#                       deterministic-rebase-engine.md). Renders the plugin as a scaffold
+#                       would install it, outside the target. Requires --plugin-dir (a
+#                       relative path is resolved to an absolute one). Exclusive with every
+#                       other mode, --force, --copy-skills and --new-only.
+#   --dry-run          With --rebase: report what would change; write nothing.
+#   --preserve-all     With --rebase: add new files only for agents and skills, never
+#                       replace framework rules, remove nothing.
 #
 # If project-directory is not provided, uses current directory.
 #
@@ -72,6 +81,9 @@ GIT_FILES=false
 RECORDS_CUTOVER=false
 NO_PUSH=false
 NEW_ONLY=false
+REBASE=false
+DRY_RUN=false
+PRESERVE_ALL=false
 PROJECT_DIR=""
 
 # The framework-owned skills ship to EVERY project regardless of stack selection
@@ -128,6 +140,18 @@ while [[ $# -gt 0 ]]; do
             NEW_ONLY=true
             shift
             ;;
+        --rebase)
+            REBASE=true
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --preserve-all)
+            PRESERVE_ALL=true
+            shift
+            ;;
         -*)
             echo "Unknown option: $1" >&2
             exit 1
@@ -170,8 +194,8 @@ fi
 # --stamp-version is a strict whole-run mode that owns only the version stamp
 # (used by /rebase-project Step 4.8 and /init-project).
 if [[ "$STAMP_VERSION" == "true" ]]; then
-    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" ]]; then
-        echo "Error: --stamp-version cannot be combined with --refresh, --force, --agent-status or --sync-agents" >&2
+    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$REBASE" == "true" ]]; then
+        echo "Error: --stamp-version cannot be combined with --refresh, --force, --agent-status, --sync-agents or --rebase" >&2
         exit 1
     fi
     if [[ -z "$PLUGIN_DIR" ]]; then
@@ -181,15 +205,15 @@ if [[ "$STAMP_VERSION" == "true" ]]; then
 fi
 # --git-files is a strict standalone mode, for the same reason as the above.
 if [[ "$GIT_FILES" == "true" ]]; then
-    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$STAMP_VERSION" == "true" ]]; then
-        echo "Error: --git-files cannot be combined with --refresh, --force, --agent-status, --sync-agents or --stamp-version" >&2
+    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$STAMP_VERSION" == "true" || "$REBASE" == "true" ]]; then
+        echo "Error: --git-files cannot be combined with --refresh, --force, --agent-status, --sync-agents, --stamp-version or --rebase" >&2
         exit 1
     fi
 fi
 # --records-cutover is strict and standalone too.
 if [[ "$RECORDS_CUTOVER" == "true" ]]; then
-    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$STAMP_VERSION" == "true" || "$GIT_FILES" == "true" ]]; then
-        echo "Error: --records-cutover cannot be combined with --refresh, --force, --agent-status, --sync-agents, --stamp-version or --git-files" >&2
+    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$STAMP_VERSION" == "true" || "$GIT_FILES" == "true" || "$REBASE" == "true" ]]; then
+        echo "Error: --records-cutover cannot be combined with --refresh, --force, --agent-status, --sync-agents, --stamp-version, --git-files or --rebase" >&2
         exit 1
     fi
 fi
@@ -200,6 +224,39 @@ fi
 if [[ "$NEW_ONLY" == "true" && "$SYNC_AGENTS" != "true" ]]; then
     echo "Error: --new-only is only valid with --sync-agents" >&2
     exit 1
+fi
+
+# --rebase is a strict whole-run mode: exclusive with every other mode and with
+# --force, --copy-skills and --new-only (the render passes --copy-skills to its own
+# subprocess; the caller never does). --dry-run and --preserve-all mean nothing
+# without it.
+if [[ "$REBASE" == "true" ]]; then
+    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$COPY_SKILLS" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$STAMP_VERSION" == "true" || "$GIT_FILES" == "true" || "$RECORDS_CUTOVER" == "true" || "$NO_PUSH" == "true" || "$NEW_ONLY" == "true" ]]; then
+        echo "Error: --rebase cannot be combined with --refresh, --force, --copy-skills, --agent-status, --sync-agents, --stamp-version, --git-files, --records-cutover, --no-push or --new-only" >&2
+        exit 1
+    fi
+    if [[ -z "$PLUGIN_DIR" ]]; then
+        echo "Error: --rebase requires --plugin-dir" >&2
+        echo 'REBASE_RESULT {"error": "--rebase requires --plugin-dir"}'
+        exit 1
+    fi
+    # scaffold_project() cd's into its target before copying, so a relative
+    # plugin path would resolve against the wrong directory and render only
+    # rules and settings. Resolve once, here.
+    if ! PLUGIN_DIR="$(cd "$PLUGIN_DIR" 2>/dev/null && pwd)"; then
+        echo "Error: --plugin-dir is not a readable directory" >&2
+        echo 'REBASE_RESULT {"error": "--plugin-dir is not a readable directory"}'
+        exit 1
+    fi
+else
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "Error: --dry-run is only valid with --rebase" >&2
+        exit 1
+    fi
+    if [[ "$PRESERVE_ALL" == "true" ]]; then
+        echo "Error: --preserve-all is only valid with --rebase" >&2
+        exit 1
+    fi
 fi
 
 # Default project directory to current directory if not specified
@@ -1189,6 +1246,9 @@ copy_skills() {
 #
 #   inject <manifest> <selection> <agents_dir> <skills_dir>   rewrite agents in place
 #   status <plugin_agents_dir> <project_agents_dir>           print "<state>\t<name>"
+#   normhash <agents_dir>                                     print "<name>\t<git blob id>" of
+#                                                             each agent, generated content stripped
+#   inject takes optional trailing agent names to leave untouched (a conflicted agent).
 agent_skills_program() {
     cat <<'PY'
 import json, os, re, sys, tempfile
@@ -1308,6 +1368,15 @@ def read_agents(directory):
                     out[fname[:-3]] = fh.read()
     return out
 
+if mode == "normhash":
+    # Read-only. The git blob id of the normalised text, so a listed hash equals
+    # `git hash-object` of the same bytes and a preload-only difference never shows.
+    import hashlib
+    for name, text in sorted(read_agents(sys.argv[2]).items()):
+        data = normalise(text).encode("utf-8")
+        print(name + "\t" + hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest())
+    sys.exit(0)
+
 if mode == "status":
     # Read-only. Needs neither the skill selection nor the affinity manifest.
     plugin = read_agents(sys.argv[2])
@@ -1326,6 +1395,7 @@ if mode == "status":
 
 manifest_path, selection_path, agents_dir = sys.argv[2:5]
 skills_dir = sys.argv[5] if len(sys.argv) > 5 else ""
+excluded = set(sys.argv[6:])
 
 selected = []
 with open(selection_path) as fh:
@@ -1342,6 +1412,8 @@ for fname in sorted(os.listdir(agents_dir)):
     if not fname.endswith(".md"):
         continue
     name = fname[:-3]
+    if name in excluded:
+        continue
     pool = pools.get(name)
     if pool is None:
         continue
@@ -1409,6 +1481,9 @@ PY
 # skills: field at all.
 inject_agent_skills() {
     local target_dir="$1"
+    shift
+    # Remaining arguments: agent names to leave untouched (optional; `"$@"` is
+    # safe when empty under set -u).
     local selection_file="$target_dir/.claude/selected-skills.txt"
     local agents_dir="$target_dir/.claude/agents"
     local manifest=""
@@ -1431,7 +1506,59 @@ inject_agent_skills() {
         return 0
     fi
 
-    python3 -c "$(agent_skills_program)" inject "$manifest" "$selection_file" "$agents_dir" "$target_dir/.claude/skills"
+    python3 -c "$(agent_skills_program)" inject "$manifest" "$selection_file" "$agents_dir" "$target_dir/.claude/skills" "$@"
+}
+
+# Render what the plugin would install into <target>, into <render-dir>, without
+# touching <target> (--rebase, D4). Runs this same script as a subprocess so the
+# scaffold's layout resolution and copy-loop exclusions are the single definition
+# of what ships. <render-dir>/.claude/selected-skills.txt names every skill folder
+# installed in the target (D13: the installed folder is the truth), so the render
+# holds exactly those library skills plus the framework skills. The owner-governed
+# rules are removed from the render (D15). Output goes to stderr; returns non-zero
+# when the scaffold fails or the render holds no command, agent or hook.
+render_plugin_tree() {
+    local target_dir="$1" render_dir="$2"
+    local skills_dir="$target_dir/.claude/skills" d
+
+    mkdir -p "$render_dir/.claude"
+    : > "$render_dir/.claude/selected-skills.txt"
+    if [[ -d "$skills_dir" ]]; then
+        for d in "$skills_dir"/*/; do
+            [[ -d "$d" ]] || continue
+            basename "$d" >> "$render_dir/.claude/selected-skills.txt"
+        done
+    fi
+
+    # GIT_CEILING_DIRECTORIES: a TMPDIR inside a repository must not let the
+    # scaffold's git steps find it and untrack anything.
+    local render_parent
+    render_parent="$(cd "$(dirname "$render_dir")" && pwd)"
+    if ! GIT_CEILING_DIRECTORIES="$render_parent" \
+        bash "$SCRIPT_DIR/scaffold-project.sh" --plugin-dir "$PLUGIN_DIR" --copy-skills "$render_dir" >&2; then
+        error "Rendering the plugin failed" >&2
+        return 1
+    fi
+
+    local rule
+    while IFS= read -r rule; do
+        rm -f "$render_dir/.claude/rules/$rule"
+    done < <(authored_rules)
+
+    local category have=false
+    for category in commands agents hooks; do
+        if [[ -n "$(find "$render_dir/.claude/$category" -type f -print -quit 2>/dev/null)" ]]; then
+            have=true
+        else
+            have=false
+            break
+        fi
+    done
+    if [[ "$have" != "true" ]]; then
+        error "The rendered plugin holds no command, agent or hook" >&2
+        return 1
+    fi
+    return 0
 }
 
 # Print "<state>\t<name>" for every agent, comparing plugin to project with the
@@ -1450,6 +1577,12 @@ agent_status() {
         return 1
     fi
     python3 -c "$(agent_skills_program)" status "$src" "$target_dir/.claude/agents"
+}
+
+# Print "<name>\t<git blob id>" per agent in <agents_dir>, generated content
+# (skills: list, marked body section) stripped first. Read-only.
+agent_normhash() {
+    python3 -c "$(agent_skills_program)" normhash "$1"
 }
 
 # Keep .claude/selected-skills.txt in step with the skill folders actually
@@ -1705,6 +1838,16 @@ PY
     fi
 }
 
+# The rule files the project owns: written by /init-project and the setup skills,
+# never by the framework. Prints one name per line. ONE list, read by refresh_rules()
+# (which refuses to touch them) and by the --rebase render and applier (which never
+# plan a write or delete of them). Keep the array on one line, in exactly this form:
+# several tests read the quoted names off it.
+authored_rules() {
+    local AUTHORED_RULES=("constitution.md" "stack.md" "process.md" "verification.md" "design.md" "ship.md")
+    printf '%s\n' "${AUTHORED_RULES[@]}"
+}
+
 # Refresh the framework-shipped rule files under .claude/rules/, driven from
 # packages/core/templates/claude-directory/rules/ — the same directory
 # scaffold_project()'s "Framework-Shipped Rules" step copies-if-missing from.
@@ -1743,7 +1886,10 @@ refresh_rules() {
     # unattended --refresh (SessionStart hook) would silently overwrite that
     # owner-filled copy with the blank template. Make the invariant refuse to
     # break rather than break quietly.
-    local AUTHORED_RULES=("constitution.md" "stack.md" "process.md" "verification.md" "design.md" "ship.md")
+    local authored_names=() authored_name
+    while IFS= read -r authored_name; do
+        authored_names+=("$authored_name")
+    done < <(authored_rules)
 
     local count=0
     local rule_file rule_basename authored skip
@@ -1751,7 +1897,7 @@ refresh_rules() {
         [[ -f "$rule_file" ]] || continue
         rule_basename="$(basename "$rule_file")"
         skip=false
-        for authored in "${AUTHORED_RULES[@]}"; do
+        for authored in "${authored_names[@]}"; do
             if [[ "$rule_basename" == "$authored" ]]; then
                 warn "Refusing to refresh project-authored rule: $rule_basename"
                 skip=true
@@ -2236,6 +2382,726 @@ scaffold_project() {
     return 0
 }
 
+# The Python program behind --rebase (docs/TRD/deterministic-rebase-engine.md, D3).
+# Printed rather than run here, as agent_skills_program() is.
+#
+#   plan  <render> <target> <plan-file> <retired.json> <shipped-hashes.json>
+#         <render-normhash> <target-normhash> <plugin-dir> <mode> <preserve-all>
+#         <plugin-settings.json> <manifest-hook-files, newline-joined> <owner-rule>...
+#         Classify every framework file (§3.2) and merge settings.json (D11, D12, D14);
+#         write the plan file; print the result JSON. Reads the target, writes nothing in
+#         it. Exit 1 with "error" in the result when the run must stop before any write.
+#   apply <plan-file>
+#         Perform the plan's copies and deletes and its one settings write; print the
+#         result JSON. Exit 1 on a failure.
+#   guard <plugin-settings.json> <merged-settings.json>
+#         Exit 1, printing both pairs of counts, when the merged hooks hold fewer
+#         registrations or fewer prompt entries than the plugin's (D12).
+#
+# Only apply writes the target, and bash runs it only after the --dry-run exit (D2).
+rebase_engine_program() {
+    cat <<'PY'
+import collections, copy, hashlib, json, os, re, shutil, stat, sys, tempfile
+
+CATEGORIES = ["commands", "agents", "hooks", "hook-libs", "hook-prompts",
+              "workflows", "libs", "contracts", "skills", "rules"]
+TOP_DIRS = {"commands": "commands", "agents": "agents", "hooks": "hooks",
+            "workflows": "workflows", "lib": "libs", "contracts": "contracts",
+            "skills": "skills", "rules": "rules"}
+STEPS = ["modes", "selection", "preloads", "gitFiles", "recordsCutover", "stamp"]
+# Left to the strict stamp that runs after the merge (D11 5).
+VERSION_KEYS = {"version", "refreshed_at", "rebased_at", "previous_version"}
+HOOK_PATH = re.compile(r"\.claude/hooks/([A-Za-z0-9_./-]+)")
+
+
+class Stop(Exception):
+    """The run must stop before any write; the message becomes the result's error."""
+
+
+def category(rel):
+    parts = rel.split("/")
+    if parts[0] == "hooks" and len(parts) > 2:
+        if parts[1] == "lib":
+            return "hook-libs"
+        if parts[1] == "prompts":
+            return "hook-prompts"
+    return TOP_DIRS.get(parts[0])
+
+
+def blob_id(data):
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def file_hash(path):
+    try:
+        with open(path, "rb") as fh:
+            return blob_id(fh.read())
+    except OSError:
+        return None  # a directory or unreadable: reads as "differs", never as listed
+
+
+def read_json(path, what):
+    try:
+        with open(path) as fh:
+            return json.load(fh)
+    except (OSError, ValueError) as exc:
+        raise Stop("%s is not readable JSON: %s (%s)" % (what, path, exc))
+
+
+def read_tsv(path):
+    out = {}
+    with open(path) as fh:
+        for line in fh:
+            line = line.rstrip("\n")
+            if "\t" in line:
+                name, digest = line.split("\t", 1)
+                out[name] = digest
+    return out
+
+
+def real_inside(path, claude_real):
+    """True when path (or its nearest existing ancestor) resolves under .claude/.
+    Both sides are resolved: on macOS /tmp is /private/tmp, so raw prefixes differ."""
+    probe = os.path.dirname(path)
+    while not os.path.lexists(probe) and probe != os.path.dirname(probe):
+        probe = os.path.dirname(probe)
+    real = os.path.realpath(probe)
+    return real == claude_real or real.startswith(claude_real + os.sep)
+
+
+def leaves(root):
+    """Relative paths of every file and every symlink under root (a symlink is a leaf,
+    never followed)."""
+    out = []
+    for base, dirs, files in os.walk(root):
+        for d in list(dirs):
+            if os.path.islink(os.path.join(base, d)):
+                dirs.remove(d)
+                out.append(os.path.relpath(os.path.join(base, d), root))
+        for f in files:
+            out.append(os.path.relpath(os.path.join(base, f), root))
+    return sorted(out)
+
+
+def empty_lists():
+    return {"added": [], "replaced": [], "removed": [], "preserved": [],
+            "unchanged": 0, "conflicts": []}
+
+
+class Conflict(Exception):
+    """A shape the engine does not understand; the model resolves it, not the engine."""
+
+
+def count_hooks(settings):
+    """(registrations, prompt entries) in settings["hooks"]. One registration is one
+    entry of a group's hooks list, the unit rebase-project.md §4.6 step 4 counts."""
+    total = prompts = 0
+    hooks = settings.get("hooks") if isinstance(settings, dict) else None
+    if not isinstance(hooks, dict):
+        return 0, 0
+    for groups in hooks.values():
+        for group in groups if isinstance(groups, list) else []:
+            for entry in group.get("hooks", []) if isinstance(group, dict) else []:
+                total += 1
+                prompts += isinstance(entry, dict) and entry.get("type") == "prompt"
+    return total, prompts
+
+
+def guard_check(plugin, merged):
+    """Return (ok, message). Fails when either merged count is below the plugin's."""
+    want, got = count_hooks(plugin), count_hooks(merged)
+    msg = ("plugin: %d registrations, %d prompt; merged: %d registrations, %d prompt"
+           % (want[0], want[1], got[0], got[1]))
+    return got[0] >= want[0] and got[1] >= want[1], msg
+
+
+def guard_mode(argv):
+    try:
+        with open(argv[0]) as fh:
+            plugin = json.load(fh)
+        with open(argv[1]) as fh:
+            merged = json.load(fh)
+    except (OSError, ValueError) as exc:
+        print("guard: unreadable settings: %s" % exc)
+        sys.exit(1)
+    ok, msg = guard_check(plugin, merged)
+    print(("guard ok - " if ok else "guard refused - ") + msg)
+    sys.exit(0 if ok else 1)
+
+
+def entry_label(event, entry):
+    if not isinstance(entry, dict):
+        # Not a registration the engine understands; it is the user's and is carried as is.
+        return "hooks.%s: %s" % (event, json.dumps(entry)[:70])
+    text = entry.get("command") if entry.get("type") == "command" else entry.get("prompt")
+    return "hooks.%s: %s" % (event, str(text if text is not None else entry.get("type"))[:70])
+
+
+def merge_hooks(local, plugin, is_owned, sres):
+    """The plugin's groups, then the user's registrations on their own events (D11 2-3)."""
+    if not isinstance(local, dict):
+        raise Conflict("hooks is not an object")
+    in_plugin = {(ev, json.dumps(h, sort_keys=True))
+                 for ev, groups in plugin.items() for g in groups for h in g["hooks"]}
+    carried = collections.OrderedDict()
+    for event, groups in local.items():
+        if not isinstance(groups, list):
+            raise Conflict("hooks.%s is not a list of groups" % event)
+        kept = []
+        for group in groups:
+            if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+                raise Conflict("hooks.%s holds a group without a hooks list" % event)
+            mine = []
+            for entry in group["hooks"]:
+                if is_owned(entry):
+                    if (event, json.dumps(entry, sort_keys=True)) not in in_plugin:
+                        sres["removed"].append(entry_label(event, entry))
+                else:
+                    mine.append(entry)
+                    sres["preserved"].append(entry_label(event, entry))
+            if mine or not group["hooks"]:
+                kept_group = collections.OrderedDict(group)
+                kept_group["hooks"] = mine
+                kept.append(kept_group)
+        carried[event] = kept
+    merged = collections.OrderedDict()
+    for event, groups in plugin.items():
+        merged[event] = copy.deepcopy(groups) + carried.pop(event, [])
+    for event, groups in carried.items():
+        if groups or not local[event]:
+            merged[event] = groups
+    return merged
+
+
+def merge_keys(local, plugin, path, preserve_all, sres):
+    """Add the plugin's absent keys; an existing local value is never overwritten (D11 4)."""
+    for key, pval in plugin.items():
+        dotted = path + key
+        if (path == "ensemble." and key in VERSION_KEYS) or (not path and key == "hooks"):
+            continue
+        if key not in local:
+            if path and preserve_all:
+                continue  # D14: only absent top-level keys are added
+            local[key] = copy.deepcopy(pval)
+            sres["added"].append(dotted)
+            continue
+        lval = local[key]
+        if isinstance(lval, dict) and isinstance(pval, dict):
+            if not preserve_all:
+                merge_keys(lval, pval, dotted + ".", preserve_all, sres)
+        elif isinstance(lval, dict) != isinstance(pval, dict):
+            sres["conflicts"].append({"path": dotted, "reason": "local and plugin values differ in kind"})
+
+
+def plan_settings(claude, plugin_settings_path, hook_files, shipped, retired_paths,
+                  preserve_all, sres):
+    """Merge settings.json (D11-D12, D14). Returns the plan's settings entry; the merged
+    text goes into the plan file and only apply writes it."""
+    plugin = read_json(plugin_settings_path, "plugin settings")
+    if not isinstance(plugin, dict) or not isinstance(plugin.get("hooks"), dict):
+        raise Stop("plugin settings has no hooks object: %s" % plugin_settings_path)
+    path = os.path.join(claude, "settings.json")
+    entry = {"path": path, "pluginPath": plugin_settings_path, "content": None, "mode": None}
+    sres["written"] = False
+    sres["counts"] = {"plugin": dict(zip(("registrations", "prompts"), count_hooks(plugin))),
+                      "merged": None}
+    pj = collections.OrderedDict
+    plugin_prompts = {h["prompt"] for g in (g for gs in plugin["hooks"].values() for g in gs)
+                      for h in g["hooks"] if h.get("type") == "prompt" and isinstance(h.get("prompt"), str)}
+    listed_prompts = set(shipped.get("promptHooks") or [])
+
+    def owned_file(name):
+        rel = "hooks/" + name
+        return name in hook_files or any(rel == p or (p.endswith("/") and rel.startswith(p))
+                                         for p in retired_paths)
+
+    def is_owned(entry):
+        if not isinstance(entry, dict):
+            return False
+        if entry.get("type") == "command" and isinstance(entry.get("command"), str):
+            return any(owned_file(m.group(1)) for m in HOOK_PATH.finditer(entry["command"]))
+        if entry.get("type") == "prompt" and isinstance(entry.get("prompt"), str):
+            text = entry["prompt"]
+            return text in plugin_prompts or blob_id(text.encode("utf-8")) in listed_prompts
+        return False
+
+    if not os.path.lexists(path):
+        data = copy.deepcopy(plugin)
+        sres["added"].extend(data.keys())
+        sres["counts"]["merged"] = dict(sres["counts"]["plugin"])
+    else:
+        try:
+            with open(path) as fh:
+                local = json.load(fh, object_pairs_hook=pj)
+            if not isinstance(local, dict):
+                raise ValueError("top level is not an object")
+        except (OSError, ValueError) as exc:
+            sres["conflicts"].append({"path": "settings.json", "reason": "not an object in valid JSON: %s" % exc})
+            return entry
+        data = copy.deepcopy(local)
+        try:
+            hooks = merge_hooks(local["hooks"], plugin["hooks"], is_owned, sres) if "hooks" in local \
+                else merge_hooks({}, plugin["hooks"], is_owned, sres)
+        except Conflict as exc:
+            sres["removed"], sres["preserved"] = [], []
+            sres["conflicts"].append({"path": "hooks", "reason": str(exc)})
+            return entry  # D12: a settings conflict writes nothing
+        merge_keys(data, plugin, "", preserve_all, sres)
+        if "hooks" not in local:
+            sres["added"].append("hooks")
+        elif hooks != local["hooks"]:
+            sres["replaced"].append("hooks")
+        data["hooks"] = hooks
+        # D16: the count of top-level keys left as they were.
+        sres["unchanged"] = sum(1 for k in local if k in data and data[k] == local[k])
+        sres["counts"]["merged"] = dict(zip(("registrations", "prompts"), count_hooks(data)))
+        if data == local:
+            return entry  # D11 7: nothing changed, leave the bytes alone
+        mode = stat.S_IMODE(os.stat(path).st_mode)
+        entry["mode"] = mode
+    entry["content"] = json.dumps(data, indent=2) + "\n"
+    sres["written"] = True
+    return entry
+
+
+def write_settings(entry, sres):
+    """THE settings write. The guard runs first; on a refusal nothing is written (D12)."""
+    if entry["content"] is None:
+        return
+    merged = json.loads(entry["content"])
+    with open(entry["pluginPath"]) as fh:
+        ok, msg = guard_check(json.load(fh), merged)
+    if not ok:
+        sres["written"] = False
+        sres["refused"] = msg
+        return
+    directory = os.path.dirname(entry["path"])
+    fd, tmp = tempfile.mkstemp(dir=directory, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(entry["content"])
+        os.chmod(tmp, entry["mode"] if entry["mode"] is not None else 0o644)
+        os.replace(tmp, entry["path"])
+    except BaseException:
+        if os.path.lexists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def plan(argv):
+    (render, target, plan_file, retired_file, shipped_file, render_nh_file,
+     target_nh_file, plugin_dir, mode, preserve_flag, plugin_settings, hook_list) = argv[:12]
+    authored = set(argv[12:])
+    preserve_all = preserve_flag == "true"
+    res = {"mode": mode, "preserveAll": preserve_all, "pluginVersion": None,
+           "categories": {c: empty_lists() for c in CATEGORIES},
+           "settings": dict(empty_lists(), written=False, refused=None, counts=None),
+           "steps": {s: "not run" for s in STEPS}}
+    try:
+        build(res, render, target, plan_file, retired_file, shipped_file,
+              render_nh_file, target_nh_file, plugin_dir, preserve_all, authored,
+              plugin_settings, set(hook_list.split("\n")) - {""})
+    except Stop as exc:
+        res["error"] = str(exc)
+        print(json.dumps(res))
+        sys.exit(1)
+    print(json.dumps(res))
+
+
+def build(res, render, target, plan_file, retired_file, shipped_file,
+          render_nh_file, target_nh_file, plugin_dir, preserve_all, authored,
+          plugin_settings, hook_files):
+    manifest = read_json(os.path.join(plugin_dir, ".claude-plugin", "plugin.json"), "plugin manifest")
+    res["pluginVersion"] = manifest.get("version")
+
+    retired = read_json(retired_file, "retired-files.json")
+    entries = retired.get("entries") if isinstance(retired, dict) else None
+    if not isinstance(entries, list):
+        raise Stop("retired-files.json has no entries list")
+    retired_paths = []
+    for entry in entries:
+        p = entry.get("path") if isinstance(entry, dict) else None
+        # Validated before anything else: an entry the engine would delete must never
+        # leave .claude/ (D9).
+        if (not isinstance(p, str) or not p or p.startswith("/") or "\\" in p
+                or ".." in p.split("/") or category(p) is None):
+            raise Stop("retired entry is absolute, contains .., or is outside the framework directories: %r" % (p,))
+        if p.split("/", 1)[0] == "rules" and os.path.basename(p.rstrip("/")) in authored:
+            raise Stop("retired entry names an owner-governed rule: %s" % p)
+        retired_paths.append(p)
+
+    shipped = read_json(shipped_file, "shipped-hashes.json")
+    listed = shipped.get("files") if isinstance(shipped, dict) else None
+    if not isinstance(listed, dict):
+        raise Stop("shipped-hashes.json has no files map")
+
+    claude = os.path.join(target, ".claude")
+    if not os.path.isdir(claude):
+        raise Stop("target has no .claude/ directory: %s" % target)
+    claude_real = os.path.realpath(claude)
+    render_claude = os.path.join(render, ".claude")
+    render_nh, target_nh = read_tsv(render_nh_file), read_tsv(target_nh_file)
+
+    def covered(rel):
+        return any(rel == p or (p.endswith("/") and rel.startswith(p)) for p in retired_paths)
+
+    def hashes(rel, src_path, table):
+        if category(rel) == "agents" and rel.count("/") == 1 and rel.endswith(".md"):
+            return table.get(rel[len("agents/"):-3])
+        return file_hash(src_path)
+
+    # The render's files, by relative path, in the ten categories.
+    render_files = {}
+    for rel in leaves(render_claude):
+        if category(rel) is not None:
+            render_files[rel] = os.path.join(render_claude, rel)
+    for rel in render_files:
+        if rel.startswith("rules/") and os.path.basename(rel) in authored:
+            raise Stop("the render holds an owner-governed rule: %s" % rel)
+
+    # Every category directory in the target must itself stay inside .claude/.
+    for top in TOP_DIRS:
+        path = os.path.join(claude, top)
+        if os.path.lexists(path) and not real_inside(path + os.sep + "x", claude_real):
+            raise Stop("path resolves outside .claude/: %s" % top)
+
+    actions = []
+    cats = res["categories"]
+
+    def guard(rel):
+        if not real_inside(os.path.join(claude, rel.rstrip("/")), claude_real):
+            raise Stop("path resolves outside .claude/: %s" % rel)
+
+    for rel in sorted(render_files):
+        cat = category(rel)
+        dst = os.path.join(claude, rel)
+        guard(rel)
+        if not os.path.lexists(dst):
+            cats[cat]["added"].append(rel)
+            actions.append({"op": "copy", "rel": rel, "src": render_files[rel], "replace": False})
+            continue
+        new_hash = hashes(rel, render_files[rel], render_nh)
+        old_hash = hashes(rel, dst, target_nh)
+        if new_hash is not None and new_hash == old_hash:
+            cats[cat]["unchanged"] += 1
+        elif preserve_all and cat in ("agents", "skills", "rules"):
+            cats[cat]["preserved"].append(rel)
+        elif old_hash is not None and old_hash in listed.get(rel, []):
+            cats[cat]["replaced"].append(rel)
+            actions.append({"op": "copy", "rel": rel, "src": render_files[rel], "replace": True})
+        else:
+            cats[cat]["conflicts"].append({"path": rel, "reason": "owner edit"})
+
+    # Retired entries: removed in default mode only (D14 removes nothing under preserve-all).
+    if not preserve_all:
+        for p in retired_paths:
+            dst = os.path.join(claude, p.rstrip("/"))
+            if not os.path.lexists(dst):
+                continue
+            if p in render_files or any(r.startswith(p) for r in render_files if p.endswith("/")):
+                continue  # the plugin still ships it; the retired test forbids this
+            guard(p)
+            cats[category(p)]["removed"].append(p)
+            actions.append({"op": "delete", "rel": p})
+
+    # Whatever else the target holds in a category directory is the owner's.
+    folders_in_render = {rel.split("/")[1] for rel in render_files if rel.startswith("skills/")}
+    skill_folders_done = set()
+    for top in TOP_DIRS:
+        top_path = os.path.join(claude, top)
+        if not os.path.isdir(top_path):
+            continue
+        for sub in leaves(top_path):
+            rel = top + "/" + sub
+            cat = category(rel)
+            if rel in render_files or (covered(rel) and not preserve_all):
+                continue
+            if cat == "skills" and rel.split("/")[1] not in folders_in_render:
+                folder = "skills/" + rel.split("/")[1]
+                if folder not in skill_folders_done:
+                    skill_folders_done.add(folder)
+                    cats[cat]["preserved"].append(folder)
+                continue
+            cats[cat]["preserved"].append(rel)
+    for c in CATEGORIES:
+        cats[c]["preserved"].sort()
+
+    for act in actions:
+        if act["rel"].startswith("rules/") and os.path.basename(act["rel"].rstrip("/")) in authored:
+            raise Stop("refusing to write or delete an owner-governed rule: %s" % act["rel"])
+
+    guard("settings.json")
+    settings_entry = plan_settings(claude, plugin_settings, hook_files, shipped,
+                                   retired_paths, preserve_all, res["settings"])
+
+    with open(plan_file, "w") as fh:
+        json.dump({"claude": claude, "claudeReal": claude_real,
+                   "authored": sorted(authored), "actions": actions,
+                   "settings": settings_entry, "result": res}, fh)
+
+
+def write_file(src, dst, replace):
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    mode = stat.S_IMODE(os.stat(src).st_mode)
+    # A replaced file keeps its mode; a replaced symlink takes the source's; an added
+    # file takes the rendered mode. mkstemp creates 0600, so the mode is set explicitly.
+    if replace and os.path.lexists(dst) and not os.path.islink(dst):
+        mode = stat.S_IMODE(os.lstat(dst).st_mode)
+    with open(src, "rb") as fh:
+        data = fh.read()
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(dst), prefix=".rebase-")
+    try:
+        with os.fdopen(fd, "wb") as out:
+            out.write(data)
+        os.chmod(tmp, mode)
+        os.replace(tmp, dst)  # a symlink at dst is replaced, never written through
+    except BaseException:
+        if os.path.lexists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def apply(argv):
+    with open(argv[0]) as fh:
+        plan_data = json.load(fh)
+    claude, claude_real = plan_data["claude"], plan_data["claudeReal"]
+    authored = set(plan_data["authored"])
+    res = plan_data["result"]
+    try:
+        # Re-checked here, before the first write: the plan file is not trusted blindly.
+        for act in plan_data["actions"]:
+            rel = act["rel"]
+            if rel.startswith("rules/") and os.path.basename(rel.rstrip("/")) in authored:
+                raise Stop("refusing to write or delete an owner-governed rule: %s" % rel)
+            if ".." in rel.split("/") or rel.startswith("/") or not real_inside(os.path.join(claude, rel.rstrip("/")), claude_real):
+                raise Stop("path resolves outside .claude/: %s" % rel)
+    except Stop as exc:
+        res["error"] = str(exc)
+        print(json.dumps(res))
+        sys.exit(1)
+    for act in plan_data["actions"]:
+        dst = os.path.join(claude, act["rel"].rstrip("/"))
+        try:
+            if act["op"] == "copy":
+                write_file(act["src"], dst, act["replace"])
+            elif os.path.islink(dst) or os.path.isfile(dst):
+                os.unlink(dst)
+            elif os.path.isdir(dst):
+                shutil.rmtree(dst)
+        except OSError as exc:
+            res["error"] = "%s failed for %s: %s" % (act["op"], act["rel"], exc)
+            print(json.dumps(res))
+            sys.exit(1)
+    try:
+        write_settings(plan_data["settings"], res["settings"])
+    except OSError as exc:
+        res["error"] = "settings write failed: %s" % exc
+        print(json.dumps(res))
+        sys.exit(1)
+    print(json.dumps(res))
+
+
+{"plan": plan, "apply": apply, "guard": guard_mode}[sys.argv[1]](sys.argv[2:])
+PY
+}
+
+# Print REBASE_RESULT carrying only <message> as its error, and nothing else on stdout.
+rebase_emit_error() {
+    python3 -c 'import json, sys; print("REBASE_RESULT " + json.dumps({"mode": sys.argv[2], "error": sys.argv[1]}))' "$1" "$2"
+}
+
+# --rebase entry point (D1-D3, D16). Render, plan, then (unless --dry-run) apply. The
+# last stdout line is REBASE_RESULT <json>; everything else goes to stderr.
+rebase_project() {
+    local target_dir="$1"
+    local mode="apply"
+    [[ "$DRY_RUN" == "true" ]] && mode="dry-run"
+    if [[ ! -d "$target_dir" ]]; then
+        error "Target directory does not exist: $target_dir"
+        rebase_emit_error "Target directory does not exist: $target_dir" "$mode"
+        return 1
+    fi
+    target_dir="$(cd "$target_dir" && pwd)"
+
+    # The render and the plan live outside the target and are removed on exit (D2).
+    local work_dir render_dir plan_file
+    work_dir="$(mktemp -d)"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$work_dir'" EXIT
+    render_dir="$work_dir/render"
+    plan_file="$work_dir/plan.json"
+    mkdir -p "$render_dir"
+
+    if ! render_plugin_tree "$target_dir" "$render_dir"; then
+        rebase_emit_error "Rendering the plugin failed or the render is empty" "$mode"
+        return 1
+    fi
+    # Under set -e a failed hash (an agent that is not UTF-8) would end the run with no
+    # REBASE_RESULT line; report it instead.
+    if ! agent_normhash "$render_dir/.claude/agents" > "$work_dir/render-normhash.tsv" \
+        || ! agent_normhash "$target_dir/.claude/agents" > "$work_dir/target-normhash.tsv"; then
+        rebase_emit_error "Hashing the agents failed" "$mode"
+        return 1
+    fi
+
+    local -a rules=()
+    local rule
+    while IFS= read -r rule; do rules+=("$rule"); done < <(authored_rules)
+
+    # The manifest's hook file names: what makes a settings registration ensemble-owned (D11 2a).
+    local manifest hook_files
+    if ! manifest="$(find_plugin_json hooks hooks.manifest.json)" \
+        || ! hook_files="$(manifest_shippable_hooks "$manifest" | cut -f1)"; then
+        rebase_emit_error "Hooks manifest not found or invalid" "$mode"
+        return 1
+    fi
+
+    local result rc=0
+    result="$(python3 -c "$(rebase_engine_program)" plan "$render_dir" "$target_dir" "$plan_file" \
+        "$TEMPLATES_DIR/retired-files.json" "$TEMPLATES_DIR/shipped-hashes.json" \
+        "$work_dir/render-normhash.tsv" "$work_dir/target-normhash.tsv" \
+        "$PLUGIN_DIR" "$mode" "$PRESERVE_ALL" \
+        "$TEMPLATES_DIR/claude-directory/settings.json" "$hook_files" "${rules[@]}")" || rc=$?
+    if [[ $rc -ne 0 ]]; then
+        # A crash (traceback on stderr) prints no JSON; the last line must still parse.
+        if [[ -z "$result" ]]; then
+            rebase_emit_error "The rebase planner failed unexpectedly (see stderr)" "$mode"
+        else
+            printf 'REBASE_RESULT %s\n' "$result"
+        fi
+        return 1
+    fi
+
+    if [[ "$DRY_RUN" != "true" ]]; then
+        result="$(python3 -c "$(rebase_engine_program)" apply "$plan_file")" || rc=$?
+        if [[ $rc -ne 0 && -z "$result" ]]; then
+            rebase_emit_error "The rebase applier failed unexpectedly (see stderr)" "$mode"
+            return "$rc"
+        fi
+        # A failed file write stops the run: the post-copy steps would act on a half-applied tree.
+        if [[ $rc -eq 0 ]]; then
+            result="$(rebase_post_steps "$target_dir" "$manifest" "$result")"
+        fi
+    fi
+    printf 'REBASE_RESULT %s\n' "$result"
+    return "$rc"
+}
+
+# Run one post-copy step with every line it prints sent to a variable, never to stdout (the
+# last stdout line must stay REBASE_RESULT). Sets STEP_OUT; returns the step's status.
+# Return codes cannot tell ok from skipped (most steps return 0 either way), so the caller
+# reads STEP_OUT's [WARN] lines and the step's preconditions instead.
+_rebase_step() {
+    local rc=0
+    STEP_OUT="$("$@" 2>&1)" || rc=$?
+    return "$rc"
+}
+
+# First [WARN] line of STEP_OUT with the tag and colour codes stripped, or empty.
+_rebase_first_warn() {
+    printf '%s\n' "$STEP_OUT" | sed -n 's/\x1b\[[0-9;]*m//g; s/^\[WARN\] *//p' | head -n 1
+}
+
+# The post-copy steps in D17's order, after the files and settings.json are written. Prints
+# <result json> with "steps" filled from what each step did. Only the version stamp is strict
+# and fails on a bad return code; the rest are judged by their preconditions and their [WARN]
+# lines. Conflicted agents are excluded from the preload step so an owner's edit keeps its bytes.
+rebase_post_steps() {
+    local target_dir="$1" manifest="$2" result="$3"
+    local steps_file
+    steps_file="$(mktemp)"
+    local claude="$target_dir/.claude" warn_line
+
+    # modes: the execute bit on every manifest hook.
+    local hook_names
+    hook_names="$(manifest_shippable_hooks "$manifest" | cut -f1)"
+    if [[ ! -d "$claude/hooks" ]]; then
+        printf 'modes\tskipped: no .claude/hooks directory\n' >> "$steps_file"
+    else
+        if _rebase_step ensure_hooks_executable "$claude/hooks" "$hook_names"; then
+            printf 'modes\tok\n' >> "$steps_file"
+        else
+            printf 'modes\tfailed: ensure_hooks_executable returned non-zero\n' >> "$steps_file"
+        fi
+    fi
+
+    # selection: selected-skills.txt follows the installed skill folders.
+    if [[ ! -f "$claude/selected-skills.txt" || ! -d "$claude/skills" ]]; then
+        printf 'selection\tskipped: no selected-skills.txt or skills directory\n' >> "$steps_file"
+    elif _rebase_step reconcile_selected_skills "$target_dir"; then
+        printf 'selection\tok\n' >> "$steps_file"
+    else
+        printf 'selection\tfailed: reconcile_selected_skills returned non-zero\n' >> "$steps_file"
+    fi
+
+    # preloads: skills: lists and generated blocks, leaving the agents the plan calls conflicts.
+    local -a excluded=()
+    local name
+    while IFS= read -r name; do
+        [[ -n "$name" ]] && excluded+=("$name")
+    done < <(printf '%s' "$result" | python3 -c 'import json, sys
+for c in json.load(sys.stdin)["categories"]["agents"]["conflicts"]:
+    print(c["path"].split("/")[-1][:-3] if c["path"].endswith(".md") else c["path"])')
+    if [[ ! -f "$claude/selected-skills.txt" || ! -d "$claude/agents" ]]; then
+        printf 'preloads\tskipped: no selected-skills.txt or agents directory\n' >> "$steps_file"
+    elif _rebase_step inject_agent_skills "$target_dir" ${excluded[@]+"${excluded[@]}"}; then
+        if printf '%s\n' "$STEP_OUT" | grep -q 'No skill-affinity manifest'; then
+            printf 'preloads\tskipped: no skill-affinity manifest\n' >> "$steps_file"
+        else
+            printf 'preloads\tok\n' >> "$steps_file"
+        fi
+    else
+        printf 'preloads\tfailed: inject_agent_skills returned non-zero\n' >> "$steps_file"
+    fi
+
+    # gitFiles: ignore and merge-union lines; failures are warnings, not return codes.
+    _rebase_step _rebase_git_files "$target_dir" || true
+    warn_line="$(_rebase_first_warn)"
+    if [[ -n "$warn_line" ]]; then
+        printf 'gitFiles\tfailed: %s\n' "$warn_line" >> "$steps_file"
+    else
+        printf 'gitFiles\tok\n' >> "$steps_file"
+    fi
+
+    # recordsCutover: untrack records, seed the records refs (best effort push; no origin is fine).
+    _rebase_step _rebase_records_cutover "$target_dir" || true
+    warn_line="$(_rebase_first_warn)"
+    if [[ "$warn_line" == *"Not a git work tree"* ]]; then
+        printf 'recordsCutover\tskipped: not a git work tree\n' >> "$steps_file"
+    elif [[ -n "$warn_line" ]]; then
+        printf 'recordsCutover\tfailed: %s\n' "$warn_line" >> "$steps_file"
+    else
+        printf 'recordsCutover\tok\n' >> "$steps_file"
+    fi
+
+    # stamp: strictly last, so a half-applied rebase never reads as complete. A settings
+    # write the guard refused leaves the old hooks block in place: that is half-applied.
+    local refused
+    refused="$(printf '%s' "$result" | python3 -c 'import json, sys
+print(json.load(sys.stdin)["settings"].get("refused") or "")')"
+    if [[ -n "$refused" ]]; then
+        printf 'stamp\tskipped: settings write refused by the guard\n' >> "$steps_file"
+    elif _rebase_step stamp_ensemble_version "$target_dir" strict; then
+        printf 'stamp\tok\n' >> "$steps_file"
+    else
+        warn_line="$(printf '%s\n' "$STEP_OUT" | sed 's/\x1b\[[0-9;]*m//g; s/^\[[A-Z]*\] *//' | grep -v '^$' | head -n 1)"
+        printf 'stamp\tfailed: %s\n' "${warn_line:-stamp_ensemble_version returned non-zero}" >> "$steps_file"
+    fi
+
+    printf '%s' "$result" | python3 -c 'import json, sys
+res = json.load(sys.stdin)
+for line in open(sys.argv[1]):
+    key, _, status = line.rstrip("\n").partition("\t")
+    res["steps"][key] = status
+print(json.dumps(res))' "$steps_file"
+    rm -f "$steps_file"
+}
+
+# Subshell forms: ensure_gitignore and ensure_gitattributes use paths relative to the cwd, and
+# records_cutover cd's into the target without returning.
+_rebase_git_files() { (cd "$1" && ensure_gitignore untrack && ensure_gitattributes); }
+_rebase_records_cutover() { (records_cutover "$1"); }
+
 # Run if executed directly (not sourced)
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     if [[ "$RECORDS_CUTOVER" == "true" ]]; then
@@ -2244,6 +3110,8 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         (cd "$PROJECT_DIR" && ensure_gitignore untrack && ensure_gitattributes)
     elif [[ "$STAMP_VERSION" == "true" ]]; then
         stamp_ensemble_version "$PROJECT_DIR" strict
+    elif [[ "$REBASE" == "true" ]]; then
+        rebase_project "$PROJECT_DIR"
     elif [[ "$AGENT_STATUS" == "true" ]]; then
         agent_status "$PROJECT_DIR"
     elif [[ "$SYNC_AGENTS" == "true" ]]; then
