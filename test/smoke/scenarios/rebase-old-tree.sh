@@ -166,7 +166,8 @@ assert_true "ensemble.previous_version records the aged value (got '${PREV}')" \
 # The command must terminate on its banner (command-status.md).
 # -----------------------------------------------------------------------------
 FINAL="$(smoke_final_text "$SESSION_FILE" 2>/dev/null | grep -v '^\s*$' | tail -12)"
-if grep -qE '═══ COMMAND COMPLETE: /rebase-project ═══' <<< "$FINAL"; then
+if grep -qE '═══ COMMAND COMPLETE: /rebase-project ═══' <<< "$FINAL" \
+    && ! grep -qE '═══ COMMAND STUCK: /rebase-project ═══' <<< "$FINAL"; then
     assert_pass_raw "output carries the COMMAND COMPLETE banner (a STUCK ending fails)"
 else
     assert_fail_raw "output carries the COMMAND COMPLETE banner (a STUCK ending fails)"
