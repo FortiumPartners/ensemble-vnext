@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "description": "Retired framework files, relative to .claude/. A trailing / marks a directory. /rebase-project removes only paths listed here.",
+  "entries": [
+    {
+      "path": "commands/harden-trd-team.md",
+      "category": "commands",
+      "retiredIn": "4.1.16",
+      "replacedBy": "the end-of-run /code-review inside /implement-trd"
+    },
+    {
+      "path": "commands/verify-trd-team.md",
+      "category": "commands",
+      "retiredIn": "4.1.16",
+      "replacedBy": "the default-on functional-verification loop inside /implement-trd"
+    },
+    {
+      "path": "commands/implement-trd-team.md",
+      "category": "commands",
+      "retiredIn": "4.1.9",
+      "replacedBy": "/implement-trd"
+    },
+    {
+      "path": "commands/fix-issue.md",
+      "category": "commands",
+      "retiredIn": "4.1.21",
+      "replacedBy": "/plan"
+    },
+    {
+      "path": "commands/investigate-issue.md",
+      "category": "commands",
+      "retiredIn": "4.1.21",
+      "replacedBy": "/plan"
+    },
+    {
+      "path": "commands/fix.md",
+      "category": "commands",
+      "retiredIn": "4.2.0",
+      "replacedBy": "/plan"
+    },
+    {
+      "path": "commands/investigate.md",
+      "category": "commands",
+      "retiredIn": "4.6.0",
+      "replacedBy": "/plan"
+    },
+    {
+      "path": "commands/create-prd-team.md",
+      "category": "commands",
+      "retiredIn": "4.1.16",
+      "replacedBy": null
+    },
+    {
+      "path": "commands/create-trd-team.md",
+      "category": "commands",
+      "retiredIn": "4.1.16",
+      "replacedBy": null
+    },
+    {
+      "path": "commands/implement-trd-proposed.md",
+      "category": "commands",
+      "retiredIn": "4.1.9",
+      "replacedBy": null
+    },
+    {
+      "path": "commands/implement-trd-tasklist.md",
+      "category": "commands",
+      "retiredIn": "4.1.9",
+      "replacedBy": null
+    },
+    {
+      "path": "skills/verify-plan-recovery/",
+      "category": "skills",
+      "retiredIn": "4.10.3",
+      "replacedBy": "/refine-verification"
+    },
+    {
+      "path": "hooks/permitter/",
+      "category": "hooks",
+      "retiredIn": "4.1.0",
+      "replacedBy": null
+    },
+    {
+      "path": "hooks/learning.sh",
+      "category": "hooks",
+      "retiredIn": "4.1.0",
+      "replacedBy": null
+    },
+    {
+      "path": "hooks/save-remote-logs.js",
+      "category": "hooks",
+      "retiredIn": "4.1.0",
+      "replacedBy": null
+    },
+    {
+      "path": "hooks/async-discipline.js",
+      "category": "hooks",
+      "retiredIn": "4.1.11",
+      "replacedBy": null
+    },
+    {
+      "path": "hooks/autonomy-discipline.js",
+      "category": "hooks",
+      "retiredIn": "4.1.11",
+      "replacedBy": null
+    },
+    {
+      "path": "hooks/subagent-discipline.js",
+      "category": "hooks",
+      "retiredIn": "4.1.11",
+      "replacedBy": null
+    },
+    {
+      "path": "hooks/lib/async-claim-detector.js",
+      "category": "hooks/lib",
+      "retiredIn": "4.1.11",
+      "replacedBy": null
+    },
+    {
+      "path": "hooks/lib/transcript-text.js",
+      "category": "hooks/lib",
+      "retiredIn": "4.1.11",
+      "replacedBy": null
+    },
+    {
+      "path": "hooks/wiggum.js",
+      "category": "hooks",
+      "retiredIn": "4.1.18",
+      "replacedBy": null
+    },
+    {
+      "path": "hooks/prompts/subagent-discipline.prompt.md",
+      "category": "hooks/prompts",
+      "retiredIn": "4.2.0",
+      "replacedBy": null
+    },
+    {
+      "path": "hooks/prompts/async-discipline.prompt.md",
+      "category": "hooks/prompts",
+      "retiredIn": "4.2.0",
+      "replacedBy": null
+    },
+    {
+      "path": "hooks/prompts/autonomy-discipline.prompt.md",
+      "category": "hooks/prompts",
+      "retiredIn": "4.2.0",
+      "replacedBy": null
+    }
+  ]
+}

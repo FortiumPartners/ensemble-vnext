@@ -13,6 +13,7 @@
 #   ./scaffold-project.sh --stamp-version --plugin-dir DIR [project-directory]
 #   ./scaffold-project.sh --git-files [project-directory]
 #   ./scaffold-project.sh --records-cutover [--no-push] [project-directory]
+#   ./scaffold-project.sh --rebase --plugin-dir DIR [--dry-run] [--preserve-all] [project-directory]
 #
 # Options:
 #   --plugin-dir DIR   Plugin directory containing agents, skills, hooks
@@ -48,6 +49,14 @@
 #                       leave them tracked.
 #   --no-push          With --records-cutover: keep seeded refs local (tests, offline use).
 #   --new-only         With --sync-agents: copy only new agents (--preserve-all).
+#   --rebase           Deterministic rebase of the vendored runtime (docs/TRD/
+#                       deterministic-rebase-engine.md). Renders the plugin as a scaffold
+#                       would install it, outside the target. Requires --plugin-dir (a
+#                       relative path is resolved to an absolute one). Exclusive with every
+#                       other mode, --force, --copy-skills and --new-only.
+#   --dry-run          With --rebase: report what would change; write nothing.
+#   --preserve-all     With --rebase: add new files only for agents and skills, never
+#                       replace framework rules, remove nothing.
 #
 # If project-directory is not provided, uses current directory.
 #
@@ -72,6 +81,9 @@ GIT_FILES=false
 RECORDS_CUTOVER=false
 NO_PUSH=false
 NEW_ONLY=false
+REBASE=false
+DRY_RUN=false
+PRESERVE_ALL=false
 PROJECT_DIR=""
 
 # The framework-owned skills ship to EVERY project regardless of stack selection
@@ -128,6 +140,18 @@ while [[ $# -gt 0 ]]; do
             NEW_ONLY=true
             shift
             ;;
+        --rebase)
+            REBASE=true
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --preserve-all)
+            PRESERVE_ALL=true
+            shift
+            ;;
         -*)
             echo "Unknown option: $1" >&2
             exit 1
@@ -170,8 +194,8 @@ fi
 # --stamp-version is a strict whole-run mode that owns only the version stamp
 # (used by /rebase-project Step 4.8 and /init-project).
 if [[ "$STAMP_VERSION" == "true" ]]; then
-    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" ]]; then
-        echo "Error: --stamp-version cannot be combined with --refresh, --force, --agent-status or --sync-agents" >&2
+    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$REBASE" == "true" ]]; then
+        echo "Error: --stamp-version cannot be combined with --refresh, --force, --agent-status, --sync-agents or --rebase" >&2
         exit 1
     fi
     if [[ -z "$PLUGIN_DIR" ]]; then
@@ -181,15 +205,15 @@ if [[ "$STAMP_VERSION" == "true" ]]; then
 fi
 # --git-files is a strict standalone mode, for the same reason as the above.
 if [[ "$GIT_FILES" == "true" ]]; then
-    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$STAMP_VERSION" == "true" ]]; then
-        echo "Error: --git-files cannot be combined with --refresh, --force, --agent-status, --sync-agents or --stamp-version" >&2
+    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$STAMP_VERSION" == "true" || "$REBASE" == "true" ]]; then
+        echo "Error: --git-files cannot be combined with --refresh, --force, --agent-status, --sync-agents, --stamp-version or --rebase" >&2
         exit 1
     fi
 fi
 # --records-cutover is strict and standalone too.
 if [[ "$RECORDS_CUTOVER" == "true" ]]; then
-    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$STAMP_VERSION" == "true" || "$GIT_FILES" == "true" ]]; then
-        echo "Error: --records-cutover cannot be combined with --refresh, --force, --agent-status, --sync-agents, --stamp-version or --git-files" >&2
+    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$STAMP_VERSION" == "true" || "$GIT_FILES" == "true" || "$REBASE" == "true" ]]; then
+        echo "Error: --records-cutover cannot be combined with --refresh, --force, --agent-status, --sync-agents, --stamp-version, --git-files or --rebase" >&2
         exit 1
     fi
 fi
@@ -200,6 +224,37 @@ fi
 if [[ "$NEW_ONLY" == "true" && "$SYNC_AGENTS" != "true" ]]; then
     echo "Error: --new-only is only valid with --sync-agents" >&2
     exit 1
+fi
+
+# --rebase is a strict whole-run mode: exclusive with every other mode and with
+# --force, --copy-skills and --new-only (the render passes --copy-skills to its own
+# subprocess; the caller never does). --dry-run and --preserve-all mean nothing
+# without it.
+if [[ "$REBASE" == "true" ]]; then
+    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$COPY_SKILLS" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" || "$STAMP_VERSION" == "true" || "$GIT_FILES" == "true" || "$RECORDS_CUTOVER" == "true" || "$NO_PUSH" == "true" || "$NEW_ONLY" == "true" ]]; then
+        echo "Error: --rebase cannot be combined with --refresh, --force, --copy-skills, --agent-status, --sync-agents, --stamp-version, --git-files, --records-cutover, --no-push or --new-only" >&2
+        exit 1
+    fi
+    if [[ -z "$PLUGIN_DIR" ]]; then
+        echo "Error: --rebase requires --plugin-dir" >&2
+        exit 1
+    fi
+    # scaffold_project() cd's into its target before copying, so a relative
+    # plugin path would resolve against the wrong directory and render only
+    # rules and settings. Resolve once, here.
+    if ! PLUGIN_DIR="$(cd "$PLUGIN_DIR" 2>/dev/null && pwd)"; then
+        echo "Error: --plugin-dir is not a readable directory" >&2
+        exit 1
+    fi
+else
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "Error: --dry-run is only valid with --rebase" >&2
+        exit 1
+    fi
+    if [[ "$PRESERVE_ALL" == "true" ]]; then
+        echo "Error: --preserve-all is only valid with --rebase" >&2
+        exit 1
+    fi
 fi
 
 # Default project directory to current directory if not specified
@@ -1189,6 +1244,9 @@ copy_skills() {
 #
 #   inject <manifest> <selection> <agents_dir> <skills_dir>   rewrite agents in place
 #   status <plugin_agents_dir> <project_agents_dir>           print "<state>\t<name>"
+#   normhash <agents_dir>                                     print "<name>\t<git blob id>" of
+#                                                             each agent, generated content stripped
+#   inject takes optional trailing agent names to leave untouched (a conflicted agent).
 agent_skills_program() {
     cat <<'PY'
 import json, os, re, sys, tempfile
@@ -1308,6 +1366,15 @@ def read_agents(directory):
                     out[fname[:-3]] = fh.read()
     return out
 
+if mode == "normhash":
+    # Read-only. The git blob id of the normalised text, so a listed hash equals
+    # `git hash-object` of the same bytes and a preload-only difference never shows.
+    import hashlib
+    for name, text in sorted(read_agents(sys.argv[2]).items()):
+        data = normalise(text).encode("utf-8")
+        print(name + "\t" + hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest())
+    sys.exit(0)
+
 if mode == "status":
     # Read-only. Needs neither the skill selection nor the affinity manifest.
     plugin = read_agents(sys.argv[2])
@@ -1326,6 +1393,7 @@ if mode == "status":
 
 manifest_path, selection_path, agents_dir = sys.argv[2:5]
 skills_dir = sys.argv[5] if len(sys.argv) > 5 else ""
+excluded = set(sys.argv[6:])
 
 selected = []
 with open(selection_path) as fh:
@@ -1342,6 +1410,8 @@ for fname in sorted(os.listdir(agents_dir)):
     if not fname.endswith(".md"):
         continue
     name = fname[:-3]
+    if name in excluded:
+        continue
     pool = pools.get(name)
     if pool is None:
         continue
@@ -1409,6 +1479,9 @@ PY
 # skills: field at all.
 inject_agent_skills() {
     local target_dir="$1"
+    shift
+    # Remaining arguments: agent names to leave untouched (optional; `"$@"` is
+    # safe when empty under set -u).
     local selection_file="$target_dir/.claude/selected-skills.txt"
     local agents_dir="$target_dir/.claude/agents"
     local manifest=""
@@ -1431,7 +1504,59 @@ inject_agent_skills() {
         return 0
     fi
 
-    python3 -c "$(agent_skills_program)" inject "$manifest" "$selection_file" "$agents_dir" "$target_dir/.claude/skills"
+    python3 -c "$(agent_skills_program)" inject "$manifest" "$selection_file" "$agents_dir" "$target_dir/.claude/skills" "$@"
+}
+
+# Render what the plugin would install into <target>, into <render-dir>, without
+# touching <target> (--rebase, D4). Runs this same script as a subprocess so the
+# scaffold's layout resolution and copy-loop exclusions are the single definition
+# of what ships. <render-dir>/.claude/selected-skills.txt names every skill folder
+# installed in the target (D13: the installed folder is the truth), so the render
+# holds exactly those library skills plus the framework skills. The owner-governed
+# rules are removed from the render (D15). Output goes to stderr; returns non-zero
+# when the scaffold fails or the render holds no command, agent or hook.
+render_plugin_tree() {
+    local target_dir="$1" render_dir="$2"
+    local skills_dir="$target_dir/.claude/skills" d
+
+    mkdir -p "$render_dir/.claude"
+    : > "$render_dir/.claude/selected-skills.txt"
+    if [[ -d "$skills_dir" ]]; then
+        for d in "$skills_dir"/*/; do
+            [[ -d "$d" ]] || continue
+            basename "$d" >> "$render_dir/.claude/selected-skills.txt"
+        done
+    fi
+
+    # GIT_CEILING_DIRECTORIES: a TMPDIR inside a repository must not let the
+    # scaffold's git steps find it and untrack anything.
+    local render_parent
+    render_parent="$(cd "$(dirname "$render_dir")" && pwd)"
+    if ! GIT_CEILING_DIRECTORIES="$render_parent" \
+        "$SCRIPT_DIR/scaffold-project.sh" --plugin-dir "$PLUGIN_DIR" --copy-skills "$render_dir" >&2; then
+        error "Rendering the plugin failed" >&2
+        return 1
+    fi
+
+    local rule
+    while IFS= read -r rule; do
+        rm -f "$render_dir/.claude/rules/$rule"
+    done < <(authored_rules)
+
+    local category have=false
+    for category in commands agents hooks; do
+        if [[ -n "$(find "$render_dir/.claude/$category" -type f -print -quit 2>/dev/null)" ]]; then
+            have=true
+        else
+            have=false
+            break
+        fi
+    done
+    if [[ "$have" != "true" ]]; then
+        error "The rendered plugin holds no command, agent or hook" >&2
+        return 1
+    fi
+    return 0
 }
 
 # Print "<state>\t<name>" for every agent, comparing plugin to project with the
@@ -1450,6 +1575,12 @@ agent_status() {
         return 1
     fi
     python3 -c "$(agent_skills_program)" status "$src" "$target_dir/.claude/agents"
+}
+
+# Print "<name>\t<git blob id>" per agent in <agents_dir>, generated content
+# (skills: list, marked body section) stripped first. Read-only.
+agent_normhash() {
+    python3 -c "$(agent_skills_program)" normhash "$1"
 }
 
 # Keep .claude/selected-skills.txt in step with the skill folders actually
@@ -1705,6 +1836,16 @@ PY
     fi
 }
 
+# The rule files the project owns: written by /init-project and the setup skills,
+# never by the framework. Prints one name per line. ONE list, read by refresh_rules()
+# (which refuses to touch them) and by the --rebase render and applier (which never
+# plan a write or delete of them). Keep the array on one line, in exactly this form:
+# several tests read the quoted names off it.
+authored_rules() {
+    local AUTHORED_RULES=("constitution.md" "stack.md" "process.md" "verification.md" "design.md" "ship.md")
+    printf '%s\n' "${AUTHORED_RULES[@]}"
+}
+
 # Refresh the framework-shipped rule files under .claude/rules/, driven from
 # packages/core/templates/claude-directory/rules/ — the same directory
 # scaffold_project()'s "Framework-Shipped Rules" step copies-if-missing from.
@@ -1743,7 +1884,10 @@ refresh_rules() {
     # unattended --refresh (SessionStart hook) would silently overwrite that
     # owner-filled copy with the blank template. Make the invariant refuse to
     # break rather than break quietly.
-    local AUTHORED_RULES=("constitution.md" "stack.md" "process.md" "verification.md" "design.md" "ship.md")
+    local authored_names=() authored_name
+    while IFS= read -r authored_name; do
+        authored_names+=("$authored_name")
+    done < <(authored_rules)
 
     local count=0
     local rule_file rule_basename authored skip
@@ -1751,7 +1895,7 @@ refresh_rules() {
         [[ -f "$rule_file" ]] || continue
         rule_basename="$(basename "$rule_file")"
         skip=false
-        for authored in "${AUTHORED_RULES[@]}"; do
+        for authored in "${authored_names[@]}"; do
             if [[ "$rule_basename" == "$authored" ]]; then
                 warn "Refusing to refresh project-authored rule: $rule_basename"
                 skip=true
@@ -2236,6 +2380,23 @@ scaffold_project() {
     return 0
 }
 
+# --rebase entry point. Stub until RBE-B002: renders the plugin into a temp
+# directory outside the target (removed on exit) and prints the rendered file count.
+rebase_project() {
+    local target_dir="$1"
+    if [[ ! -d "$target_dir" ]]; then
+        error "Target directory does not exist: $target_dir" >&2
+        return 1
+    fi
+    target_dir="$(cd "$target_dir" && pwd)"
+    local render_dir
+    render_dir="$(mktemp -d)"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$render_dir'" EXIT
+    render_plugin_tree "$target_dir" "$render_dir" || return 1
+    echo "RENDERED_FILES $(find "$render_dir/.claude" -type f | wc -l | tr -d ' ')"
+}
+
 # Run if executed directly (not sourced)
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     if [[ "$RECORDS_CUTOVER" == "true" ]]; then
@@ -2244,6 +2405,8 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         (cd "$PROJECT_DIR" && ensure_gitignore untrack && ensure_gitattributes)
     elif [[ "$STAMP_VERSION" == "true" ]]; then
         stamp_ensemble_version "$PROJECT_DIR" strict
+    elif [[ "$REBASE" == "true" ]]; then
+        rebase_project "$PROJECT_DIR"
     elif [[ "$AGENT_STATUS" == "true" ]]; then
         agent_status "$PROJECT_DIR"
     elif [[ "$SYNC_AGENTS" == "true" ]]; then
