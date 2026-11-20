@@ -832,6 +832,59 @@ assert body.index("guard_check(") < body.index("os.replace("), body
 PY
 }
 
+# The guard cannot be tripped end to end through --rebase with a real input: the merged hooks block
+# is the plugin's groups deep-copied plus the owner's, so its counts never fall below the plugin's
+# (D12 rejected a test-only switch to force it). So this drives the two real stages that report a
+# refusal, in the order --rebase runs them: apply on a plan whose merged block is one registration
+# short, then the post steps on the result apply printed.
+@test "settings guard refusal: apply reports written false and refused, bytes unchanged, stamp skipped" {
+    _make_target
+    local c="$TARGET/.claude" plugin
+    plugin="$(_plugin_settings)"
+    python3 - "$c/settings.json" <<'PY'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+d.setdefault("ensemble", {})["version"] = "4.15.0"
+json.dump(d, open(p, "w"), indent=2)
+PY
+    cp "$c/settings.json" "$TEST_DIR/settings.before"
+    python3 - "$plugin" "$c" "$TEST_DIR" <<'PY'
+import copy, json, os, sys
+plugin, claude, out = sys.argv[1:4]
+short = json.load(open(plugin))
+short["hooks"]["UserPromptSubmit"][0]["hooks"].pop()
+empty = lambda: {"added": [], "replaced": [], "removed": [], "preserved": [], "conflicts": [], "unchanged": 0}
+res = {"mode": "apply", "categories": {"agents": empty()},
+       "settings": dict(empty(), written=True, refused=None, counts=None),
+       "steps": {}}
+plan = {"claude": claude, "claudeReal": os.path.realpath(claude), "authored": [], "actions": [],
+        "result": res,
+        "settings": {"path": os.path.join(claude, "settings.json"), "pluginPath": plugin,
+                     "content": json.dumps(short, indent=2) + "\n", "mode": 0o644}}
+json.dump(plan, open(out + "/plan.json", "w"))
+PY
+    python3 -c "$(bash -c "set --; source '$SCAFFOLD'; rebase_engine_program")" apply "$TEST_DIR/plan.json" > "$TEST_DIR/applied.json"
+    { printf 'REBASE_RESULT '; cat "$TEST_DIR/applied.json"; } > "$TEST_DIR/applied"
+    # settings.json is untouched and the result says why.
+    cmp "$c/settings.json" "$TEST_DIR/settings.before"
+    [ -z "$(find "$c" -maxdepth 1 -name '*.tmp')" ]
+    [ "$(_res "$TEST_DIR/applied" "d['settings']['written']")" = "False" ]
+    [[ "$(_res "$TEST_DIR/applied" "d['settings']['refused']")" == *"plugin: 10 registrations, 1 prompt; merged: 9 registrations, 1 prompt"* ]]
+
+    # The post steps read that result: the stamp is skipped with the guard's reason, others still run.
+    local after
+    after="$(bash -c 'scaffold="$1" plugin="$2" target="$3" res="$4"; set --; source "$scaffold"; PLUGIN_DIR="$plugin"
+        m="$(find_plugin_json hooks hooks.manifest.json)"
+        rebase_post_steps "$target" "$m" "$(cat "$res")" 2>/dev/null' _ "$SCAFFOLD" "$PLUGIN" "$TARGET" "$TEST_DIR/applied.json")"
+    printf 'REBASE_RESULT %s\n' "$after" > "$TEST_DIR/final"
+    [ "$(_res "$TEST_DIR/final" "d['steps']['stamp']")" = "skipped: settings write refused by the guard" ]
+    [ "$(_res "$TEST_DIR/final" "d['steps']['modes']")" = "ok" ]
+    # ensemble.version was not stamped.
+    [ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["ensemble"]["version"])' "$c/settings.json")" = "4.15.0" ]
+    cmp "$c/settings.json" "$TEST_DIR/settings.before"
+}
+
 # --- post-copy steps (RBE-B004) ---------------------------------------------
 
 # Every manifest hook's destination name, one per line.
@@ -873,12 +926,39 @@ PY
     printf '\nOwner line\n' >> "$c/agents/code-reviewer.md"
     cp "$c/agents/code-reviewer.md" "$TEST_DIR/cr.before"
     rm "$c/commands/amend.md"
-    ( cd "$TARGET" && git init -q && git add -A && git -c user.email=a@b -c user.name=t commit -q -m fixture )
+    # Records for the cutover: one in-flight feature and one closed, both tracked (as an aged project has them).
+    mkdir -p "$TARGET/.trd-state/live" "$TARGET/.trd-state/done"
+    echo '{"branch":"feature/live","tasks":[]}' > "$TARGET/.trd-state/live/implement.json"
+    echo '{"branch":"feature/done"}' > "$TARGET/.trd-state/done/implement.json"
+    echo '{"closed":true}' > "$TARGET/.trd-state/done/closed.json"
+    ( cd "$TARGET" && git init -q -b feature/live && git add -Af && git -c user.email=a@b -c user.name=t commit -q -m fixture )
 
     "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TARGET" >"$TEST_DIR/out" 2>/dev/null
     [ "$(grep -c . "$TEST_DIR/out")" -eq 1 ]
     [ "$(_res "$TEST_DIR/out" "list(d['steps'])")" = "['modes', 'selection', 'preloads', 'gitFiles', 'recordsCutover', 'stamp']" ]
     [ "$(_res "$TEST_DIR/out" "set(d['steps'].values())")" = "{'ok'}" ]
+    # gitFiles: every line of the two templates is in the fixture's files, and the specific ones are named.
+    local tpl="$SCRIPT_DIR/../templates" l
+    while IFS= read -r l; do
+        [[ -z "$l" || "$l" == \#* ]] && continue
+        grep -qxF -- "$l" "$TARGET/.gitignore" || { echo "missing from .gitignore: $l"; return 1; }
+    done < "$tpl/gitignore-framework.txt"
+    while IFS= read -r l; do
+        [[ -z "$l" || "$l" == \#* ]] && continue
+        grep -qxF -- "$l" "$TARGET/.gitattributes" || { echo "missing from .gitattributes: $l"; return 1; }
+    done < "$tpl/gitattributes-additions.txt"
+    grep -qxF '.trd-state/current.json' "$TARGET/.gitignore"
+    grep -qxF '.trd-state/*' "$TARGET/.gitignore"
+    grep -qxF '!.trd-state/_docs-audit/' "$TARGET/.gitignore"
+    grep -qxF '.trd-state/_session-log.md merge=union' "$TARGET/.gitattributes"
+    grep -qxF '.trd-state/_sweep/discovered.jsonl merge=union' "$TARGET/.gitattributes"
+    # recordsCutover: no origin, so nothing pushed; the in-flight feature is seeded, the closed one is not,
+    # tracked records are untracked from the index (files stay), and nothing was committed.
+    git -C "$TARGET" show refs/ensemble/records/live:implement.json | cmp - "$TARGET/.trd-state/live/implement.json"
+    [ -z "$(git -C "$TARGET" for-each-ref refs/ensemble/records/done)" ]
+    [ -z "$(git -C "$TARGET" ls-files .trd-state)" ]
+    [ -f "$TARGET/.trd-state/live/implement.json" ] && [ -f "$TARGET/.trd-state/done/closed.json" ]
+    [ "$(git -C "$TARGET" log --oneline | wc -l | tr -d ' ')" -eq 1 ]
     while IFS= read -r h; do
         [[ -f "$c/hooks/$h" ]] && [ -x "$c/hooks/$h" ] || { echo "not executable: $h"; return 1; }
     done < <(_manifest_hooks)
