@@ -22,6 +22,21 @@
       "started_at": "2026-11-20T18:50:05.399Z",
       "completed_at": "2026-11-20T18:51:42.200Z",
       "last_advanced": "2026-11-20T18:51:25.153Z"
+    },
+    "AMEND-001": {
+      "description": "Add a dedup test where rows sharing one id differ in usage, asserting the last row wins",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/scripts/token-usage.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-20T18:57:06.948Z",
+      "completed_at": "2026-11-20T18:57:55.268Z",
+      "last_advanced": "2026-11-20T18:57:47.943Z"
     }
   },
   "checkpoints": [
@@ -32,11 +47,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-20T18:52:02.670Z"
+    },
+    {
+      "phase": 1,
+      "commit": "923df2cf70d9d7ee672c7e7fa9cc69a0434add27",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-20T18:58:01.109Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "2ac2b64c016c002750374c2daf3a18379d546b01",
-    "last_checkpoint_timestamp": "2026-11-20T18:52:02.670Z",
+    "last_healthy_checkpoint": "923df2cf70d9d7ee672c7e7fa9cc69a0434add27",
+    "last_checkpoint_timestamp": "2026-11-20T18:58:01.109Z",
     "interrupted": false,
     "interrupt_reason": null
   },

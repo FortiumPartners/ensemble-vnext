@@ -1,0 +1,76 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "token-usage.js counts each model message's usage once, keyed by message.id across the whole window, so the output/input/cache-write/cache-read totals and the message count equal one usage block per message id. Must pass.",
+      "source": "TRD Objectives table, row O1 (line 9)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "A transcript line whose message has no id is still counted, on its own.",
+      "source": "TRD Objectives table, row O2 (line 10)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC1",
+      "statement": "`bash docs/plans/fix-token-usage-double-count/check.sh` prints PASS and exits 0 (it prints FAIL today).",
+      "source": "TRD Master Task List, FIX-001 acceptance criterion (1) (line 70)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC2",
+      "statement": "A new Jest case (three rows sharing one id with identical usage plus one row with another id) gives msgs: 2 and the sum of two usage blocks, and fails against today's aggregate().",
+      "source": "TRD Master Task List, FIX-001 acceptance criterion (2) (line 70)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC3",
+      "statement": "A row with no id is still counted.",
+      "source": "TRD Master Task List, FIX-001 acceptance criterion (3) (line 70)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC4",
+      "statement": "The same id in rows from two different files/dirs counts once.",
+      "source": "TRD Master Task List, FIX-001 acceptance criterion (4) (line 70)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC5",
+      "statement": "`npx jest packages/core/scripts/token-usage.test.js` passes.",
+      "source": "TRD Master Task List, FIX-001 acceptance criterion (5) (line 70)",
+      "served_by": [
+        "FIX-001"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "Deduplicate usage by message.id in aggregate(), route the CLI loop through aggregate(), correct the header and add() comments, and add Jest cases. Dependencies: none. Serves O1, O2.",
+      "touches": [
+        "packages/core/scripts/token-usage.js",
+        "packages/core/scripts/token-usage.test.js"
+      ]
+    }
+  ],
+  "could_not_verify": [
+    "Check 3 of the brief (the original 6,104 / 8,402 baseline transcripts) — they live in another OS user's home folder and cannot be read from this account. (TRD line 82, Could Not Verify section)"
+  ],
+  "open_questions": [
+    "OQ-1: Count subagent transcripts too? | Assumed: Out of scope; header corrected to say they are not counted | Owner-only: owner-only (TRD Open Questions table, line 64)"
+  ]
+}
