@@ -870,7 +870,14 @@ PY
     cmp "$c/settings.json" "$TEST_DIR/settings.before"
     [ -z "$(find "$c" -maxdepth 1 -name '*.tmp')" ]
     [ "$(_res "$TEST_DIR/applied" "d['settings']['written']")" = "False" ]
-    [[ "$(_res "$TEST_DIR/applied" "d['settings']['refused']")" == *"plugin: 10 registrations, 1 prompt; merged: 9 registrations, 1 prompt"* ]]
+    # The counts are read from the plugin file, as the guard reads them (D12): merged is one registration short.
+    local want
+    want="$(python3 -c 'import json, sys
+hooks = json.load(open(sys.argv[1]))["hooks"]
+regs = [h for groups in hooks.values() for g in groups for h in g["hooks"]]
+n, p = len(regs), sum(h.get("type") == "prompt" for h in regs)
+print("plugin: %d registrations, %d prompt; merged: %d registrations, %d prompt" % (n, p, n - 1, p))' "$plugin")"
+    [ "$(_res "$TEST_DIR/applied" "d['settings']['refused']")" = "$want" ]
 
     # The post steps read that result: the stamp is skipped with the guard's reason, others still run.
     local after
@@ -929,9 +936,13 @@ PY
     # Records for the cutover: one in-flight feature and one closed, both tracked (as an aged project has them).
     mkdir -p "$TARGET/.trd-state/live" "$TARGET/.trd-state/done"
     echo '{"branch":"feature/live","tasks":[]}' > "$TARGET/.trd-state/live/implement.json"
-    echo '{"branch":"feature/done"}' > "$TARGET/.trd-state/done/implement.json"
+    # The closed one records the checked-out branch too, so closed.json (not a branch mismatch) is what skips it.
+    echo '{"branch":"feature/live"}' > "$TARGET/.trd-state/done/implement.json"
     echo '{"closed":true}' > "$TARGET/.trd-state/done/closed.json"
-    ( cd "$TARGET" && git init -q -b feature/live && git add -Af && git -c user.email=a@b -c user.name=t commit -q -m fixture )
+    # Identity in the repo's own config: the cutover's seed commits the records ref with plain git
+    # (commit-tree), and a CI runner has no global identity to fall back on.
+    ( cd "$TARGET" && git init -q -b feature/live && git config user.email a@b && git config user.name t \
+        && git add -Af && git commit -q -m fixture )
 
     "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TARGET" >"$TEST_DIR/out" 2>/dev/null
     [ "$(grep -c . "$TEST_DIR/out")" -eq 1 ]

@@ -587,7 +587,8 @@ State after the `/audit-build` run of 2026-11-20 (5 of 5 verifiers reported; sou
 tasks checked). That audit read the delivered code, tests, data files and
 `.trd-state/deterministic-rebase-engine/evidence/coverage.md`; it ran no tag render, no
 marketplace install and no coverage tool. Gaps it found (an untested refusal report, an
-unmeasured Jest coverage figure, unasserted git-file outcomes) are in its readout, not here.
+unmeasured Jest coverage figure, unasserted git-file outcomes) are the amendment rows AMEND-001 to
+AMEND-003 in §4, not rows here.
 
 Removed since the `/audit-trd` state: "every `v*` tag's own scaffold renders cleanly" is
 confirmed by the delivered data. `generate-shipped-hashes.sh --seed` stops on the first tag that
