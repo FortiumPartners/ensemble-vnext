@@ -1,0 +1,41 @@
+{
+  "note": "merge base first, then branch; both after npm ci, each in a clean git worktree under the scratchpad",
+  "mergeBase": {
+    "jest": {
+      "passed": 5369,
+      "failed": 0,
+      "suites": 133,
+      "failedSuites": 1,
+      "suitesRun": 133
+    },
+    "bats": {
+      "passed": 591,
+      "failed": 0,
+      "suites": 17
+    },
+    "pytest": {
+      "passed": 136,
+      "failed": 0
+    }
+  },
+  "branch": {
+    "jest": {
+      "passed": 5377,
+      "failed": 0,
+      "suites": 134,
+      "failedSuites": 1
+    },
+    "bats": {
+      "passed": 643,
+      "failed": 0,
+      "suites": 18
+    },
+    "pytest": {
+      "passed": 136,
+      "failed": 0
+    }
+  },
+  "mergeBaseSha": "67cee2316dd2557272a45ed40871d8882f07e7de",
+  "branchSha": "dd217f57 + RBE-T001 test file",
+  "noBranchPassedBelowBase": true
+}

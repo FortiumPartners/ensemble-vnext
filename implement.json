@@ -4,7 +4,7 @@
   "trd_hash": "4cb5c4e96744239d83266bd4fd19d0c135734c0bc1f8761e6924615dbba2f0fc",
   "branch": "feature/20-deterministic-rebase-engine",
   "strategy": "tdd",
-  "phase_cursor": 4,
+  "phase_cursor": 5,
   "tasks": {
     "RBE-P001": {
       "description": "Create packages/core/templates/retired-files.json (D9), seeded from the three retired tables and the retired-hooks paragraph in rebase-project.md and from git log --diff-filter=D over the framework so",
@@ -110,26 +110,33 @@
     "RBE-T001": {
       "description": "One aged-fixture BATS case across the whole engine, as the investigation's checkable outcomes describe (an older shipped file, a missing file, a retired file, a user agent, a user hook registration, a",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/scripts/rebase-engine.test.sh",
+        ".trd-state/deterministic-rebase-engine/evidence/coverage.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-20T21:20:00.047Z",
+      "completed_at": "2026-11-20T21:43:57.464Z",
+      "last_advanced": "2026-11-20T21:33:18.719Z"
     },
     "RBE-D001": {
       "description": "Add a CHANGELOG.md entry for the --rebase mode, its two data files, the generator and the release step contributors now run (generate-shipped-hashes.sh --append <previous tag>), with a Not-yet-proven ",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "CHANGELOG.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-20T21:20:00.047Z",
+      "completed_at": "2026-11-20T21:43:57.464Z",
+      "last_advanced": "2026-11-20T21:33:18.720Z"
     }
   },
   "checkpoints": [
@@ -156,11 +163,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-20T21:19:22.215Z"
+    },
+    {
+      "phase": 4,
+      "commit": "3174946ca0668cebf7c744eb79f63c8aa266a698",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-20T21:43:57.610Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "dd217f57e88416e2e41749e4a3728d5f70a0b053",
-    "last_checkpoint_timestamp": "2026-11-20T21:19:22.215Z",
+    "last_healthy_checkpoint": "3174946ca0668cebf7c744eb79f63c8aa266a698",
+    "last_checkpoint_timestamp": "2026-11-20T21:43:57.610Z",
     "interrupted": false,
     "interrupt_reason": null
   },

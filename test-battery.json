@@ -35,12 +35,12 @@
       "at": "2026-11-20T21:12:18.312Z"
     },
     "integration": {
-      "tree": "5fdd7c376a1fd6e5d90fbe997557e813c1fd8311+e4b37d7e85e6",
+      "tree": "dd217f57e88416e2e41749e4a3728d5f70a0b053+73fdc2ee9536",
       "status": "pass",
-      "command": "bats rebase-engine scaffold-project scaffold-delivery runtime-integrity",
-      "durationSeconds": 260,
+      "command": "npx bats packages/core/scripts/rebase-engine.test.sh",
+      "durationSeconds": 145,
       "failures": [],
-      "at": "2026-11-20T21:16:38.256Z"
+      "at": "2026-11-20T21:43:37.246Z"
     }
   }
 }

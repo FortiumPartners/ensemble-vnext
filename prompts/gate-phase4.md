@@ -1,0 +1,24 @@
+<phase_verification phase="4">
+  <tasks>RBE-T001, RBE-D001</tasks>
+  <acceptance_criteria>
+RBE-T001: The one apply lists every expected entry (added, replaced from the RBE-P002 fixtures, removed, preserved, a carried user registration, the owner edit under conflicts), with all six governance rules byte-identical; --dry-run on the copy prints the same, non-empty lists, with git status --porcelain empty and modes unchanged; the second apply reports zero added/replaced/removed and still lists the owner edit as a conflict with the owner's bytes; --refresh leaves the retired file in place. Battery: for npx jest, ./packages/core/scripts/check-test-suites.sh and pytest packages/router/tests, both the merge-base run and the branch run follow npm ci; failing test ids are recorded in .trd-state/deterministic-rebase-engine/battery-o15/ with record-baseline and pass/fail counts per suite in battery-o15/battery-counts.json, the merge base before the branch; test-baseline.js compare --state-dir .../battery-o15 reports no newFailures for any suite, and no suite's branch passed count is below its merge-base count. Coverage: .trd-state/deterministic-rebase-engine/evidence/coverage.md gives, for rebase_engine_program(), the command run, covered and total lines and the percentage against 60%, marked met or not met (a shortfall is recorded with discovered.record, not fixed in this task), and names the bash part and the integration figure as not measured, with the reason in §6.1
+
+RBE-D001: The entry names the mode, its flags, the result line, retired-files.json and shipped-hashes.json, the generator's three modes and the release step; its ### Not yet proven list says /rebase-project does not call --rebase yet (F-3), no headless /rebase-project run was made, --refresh still overwrites owner-edited framework files without comparing (OQ-9) so conflict detection protects only edits made since the last upgrade, and files installed from untagged builds read as conflicts
+  </acceptance_criteria>
+</phase_verification>
+<instructions>
+Work in /private/tmp/ensemble-vnext-feature-20-deterministic-rebase-engine. Run the tests covering files changed since the last checkpoint (git diff dd217f57e88416e2e41749e4a3728d5f70a0b053 plus untracked files): the Jest files and BATS files the tasks touched, plus packages/core/scripts/scaffold-project.test.sh and test/integration/tests/scaffold-delivery.test.sh and test/integration/tests/runtime-integrity.test.sh and packages/core/lib/owner-rules.test.js when scaffold-project.sh changed. Report pass/fail counts. verification_level is unit-only. Return status "pass" only when every acceptance criterion above is met; check each one against the code and test output, not against the implementer's summary.
+
+Battery rules:
+- After each suite you run, record it: node .claude/lib/test-baseline.js record-run --state-dir .trd-state/deterministic-rebase-engine --suite <unit|integration> --command "<the command>" --status <pass|fail> --duration <seconds> --failures-file <file with one failing test id per line>.
+- A suite that can outlast 600 s runs with Bash run_in_background and a timeout above its runtime, waited on with Monitor.
+- Failing tests already on the base branch are not this phase's failure; report them as already failing.
+- NEVER run live model-spending checks (claude sessions, test/smoke/run-smoke.sh).
+- Do not edit files; report only.
+</instructions>
+<baseline base="main">unit (npx jest --ci): packages/core/hooks/status.test.js, packages/core/lib/design-criteria.test.js, packages/core/lib/live-evidence.test.js, packages/skills/{design-setup,ship-setup,verification-setup}/__tests__/skill-md.test.js. RBE-T001 also records its own merge-base battery under .trd-state/deterministic-rebase-engine/battery-o15/ (D18); check its compare output and battery-counts.json.</baseline>
+
+<environment_note>
+node_modules is installed. Six Jest suites fail with no relation to this change and are the recorded baseline: packages/core/hooks/status.test.js and packages/core/lib/live-evidence.test.js (fail on main too); packages/skills/{design-setup,verification-setup,ship-setup}/__tests__/skill-md.test.js and packages/core/lib/design-criteria.test.js (fail only in this checkout: its folders carry the setgid bit and copying into /tmp cannot set it). Do not try to fix them. In tests, create temp trees under BATS_TEST_TMPDIR / mktemp -d, not /tmp, and expect source modes may include setgid.
+RBE-T001 and RBE-D001 ran in parallel. For RBE-D001 check CHANGELOG.md content against its criterion. For RBE-T001 check the new BATS case passes, battery-o15 results and evidence/coverage.md exist and say what the criterion requires. Any Bash command that can outlast 600 s runs with run_in_background and its output in a log file.
+</environment_note>

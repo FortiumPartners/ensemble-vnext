@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "baseline": {
+    "base": "67cee2316dd2557272a45ed40871d8882f07e7de",
+    "capturedAt": "2026-11-20T21:40:53.220Z",
+    "suites": {
+      "jest": {
+        "command": "npx jest",
+        "durationSeconds": 72,
+        "failures": [
+          "status.test.js :: suite failed to run"
+        ]
+      },
+      "bats": {
+        "command": "./packages/core/scripts/check-test-suites.sh",
+        "durationSeconds": 175,
+        "failures": []
+      },
+      "pytest": {
+        "command": "pytest packages/router/tests",
+        "durationSeconds": 3,
+        "failures": []
+      }
+    }
+  },
+  "runs": {}
+}
