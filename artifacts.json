@@ -23,5 +23,11 @@
     "url": "",
     "updated_at": "2026-11-20T22:32:00.160Z",
     "command": "/implement-trd"
+  },
+  "verification-plan": {
+    "path": ".trd-state/deterministic-rebase-engine/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-11-20T22:34:49.563Z",
+    "command": "/refine-verification"
   }
 }
