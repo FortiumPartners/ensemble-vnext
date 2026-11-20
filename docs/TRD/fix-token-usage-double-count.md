@@ -83,8 +83,9 @@ None apply — a command-line script with Jest tests and a shell check; no scree
 
 ### AMEND-001
 
-- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+- **Touches:** `packages/core/scripts/token-usage.test.js` (as delivered in commit 923df2cf; `token-usage.js` was read, not changed)
+- **Careful:** no `file` was recorded for the discovery itself; the `Touches` above is filled from the delivered commit so the file-conflict guard in `task-graph.js` sees this task's file.
 
 ## Could Not Verify
-- Check 3 of the brief (the original 6,104 / 8,402 baseline transcripts) — they live in another OS user's home folder and cannot be read from this account. Not checked by the 2026-11-20 build audit, for the same reason. Checks 1 and 2 were run and passed (check.sh: 30846 output / 89 messages from both sides, PASS, exit 0; the 14 tests in token-usage.test.js pass).
+- Check 3 of the brief (the original 6,104 / 8,402 baseline transcripts) — they live in another OS user's home folder and cannot be read from this account. Not checked by the 2026-11-20 build audit, for the same reason. Checks 1 and 2 were run and passed (check.sh: 30846 output / 89 messages from both sides, PASS, exit 0; the 14 tests then in token-usage.test.js passed; with AMEND-001's case there are now 15, all passing).
 - Validation against product requirements — no PRD exists for this defect (the brief is the source), so the 2026-11-20 build audit checked only that the delivered code matches this TRD, not whether the TRD covers everything a product owner wanted.

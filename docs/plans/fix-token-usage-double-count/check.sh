@@ -10,6 +10,6 @@ H=$(mktemp -d); trap 'rm -rf "$H"' EXIT
 mkdir -p "$H/.claude/projects/-fixture"; cp "$T" "$H/.claude/projects/-fixture/t.jsonl"
 GOT=$(HOME="$H" node packages/core/scripts/token-usage.js --json --days 3650 \
   | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{const t=JSON.parse(s).total;console.log(t.output,t.msgs)})')
-WANT=$(node -e 'const m=new Map();for(const l of require("fs").readFileSync(process.argv[1],"utf8").split("\n")){if(!l.includes("\"usage\""))continue;let d;try{d=JSON.parse(l)}catch{continue}const g=d.message||{};if(g.usage)m.set(g.id,g.usage)}let o=0;for(const u of m.values())o+=u.output_tokens||0;console.log(o,m.size)' "$H/.claude/projects/-fixture/t.jsonl")
+WANT=$(node -e 'const m=new Map();for(const l of require("fs").readFileSync(process.argv[1],"utf8").split("\n")){if(!l.includes("\"usage\""))continue;let d;try{d=JSON.parse(l)}catch{continue}const g=d.message||{};if(g.usage&&Number.isFinite(Date.parse(d.timestamp||"")))m.set(g.id||Symbol(),g.usage)}let o=0;for(const u of m.values())o+=u.output_tokens||0;console.log(o,m.size)' "$H/.claude/projects/-fixture/t.jsonl")
 echo "token-usage.js (output, messages): $GOT   once per message id: $WANT"
 [ "$GOT" = "$WANT" ] && echo PASS || { echo FAIL; exit 1; }
