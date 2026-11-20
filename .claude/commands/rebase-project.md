@@ -13,7 +13,7 @@ disable-model-invocation: true
 >
 > **Options:**
 > - `--dry-run` - Preview changes without applying anything
-> - `--preserve-all` - Conservative mode: add new agents and skills only; leave every existing agent, skill and framework rule as it is, and leave retired files in place. Commands, hooks, workflows, libs and contracts are still updated, and the ensemble-owned `hooks` block of `settings.json` is still regenerated (escape hatch for projects with heavy customization)
+> - `--preserve-all` - Conservative mode: add missing files, but replace no existing agent, skill or framework rule, and leave retired files in place. Commands, hooks, workflows, libs and contracts are still updated, and the ensemble-owned `hooks` block of `settings.json` is still regenerated (escape hatch for projects with heavy customization)
 > - `--force` - Proceed even when `.claude/` has uncommitted changes or the project is not a git repository. Means "I accept that anything uncommitted is discarded with no way back." It is not passed to the engine; it only overrides the clean-tree stop in Step 0.
 >
 > **Default behavior (no flags) — applied automatically, no prompts:**
@@ -35,7 +35,7 @@ $ARGUMENTS
 Examples:
 - (no args) - Apply all updates, no prompts
 - "--dry-run" - Show what would change without writing anything; conflicts are listed, none resolved
-- "--preserve-all" - Add new agents and skills only; update commands/hooks/workflows/libs/contracts; leave the rest
+- "--preserve-all" - Add missing files; replace no existing agent, skill or framework rule; update commands/hooks/workflows/libs/contracts
 - "--force" - Skip the clean-git-tree precondition (uncommitted work under .claude/ is discarded)
 
 ---
@@ -69,9 +69,9 @@ Examples:
    .claude/rules/constitution.md - Governance file (preserve)
    ```
 
-3. If missing required files:
-   - List missing files
-   - Offer: "Run /init-project to create missing files, or continue with partial rebase?"
+3. If missing required files: continue without asking, and list each missing file in ISSUES.
+   The engine adds a missing `settings.json` from the plugin; a missing governance file is the
+   owner's and only `/init-project` creates it, so NEXT names `/init-project` for it.
 
 4. **Check the working tree. Do this BEFORE anything else writes.**
 
@@ -145,7 +145,7 @@ Examples:
    - Report error: "Cannot resolve plugin source path. Ensure ensemble-vnext plugin is installed."
    - Abort rebase
 
-**What the table is for here.** It gives the plugin root for the engine call, and it locates the shipped version of a conflicted file (Step 2): the render the engine compared against is gone when it exits. The `@` notation is for documentation clarity only; use absolute resolved paths.
+**What the table is for here.** It gives the plugin root for the engine call, and it locates the shipped version of a conflicted file (Step 2): the render the engine compared against is gone when it exits. A conflict's `path` is relative to `.claude/`; its shipped version under the plugin root is `commands/core/<name>.md` for `commands/`, `agents-lib/<name>.md` for `agents/`, `skills-lib/<rest>` for `skills/<rest>`, `templates/claude-directory/rules/<name>.md` for `rules/`, and the same path for `hooks/`, `workflows/`, `lib/` and `contracts/`. The `@` notation is for documentation clarity only; use absolute resolved paths.
 
 ### Recovery is git. Check the working tree BEFORE touching anything.
 
@@ -206,12 +206,13 @@ bash "<plugin-root>/scripts/scaffold-project.sh" --rebase --plugin-dir "<plugin-
 - `steps`: `modes`, `selection`, `preloads`, `gitFiles`, `recordsCutover`, `stamp`, each `ok`, `skipped: <why>`, `failed: <why>` or `not run` (every step is `not run` under `--dry-run`);
 - `error`, present only when the run failed.
 
-**`error` present: COMMAND STUCK.**
+**`error` present, or no `REBASE_RESULT` line at all (the engine refused its arguments or crashed): COMMAND STUCK.** Never fall back to doing any part of the update by hand.
 
 - An error from the planning stage wrote nothing: say the tree is unchanged.
-- An error from the apply stage (a failed copy, delete or settings write) can leave a partly applied tree with no version stamp: say so, and point at `git status --short .claude/` to see what changed and `git restore .claude/` to undo it (see Rollback).
+- An error from the apply stage (a failed copy, delete or settings write), an unexpected applier failure, or a missing result line can leave a partly applied tree with no version stamp: say so, and point at `git status --short .claude/` to see what changed and `git restore .claude/` to undo it (see Rollback).
+- When the stage is unclear, run `git status --short .claude/` yourself: empty output means nothing was written.
 
-The Reason line carries the engine's `error` text; Next says to fix the cause and re-run.
+The Reason line carries the engine's `error` text (or, with no result line, the last error line it printed); Next says to fix the cause and re-run.
 
 ### Step 2: Resolve reported conflicts
 
@@ -226,13 +227,13 @@ git log --format='%h %ad %s' --date=short -- .claude/<path>
 git log -p -- .claude/<path>
 ```
 
-1. **No change after the commit that installed it.** The file came from an untagged plugin build, so it is not an owner edit and a merge would only reintroduce old framework text. Replace it with the shipped version, and say so in DECISIONS, naming the file.
+1. **No change after the commit that installed it.** The file came from an untagged plugin build, so it is not an owner edit and a merge would only reintroduce old framework text. Replace it with the shipped version, and say so in DECISIONS, naming the file. A commit that was itself an earlier `/init-project` or `/rebase-project` run is not an owner change. **Only when the history shows this.** If you cannot tell that the installing commit added the file unedited (one commit holds the install and other work, or the history was squashed), treat it as an owner change (rule 2).
 2. **An owner change exists.** Read the shipped version (locate it through the Path Resolution table; an agent is `agents-lib/<name>.md`, compared ignoring its generated skill-preload content) and diff the owner's change against it. Then either:
    - **Merge**: the shipped version plus the owner's change, when the change applies cleanly and nothing of either side is lost; or
    - **Keep the owner's copy**: when the change overlaps lines the framework changed. List the file in ISSUES as needing a manual merge.
 
    Say which you did, per file, in DECISIONS.
-3. A merged hook keeps its file mode. A merged or kept agent keeps the project copy's `skills:` list and its `ENSEMBLE:SKILLS` block (the engine leaves a conflicted agent out of the preload step), and the readout says that agent's preloads were not refreshed.
+3. A replaced or merged hook keeps its file mode. A replaced, merged or kept agent keeps the project copy's `skills:` list and its `ENSEMBLE:SKILLS` block: `agents-lib/<name>.md` carries neither, and the engine leaves a conflicted agent out of the preload step, so replacing an agent means the shipped body with the project copy's preload parts put back. The readout says that agent's preloads were not refreshed.
 
 **Settings conflict** (an entry in `settings.conflicts`). Resolve it only when the local value can be put into the shape the engine understands without losing any of it; otherwise leave it. The shipped shape is `templates/claude-directory/settings.json` under the plugin root (Path Resolution table), and the hook set a current install carries is this generated list:
 
@@ -256,7 +257,7 @@ Plus `.claude/hooks/notify-complete.sh` (not event-registered — invoked direct
 
 **The list above is generated from `hooks.manifest.json`.** It is the authority for the current hook set, never a hand-maintained list. A registration pointing at a hook file that no longer ships fails on every event.
 
-Say in DECISIONS which settings conflicts you resolved and which you left. **Do not call the engine a second time.** A settings conflict (resolved or left) and a guard refusal (`settings.refused`, which also shows as `stamp: skipped: settings write refused by the guard`) go in ISSUES, and NEXT says to commit and run `/rebase-project` again: the engine may have stamped the new version while the old `hooks` block is still in force.
+Say in DECISIONS which settings conflicts you resolved and which you left. **Do not call the engine a second time.** A settings conflict (resolved or left) and a guard refusal (`settings.refused`, which also shows as `stamp: skipped: settings write refused by the guard`) go in ISSUES, and NEXT says to commit and run `/rebase-project` again: the engine may have stamped the new version while the old `hooks` block is still in force. A guard refusal means the merged `hooks` block would hold fewer registrations than the shipped one, so a re-run refuses again until that is fixed: when you could not resolve it, NEXT first says to bring the local `hooks` block to the shipped shape, then commit and re-run.
 
 ### Step 3: Readout
 
@@ -334,7 +335,7 @@ is never touched by any flag; **framework-shipped**
 |------|----------------------|-----------|
 | (default)        | Replaces framework files that match a shipped version, adds new ones, removes retired ones, merges settings, refreshes skill selection and preloads, untracks run records, stamps the version | Resolved in Step 2 |
 | `--dry-run`      | Writes nothing; every `steps` entry is `not run` | Listed, none resolved |
-| `--preserve-all` | Adds new agents and skills only; replaces commands, hooks, workflows, libs and contracts; leaves framework rules and retired files; still regenerates the ensemble-owned `hooks` block | Resolved in Step 2 |
+| `--preserve-all` | Adds missing files but replaces no existing agent, skill or framework rule; replaces commands, hooks, workflows, libs and contracts; leaves framework rules and retired files; still regenerates the ensemble-owned `hooks` block | Resolved in Step 2 |
 | `--force`        | Not passed to the engine; it only skips the clean-tree precondition | Resolved in Step 2 |
 
 ---

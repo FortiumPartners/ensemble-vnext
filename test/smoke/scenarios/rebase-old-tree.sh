@@ -10,14 +10,12 @@
 #
 # The DETERMINISTIC half of rebase delivery — scaffold-project.sh --refresh — is
 # already covered there and in packages/core/scripts/scaffold-project.test.sh,
-# with no model involved. What neither can touch is the part item 13 names: the
-# CLASSIFICATION decisions inside /rebase-project, which is a markdown prompt.
-# (Classification is now the engine's -- scaffold-project.sh --rebase -- not prompt
-# prose; the model session is exercised for the conflict path and the report.)
-# Which commands are stale, which skills are the user's, which rules the
-# framework owns — §4.1–4.7 of rebase-project.md is an independently specified
-# LLM-executed procedure that never shells out to the refresh script. The only
-# way to observe it is to run it.
+# with no model involved. Classification (which commands are retired, which
+# skills are the user's, which rules the framework owns) is now the engine's too:
+# /rebase-project makes one scaffold-project.sh --rebase call. What no BATS test
+# can touch is the prompt around that call: that it makes the call, resolves the
+# conflicts it reports without discarding owner work, and finishes. The only way
+# to observe that is to run it.
 #
 # EVERY ASSERTION READS THE FILESYSTEM. /rebase-project writes a prose Rebase
 # Report saying what it changed; asserting against that text would pass for a run

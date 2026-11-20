@@ -288,7 +288,7 @@ smoke_agent_invoked() {
 #   - a framework rule at v4.10.0's bytes -> 4.1.19: rules could never be updated
 #   - an owner line in commands/plan.md   -> the prompt's conflict path: owner work survives
 #   - a user-authored skill planted       -> 4.1.19: custom skills marked for deletion
-#   - ensemble.version rolled back        -> puts Step 1 on the "Older -> Newer" branch
+#   - ensemble.version rolled back        -> the engine's stamp must move it forward
 #
 # Prints the three governance-file hashes (constitution/stack/process) on stdout,
 # one "<name> <hash>" per line, so the caller can prove rebase left them alone.
@@ -299,11 +299,9 @@ smoke_age_project() {
 
     rm -rf "${d}/.claude/workflows" "${d}/.claude/lib" "${d}/.claude/contracts"
 
-    # Retired commands MUST carry ensemble frontmatter with a `category:` field:
-    # rebase-project.md's diff step classifies a vendored-not-in-plugin file as
-    # Stale only if it looks framework-shipped. Without frontmatter it reads as
-    # a user-authored Custom command and is deliberately PRESERVED — the
-    # scenario would then fail against correct behaviour.
+    # Retired commands: the engine removes them because retired-files.json lists
+    # them, whatever their frontmatter. The frontmatter is kept so the fixture
+    # still looks like what an old scaffold left behind.
     local c
     for c in harden-trd-team verify-trd-team implement-trd-team; do
         cat > "${d}/.claude/commands/${c}.md" <<EOF
