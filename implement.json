@@ -1,0 +1,164 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/deterministic-rebase-engine.md",
+  "trd_hash": "4cb5c4e96744239d83266bd4fd19d0c135734c0bc1f8761e6924615dbba2f0fc",
+  "branch": "feature/20-deterministic-rebase-engine",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "RBE-P001": {
+      "description": "Create packages/core/templates/retired-files.json (D9), seeded from the three retired tables and the retired-hooks paragraph in rebase-project.md and from git log --diff-filter=D over the framework so",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/templates/retired-files.json",
+        "packages/core/lib/retired-files.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-20T19:37:41.090Z",
+      "completed_at": "2026-11-20T19:48:20.789Z",
+      "last_advanced": "2026-11-20T19:44:15.929Z"
+    },
+    "RBE-B001": {
+      "description": "In scaffold-project.sh: parse --rebase, --dry-run, --preserve-all with the exclusivity rules of §3.1, resolve --plugin-dir to an absolute path for the mode, and add them to the usage text; add authore",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/rebase-engine.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-11-20T19:37:41.090Z",
+      "completed_at": "2026-11-20T19:48:20.788Z",
+      "last_advanced": "2026-11-20T19:44:15.930Z"
+    },
+    "RBE-P002": {
+      "description": "Write packages/core/scripts/generate-shipped-hashes.sh (--seed, --append <tag>, --check; D8); run --seed and commit packages/core/templates/shipped-hashes.json; add to retired-files.json every path th",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "RBE-B002": {
+      "description": "Add rebase_engine_program() plan and apply for files (§3.2; D2, D3, D5, D6, D9's validation, D13, D14's file rules, D15, D16; D17's file writes, modes and path check) and the REBASE_RESULT line with a",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "RBE-B003": {
+      "description": "Add the settings merge (D11), its conflicts and the guard mode wired before the one settings write (D12), and preserve-all's settings rule (D14) to the planner and applier",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "RBE-B004": {
+      "description": "Wire the post-copy steps in D17's order (hook modes, reconcile_selected_skills, inject_agent_skills excluding conflicted agents, git files, records cutover, stamp_ensemble_version strict last) and rep",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "RBE-T001": {
+      "description": "One aged-fixture BATS case across the whole engine, as the investigation's checkable outcomes describe (an older shipped file, a missing file, a retired file, a user agent, a user hook registration, a",
+      "phase": 4,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "RBE-D001": {
+      "description": "Add a CHANGELOG.md entry for the --rebase mode, its two data files, the generator and the release step contributors now run (generate-shipped-hashes.sh --append <previous tag>), with a Not-yet-proven ",
+      "phase": 4,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "163c1fe7f6f0d32bbf1a025a1297af7489ae01f7",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-20T19:50:30.998Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "163c1fe7f6f0d32bbf1a025a1297af7489ae01f7",
+    "last_checkpoint_timestamp": "2026-11-20T19:50:30.998Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "run_started_at": "2026-11-20T19:36:24.075Z",
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/plan/deterministic-rebase-engine.investigation.md",
+    "derive_dispatched": true,
+    "runs": [],
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, pytest, node installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI logged in; scaffold-project.sh available"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool always available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh logged in as islayjames with repo scope"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "verification.md §1: must not be touched"
+      }
+    }
+  }
+}

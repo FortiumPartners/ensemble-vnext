@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "baseline": null,
+  "runs": {
+    "unit": {
+      "tree": "ae4136a9c13f5e987534ddd505a0489ec16619e2+72750196fb3e",
+      "status": "pass",
+      "command": "npx jest --ci",
+      "durationSeconds": 110,
+      "failures": [],
+      "at": "2026-11-20T19:50:30.820Z"
+    },
+    "integration": {
+      "tree": "ae4136a9c13f5e987534ddd505a0489ec16619e2+72750196fb3e",
+      "status": "pass",
+      "command": "bats rebase-engine scaffold-project scaffold-delivery runtime-integrity",
+      "durationSeconds": 211,
+      "failures": [],
+      "at": "2026-11-20T19:48:08.519Z"
+    }
+  }
+}
