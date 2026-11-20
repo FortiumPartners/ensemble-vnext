@@ -12,7 +12,7 @@
  * and they are NOT interchangeable. Claude Code writes ONE API message as several transcript
  * lines (one per content block: thinking, text, each tool_use), each repeating the same
  * `message.id` and the same usage block, so rows are deduplicated by `message.id` (see
- * `aggregate`). Counting every line inflated the totals by roughly 1.5x-2x.
+ * `aggregate`). Counting every line inflated the totals about 2x (1.8x-2.3x measured).
  *
  *   output               generated. The expensive one, ~5x input on every published rate card.
  *   input                fresh prompt tokens, uncached.

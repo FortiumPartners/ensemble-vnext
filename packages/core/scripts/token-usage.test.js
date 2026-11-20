@@ -14,7 +14,8 @@ describe('the four token classes stay separate', () => {
   test('no `total` field is produced — a caller must own that decision', () => {
     // Summing them is the obvious mistake and it is badly wrong: cache_read dwarfs
     // output by ~500x in real data, so a combined figure tracks session LENGTH, not
-    // cost. Measured on this machine over 7 days: 12.7M output vs 6.0B cache-read.
+    // cost. Measured on this machine over 7 days: 12.7M output vs 6.0B cache-read
+    // (taken before the per-message-id dedup, so both are ~2x high; the ratio holds).
     expect(Object.keys(blank()).sort()).toEqual(
       ['cacheCreate', 'cacheRead', 'input', 'msgs', 'output'].sort()
     );
