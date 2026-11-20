@@ -5,5 +5,11 @@
     "url": "https://claude.ai/artifact/6jsxH5zgYpxZYhZeFctF7Y",
     "updated_at": "2026-11-20T18:49:34.598Z",
     "command": "/plan"
+  },
+  "audit-build": {
+    "path": ".trd-state/fix-token-usage-double-count/audit-build-report.md",
+    "url": "",
+    "updated_at": "2026-11-20T19:00:01.523Z",
+    "command": "/audit-build"
   }
 }
