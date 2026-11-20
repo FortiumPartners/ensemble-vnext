@@ -20,27 +20,20 @@
   },
   "runs": {
     "unit": {
-      "tree": "5fdd7c376a1fd6e5d90fbe997557e813c1fd8311+e4b37d7e85e6",
-      "status": "fail",
-      "command": "npx jest --ci",
-      "durationSeconds": 104,
-      "failures": [
-        "packages/core/hooks/status.test.js",
-        "packages/core/lib/design-criteria.test.js",
-        "packages/core/lib/live-evidence.test.js",
-        "packages/skills/design-setup/__tests__/skill-md.test.js",
-        "packages/skills/ship-setup/__tests__/skill-md.test.js",
-        "packages/skills/verification-setup/__tests__/skill-md.test.js"
-      ],
-      "at": "2026-11-20T21:12:18.312Z"
+      "tree": "7713d8bff01434c48683108799ce91a70dde4a15+13333ea27d14",
+      "status": "pass",
+      "command": "npx jest packages/core/lib/retired-files.test.js",
+      "durationSeconds": 2,
+      "failures": [],
+      "at": "2026-11-20T22:14:19.191Z"
     },
     "integration": {
-      "tree": "dd217f57e88416e2e41749e4a3728d5f70a0b053+73fdc2ee9536",
+      "tree": "7713d8bff01434c48683108799ce91a70dde4a15+13333ea27d14",
       "status": "pass",
-      "command": "npx bats packages/core/scripts/rebase-engine.test.sh",
-      "durationSeconds": 145,
+      "command": "bats packages/core/scripts/scaffold-project.test.sh",
+      "durationSeconds": 119,
       "failures": [],
-      "at": "2026-11-20T21:43:37.246Z"
+      "at": "2026-11-20T22:14:19.106Z"
     }
   }
 }

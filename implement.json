@@ -137,6 +137,48 @@
       "started_at": "2026-11-20T21:20:00.047Z",
       "completed_at": "2026-11-20T21:43:57.464Z",
       "last_advanced": "2026-11-20T21:33:18.720Z"
+    },
+    "AMEND-001": {
+      "description": "AMEND-001",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/scripts/rebase-engine.test.sh"
+      ],
+      "started_at": "2026-11-20T22:03:28.224Z",
+      "last_advanced": "2026-11-20T22:09:42.561Z",
+      "current_problem": null,
+      "completed_at": "2026-11-20T22:14:36.937Z"
+    },
+    "AMEND-002": {
+      "description": "AMEND-002",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/deterministic-rebase-engine/evidence/coverage.md"
+      ],
+      "started_at": "2026-11-20T22:03:28.224Z",
+      "last_advanced": "2026-11-20T22:09:42.562Z",
+      "current_problem": null,
+      "completed_at": "2026-11-20T22:14:36.938Z"
+    },
+    "AMEND-003": {
+      "description": "AMEND-003",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/scripts/rebase-engine.test.sh"
+      ],
+      "started_at": "2026-11-20T22:03:28.224Z",
+      "last_advanced": "2026-11-20T22:09:42.562Z",
+      "current_problem": null,
+      "completed_at": "2026-11-20T22:14:36.938Z"
     }
   },
   "checkpoints": [
@@ -171,11 +213,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-20T21:43:57.610Z"
+    },
+    {
+      "phase": 4,
+      "commit": "4507bd43d84da6119c2ae1cfcbc7c6904072d4c2",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-20T22:14:37.165Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "3174946ca0668cebf7c744eb79f63c8aa266a698",
-    "last_checkpoint_timestamp": "2026-11-20T21:43:57.610Z",
+    "last_healthy_checkpoint": "4507bd43d84da6119c2ae1cfcbc7c6904072d4c2",
+    "last_checkpoint_timestamp": "2026-11-20T22:14:37.165Z",
     "interrupted": false,
     "interrupt_reason": null
   },
