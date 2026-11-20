@@ -1,0 +1,132 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/rebase-prompt-on-the-engine.md",
+  "trd_hash": "5c2e46a79f28366ec9228419e75a1e87b3baa45d5d4be593f1c1ec2582d29137",
+  "branch": "feature/30-rebase-prompt-on-the-engine",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "Rewrite rebase-project.md as a thin engine caller",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/rebase-project.md",
+        ".claude/commands/rebase-project.md",
+        "packages/full/commands/plugin-only/rebase-project.md"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-20T23:28:22.538Z"
+    },
+    "FIX-002": {
+      "description": "Retarget prompt-text tests",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/records-cutover-prose.test.js",
+        "packages/core/lib/retired-files.test.js",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "test/integration/tests/runtime-integrity.test.sh"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-20T23:28:22.539Z"
+    },
+    "FIX-003": {
+      "description": "Smoke fixture and assertions",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/fixtures/rebase-engine/older/rules/autonomy.md",
+        "test/fixtures/rebase-engine/README.md",
+        "test/smoke/lib/project.sh",
+        "test/smoke/scenarios/rebase-old-tree.sh"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-20T23:28:22.539Z"
+    },
+    "FIX-004": {
+      "description": "Correct docs and CHANGELOG",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/init-project.md",
+        "packages/full/commands/plugin-only/init-project.md",
+        ".claude/commands/init-project.md",
+        "docs/reference/agents.md",
+        "docs/reference/other-commands.md",
+        "docs/reference/README.md",
+        "docs/guides/INSTALL.md",
+        "docs/guides/ARCHITECTURE.md",
+        "CHANGELOG.md"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-20T23:28:22.539Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "2b426000096260687f7fed6a0b30e2c5032a27dc",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-20T23:31:11.158Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "2b426000096260687f7fed6a0b30e2c5032a27dc",
+    "last_checkpoint_timestamp": "2026-11-20T23:31:11.158Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "run_started_at": "2026-11-20T23:09:40.854Z",
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/rebase-prompt-on-the-engine.md § Intended Change",
+    "derive_dispatched": true,
+    "runs": [],
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, node installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "claude CLI headless installed; OS user logged in"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login; not needed by this feature"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}

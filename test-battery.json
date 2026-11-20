@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "baseline": {
+    "base": "3e27acd1",
+    "capturedAt": "2026-11-20T23:28:39.170Z",
+    "suites": {
+      "unit": {
+        "command": "npx jest",
+        "durationSeconds": 99,
+        "failures": [
+          "packages/core/hooks/status.test.js",
+          "packages/core/lib/design-criteria.test.js",
+          "packages/skills/design-setup/__tests__/skill-md.test.js",
+          "packages/skills/ship-setup/__tests__/skill-md.test.js",
+          "packages/skills/verification-setup/__tests__/skill-md.test.js"
+        ]
+      },
+      "integration": {
+        "command": "bats",
+        "durationSeconds": 130,
+        "failures": []
+      }
+    }
+  },
+  "runs": {
+    "unit": {
+      "tree": "21878d973febb4fad063fba852b79a44dfdc373a+612cec71e33e",
+      "status": "fail",
+      "command": "npx jest",
+      "durationSeconds": 100,
+      "failures": [
+        "packages/core/hooks/status.test.js",
+        "packages/core/lib/design-criteria.test.js",
+        "packages/skills/design-setup/__tests__/skill-md.test.js",
+        "packages/skills/ship-setup/__tests__/skill-md.test.js",
+        "packages/skills/verification-setup/__tests__/skill-md.test.js"
+      ],
+      "at": "2026-11-20T23:27:57.067Z"
+    },
+    "integration": {
+      "tree": "21878d973febb4fad063fba852b79a44dfdc373a+612cec71e33e",
+      "status": "pass",
+      "command": "bats scaffold-project.test.sh runtime-integrity.test.sh scaffold-delivery.test.sh",
+      "durationSeconds": 130,
+      "failures": [],
+      "at": "2026-11-20T23:27:57.171Z"
+    }
+  }
+}
