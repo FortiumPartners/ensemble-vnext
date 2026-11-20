@@ -17,14 +17,13 @@ The vendored copy in `.claude/agents/` differs from the plugin source in exactly
 themselves, because the right list differs per project. Edits inside the markers are
 overwritten on the next refresh.
 
-`/rebase-project` compares and copies agents through two `scaffold-project.sh` modes that strip
-the generated content before comparing, so an agent is reported changed only when its body
-changed: `--agent-status` (read-only report) and `--sync-agents` (copy, then put the preloads
-back). `--sync-agents` first rebuilds `selected-skills.txt` from the skill folders actually
-installed (dropping removed library skills, appending new ones, keeping comments, order and
-custom names, never adding framework skills), and reports an agent whose only change was its
-generated skill content as `refreshed`, not `updated`. `--refresh` and first-time scaffolding
-still read `selected-skills.txt` as written (CHANGELOG 4.13.5, known open).
+`/rebase-project` treats agents like every other framework file, through one
+`scaffold-project.sh --rebase` call: an agent is replaced only when it matches a version the
+framework shipped, an owner-edited agent is reported as a conflict, and the generated skill
+preloads are put back afterwards. The engine rewrites `selected-skills.txt` from the skill
+folders actually installed in `.claude/skills/` (it does not read `stack.md`), so a skill you
+copy in is picked up and a removed one drops out. `--refresh` and first-time scaffolding still
+read `selected-skills.txt` as written.
 
 ## The 13 agents
 

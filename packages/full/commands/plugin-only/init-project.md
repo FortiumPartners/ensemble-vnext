@@ -533,7 +533,7 @@ Output your reasoning:
 
 ### Considered but Not Included
 - `using-celery` - No background job patterns detected
-- `managing-railway` - No deployment config found; can add later with `/rebase-project` after updating stack.md
+- `managing-railway` - No deployment config found; can add later by copying its folder from the plugin's `skills-lib/` into `.claude/skills/`; the next `/rebase-project` keeps it current
 ```
 
 </skill-selection>
@@ -617,7 +617,7 @@ PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-...}}"; "${PLUGIN_PATH
 Step 3's scaffold already created `.claude/settings.json` from this template AND stamped
 `ensemble.version` into it (not `refreshed_at`; only `/rebase-project` writes that). **Do NOT copy the template over it
 again** — the raw template has no version stamp, so re-copying silently wipes the field that
-`/rebase-project`'s version detection and the runtime-refresh gate both read, leaving the
+the rebase engine's version detection and the runtime-refresh gate both read, leaving the
 project permanently at "unknown → full sync".
 
 Only act if the file is missing (it should not be):
@@ -716,7 +716,7 @@ This step appends the general additions below.
 
 If the scaffold printed `Untracked <path> (index only)`, the project had been committing that
 framework file: the removal is staged, not committed. Report it in STATE and tell the owner to
-commit it on the base branch, as `/rebase-project` Step 4.7a does.
+commit it on the base branch, as `/rebase-project` does after its engine call.
 
 **Append to `.gitignore` if not already present:**
 

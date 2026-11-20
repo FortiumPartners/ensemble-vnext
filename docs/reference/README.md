@@ -95,7 +95,7 @@ The other shorter paths:
 | Command | You invoke it to | Where it lives |
 |---|---|---|
 | `/init-project` | scaffold `.claude/` into a project (plugin only; runs `scaffold-project.sh`) | `init-project.md` Steps 0–14 |
-| `/rebase-project` | refresh a project's vendored runtime from the plugin (plugin only) | `rebase-project.md` Steps 1–5 |
+| `/rebase-project` | refresh a project's vendored runtime from the plugin (plugin only) | `rebase-project.md`; engine: `scaffold-project.sh --rebase` |
 | `/update-project` | capture learnings into `CLAUDE.md`; *propose* constitution and `stack.md` changes, which apply only when you confirm | `update-project.md` Steps 3b, 4b |
 | `/cleanup-project` | prune `CLAUDE.md` with a backup and dry run | `cleanup-project.md` Steps 1–7 |
 | `/fold-prompt` | tighten `CLAUDE.md` and related context for continued work | `fold-prompt.md` |

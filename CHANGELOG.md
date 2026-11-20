@@ -14,6 +14,10 @@ the work is actually released.
 
 A rebase that takes a script run instead of a long model session: `scaffold-project.sh --rebase` works out, file by file, what to add, replace, remove or leave alone, and reports it as one line of JSON.
 
+### Changed
+
+- **`/rebase-project` is now a thin caller of `scaffold-project.sh --rebase`.** One engine call does the update; the model resolves only the conflicts it reports (a file: git history shows no owner commit, replace; otherwise merge or keep the owner's copy, never discard; settings: resolve or leave) and writes the readout. The old Step 4.x tables, the `--agent-status` / `--sync-agents` comparison and the recomputation of skills from `stack.md` are gone. A skill is added by copying its folder from the plugin's `skills-lib/` into `.claude/skills/`. `/init-project`, the reference docs and the install and architecture guides are corrected to match.
+
 ### Added
 
 - **`scaffold-project.sh --rebase --plugin-dir DIR [project]`: a deterministic rebase of the vendored `.claude/` runtime.** It renders the plugin as a scaffold would install it (outside the project), then classifies every installed path. A framework file that matches an older shipped version is replaced. A file the owner edited is reported as a conflict and left untouched. A file on the retired list is removed. New files are added, and `settings.json` is merged with the owner's keys and registrations kept. `--dry-run` reports the same plan and writes nothing. `--preserve-all` adds new files only for agents and skills, replaces no framework rules and removes nothing. The mode is exclusive with every other mode, `--force`, `--copy-skills` and `--new-only`. The conflict handling treats `autonomy.md` as framework-shipped, not owner-governed, and only `--rebase` removes retired files; `--refresh` does not.
@@ -24,7 +28,7 @@ A rebase that takes a script run instead of a long model session: `scaffold-proj
 
 ### Not yet proven
 
-- `/rebase-project` does not call `--rebase` yet. Rewriting its prompt to use the engine is a separate change (F-3), and its retired-file tables stay until then.
+- `/rebase-project` now calls `--rebase` (see Changed), but the rewritten prompt has not been proven live.
 - No headless `/rebase-project` run was made against the engine.
 - `--refresh`, which runs at SessionStart after every plugin upgrade, still overwrites owner-edited framework files without comparing bytes. Conflict detection therefore protects only edits made since the last upgrade, or with refresh turned off.
 - Files installed from an untagged build match no recorded hash and read as conflicts.

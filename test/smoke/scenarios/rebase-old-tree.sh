@@ -12,6 +12,8 @@
 # already covered there and in packages/core/scripts/scaffold-project.test.sh,
 # with no model involved. What neither can touch is the part item 13 names: the
 # CLASSIFICATION decisions inside /rebase-project, which is a markdown prompt.
+# (Classification is now the engine's -- scaffold-project.sh --rebase -- not prompt
+# prose; the model session is exercised for the conflict path and the report.)
 # Which commands are stale, which skills are the user's, which rules the
 # framework owns — §4.1–4.7 of rebase-project.md is an independently specified
 # LLM-executed procedure that never shells out to the refresh script. The only
@@ -113,10 +115,19 @@ done
 # -----------------------------------------------------------------------------
 # 4.1.19 bug: framework rules were preserve-as-is, so they could NEVER update.
 # -----------------------------------------------------------------------------
-if grep -q -- '--wiggum' "${PROJECT_DIR}/.claude/rules/autonomy.md" 2>/dev/null; then
-    assert_fail_raw "framework rule autonomy.md refreshed (stale --wiggum text still present)"
+if cmp -s "${REPO_ROOT}/packages/core/templates/claude-directory/rules/autonomy.md" \
+    "${PROJECT_DIR}/.claude/rules/autonomy.md"; then
+    assert_pass_raw "framework rule autonomy.md refreshed (equals the current template byte for byte)"
 else
-    assert_pass_raw "framework rule autonomy.md refreshed (stale --wiggum text gone)"
+    assert_fail_raw "framework rule autonomy.md refreshed (differs from the current template)"
+fi
+
+# The owner's committed line in a framework command must survive, whether the
+# prompt merged it into the new version or kept the owner's copy.
+if grep -qF -- "$SMOKE_OWNER_LINE" "${PROJECT_DIR}/.claude/commands/plan.md" 2>/dev/null; then
+    assert_pass_raw "owner line in commands/plan.md survived the rebase"
+else
+    assert_fail_raw "owner line in commands/plan.md was discarded by the rebase"
 fi
 
 # -----------------------------------------------------------------------------
