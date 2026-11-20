@@ -4,6 +4,8 @@
 # (docs/TRD/deterministic-rebase-engine.md). RBE-B001 covers flag parsing, the
 # render, authored_rules, normhash and inject's exclude list.
 
+bats_require_minimum_version 1.5.0
+
 setup() {
     SCRIPT_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")" && pwd)"
     SCAFFOLD="$SCRIPT_DIR/scaffold-project.sh"
@@ -916,4 +918,94 @@ PY
     [ "$(_res "$TEST_DIR/last" "d['steps']['stamp'].startswith('failed')")" = "True" ]
     [ "$(_res "$TEST_DIR/last" "d['steps']['modes']")" = "ok" ]
     [ "$(_res "$TEST_DIR/last" "d['steps']['recordsCutover']")" = "ok" ]
+}
+
+# --- the whole engine on one aged fixture (RBE-T001) -------------------------
+
+# Every file under $1 (not .git) as "<path> <hash> <mode>"; settings.json is hashed with the two
+# stamp timestamps removed (O14).
+_state() {
+    python3 - "$1" <<'PY'
+import hashlib, json, os, stat, sys
+root = sys.argv[1]
+rows = []
+for base, dirs, files in os.walk(root):
+    dirs[:] = [d for d in dirs if d != ".git"]
+    for f in files:
+        p = os.path.join(base, f)
+        rel = os.path.relpath(p, root)
+        data = open(p, "rb").read()
+        if rel == ".claude/settings.json":
+            d = json.loads(data)
+            for k in ("refreshed_at", "rebased_at"):
+                d.get("ensemble", {}).pop(k, None)
+            data = json.dumps(d, sort_keys=True).encode()
+        rows.append("%s %s %s" % (rel, hashlib.sha1(data).hexdigest(), oct(stat.S_IMODE(os.lstat(p).st_mode))))
+print("\n".join(sorted(rows)))
+PY
+}
+
+# Run the engine on $1 and keep stdout apart from stderr (D16); sets RESULT to the last stdout line.
+_run_rebase() {
+    run --separate-stderr "$SCAFFOLD" --rebase "${@:2}" --plugin-dir "$PLUGIN" "$1"
+    [ "$status" -eq 0 ]
+    RESULT="${lines[-1]}"
+    printf '%s\n' "$RESULT" > "$TEST_DIR/result"
+}
+
+@test "aged fixture: apply lists every case, dry-run on a copy matches it, a second apply is a no-op, refresh keeps the retired file" {
+    _aged_target
+    local c="$TARGET/.claude"
+    # A user hook registration the merge must carry.
+    _edit "d['hooks']['PostToolUse'].append({'matcher': 'Bash', 'hooks': [{'type': 'command', 'command': 'my-linter --check'}]})"
+    ( cd "$TARGET" && git add -A && git -c user.email=a@b -c user.name=t commit -q -m aged )
+    local rule
+    for rule in $(bash -c 'set --; source "$1"; authored_rules' _ "$SCAFFOLD"); do
+        [ -f "$c/rules/$rule" ] && cp "$c/rules/$rule" "$TEST_DIR/rule.$rule"
+    done
+    cp -R "$TARGET" "$TEST_DIR/copy"
+    cp -R "$TARGET" "$TEST_DIR/refreshcopy"
+    _state "$TEST_DIR/copy" > "$TEST_DIR/copy.before"
+
+    # Dry-run on the copy first: nothing changes there.
+    _run_rebase "$TEST_DIR/copy" --dry-run
+    cp "$TEST_DIR/result" "$TEST_DIR/dry.out"
+    [ -z "$(cd "$TEST_DIR/copy" && git status --porcelain)" ]
+    [ "$(_state "$TEST_DIR/copy")" = "$(cat "$TEST_DIR/copy.before")" ]
+
+    # The apply.
+    _run_rebase "$TARGET"
+    cp "$TEST_DIR/result" "$TEST_DIR/apply.out"
+    [ "$(_res "$TEST_DIR/apply.out" "d['categories']['commands']['added']")" = "['commands/amend.md']" ]
+    [ "$(_res "$TEST_DIR/apply.out" "d['categories']['commands']['replaced']")" = "['commands/plan.md']" ]
+    [ "$(_res "$TEST_DIR/apply.out" "d['categories']['commands']['removed']")" = "['commands/fix-issue.md']" ]
+    [ "$(_res "$TEST_DIR/apply.out" "d['categories']['hooks']['removed']")" = "['hooks/permitter/']" ]
+    [ "$(_res "$TEST_DIR/apply.out" "d['categories']['agents']['preserved']")" = "['agents/my-agent.md']" ]
+    [ "$(_res "$TEST_DIR/apply.out" "d['categories']['skills']['preserved']")" = "['skills/my-skill']" ]
+    [ "$(_res "$TEST_DIR/apply.out" "sorted(x['path'] for x in d['categories']['agents']['conflicts'])")" = "['agents/code-reviewer.md']" ]
+    [ "$(_regs | grep -c '^PostToolUse my-linter --check$')" -eq 1 ]
+    for rule in $(bash -c 'set --; source "$1"; authored_rules' _ "$SCAFFOLD"); do
+        [ ! -f "$TEST_DIR/rule.$rule" ] || cmp "$c/rules/$rule" "$TEST_DIR/rule.$rule"
+    done
+    grep -q DISTINCTIVE-VERIFICATION "$c/rules/verification.md"
+
+    # The dry-run listed what the apply did.
+    diff <(_res "$TEST_DIR/dry.out" "__import__('json').dumps(d['categories'], sort_keys=True)") \
+         <(_res "$TEST_DIR/apply.out" "__import__('json').dumps(d['categories'], sort_keys=True)")
+    [ "$(_res "$TEST_DIR/dry.out" "d['mode']")" = "dry-run" ]
+
+    # A second apply adds, replaces and removes nothing; the owner edit is still a conflict, bytes intact.
+    local owner_bytes
+    owner_bytes="$(shasum "$c/agents/code-reviewer.md")"
+    _state "$TARGET" > "$TEST_DIR/state.before"
+    _run_rebase "$TARGET"
+    cp "$TEST_DIR/result" "$TEST_DIR/apply2.out"
+    [ "$(_res "$TEST_DIR/apply2.out" "[(k, i) for k, v in d['categories'].items() for i in ('added','replaced','removed') if v[i]]")" = "[]" ]
+    [ "$(_res "$TEST_DIR/apply2.out" "sorted(x['path'] for x in d['categories']['agents']['conflicts'])")" = "['agents/code-reviewer.md']" ]
+    [ "$(shasum "$c/agents/code-reviewer.md")" = "$owner_bytes" ]
+    [ "$(_state "$TARGET")" = "$(cat "$TEST_DIR/state.before")" ]
+
+    # --refresh does not remove a retired file (OQ-2).
+    "$SCAFFOLD" --refresh --plugin-dir "$PLUGIN" "$TEST_DIR/refreshcopy" >/dev/null 2>&1
+    [ -f "$TEST_DIR/refreshcopy/.claude/commands/fix-issue.md" ]
 }
