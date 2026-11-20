@@ -244,6 +244,15 @@
         "outcome": "must-pass-unproven",
         "finished_at": "2026-11-20T22:31:49.821Z",
         "open": []
+      },
+      {
+        "n": 2,
+        "command": "/verify-build",
+        "started_at": "2026-11-20T22:38:32.517Z",
+        "scope": "targeted",
+        "outcome": "satisfied",
+        "finished_at": "2026-11-20T22:42:45.721Z",
+        "open": []
       }
     ],
     "target": {
@@ -271,6 +280,23 @@
         "status": "unusable",
         "reason": "verification.md §1: must not be touched"
       }
+    },
+    "fix": {
+      "plan": ".trd-state/deterministic-rebase-engine/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1
+      },
+      "rounds": [
+        {
+          "round": 0,
+          "tasksPromoted": 0,
+          "criteriaClosed": 1,
+          "criteriaOpen": 0,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
     }
   },
   "audit": {

@@ -1,1 +1,289 @@
-{"criteria":[{"id":"FS-1","statement":"On the aged fixture, one `--rebase` call restores the missing framework file, lists it under `added`, and the restored file is byte-identical to the plugin's copy","cites":"§Intended Change lines 42–43, 50–53 (\"restores the missing file (`added`)\")","evidence":"Transcript of the `--rebase` run (plugin dir `packages/full`) showing the `REBASE_RESULT` line with the path in its category's `added`; `cmp` of the restored file against the plugin's rendered copy exiting 0","derivation":"[read]","tier1":"locator","mustPass":"O1"},{"id":"FS-2","statement":"On the aged fixture, the previously-shipped version of a framework file is replaced, listed under `replaced`, and afterwards byte-identical to the current plugin's copy","cites":"§Intended Change lines 50–53 (\"replaces the old version (`replaced`)\"); §Decision lines 103–105","evidence":"`REBASE_RESULT` line with the path under `replaced`; sha256 of the file before (the old release's bytes) and after (equal to the plugin render's)","derivation":"[read]","tier1":"locator","mustPass":"O1, O7"},{"id":"FS-3","statement":"A vendored framework file already byte-identical to the plugin's copy is left alone: counted in `unchanged`, never listed as added or replaced, and its bytes and mtime are not touched","cites":"§Intended Change line 39 (\"copies with byte comparison\"); §Decision lines 80–81, 171 (`unchanged` is a count)","evidence":"`REBASE_RESULT` line showing the file's category with a non-zero `unchanged` and the path in none of the lists; `stat` (mtime, size) and sha256 of that file before and after the run, equal","derivation":"[read]","tier1":"locator","mustPass":"O1"},{"id":"FS-4","statement":"After one `--rebase` call, the target's `.claude/` framework tree matches what the plugin installs, across every component kind (commands, agents, hooks, hook libs, hook prompts, workflows, libs, contracts, skills, framework rules): every difference left is a reported conflict, a preserved user file, an owner-governed rule or `settings.json`","cites":"§Intended Change lines 42–43 (\"does all of that in one call\"); §Decision lines 75–81 (\"its output is, by construction, what the plugin installs ... tree against tree\"), 151–155 (the component kinds)","evidence":"`diff -rq` of the target's `.claude/` against a fresh ordinary scaffold of the same plugin into an empty directory, every remaining line accounted for by the result's `conflicts`/`preserved` lists, the six owner-governed rules or `settings.json`","derivation":"[read]","tier1":"locator","mustPass":"O1"},{"id":"FS-5","statement":"On the aged fixture, the retired file present in the target is deleted and listed under `removed`","cites":"§Intended Change lines 52–53 (\"deletes the retired file (`removed`)\")","evidence":"`REBASE_RESULT` line with the path under `removed`; `ls` / `test -e` of that path after the run showing it absent","derivation":"[read]","tier1":"locator","mustPass":"O2"},{"id":"FS-6","statement":"A retired entry of each listed kind present in a target — a command, a hook, a `hooks/lib/` file, a `hooks/prompts/` file, a skill folder, and a directory entry (`hooks/permitter/`) — is removed by one `--rebase` call","cites":"§Decision lines 115–121 (examples `commands/harden-trd-team.md`, `hooks/learning.sh`, `hooks/permitter/`, `hooks/lib/transcript-text.js`, `hooks/prompts/subagent-discipline.prompt.md`, `skills/verify-plan-recovery/`)","evidence":"Fixture holding one entry of each kind; `REBASE_RESULT` listing each under `removed` in its category; listing after the run showing none of the six present","derivation":"[read]","tier1":"locator","parts":6,"mustPass":"O2"},{"id":"FS-7","statement":"A file in the target that is neither shipped by the plugin nor on the retired list (the aged fixture's user agent) is kept byte-identical and listed under `preserved`","cites":"§Intended Change lines 53–54 (\"keeps the user agent (`preserved`)\"); §Decision lines 119–121 (\"removes a file only when it is listed there ... a user's own file can never be deleted by inference\")","evidence":"`REBASE_RESULT` line with the user agent's path under `agents.preserved`; sha256 of the file before and after, equal","derivation":"[read]","tier1":"locator","mustPass":"O2"},{"id":"FS-8","statement":"The retired list is one data file the engine reads, and a test fails when it falls out of step: when a name in `rebase-project.md`'s retired tables or retired-hooks paragraph is missing from it, or when a path on it is still shipped by the plugin","cites":"§Intended Change lines 44–45 (\"a test holds them equal to the data file\"); §Decision lines 115, 121–124","evidence":"Jest transcript of the retired-list test passing on the current tree, plus two transcripts of it failing on a scratch copy: one with a table name deleted from the data file, one with a currently-shipped path added to it","derivation":"[read]","tier1":"locator","mustPass":"O2"},{"id":"FS-9","statement":"On the aged fixture, the user's own hook registration in `settings.json` is still present, on its original event, after `--rebase`","cites":"§Intended Change line 54 (\"keeps the user hook registration\")","evidence":"`jq` extract of the merged `settings.json` `hooks` showing the user registration on its event; the result's `settings` entry","derivation":"[read]","tier1":"locator","mustPass":"O4"},{"id":"FS-10","statement":"After the merge, the ensemble-owned part of `settings.json`'s `hooks` equals the plugin default's `hooks`, and a registration pointing at a retired hook (on any event) or at a manifest hook registered on the wrong event is gone","cites":"§Decision lines 127–134","evidence":"Fixture `settings.json` holding a retired-hook registration and a manifest hook on the wrong event; `jq` of the merged `hooks` with user registrations filtered out compared to the plugin default's `hooks` (equal), and a grep showing the retired hook's filename absent","derivation":"[read]","tier1":"locator","mustPass":"O4"},{"id":"FS-11","statement":"User hook registrations are compared as whole registrations, never by filename: a user command naming a file that shares a manifest hook's name at another path (`scripts/formatter.sh`) is carried forward on its own event and matcher group, after the plugin's groups, in its original order","cites":"§Decision lines 135–138","evidence":"Fixture with two user registrations, one at `scripts/<manifest-hook-name>`, on one event in a known order; `jq` of the merged event's list showing both present, after the plugin groups, order kept","derivation":"[read]","tier1":"locator","mustPass":"O4"},{"id":"FS-12","statement":"Every non-hooks `settings.json` key survives the merge: a key only in the plugin is added, a key present locally keeps its local value, and a new nested plugin key inside a local object is added beside the local values","cites":"§Decision lines 139–141","evidence":"Fixture `settings.json` with a changed local value, a missing plugin key and a local object lacking a nested plugin key; `jq` comparison of the merged file (with `refreshed_at` and `rebased_at` removed) against the expected values","derivation":"[read]","tier1":"locator","mustPass":"O4"},{"id":"FS-13","statement":"A `settings.json` key whose local and plugin values disagree in shape (one an object, the other not) is reported as a conflict and its local value kept; a `hooks` value (or an event's value) of the wrong shape is reported and `settings.json` is not written","cites":"§Decision lines 141–143","evidence":"Two fixture runs: one with a type-mismatched key (result `settings.conflicts` naming it; local value unchanged in the file), one with a malformed `hooks` (result saying the file was not written; sha256 of `settings.json` unchanged)","derivation":"[read]","tier1":"locator","mustPass":""},{"id":"FS-14","statement":"A settings fixture whose merged `hooks` block would hold fewer registrations than the plugin default's is not written, and the result says why","cites":"§Intended Change lines 59–60; §Decision lines 144–146","evidence":"`REBASE_RESULT` (or `guard` mode output) showing `refused` with the counts; sha256 of the target's `settings.json` before and after, equal","derivation":"[read]","tier1":"locator","mustPass":"O5"},{"id":"FS-15","statement":"A settings fixture whose merged `hooks` block would hold fewer prompt-type entries than the plugin default's is not written, and the result says why","cites":"§Intended Change lines 59–60 (\"registration or prompt count\"); §Decision lines 144–146","evidence":"As FS-14, with a crafted block that keeps the registration count but loses the prompt-type entry","derivation":"[read]","tier1":"locator","mustPass":"O5"},{"id":"FS-16","statement":"On the aged fixture, the owner-edited framework file is listed under `conflicts` (with a reason) and left byte-identical","cites":"§Intended Change lines 54–55 (\"reports the owner-edited file under `conflicts` and leaves it byte-identical\"); §Decision lines 103–105","evidence":"`REBASE_RESULT` line with the path and a reason under its category's `conflicts`; sha256 of the file before and after, equal","derivation":"[read]","tier1":"locator","mustPass":"O7"},{"id":"FS-17","statement":"The engine prints one machine-readable result: the last line of stdout is `REBASE_RESULT ` followed by one JSON object with `mode`, `preserveAll`, a `categories` object whose every entry carries `added`, `replaced`, `removed`, `preserved`, `conflicts` (lists) and `unchanged` (a count), a `settings` entry with the same six plus `counts`, `written`, `refused`, and a `steps` entry","cites":"§Intended Change lines 42–44 (\"prints a JSON result\"); §Decision lines 165–171","evidence":"Captured stdout of a `--rebase` run; `tail -n1` of it parsed by `jq` after stripping the prefix, exit 0, with a key listing showing each named field","derivation":"[read]","tier1":"locator","mustPass":"O9"},{"id":"FS-18","statement":"`--rebase --dry-run` on the aged fixture prints the same lists an apply run would and writes nothing: `git status --porcelain` stays empty and every file's bytes and mode are unchanged","cites":"§Intended Change lines 56–57; §Decision lines 86–89","evidence":"Before/after listing of every path under the fixture with sha256 and octal mode (equal); `git status --porcelain` output (empty); the dry-run result's lists diffed against those of a subsequent apply on a copy (equal), `mode` reading `dry-run`","derivation":"[read]","tier1":"locator","mustPass":"O10"},{"id":"FS-19","statement":"Each of the six owner-governed rules (constitution.md, stack.md, process.md, verification.md, design.md, ship.md) is left byte-identical by the engine in every mode — apply, dry-run and preserve-all — including the aged fixture's owner-filled `verification.md`","cites":"§Intended Change lines 51–56 (\"leaves all six owner-governed rules byte-identical\"); §Decision lines 156–157 (\"excluded in every mode\")","evidence":"sha256 of the six files in `.claude/rules/` before and after each of the three runs, equal; none of the six names appearing in any result list","derivation":"[read]","tier1":"locator","parts":6,"mustPass":"O12"},{"id":"FS-20","statement":"`--refresh` on a tree holding a retired file leaves that file in place","cites":"§Intended Change line 61; §Decision lines 72–73","evidence":"Transcript of `--refresh` on such a tree; `test -e` of the retired path after it, present","derivation":"[read]","tier1":"locator","mustPass":"O13"},{"id":"FS-21","statement":"`--refresh` keeps its never-create, never-delete contract and its existing tests stay green","cites":"§Decision lines 72–73 (\"NOT a change to `--refresh`\"); §Grounding lines 208–209 (`refresh_project` \"Must not change\"); §Open Questions line 250 (\"`--refresh` keeps never-create/never-delete\")","evidence":"`bats packages/core/scripts/scaffold-project.test.sh` transcript with 0 failures; a `--refresh` on a tree missing a component directory, with a listing after it showing the directory still absent","derivation":"[read]","tier1":"locator","mustPass":"O13"},{"id":"FS-22","statement":"A second `--rebase` on the first run's output reports empty `added`, `replaced` and `removed` in every category, and leaves the tree byte-identical except `settings.json`'s `refreshed_at` and `rebased_at`","cites":"§Intended Change line 58; §Decision lines 147–148, 173","evidence":"Second run's `REBASE_RESULT` with every `added`/`replaced`/`removed` empty; sha256 listing of the tree after run 1 and after run 2, equal except `settings.json`, whose `jq` with those two keys deleted is equal","derivation":"[read]","tier1":"locator","mustPass":"O14"},{"id":"FS-23","statement":"Under `--preserve-all`, agents and skills only gain new files; commands, hooks, hook libs, hook prompts, workflows, libs and contracts are replaced when they differ; framework rules are preserved; nothing is removed; in `settings.json` the `hooks` block is regenerated with retired registrations dropped, absent keys are added and no other existing value changes","cites":"§Decision lines 151–156","evidence":"`--rebase --preserve-all` on the aged fixture plus a differing agent and a differing command: result with every `removed` empty, the differing agent unchanged (sha256), the differing command replaced, the retired file still present, `settings.json` compared as in FS-10/FS-12","derivation":"[read]","tier1":"locator","mustPass":""},{"id":"FS-24","statement":"After an apply run, every manifest hook is executable, agent skill preloads are re-injected (conflicted agents excluded), the git-files and records-cutover steps have run, and the version is stamped last, each reported under `steps`","cites":"§Decision lines 159–162, 169–170","evidence":"`ls -l` of `.claude/hooks/` showing the execute bit on each manifest hook; `steps` object from the result; `jq .ensemble` of `settings.json` showing `rebased_at`; grep of a non-conflicted agent showing its preload block","derivation":"[read]","tier1":"locator","mustPass":""},{"id":"FS-25","statement":"A file the engine adds takes the plugin source's mode (not 0600), and a file it replaces keeps its prior mode","cites":"§Decision lines 161–163","evidence":"`stat -f %Lp` (or `stat -c %a`) of an added file and its source, equal; of a replaced file before and after, equal","derivation":"[read]","tier1":"locator","mustPass":""},{"id":"FS-26","statement":"The engine adds no library skill the target did not already have installed","cites":"§Decision lines 76–79 (\"so no library skill is added that the target does not have\")","evidence":"Listing of the target's `.claude/skills/` before and after a `--rebase`, the only new folders being framework skills shipped by the plugin","derivation":"[read]","tier1":"locator","mustPass":""},{"id":"FS-27","statement":"`--rebase` combined with another scaffold mode is refused","cites":"§Decision lines 69–70 (\"exclusive with every other mode\")","evidence":"Transcript of `--rebase --refresh` (and one other mode) exiting non-zero with an error message, the target unchanged","derivation":"[read]","tier1":"locator","mustPass":""}],"environmentByCriterion":{"FS-1":"local","FS-2":"local","FS-3":"local","FS-4":"local","FS-5":"local","FS-6":"local","FS-7":"local","FS-8":"local","FS-9":"local","FS-10":"local","FS-11":"local","FS-12":"local","FS-13":"local","FS-14":"local","FS-15":"local","FS-16":"local","FS-17":"local","FS-18":"local","FS-19":"local","FS-20":"local","FS-21":"local","FS-22":"local","FS-23":"local","FS-24":"local","FS-25":"local","FS-26":"local","FS-27":"local"}}
+{
+ "criteria": [
+  {
+   "id": "FS-1",
+   "statement": "On the aged fixture, one `--rebase` call restores the missing framework file, lists it under `added`, and the restored file is byte-identical to the plugin's copy",
+   "cites": "\u00a7Intended Change lines 42\u201343, 50\u201353 (\"restores the missing file (`added`)\")",
+   "evidence": "Transcript of the `--rebase` run (plugin dir `packages/full`) showing the `REBASE_RESULT` line with the path in its category's `added`; `cmp` of the restored file against the plugin's rendered copy exiting 0",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O1"
+  },
+  {
+   "id": "FS-2",
+   "statement": "On the aged fixture, the previously-shipped version of a framework file is replaced, listed under `replaced`, and afterwards byte-identical to the current plugin's copy",
+   "cites": "\u00a7Intended Change lines 50\u201353 (\"replaces the old version (`replaced`)\"); \u00a7Decision lines 103\u2013105",
+   "evidence": "`REBASE_RESULT` line with the path under `replaced`; sha256 of the file before (the old release's bytes) and after (equal to the plugin render's)",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O1, O7"
+  },
+  {
+   "id": "FS-3",
+   "statement": "A vendored framework file already byte-identical to the plugin's copy is left alone: counted in `unchanged`, never listed as added or replaced, and its bytes and mtime are not touched",
+   "cites": "\u00a7Intended Change line 39 (\"copies with byte comparison\"); \u00a7Decision lines 80\u201381, 171 (`unchanged` is a count)",
+   "evidence": "`REBASE_RESULT` line showing the file's category with a non-zero `unchanged` and the path in none of the lists; `stat` (mtime, size) and sha256 of that file before and after the run, equal",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O1"
+  },
+  {
+   "id": "FS-4",
+   "statement": "After one `--rebase` call, the target's `.claude/` framework tree matches what the plugin installs, across every component kind (commands, agents, hooks, hook libs, hook prompts, workflows, libs, contracts, skills, framework rules): every difference left is a reported conflict, a preserved user file, an owner-governed rule or `settings.json`",
+   "cites": "\u00a7Intended Change lines 42\u201343 (\"does all of that in one call\"); \u00a7Decision lines 75\u201381 (\"its output is, by construction, what the plugin installs ... tree against tree\"), 151\u2013155 (the component kinds)",
+   "evidence": "`diff -rq` of the target's `.claude/` against a fresh ordinary scaffold of the same plugin into an empty directory, every remaining line accounted for by the result's `conflicts`/`preserved` lists, the six owner-governed rules or `settings.json`",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O1"
+  },
+  {
+   "id": "FS-5",
+   "statement": "On the aged fixture, the retired file present in the target is deleted and listed under `removed`",
+   "cites": "\u00a7Intended Change lines 52\u201353 (\"deletes the retired file (`removed`)\")",
+   "evidence": "`REBASE_RESULT` line with the path under `removed`; `ls` / `test -e` of that path after the run showing it absent",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O2"
+  },
+  {
+   "id": "FS-6",
+   "statement": "A retired entry of each listed kind present in a target \u2014 a command, a hook, a `hooks/lib/` file, a `hooks/prompts/` file, a skill folder, and a directory entry (`hooks/permitter/`) \u2014 is removed by one `--rebase` call",
+   "cites": "\u00a7Decision lines 115\u2013121 (examples `commands/harden-trd-team.md`, `hooks/learning.sh`, `hooks/permitter/`, `hooks/lib/transcript-text.js`, `hooks/prompts/subagent-discipline.prompt.md`, `skills/verify-plan-recovery/`)",
+   "evidence": "Fixture holding one entry of each kind; `REBASE_RESULT` listing each under `removed` in its category; listing after the run showing none of the six present",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "parts": 6,
+   "mustPass": "O2"
+  },
+  {
+   "id": "FS-7",
+   "statement": "A file in the target that is neither shipped by the plugin nor on the retired list (the aged fixture's user agent) is kept byte-identical and listed under `preserved`",
+   "cites": "\u00a7Intended Change lines 53\u201354 (\"keeps the user agent (`preserved`)\"); \u00a7Decision lines 119\u2013121 (\"removes a file only when it is listed there ... a user's own file can never be deleted by inference\")",
+   "evidence": "`REBASE_RESULT` line with the user agent's path under `agents.preserved`; sha256 of the file before and after, equal",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O2"
+  },
+  {
+   "id": "FS-8",
+   "statement": "The retired list is one data file the engine reads, and a test fails when it falls out of step: when a name in `rebase-project.md`'s retired tables or retired-hooks paragraph is missing from it, or when a path on it is still shipped by the plugin",
+   "cites": "\u00a7Intended Change lines 44\u201345 (\"a test holds them equal to the data file\"); \u00a7Decision lines 115, 121\u2013124",
+   "evidence": "Jest transcript of the retired-list test passing on the current tree, plus two transcripts of it failing on a scratch copy: one with a table name deleted from the data file, one with a currently-shipped path added to it",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O2"
+  },
+  {
+   "id": "FS-9",
+   "statement": "On the aged fixture, the user's own hook registration in `settings.json` is still present, on its original event, after `--rebase`",
+   "cites": "\u00a7Intended Change line 54 (\"keeps the user hook registration\")",
+   "evidence": "`jq` extract of the merged `settings.json` `hooks` showing the user registration on its event; the result's `settings` entry",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O4"
+  },
+  {
+   "id": "FS-10",
+   "statement": "After the merge, the ensemble-owned part of `settings.json`'s `hooks` equals the plugin default's `hooks`, and a registration pointing at a retired hook (on any event) or at a manifest hook registered on the wrong event is gone",
+   "cites": "\u00a7Decision lines 127\u2013134",
+   "evidence": "Fixture `settings.json` holding a retired-hook registration and a manifest hook on the wrong event; `jq` of the merged `hooks` with user registrations filtered out compared to the plugin default's `hooks` (equal), and a grep showing the retired hook's filename absent",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O4"
+  },
+  {
+   "id": "FS-11",
+   "statement": "User hook registrations are compared as whole registrations, never by filename: a user command naming a file that shares a manifest hook's name at another path (`scripts/formatter.sh`) is carried forward on its own event and matcher group, after the plugin's groups, in its original order",
+   "cites": "\u00a7Decision lines 135\u2013138",
+   "evidence": "Fixture with two user registrations, one at `scripts/<manifest-hook-name>`, on one event in a known order; `jq` of the merged event's list showing both present, after the plugin groups, order kept",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O4"
+  },
+  {
+   "id": "FS-12",
+   "statement": "Every non-hooks `settings.json` key survives the merge: a key only in the plugin is added, a key present locally keeps its local value, and a new nested plugin key inside a local object is added beside the local values",
+   "cites": "\u00a7Decision lines 139\u2013141",
+   "evidence": "Fixture `settings.json` with a changed local value, a missing plugin key and a local object lacking a nested plugin key; `jq` comparison of the merged file (with `refreshed_at` and `rebased_at` removed) against the expected values",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O4"
+  },
+  {
+   "id": "FS-13",
+   "statement": "A `settings.json` key whose local and plugin values disagree in shape (one an object, the other not) is reported as a conflict and its local value kept; a `hooks` value (or an event's value) of the wrong shape is reported and `settings.json` is not written",
+   "cites": "\u00a7Decision lines 141\u2013143",
+   "evidence": "Two fixture runs: one with a type-mismatched key (result `settings.conflicts` naming it; local value unchanged in the file), one with a malformed `hooks` (result saying the file was not written; sha256 of `settings.json` unchanged)",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": ""
+  },
+  {
+   "id": "FS-14",
+   "statement": "A settings fixture whose merged `hooks` block would hold fewer registrations than the plugin default's is not written, and the result says why",
+   "cites": "\u00a7Intended Change lines 59\u201360; \u00a7Decision lines 144\u2013146",
+   "evidence": "`REBASE_RESULT` (or `guard` mode output) showing `refused` with the counts; sha256 of the target's `settings.json` before and after, equal",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O5"
+  },
+  {
+   "id": "FS-15",
+   "statement": "A settings fixture whose merged `hooks` block would hold fewer prompt-type entries than the plugin default's is not written, and the result says why",
+   "cites": "\u00a7Intended Change lines 59\u201360 (\"registration or prompt count\"); \u00a7Decision lines 144\u2013146",
+   "evidence": "As FS-14, with a crafted block that keeps the registration count but loses the prompt-type entry",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O5"
+  },
+  {
+   "id": "FS-16",
+   "statement": "On the aged fixture, the owner-edited framework file is listed under `conflicts` (with a reason) and left byte-identical",
+   "cites": "\u00a7Intended Change lines 54\u201355 (\"reports the owner-edited file under `conflicts` and leaves it byte-identical\"); \u00a7Decision lines 103\u2013105",
+   "evidence": "`REBASE_RESULT` line with the path and a reason under its category's `conflicts`; sha256 of the file before and after, equal",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O7"
+  },
+  {
+   "id": "FS-17",
+   "statement": "The engine prints one machine-readable result: the last line of stdout is `REBASE_RESULT ` followed by one JSON object with `mode`, `preserveAll`, a `categories` object whose every entry carries `added`, `replaced`, `removed`, `preserved`, `conflicts` (lists) and `unchanged` (a count), a `settings` entry with the same six plus `counts`, `written`, `refused`, and a `steps` entry",
+   "cites": "\u00a7Intended Change lines 42\u201344 (\"prints a JSON result\"); \u00a7Decision lines 165\u2013171",
+   "evidence": "Captured stdout of a `--rebase` run; `tail -n1` of it parsed by `jq` after stripping the prefix, exit 0, with a key listing showing each named field",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O9"
+  },
+  {
+   "id": "FS-18",
+   "statement": "`--rebase --dry-run` on the aged fixture prints the same lists an apply run would and writes nothing: `git status --porcelain` stays empty and every file's bytes and mode are unchanged",
+   "cites": "\u00a7Intended Change lines 56\u201357; \u00a7Decision lines 86\u201389",
+   "evidence": "Before/after listing of every path under the fixture with sha256 and octal mode (equal); `git status --porcelain` output (empty); the dry-run result's lists diffed against those of a subsequent apply on a copy (equal), `mode` reading `dry-run`",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O10"
+  },
+  {
+   "id": "FS-19",
+   "statement": "Each of the six owner-governed rules (constitution.md, stack.md, process.md, verification.md, design.md, ship.md) is left byte-identical by the engine in every mode \u2014 apply, dry-run and preserve-all \u2014 including the aged fixture's owner-filled `verification.md`",
+   "cites": "\u00a7Intended Change lines 51\u201356 (\"leaves all six owner-governed rules byte-identical\"); \u00a7Decision lines 156\u2013157 (\"excluded in every mode\")",
+   "evidence": "sha256 of the six files in `.claude/rules/` before and after each of the three runs, equal; none of the six names appearing in any result list",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "parts": 6,
+   "mustPass": "O12"
+  },
+  {
+   "id": "FS-20",
+   "statement": "`--refresh` on a tree holding a retired file leaves that file in place",
+   "cites": "\u00a7Intended Change line 61; \u00a7Decision lines 72\u201373",
+   "evidence": "Transcript of `--refresh` on such a tree; `test -e` of the retired path after it, present",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O13"
+  },
+  {
+   "id": "FS-21",
+   "statement": "`--refresh` keeps its never-create, never-delete contract and its existing tests stay green",
+   "cites": "\u00a7Decision lines 72\u201373 (\"NOT a change to `--refresh`\"); \u00a7Grounding lines 208\u2013209 (`refresh_project` \"Must not change\"); \u00a7Open Questions line 250 (\"`--refresh` keeps never-create/never-delete\")",
+   "evidence": "`bats packages/core/scripts/scaffold-project.test.sh` transcript with 0 failures; a `--refresh` on a tree missing a component directory, with a listing after it showing the directory still absent",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O13"
+  },
+  {
+   "id": "FS-22",
+   "statement": "A second `--rebase` on the first run's output reports empty `added`, `replaced` and `removed` in every category, and leaves the tree byte-identical except `settings.json`'s `refreshed_at` and `rebased_at`",
+   "cites": "\u00a7Intended Change line 58; \u00a7Decision lines 147\u2013148, 173",
+   "evidence": "Second run's `REBASE_RESULT` with every `added`/`replaced`/`removed` empty; sha256 listing of the tree after run 1 and after run 2, equal except `settings.json`, whose `jq` with those two keys deleted is equal",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O14"
+  },
+  {
+   "id": "FS-23",
+   "statement": "Under `--preserve-all`, agents and skills only gain new files; commands, hooks, hook libs, hook prompts, workflows, libs and contracts are replaced when they differ; framework rules are preserved; nothing is removed; in `settings.json` the `hooks` block is regenerated with retired registrations dropped, absent keys are added and no other existing value changes",
+   "cites": "\u00a7Decision lines 151\u2013156",
+   "evidence": "`--rebase --preserve-all` on the aged fixture plus a differing agent and a differing command: result with every `removed` empty, the differing agent unchanged (sha256), the differing command replaced, the retired file still present, `settings.json` compared as in FS-10/FS-12",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": ""
+  },
+  {
+   "id": "FS-24",
+   "statement": "After an apply run, every manifest hook is executable, agent skill preloads are re-injected (conflicted agents excluded), the git-files and records-cutover steps have run, and the version is stamped last, each reported under `steps`",
+   "cites": "\u00a7Decision lines 159\u2013162, 169\u2013170",
+   "evidence": "`ls -l` of `.claude/hooks/` showing the execute bit on each manifest hook; `steps` object from the result; `jq .ensemble` of `settings.json` showing `rebased_at`; grep of a non-conflicted agent showing its preload block",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": ""
+  },
+  {
+   "id": "FS-25",
+   "statement": "A file the engine adds takes the plugin source's mode (not 0600), and a file it replaces keeps its prior mode",
+   "cites": "\u00a7Decision lines 161\u2013163",
+   "evidence": "`stat -f %Lp` (or `stat -c %a`) of an added file and its source, equal; of a replaced file before and after, equal",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": ""
+  },
+  {
+   "id": "FS-26",
+   "statement": "The engine adds no library skill the target did not already have installed",
+   "cites": "\u00a7Decision lines 76\u201379 (\"so no library skill is added that the target does not have\")",
+   "evidence": "Listing of the target's `.claude/skills/` before and after a `--rebase`, the only new folders being framework skills shipped by the plugin",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": ""
+  },
+  {
+   "id": "FS-27",
+   "statement": "`--rebase` combined with another scaffold mode is refused",
+   "cites": "\u00a7Decision lines 69\u201370 (\"exclusive with every other mode\")",
+   "evidence": "Transcript of `--rebase --refresh` (and one other mode) exiting non-zero with an error message, the target unchanged",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": ""
+  },
+  {
+   "id": "FS-28",
+   "statement": "The engine refuses, with exit 1 and before any write, a run where a retired entry is absolute or contains `..`, or where a planned path resolves outside the target's `.claude/` (for example `.claude/commands` symlinked outside it); the `error` names the offending path",
+   "cites": "docs/TRD/deterministic-rebase-engine.md lines 45, 254, 291 (O16; D9, D17; RBE-B002 acceptance)",
+   "evidence": "BATS `rebase-engine.test.sh` cases at :542 and :563 passing; plus a direct `scaffold-project.sh --rebase --plugin-dir <fixture plugin>` run against (i) a fixture whose retired list holds a `..` entry and (ii) a fixture with `.claude/commands` symlinked to a sentinel directory outside `.claude/`: each exits 1, the `error` names the path, and a tree hash of the target and the sentinel is identical before and after",
+   "derivation": "[read]",
+   "tier1": "locator",
+   "mustPass": "O16",
+   "parts": "2"
+  }
+ ],
+ "environmentByCriterion": {
+  "FS-1": "local",
+  "FS-2": "local",
+  "FS-3": "local",
+  "FS-4": "local",
+  "FS-5": "local",
+  "FS-6": "local",
+  "FS-7": "local",
+  "FS-8": "local",
+  "FS-9": "local",
+  "FS-10": "local",
+  "FS-11": "local",
+  "FS-12": "local",
+  "FS-13": "local",
+  "FS-14": "local",
+  "FS-15": "local",
+  "FS-16": "local",
+  "FS-17": "local",
+  "FS-18": "local",
+  "FS-19": "local",
+  "FS-20": "local",
+  "FS-21": "local",
+  "FS-22": "local",
+  "FS-23": "local",
+  "FS-24": "local",
+  "FS-25": "local",
+  "FS-26": "local",
+  "FS-27": "local",
+  "FS-28": "local"
+ }
+}

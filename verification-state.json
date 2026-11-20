@@ -459,44 +459,35 @@
       "verificationDigest": null,
       "causeKey": null,
       "awaiting": null
+    },
+    {
+      "id": "FS-28",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/deterministic-rebase-engine/evidence/rbe1/fs28.i.stdout",
+      "reason": "Both direct runs exit 1 before any write: (i) a '..' retired entry is refused with an error naming 'commands/../../sentinel1/file.txt'; (ii) .claude/commands symlinked outside .claude/ is refused with 'path resolves outside .claude/: commands'. Target and sentinel tree hashes identical before and after in both; BATS cases 1-2 ok.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     }
   ],
   "gapsClosed": [
     0
   ],
-  "outcome": "must-pass-unproven",
+  "outcome": "satisfied",
   "causes": [],
   "exercised": [
     {
       "iteration": 1,
       "ids": [
-        "FS-1",
-        "FS-2",
-        "FS-3",
-        "FS-4",
-        "FS-5",
-        "FS-6",
-        "FS-7",
-        "FS-8",
-        "FS-9",
-        "FS-10",
-        "FS-11",
-        "FS-12",
-        "FS-13",
-        "FS-14",
-        "FS-15",
-        "FS-16",
-        "FS-17",
-        "FS-18",
-        "FS-19",
-        "FS-20",
-        "FS-21",
-        "FS-22",
-        "FS-23",
-        "FS-24",
-        "FS-25",
-        "FS-26",
-        "FS-27"
+        "FS-28"
       ]
     }
   ]

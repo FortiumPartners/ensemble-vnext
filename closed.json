@@ -1,0 +1,13 @@
+{
+  "feature": "deterministic-rebase-engine",
+  "trd": "docs/TRD/deterministic-rebase-engine.md",
+  "closedAt": "2026-11-20T22:43:12Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no test proves that a `--rebase` run reports a refused settings write (O5); the Jest half of the 60% unit-coverage measurement (`retired-files.test.js`) was never run; no test checks what the git-files and records-cutover steps actually changed (O6); preserve-all replaces differing framework files, unlike the literal wording of the investigation's O11, and needs your confirmation; Could Not Verify still has 7 open rows, including the bash coverage floors, which cannot be measured here.",
+    "report": ".trd-state/deterministic-rebase-engine/audit-build-report.md",
+    "auditedCommit": "5afa42944324851a19d9ea7f72c9d29243c6dbb8",
+    "anchorCommit": "d6bd20701fffeab8ae3452652c423b2da277f709"
+  }
+}

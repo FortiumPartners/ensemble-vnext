@@ -2,13 +2,12 @@
 
 **Source PRD**: docs/plan/deterministic-rebase-engine.investigation.md
 **Success definition**: .trd-state/deterministic-rebase-engine/success-definition.md
-**Outcome**: Must-Pass Unproven (no full-environment run declared)
-**Reason**: All 27 criteria met, but must-pass objective O16 (every path the engine writes or deletes stays inside the target's .claude/, whatever a data file or symlink says) has no criterion covering it, so the core cannot be shown to work.
-**Criteria**: 27 total — 27 met, 0 not met, 0 not verifiable, 0 unbuilt
-**Coverage**: 27 of 27 proven — uncovered: none
-**Must pass**: 21 of 21 proven — no criterion for: O16
-**Diagnosis**: 0 open
-**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`
+**Outcome**: Satisfied (no full-environment run declared)
+**Reason**: no gaps remain — every criterion is met, not verifiable here, or settled as an evidence gap
+**Criteria**: 28 total — 28 met, 0 not met, 0 not verifiable, 0 unbuilt
+**Coverage**: 28 of 28 proven — uncovered: none
+**Must pass**: 22 of 22 proven
+**Next**: close the feature — the command that ran this check closes it when an audit has already passed (its readout says whether it did); otherwise run `/audit-build`
 
 ## Met
 
@@ -41,6 +40,7 @@
 | FS-25 | A file the engine adds takes the plugin source's mode (not 0600), and a file it replaces keeps its prior mode | .trd-state/deterministic-rebase-engine/evidence/rbe1/fs24-25.checks.txt | 1 |
 | FS-26 | The engine adds no library skill the target did not already have installed | .trd-state/deterministic-rebase-engine/evidence/rbe1/fs26.checks.txt | 1 |
 | FS-27 | `--rebase` combined with another scaffold mode is refused | .trd-state/deterministic-rebase-engine/evidence/rbe1/fs27.txt | 1 |
+| FS-28 | The engine refuses, with exit 1 and before any write, a run where a retired entry is absolute or contains `..`, or where a planned path resolves outside the target's `.claude/` (for example `.claude/commands` symlinked outside it); the `error` names the offending path | .trd-state/deterministic-rebase-engine/evidence/rbe1/fs28.i.stdout | 1 |
 
 ## Not Met
 
@@ -49,4 +49,13 @@ _None._
 ## Not Verifiable
 
 _None._
+
+
+## Fix run
+
+| Round | Tasks promoted | Criteria closed | Still open |
+|-------|-----------------|------------------|-------------|
+| 0 | 0 | 1 | 0 |
+
+_None still open._
 
