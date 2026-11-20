@@ -77,6 +77,36 @@
       "commit": null,
       "started_at": null,
       "completed_at": "2026-11-20T23:28:22.539Z"
+    },
+    "AMEND-001": {
+      "description": "Tests proving the prompt states its conflict rules",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/integration/tests/runtime-integrity.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-11-20T23:47:00.190Z",
+      "completed_at": "2026-11-20T23:49:53.745Z",
+      "last_advanced": "2026-11-20T23:49:45.649Z"
+    },
+    "AMEND-002": {
+      "description": "Smoke banner check requires COMMAND COMPLETE",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/smoke/scenarios/rebase-old-tree.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-11-20T23:47:00.190Z",
+      "completed_at": "2026-11-20T23:49:53.745Z",
+      "last_advanced": "2026-11-20T23:49:45.649Z"
     }
   },
   "checkpoints": [
@@ -87,11 +117,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-20T23:31:11.158Z"
+    },
+    {
+      "phase": 1,
+      "commit": "4d1e5dc0f59c2548fb98c7413407c6f4140acd6f",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-20T23:50:03.090Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "2b426000096260687f7fed6a0b30e2c5032a27dc",
-    "last_checkpoint_timestamp": "2026-11-20T23:31:11.158Z",
+    "last_healthy_checkpoint": "4d1e5dc0f59c2548fb98c7413407c6f4140acd6f",
+    "last_checkpoint_timestamp": "2026-11-20T23:50:03.090Z",
     "interrupted": false,
     "interrupt_reason": null
   },
