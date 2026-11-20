@@ -31,6 +31,15 @@ _tree_hashes() {
     done)
 }
 
+# Print a Python expression over the last stdout line's JSON, as d.
+_res() {
+    python3 -c 'import json, sys
+line = open(sys.argv[1]).read().splitlines()[-1]
+assert line.startswith("REBASE_RESULT "), line
+d = json.loads(line[len("REBASE_RESULT "):])
+print(eval(sys.argv[2]))' "$1" "$2"
+}
+
 # --- flag parsing ---------------------------------------------------------
 
 @test "rebase: --dry-run without --rebase exits 1" {
@@ -111,16 +120,13 @@ _render() {
     done
 }
 
-@test "render: a relative --plugin-dir renders the same file list as the absolute one" {
+@test "render: a relative --plugin-dir gives the same result as the absolute one" {
     _make_target
-    ( cd "$SCRIPT_DIR/../.." && "$SCAFFOLD" --rebase --plugin-dir full "$TARGET" ) >"$TEST_DIR/rel.out" 2>/dev/null
-    run "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TARGET"
-    [ "$status" -eq 0 ]
-    abs_count="$(echo "$output" | grep '^RENDERED_FILES' | cut -d' ' -f2)"
-    rel_count="$(grep '^RENDERED_FILES' "$TEST_DIR/rel.out" | cut -d' ' -f2)"
-    [ -n "$abs_count" ]
-    [ "$abs_count" -gt 100 ]
-    [ "$abs_count" = "$rel_count" ]
+    ( cd "$SCRIPT_DIR/../.." && "$SCAFFOLD" --rebase --dry-run --plugin-dir full "$TARGET" ) >"$TEST_DIR/rel.out" 2>/dev/null
+    "$SCAFFOLD" --rebase --dry-run --plugin-dir "$PLUGIN" "$TARGET" >"$TEST_DIR/abs.out" 2>/dev/null
+    [ "$(tail -n 1 "$TEST_DIR/abs.out" | cut -c1-14)" = "REBASE_RESULT " ]
+    [ "$(_res "$TEST_DIR/abs.out" "sum(c['unchanged'] for c in d['categories'].values())")" -gt 100 ]
+    diff "$TEST_DIR/abs.out" "$TEST_DIR/rel.out"
 }
 
 @test "render: a cache-shaped plugin (symlinks resolved) renders the same file list" {
@@ -395,4 +401,519 @@ PY
     run "$GEN" --append v9.9.9 --list "$TEST_DIR/none.json"
     [ "$status" -eq 1 ]
     [ ! -e "$TEST_DIR/none.json" ]
+}
+
+# --- files: plan and apply (RBE-B002) ---------------------------------------
+
+FIXTURES="$(cd "$(dirname "$BATS_TEST_FILENAME")/../../../test/fixtures/rebase-engine/older" && pwd)"
+
+# Print "<path> <octal mode>" for every file under $1, sorted.
+_modes() {
+    python3 -c 'import os, stat, sys
+root = sys.argv[1]
+for base, dirs, files in os.walk(root):
+    dirs[:] = [d for d in dirs if d != ".git"]
+    for f in files:
+        p = os.path.join(base, f)
+        print(os.path.relpath(p, root), oct(stat.S_IMODE(os.lstat(p).st_mode)))' "$1" | sort
+}
+
+# A committed target aged into every case the engine classifies.
+_aged_target() {
+    _make_target
+    local c="$TARGET/.claude"
+    cp "$FIXTURES/commands/plan.md" "$c/commands/plan.md"                 # older shipped -> replaced
+    cp "$FIXTURES/agents/backend-implementer.md" "$c/agents/backend-implementer.md"
+    rm "$c/commands/amend.md"                                             # missing -> added
+    rm "$c/agents/code-simplifier.md"                                     # missing agent -> added
+    printf 'retired\n' > "$c/commands/fix-issue.md"                       # listed retired file
+    mkdir -p "$c/hooks/permitter" && printf 'old\n' > "$c/hooks/permitter/a.js"   # retired directory
+    printf -- '---\nname: my-agent\n---\n' > "$c/agents/my-agent.md"      # user agent
+    mkdir -p "$c/skills/my-skill" && printf 'mine\n' > "$c/skills/my-skill/SKILL.md"
+    printf '\nOwner line\n' >> "$c/commands/audit-prd.md"                  # owner-edited command
+    printf '\nOwner line\n' >> "$c/agents/code-reviewer.md"                # owner-edited agent
+    local r
+    for r in constitution process design ship; do printf 'owner %s\n' "$r" > "$c/rules/$r.md"; done
+    printf 'DISTINCTIVE-VERIFICATION\n' > "$c/rules/verification.md"
+    printf '\nowner tweak\n' >> "$c/rules/autonomy.md"                     # differing framework rule
+    ( cd "$TARGET" && git init -q && git add -A && git -c user.email=a@b -c user.name=t commit -q -m fixture )
+}
+
+_rules_hash() {
+    (cd "$1/.claude/rules" && shasum constitution.md stack.md process.md verification.md design.md ship.md 2>/dev/null)
+}
+
+@test "rebase apply: classifies and writes each file case, result is one stdout line" {
+    _aged_target
+    local c="$TARGET/.claude" before_rules
+    before_rules="$(_rules_hash "$TARGET")"
+    local owner_cmd owner_agent
+    owner_cmd="$(shasum "$c/commands/audit-prd.md")"; owner_agent="$(shasum "$c/agents/code-reviewer.md")"
+    mkdir "$TEST_DIR/tmp"
+    TMPDIR="$TEST_DIR/tmp" "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TARGET" >"$TEST_DIR/out" 2>/dev/null
+    [ "$(grep -c . "$TEST_DIR/out")" -eq 1 ]
+    [ -z "$(ls -A "$TEST_DIR/tmp")" ]
+    [ "$(_res "$TEST_DIR/out" "sorted(d['categories'])")" = "['agents', 'commands', 'contracts', 'hook-libs', 'hook-prompts', 'hooks', 'libs', 'rules', 'skills', 'workflows']" ]
+    [ "$(_res "$TEST_DIR/out" "all(sorted(c) == ['added','conflicts','preserved','removed','replaced','unchanged'] for c in d['categories'].values())")" = "True" ]
+    [ "$(_res "$TEST_DIR/out" "d['categories']['commands']['added']")" = "['commands/amend.md']" ]
+    [ "$(_res "$TEST_DIR/out" "d['categories']['commands']['replaced']")" = "['commands/plan.md']" ]
+    [ "$(_res "$TEST_DIR/out" "d['categories']['agents']['replaced']")" = "['agents/backend-implementer.md']" ]
+    [ "$(_res "$TEST_DIR/out" "d['categories']['agents']['added']")" = "['agents/code-simplifier.md']" ]
+    [ "$(_res "$TEST_DIR/out" "d['categories']['commands']['removed']")" = "['commands/fix-issue.md']" ]
+    [ "$(_res "$TEST_DIR/out" "d['categories']['hooks']['removed']")" = "['hooks/permitter/']" ]
+    [ "$(_res "$TEST_DIR/out" "d['categories']['agents']['preserved']")" = "['agents/my-agent.md']" ]
+    [ "$(_res "$TEST_DIR/out" "d['categories']['skills']['preserved']")" = "['skills/my-skill']" ]
+    [ "$(_res "$TEST_DIR/out" "[x['path'] for x in d['categories']['commands']['conflicts']]")" = "['commands/audit-prd.md']" ]
+    [ "$(_res "$TEST_DIR/out" "[x['path'] for x in d['categories']['agents']['conflicts']]")" = "['agents/code-reviewer.md']" ]
+    [ "$(_res "$TEST_DIR/out" "d['categories']['rules']['conflicts'][0]['path']")" = "rules/autonomy.md" ]
+    # Written, removed and left alone, on disk.
+    cmp "$c/commands/plan.md" "$SCRIPT_DIR/../commands/plan.md"
+    [ -f "$c/commands/amend.md" ]
+    [ ! -e "$c/commands/fix-issue.md" ]
+    [ ! -e "$c/hooks/permitter" ]
+    [ -f "$c/skills/my-skill/SKILL.md" ]
+    [ "$(shasum "$c/commands/audit-prd.md")" = "$owner_cmd" ]
+    [ "$(shasum "$c/agents/code-reviewer.md")" = "$owner_agent" ]
+    [ "$(_rules_hash "$TARGET")" = "$before_rules" ]
+    grep -q DISTINCTIVE-VERIFICATION "$c/rules/verification.md"
+}
+
+@test "rebase dry-run: same category lists as an apply on an identical copy, writes nothing" {
+    _aged_target
+    cp -R "$TARGET" "$TEST_DIR/copy"
+    _modes "$TARGET" > "$TEST_DIR/modes.before"
+    "$SCAFFOLD" --rebase --dry-run --plugin-dir "$PLUGIN" "$TARGET" >"$TEST_DIR/dry.out" 2>/dev/null
+    "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TEST_DIR/copy" >"$TEST_DIR/apply.out" 2>/dev/null
+    [ "$(_res "$TEST_DIR/dry.out" "d['mode']")" = "dry-run" ]
+    [ -z "$(cd "$TARGET" && git status --porcelain)" ]
+    _modes "$TARGET" > "$TEST_DIR/modes.after"
+    diff "$TEST_DIR/modes.before" "$TEST_DIR/modes.after"
+    diff <(_res "$TEST_DIR/dry.out" "__import__('json').dumps(d['categories'], sort_keys=True)") \
+         <(_res "$TEST_DIR/apply.out" "__import__('json').dumps(d['categories'], sort_keys=True)")
+    local cat
+    for cat in added replaced removed preserved conflicts; do
+        [ "$(_res "$TEST_DIR/dry.out" "sum(len(c['$cat']) for c in d['categories'].values())")" -gt 0 ] || { echo "empty: $cat"; return 1; }
+    done
+}
+
+# An agent's text without its generated skills: list and block (what the preload step re-derives).
+_agent_body() {
+    python3 -c 'import re, sys
+t = open(sys.argv[1]).read()
+t = re.sub(r"^skills:\n(?:\s+-\s.*\n)+", "", t, flags=re.M)
+print(re.sub(r"<!-- ENSEMBLE:SKILLS:BEGIN.*?<!-- ENSEMBLE:SKILLS:END -->\n?", "", t, flags=re.S))' "$1" | shasum
+}
+
+@test "rebase --preserve-all: replaces the older command, leaves agents, a differing rule and retired files, adds a missing agent" {
+    _aged_target
+    local c="$TARGET/.claude" before_rules agent_before rule_before
+    before_rules="$(_rules_hash "$TARGET")"
+    agent_before="$(_agent_body "$c/agents/backend-implementer.md")"
+    rule_before="$(shasum "$c/rules/autonomy.md")"
+    "$SCAFFOLD" --rebase --preserve-all --plugin-dir "$PLUGIN" "$TARGET" >"$TEST_DIR/out" 2>/dev/null
+    [ "$(_res "$TEST_DIR/out" "d['preserveAll']")" = "True" ]
+    cmp "$c/commands/plan.md" "$SCRIPT_DIR/../commands/plan.md"
+    # The preload step re-derives the generated block of an agent that is not a conflict; its body stays.
+    [ "$(_agent_body "$c/agents/backend-implementer.md")" = "$agent_before" ]
+    [ "$(shasum "$c/rules/autonomy.md")" = "$rule_before" ]
+    [ -f "$c/commands/fix-issue.md" ]
+    [ -d "$c/hooks/permitter" ]
+    [ -f "$c/agents/code-simplifier.md" ]
+    [ "$(_rules_hash "$TARGET")" = "$before_rules" ]
+    [ "$(_res "$TEST_DIR/out" "sum(len(c['removed']) for c in d['categories'].values())")" = "0" ]
+}
+
+@test "rebase apply: a replaced file keeps its mode, added files take their rendered modes, none is 0600" {
+    _aged_target
+    local c="$TARGET/.claude" hook lib
+    chmod 640 "$c/commands/plan.md"
+    lib="$(cd "$c/hooks/lib" && find . -maxdepth 1 -type f | head -n 1 | sed 's|^\./||')"
+    hook="$(cd "$c/hooks" && find . -maxdepth 1 -type f \( -name '*.js' -o -name '*.sh' \) | head -n 1 | sed 's|^\./||')"
+    rm "$c/hooks/lib/$lib" "$c/hooks/$hook"
+    "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TARGET" >/dev/null 2>&1
+    [ "$(_modes "$TARGET/.claude" | grep -c ' 0o600$')" -eq 0 ]
+    _modes "$c" | grep -q "^commands/plan.md 0o640$"
+    _modes "$c" | grep -q "^hooks/lib/$lib 0o644$"
+    _modes "$c" | grep -q "^hooks/$hook 0o755$"
+}
+
+@test "rebase: a retired entry containing .. exits 1 naming it and leaves everything unchanged" {
+    _aged_target
+    cp -RL "$PLUGIN" "$TEST_DIR/cache"
+    mkdir "$TEST_DIR/sentinel" && printf 'keep\n' > "$TEST_DIR/sentinel/file.txt"
+    python3 - "$TEST_DIR/cache/templates/retired-files.json" <<'PY'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+d["entries"].append({"path": "commands/../../sentinel/file.txt", "category": "commands", "retiredIn": None, "replacedBy": None})
+json.dump(d, open(p, "w"))
+PY
+    _tree_hashes "$TARGET" > "$TEST_DIR/before"
+    run "$TEST_DIR/cache/scripts/scaffold-project.sh" --rebase --plugin-dir "$TEST_DIR/cache" "$TARGET"
+    [ "$status" -eq 1 ]
+    echo "$output" | tail -n 1 > "$TEST_DIR/out"
+    [[ "$(_res "$TEST_DIR/out" "d['error']")" == *"commands/../../sentinel/file.txt"* ]]
+    _tree_hashes "$TARGET" > "$TEST_DIR/after"
+    diff "$TEST_DIR/before" "$TEST_DIR/after"
+    [ "$(cat "$TEST_DIR/sentinel/file.txt")" = "keep" ]
+}
+
+@test "rebase: a .claude/commands symlinked outside .claude/ exits 1 and writes nothing" {
+    _aged_target
+    mv "$TARGET/.claude/commands" "$TEST_DIR/outside-commands"
+    ln -s "$TEST_DIR/outside-commands" "$TARGET/.claude/commands"
+    _tree_hashes "$TEST_DIR/outside-commands" > "$TEST_DIR/before"
+    _tree_hashes "$TARGET/.claude" > "$TEST_DIR/before-target"
+    run -1 "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TARGET"
+    echo "$output" | tail -n 1 > "$TEST_DIR/out"
+    [[ "$(_res "$TEST_DIR/out" "d['error']")" == *"commands"* ]]
+    _tree_hashes "$TEST_DIR/outside-commands" > "$TEST_DIR/after"
+    diff "$TEST_DIR/before" "$TEST_DIR/after"
+    _tree_hashes "$TARGET/.claude" > "$TEST_DIR/after-target"
+    diff "$TEST_DIR/before-target" "$TEST_DIR/after-target"
+}
+
+@test "rebase: an unreadable data file stops the run with an error before any write" {
+    _aged_target
+    cp -RL "$PLUGIN" "$TEST_DIR/cache"
+    printf 'not json' > "$TEST_DIR/cache/templates/shipped-hashes.json"
+    _tree_hashes "$TARGET" > "$TEST_DIR/before"
+    run "$TEST_DIR/cache/scripts/scaffold-project.sh" --rebase --plugin-dir "$TEST_DIR/cache" "$TARGET"
+    [ "$status" -eq 1 ]
+    echo "$output" | tail -n 1 > "$TEST_DIR/out"
+    [[ "$(_res "$TEST_DIR/out" "d['error']")" == *"shipped-hashes.json"* ]]
+    _tree_hashes "$TARGET" > "$TEST_DIR/after"
+    diff "$TEST_DIR/before" "$TEST_DIR/after"
+}
+
+# --- settings: merge, conflicts, guard, preserve-all (RBE-B003) --------------
+
+S="settings.json"
+
+# Edit the target's settings.json: $1 is Python over the dict d.
+_edit() {
+    python3 - "$TARGET/.claude/$S" "$1" <<'PY'
+import collections, json, sys
+d = json.load(open(sys.argv[1]), object_pairs_hook=collections.OrderedDict)
+exec(sys.argv[2])
+open(sys.argv[1], "w").write(json.dumps(d, indent=2) + "\n")
+PY
+}
+
+# Print a Python expression over the target's settings.json as d, timestamps removed (D12).
+_sget() {
+    python3 - "$TARGET/.claude/$S" "$1" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for k in ("refreshed_at", "rebased_at"):
+    d.get("ensemble", {}).pop(k, None)
+print(eval(sys.argv[2]))
+PY
+}
+
+# Every registration in the target, as "<event> <command-or-prompt>".
+_regs() {
+    _sget "'\\n'.join(ev + ' ' + (h.get('command') or h.get('prompt') or '') for ev, gs in d['hooks'].items() for g in gs for h in g['hooks'])"
+}
+
+# Run the engine against $TARGET with the plugin $PLUGIN_UNDER (default $PLUGIN); out in $TEST_DIR/out.
+_rebase() {
+    local plugin="${PLUGIN_UNDER:-$PLUGIN}"
+    "$plugin/scripts/scaffold-project.sh" --rebase --plugin-dir "$plugin" "$@" "$TARGET" >"$TEST_DIR/out" 2>/dev/null
+}
+
+# The guard mode on two settings files; prints its output, returns its status.
+_guard() {
+    python3 -c "$(bash -c "set --; source '$SCAFFOLD'; rebase_engine_program")" guard "$1" "$2"
+}
+
+_plugin_settings() { echo "$SCRIPT_DIR/../templates/claude-directory/settings.json"; }
+
+@test "settings merge: user registrations are carried once each on their own events, after the plugin's groups" {
+    _make_target
+    _edit "d['hooks']['PostToolUse'].append({'matcher': 'Bash', 'hooks': [{'type': 'command', 'command': 'my-linter --check'}]})
+d['hooks'].setdefault('PreToolUse', []).append({'hooks': [{'type': 'command', 'command': 'bash scripts/formatter.sh'}]})"
+    _rebase
+    _rebase
+    [ "$(_regs | grep -c '^PostToolUse my-linter --check$')" -eq 1 ]
+    [ "$(_regs | grep -c '^PreToolUse bash scripts/formatter.sh$')" -eq 1 ]
+    [ "$(_sget "d['hooks']['PostToolUse'][-1]['hooks'][0]['command']")" = "my-linter --check" ]
+    [ "$(_sget "d['hooks']['PostToolUse'][-1]['matcher']")" = "Bash" ]
+}
+
+@test "settings merge: a manifest hook on a wrong event and a retired hook are dropped" {
+    _make_target
+    _edit "d['hooks']['Notification'] = [{'hooks': [{'type': 'command', 'command': 'bash -c \'cd \"\$X\" && .claude/hooks/status.js\''}, {'type': 'command', 'command': '.claude/hooks/learning.sh'}]}]
+d['hooks']['Stop'].append({'hooks': [{'type': 'command', 'command': '.claude/hooks/permitter/x.js'}]})"
+    _rebase
+    [ "$(_sget "'Notification' in d['hooks']")" = "False" ]
+    [ "$(_regs | grep -c 'learning.sh')" -eq 0 ]
+    [ "$(_regs | grep -c 'permitter')" -eq 0 ]
+    [ "$(_regs | grep -c 'hooks/status.js')" -eq 1 ]   # only the plugin's own, on SubagentStop
+    _regs | grep 'hooks/status.js' | grep -q '^SubagentStop '
+    [ "$(_res "$TEST_DIR/out" "len(d['settings']['removed'])")" -eq 3 ]
+}
+
+@test "settings merge: the old Stop prompt is dropped and the plugin's prompt appears exactly once" {
+    _make_target
+    python3 - "$TARGET/.claude/$S" "$FIXTURES/stop-prompt.txt" <<'PY'
+import collections, json, sys
+d = json.load(open(sys.argv[1]), object_pairs_hook=collections.OrderedDict)
+old = open(sys.argv[2], encoding="utf-8", newline="").read()
+d["hooks"]["Stop"].insert(0, {"hooks": [{"type": "prompt", "prompt": old}]})
+open(sys.argv[1], "w").write(json.dumps(d, indent=2) + "\n")
+PY
+    _rebase
+    [ "$(_sget "sum(h['type'] == 'prompt' for gs in d['hooks'].values() for g in gs for h in g['hooks'])")" -eq 1 ]
+    [ "$(_sget "[h['prompt'] for g in d['hooks']['Stop'] for h in g['hooks'] if h['type'] == 'prompt'][0] == $(python3 -c "import json;print(json.load(open('$(_plugin_settings)'))['hooks']['Stop'][0]['hooks'][0]['prompt'].__repr__())")")" = "True" ]
+}
+
+@test "settings merge: with promptHooks emptied the current prompt still appears exactly once after two applies" {
+    _make_target
+    cp -RL "$PLUGIN" "$TEST_DIR/cache"
+    python3 - "$TEST_DIR/cache/templates/shipped-hashes.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1])); d["promptHooks"] = []
+json.dump(d, open(sys.argv[1], "w"))
+PY
+    PLUGIN_UNDER="$TEST_DIR/cache" _rebase
+    PLUGIN_UNDER="$TEST_DIR/cache" _rebase
+    [ "$(_sget "sum(h['type'] == 'prompt' for gs in d['hooks'].values() for g in gs for h in g['hooks'])")" -eq 1 ]
+}
+
+@test "settings merge: local env and ensemble.openPullRequest survive; removed plugin keys are added back" {
+    _make_target
+    _edit "d['env']['MY_VAR'] = 'mine'
+d['env']['CLAUDE_CODE_STOP_HOOK_BLOCK_CAP'] = '7'
+d['ensemble']['openPullRequest'] = 'auto'
+del d['\$schema']
+del d['permissions']['allow']"
+    _rebase
+    [ "$(_sget "d['env']['MY_VAR']")" = "mine" ]
+    [ "$(_sget "d['env']['CLAUDE_CODE_STOP_HOOK_BLOCK_CAP']")" = "7" ]
+    [ "$(_sget "d['ensemble']['openPullRequest']")" = "auto" ]
+    [ "$(_sget "d['\$schema'].startswith('https://')")" = "True" ]
+    [ "$(_sget "len(d['permissions']['allow']) > 5")" = "True" ]
+    [ "$(_res "$TEST_DIR/out" "sorted(d['settings']['added'])")" = "['\$schema', 'permissions.allow']" ]
+}
+
+@test "settings conflict: hooks set to a list writes nothing; a valid hooks with a user registration is written" {
+    _make_target
+    _edit "d['hooks'] = ['not', 'an', 'object']
+del d['\$schema']"
+    cp "$TARGET/.claude/$S" "$TEST_DIR/before.json"
+    _rebase
+    [ "$(_res "$TEST_DIR/out" "d['settings']['written']")" = "False" ]
+    [ "$(_res "$TEST_DIR/out" "d['settings']['conflicts'][0]['path']")" = "hooks" ]
+    # The stamp still runs and writes its own keys; the conflicted hooks value and the removed key stay as they were.
+    [ "$(_sget "d['hooks']")" = "['not', 'an', 'object']" ]
+    [ "$(_sget "'\$schema' in d")" = "False" ]
+    _edit "d['hooks'] = {'PostToolUse': [{'hooks': [{'type': 'command', 'command': 'my-tool'}]}]}"
+    _rebase
+    [ "$(_res "$TEST_DIR/out" "d['settings']['written']")" = "True" ]
+    [ "$(_regs | grep -c '^PostToolUse my-tool$')" -eq 1 ]
+    [ "$(_sget "'\$schema' in d")" = "True" ]
+}
+
+@test "settings conflict: a string where the plugin has an object keeps the local value while another change is written" {
+    _make_target
+    _edit "d['permissions'] = 'locked'
+del d['\$schema']"
+    _rebase
+    [ "$(_sget "d['permissions']")" = "locked" ]
+    [ "$(_res "$TEST_DIR/out" "d['settings']['conflicts'][0]['path']")" = "permissions" ]
+    [ "$(_res "$TEST_DIR/out" "d['settings']['written']")" = "True" ]
+    [ "$(_sget "'\$schema' in d")" = "True" ]
+}
+
+@test "guard: exits 1 naming both counts when a registration or the prompt entry is missing, 0 otherwise" {
+    local plugin
+    plugin="$(_plugin_settings)"
+    python3 - "$plugin" "$TEST_DIR" <<'PY'
+import copy, json, sys
+p = json.load(open(sys.argv[1]))
+out = sys.argv[2]
+def save(name, d): json.dump(d, open("%s/%s.json" % (out, name), "w"))
+a = copy.deepcopy(p); a["hooks"]["UserPromptSubmit"][0]["hooks"].pop(); save("fewer", a)
+b = copy.deepcopy(p)
+b["hooks"]["Stop"][0]["hooks"][0] = {"type": "command", "command": "x"}; save("noprompt", b)
+c = copy.deepcopy(p); c["hooks"]["PostToolUse"].append({"hooks": [{"type": "command", "command": "mine"}]}); save("plus", c)
+PY
+    run _guard "$plugin" "$TEST_DIR/fewer.json"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"plugin: 10 registrations, 1 prompt; merged: 9 registrations, 1 prompt"* ]]
+    run _guard "$plugin" "$TEST_DIR/noprompt.json"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"merged: 10 registrations, 0 prompt"* ]]
+    run _guard "$plugin" "$plugin"
+    [ "$status" -eq 0 ]
+    run _guard "$plugin" "$TEST_DIR/plus.json"
+    [ "$status" -eq 0 ]
+}
+
+@test "settings: a first apply writes, a second writes nothing and the file is equal" {
+    _make_target
+    _edit "del d['ensemble']['records']"
+    _rebase
+    [ "$(_res "$TEST_DIR/out" "d['settings']['written']")" = "True" ]
+    _sget "d" > "$TEST_DIR/first"
+    _rebase
+    [ "$(_res "$TEST_DIR/out" "d['settings']['written']")" = "False" ]
+    _sget "d" > "$TEST_DIR/second"
+    cmp "$TEST_DIR/first" "$TEST_DIR/second"
+}
+
+@test "settings: dry-run reports the same settings lists as an apply and writes nothing" {
+    _make_target
+    _edit "del d['ensemble']['records']"
+    cp -R "$TARGET" "$TEST_DIR/copy"
+    cp "$TARGET/.claude/$S" "$TEST_DIR/before.json"
+    "$SCAFFOLD" --rebase --dry-run --plugin-dir "$PLUGIN" "$TARGET" >"$TEST_DIR/dry.out" 2>/dev/null
+    "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TEST_DIR/copy" >"$TEST_DIR/apply.out" 2>/dev/null
+    cmp "$TARGET/.claude/$S" "$TEST_DIR/before.json"
+    diff <(_res "$TEST_DIR/dry.out" "d['settings']") <(_res "$TEST_DIR/apply.out" "d['settings']")
+    [ "$(_res "$TEST_DIR/dry.out" "d['settings']['written']")" = "True" ]
+}
+
+@test "settings --preserve-all: old prompt and retired registration dropped, top-level key added, nested keys and env untouched" {
+    _make_target
+    python3 - "$TARGET/.claude/$S" "$FIXTURES/stop-prompt.txt" <<'PY'
+import collections, json, sys
+d = json.load(open(sys.argv[1]), object_pairs_hook=collections.OrderedDict)
+old = open(sys.argv[2], encoding="utf-8", newline="").read()
+d["hooks"]["Stop"].insert(0, {"hooks": [{"type": "prompt", "prompt": old}]})
+d["hooks"]["Stop"].append({"hooks": [{"type": "command", "command": ".claude/hooks/learning.sh"}]})
+del d["$schema"]
+del d["permissions"]["allow"]
+d["env"] = {"MY_VAR": "mine"}
+del d["ensemble"]["records"]
+open(sys.argv[1], "w").write(json.dumps(d, indent=2) + "\n")
+PY
+    _rebase --preserve-all
+    [ "$(_sget "sum(h['type'] == 'prompt' for gs in d['hooks'].values() for g in gs for h in g['hooks'])")" -eq 1 ]
+    [ "$(_regs | grep -c 'learning.sh')" -eq 0 ]
+    [ "$(_sget "'\$schema' in d")" = "True" ]
+    [ "$(_sget "d['permissions']")" = "{}" ]
+    [ "$(_sget "d['env']['MY_VAR']")" = "mine" ]
+    # ensemble.records is backfilled by the stamp when absent, so it is not asserted absent here.
+}
+
+@test "settings: no settings.json writes the plugin default with every key in added" {
+    _make_target
+    rm "$TARGET/.claude/$S"
+    _rebase
+    [ "$(_res "$TEST_DIR/out" "d['settings']['written']")" = "True" ]
+    [ "$(_res "$TEST_DIR/out" "sorted(d['settings']['added']) == sorted(__import__('json').load(open('$(_plugin_settings)')))")" = "True" ]
+    # The stamp then adds its own ensemble keys; everything else is the plugin default.
+    [ "$(_sget "{k: v for k, v in d.items() if k != 'ensemble'} == {k: v for k, v in __import__('json').load(open('$(_plugin_settings)')).items() if k != 'ensemble'}")" = "True" ]
+}
+
+@test "settings: a settings.json that is not JSON is a conflict and its bytes are unchanged" {
+    _make_target
+    printf '{ not json' > "$TARGET/.claude/$S"
+    cp "$TARGET/.claude/$S" "$TEST_DIR/before.json"
+    _rebase
+    [ "$(_res "$TEST_DIR/out" "d['settings']['conflicts'][0]['path']")" = "settings.json" ]
+    [ "$(_res "$TEST_DIR/out" "d['settings']['written']")" = "False" ]
+    cmp "$TARGET/.claude/$S" "$TEST_DIR/before.json"
+}
+
+@test "settings: the program has one settings-write function and it calls the guard check first" {
+    # One definition writes settings.json (os.replace onto the settings path), and the guard runs in it first.
+    [ "$(grep -c 'os.replace(tmp, entry\["path"\])' "$SCAFFOLD")" -eq 1 ]
+    python3 - "$SCAFFOLD" <<'PY'
+import re, sys
+src = open(sys.argv[1]).read()
+body = src[src.index("def write_settings("):]
+body = body[:body.index("\ndef ", 10)]
+assert body.index("guard_check(") < body.index("os.replace("), body
+PY
+}
+
+# --- post-copy steps (RBE-B004) ---------------------------------------------
+
+# Every manifest hook's destination name, one per line.
+_manifest_hooks() {
+    bash -c 'set --; source "$1"; PLUGIN_DIR="$2"; m="$(find_plugin_json hooks hooks.manifest.json)"; manifest_shippable_hooks "$m" | cut -f1' _ "$SCAFFOLD" "$PLUGIN"
+}
+
+# Print settings.json with the two stamp timestamps removed.
+_settings_sans_stamp() {
+    python3 -c 'import json, sys
+d = json.load(open(sys.argv[1]))
+for k in ("refreshed_at", "rebased_at"):
+    d["ensemble"].pop(k, None)
+print(json.dumps(d, sort_keys=True))' "$1/.claude/settings.json"
+}
+
+@test "post steps: first apply ages back to a stamped, executable, preloaded tree; a second apply is a no-op" {
+    _make_target
+    local c="$TARGET/.claude" h a
+    # Age the target.
+    while IFS= read -r h; do [[ -f "$c/hooks/$h" ]] && chmod -x "$c/hooks/$h"; done < <(_manifest_hooks)
+    python3 - "$c/settings.json" <<'PY'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+d.setdefault("ensemble", {})["version"] = "4.15.0"
+json.dump(d, open(p, "w"), indent=2)
+PY
+    for a in "$c"/agents/*.md; do
+        python3 - "$a" <<'PY'
+import re, sys
+p = sys.argv[1]
+t = open(p).read()
+t = re.sub(r"^skills:\n(?:\s+-\s.*\n)+", "", t, flags=re.M)
+t = re.sub(r"<!-- ENSEMBLE:SKILLS:BEGIN.*?<!-- ENSEMBLE:SKILLS:END -->\n?", "", t, flags=re.S)
+open(p, "w").write(t)
+PY
+    done
+    printf '\nOwner line\n' >> "$c/agents/code-reviewer.md"
+    cp "$c/agents/code-reviewer.md" "$TEST_DIR/cr.before"
+    rm "$c/commands/amend.md"
+    ( cd "$TARGET" && git init -q && git add -A && git -c user.email=a@b -c user.name=t commit -q -m fixture )
+
+    "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TARGET" >"$TEST_DIR/out" 2>/dev/null
+    [ "$(grep -c . "$TEST_DIR/out")" -eq 1 ]
+    [ "$(_res "$TEST_DIR/out" "list(d['steps'])")" = "['modes', 'selection', 'preloads', 'gitFiles', 'recordsCutover', 'stamp']" ]
+    [ "$(_res "$TEST_DIR/out" "set(d['steps'].values())")" = "{'ok'}" ]
+    while IFS= read -r h; do
+        [[ -f "$c/hooks/$h" ]] && [ -x "$c/hooks/$h" ] || { echo "not executable: $h"; return 1; }
+    done < <(_manifest_hooks)
+    [ -s "$c/selected-skills.txt" ]
+    grep -qx jest "$c/selected-skills.txt"
+    run grep -qx pytest "$c/selected-skills.txt"
+    [ "$status" -ne 0 ]
+    [ ! -e "$c/skills/pytest" ]
+    # An agent with an affinity pool has its preload back; the owner-edited one is untouched.
+    grep -q "ENSEMBLE:SKILLS:BEGIN" "$c/agents/backend-implementer.md"
+    cmp "$c/agents/code-reviewer.md" "$TEST_DIR/cr.before"
+    [ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["ensemble"]["previous_version"])' "$c/settings.json")" = "4.15.0" ]
+    [ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["ensemble"]["version"])' "$c/settings.json")" = \
+      "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$PLUGIN/.claude-plugin/plugin.json")" ]
+    [ "$(_res "$TEST_DIR/out" "d['categories']['commands']['added']")" = "['commands/amend.md']" ]
+
+    # Second apply: nothing to add, replace or remove; only the two timestamps move.
+    _modes "$TARGET" > "$TEST_DIR/modes.before"
+    _tree_hashes "$TARGET" | grep -v 'settings.json' > "$TEST_DIR/tree.before"
+    _settings_sans_stamp "$TARGET" > "$TEST_DIR/settings.before"
+    "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TARGET" >"$TEST_DIR/out2" 2>/dev/null
+    [ "$(_res "$TEST_DIR/out2" "[(c, k) for c, v in d['categories'].items() for k in ('added','replaced','removed') if v[k]]")" = "[]" ]
+    [ "$(_res "$TEST_DIR/out2" "set(d['steps'].values())")" = "{'ok'}" ]
+    [ "$(_modes "$TARGET")" = "$(cat "$TEST_DIR/modes.before")" ]
+    [ "$(_tree_hashes "$TARGET" | grep -v 'settings.json')" = "$(cat "$TEST_DIR/tree.before")" ]
+    [ "$(_settings_sans_stamp "$TARGET")" = "$(cat "$TEST_DIR/settings.before")" ]
+}
+
+@test "post steps: dry-run reports every step not run; a settings.json that is not JSON fails only the stamp" {
+    _make_target
+    ( cd "$TARGET" && git init -q && git add -A && git -c user.email=a@b -c user.name=t commit -q -m fixture )
+    "$SCAFFOLD" --rebase --dry-run --plugin-dir "$PLUGIN" "$TARGET" >"$TEST_DIR/out" 2>/dev/null
+    [ "$(_res "$TEST_DIR/out" "set(d['steps'].values())")" = "{'not run'}" ]
+    printf 'not json' > "$TARGET/.claude/settings.json"
+    run "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TARGET"
+    printf '%s\n' "${lines[@]}" | tail -n 1 > "$TEST_DIR/last"
+    [ "$(_res "$TEST_DIR/last" "d['steps']['stamp'].startswith('failed')")" = "True" ]
+    [ "$(_res "$TEST_DIR/last" "d['steps']['modes']")" = "ok" ]
+    [ "$(_res "$TEST_DIR/last" "d['steps']['recordsCutover']")" = "ok" ]
 }
