@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "kind": "task",
+  "trd_file": null,
+  "brief": null,
+  "phase_cursor": 1,
+  "tasks": {
+    "STEP-001": {
+      "description": "Create detached git worktrees pinned at tags v4.15.0 and v4.17.10",
+      "status": "success",
+      "started_at": "2026-11-20T18:35:17.446Z",
+      "completed_at": "2026-11-20T18:35:42.202Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/rebase-project-fast/evidence/worktrees/v4.15.0/packages/full",
+        ".trd-state/rebase-project-fast/evidence/worktrees/v4.17.10/packages/full"
+      ],
+      "current_problem": null
+    },
+    "STEP-002": {
+      "description": "Build the drifted fixture: scaffold from v4.15.0 packages/full, commit, plant owner-edited skill, user agent, user hook registration, retired file; commit",
+      "status": "success",
+      "started_at": "2026-11-20T18:35:42.254Z",
+      "completed_at": "2026-11-20T18:36:28.619Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/rebase-project-fast/evidence/fixture/build/rebase-fixture/.claude/agents/data-analyst.md",
+        ".trd-state/rebase-project-fast/evidence/fixture/build/rebase-fixture/.claude/commands/fix-issue.md"
+      ],
+      "current_problem": null
+    },
+    "STEP-003": {
+      "description": "Archive the committed fixture as a tarball with its sha256 under .trd-state/rebase-project-fast/evidence/fixture/ and verify the hash",
+      "status": "success",
+      "started_at": "2026-11-20T18:36:28.728Z",
+      "completed_at": "2026-11-20T18:36:57.394Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/rebase-project-fast/evidence/fixture/rebase-fixture-v4.15.0.tar.gz",
+        ".trd-state/rebase-project-fast/evidence/fixture/rebase-fixture-v4.15.0.tar.gz.sha256"
+      ],
+      "current_problem": null
+    },
+    "STEP-004": {
+      "description": "Run headless /rebase-project --dry-run against v4.17.10 packages/full on a fresh copy; capture transcript, wall clock, git status",
+      "status": "success",
+      "started_at": "2026-11-20T18:36:57.483Z",
+      "completed_at": "2026-11-20T18:38:41.909Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/rebase-project-fast/evidence/baseline/dry-run/session.jsonl",
+        ".trd-state/rebase-project-fast/evidence/baseline/dry-run/timing.json"
+      ],
+      "current_problem": null
+    },
+    "STEP-005": {
+      "description": "Run headless /rebase-project against v4.17.10 packages/full on a fresh copy; capture transcript, wall clock, git status",
+      "status": "success",
+      "started_at": "2026-11-20T18:38:41.956Z",
+      "completed_at": "2026-11-20T18:41:20.333Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/rebase-project-fast/evidence/baseline/full/session.jsonl",
+        ".trd-state/rebase-project-fast/evidence/baseline/full/timing.json"
+      ],
+      "current_problem": null
+    },
+    "STEP-006": {
+      "description": "Derive per-step seconds (Step 0-5) and tokens from both transcripts and write .trd-state/rebase-project-fast/baseline.md",
+      "status": "success",
+      "started_at": "2026-11-20T18:41:20.376Z",
+      "completed_at": "2026-11-20T18:42:12.795Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/rebase-project-fast/baseline.md"
+      ],
+      "current_problem": null
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": null,
+      "review": null,
+      "timestamp": "2026-11-20T18:42:12.836Z"
+    }
+  ],
+  "created_at": "2026-11-20T18:35:07.828Z",
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": "2026-11-20T18:42:12.836Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  }
+}

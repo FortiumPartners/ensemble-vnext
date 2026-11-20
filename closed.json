@@ -1,0 +1,20 @@
+{
+  "feature": "task-baseline-rebase-timing",
+  "trd": null,
+  "closedAt": "2026-11-20T18:42:28Z",
+  "closedBy": "task",
+  "note": null,
+  "audit": null,
+  "reason": "task-complete",
+  "outputs": [
+    ".trd-state/rebase-project-fast/baseline.md",
+    ".trd-state/rebase-project-fast/evidence/fixture/rebase-fixture-v4.15.0.tar.gz",
+    ".trd-state/rebase-project-fast/evidence/fixture/rebase-fixture-v4.15.0.tar.gz.sha256",
+    ".trd-state/rebase-project-fast/evidence/baseline/"
+  ],
+  "followups": [
+    { "summary": "token-usage.js counts every transcript line carrying a usage block, so a message split over several lines is counted several times (about 2x on these runs); count once per message id", "evidence": "baseline.md: dry run 6,104 output tokens per message id and per the CLI result line, 12,208 from token-usage.js; evidence/baseline/token-usage-cli.json" },
+    { "summary": "/rebase-project 4.17.10 overwrites an owner edit to a vendored skill without keeping it (the dry run warns, the full run replaces it); item 2 of rebase-project-fast is meant to report this as a conflict", "evidence": "OWNER-EDIT-MARKER absent from slot-full/.claude/skills/verification-setup/SKILL.md after the full run" },
+    { "summary": "rebase-project.md's hook rule would delete a user-written hook while the settings merge keeps its registration; the model overrode it in both runs", "evidence": "dry-run readout DECISIONS/ISSUES in evidence/baseline/dry-run/session.jsonl" }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "report": {
+    "path": ".trd-state/rebase-project-fast/baseline.md",
+    "url": "https://claude.ai/artifact/RwY9rLp29Tfb5d5DvSnh5o",
+    "updated_at": "2026-11-20T18:42:28.859Z",
+    "command": "/task"
+  },
+  "report-2": {
+    "path": ".trd-state/rebase-project-fast/evidence/fixture/rebase-fixture-v4.15.0.tar.gz",
+    "url": "",
+    "updated_at": "2026-11-20T18:42:28.910Z",
+    "command": "/task"
+  },
+  "report-3": {
+    "path": ".trd-state/rebase-project-fast/evidence/fixture/rebase-fixture-v4.15.0.tar.gz.sha256",
+    "url": "",
+    "updated_at": "2026-11-20T18:42:28.956Z",
+    "command": "/task"
+  }
+}
