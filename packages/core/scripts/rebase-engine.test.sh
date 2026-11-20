@@ -205,3 +205,194 @@ PY
     [ "$status" -ne 0 ]
     grep -q "ENSEMBLE:SKILLS:BEGIN" "$A/backend-implementer.md"
 }
+
+# --- generate-shipped-hashes.sh (RBE-P002) ------------------------------------
+
+_gen_setup() {
+    GEN="$SCRIPT_DIR/generate-shipped-hashes.sh"
+    REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+    LIST="$SCRIPT_DIR/../templates/shipped-hashes.json"
+    FIX="$REPO_ROOT/test/fixtures/rebase-engine/older"
+    # Not under /tmp: the render copies skill folders that carry the setgid bit.
+    export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+}
+
+# _list_edit <out> <python statement over d>: a copy of the committed list, edited.
+_list_edit() {
+    python3 - "$LIST" "$1" "$2" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+exec(sys.argv[3])
+json.dump(d, open(sys.argv[2], "w"), indent=2, sort_keys=True)
+PY
+}
+
+_blob() { git hash-object "$1"; }
+
+# A full throwaway repo: commit 1 tagged v0.0.1, commit 2 (HEAD) untagged.
+_make_repo() {
+    R="$TEST_DIR/repo"
+    git init -q "$R"
+    git -C "$R" commit -q --allow-empty -m one
+    git -C "$R" tag v0.0.1
+    git -C "$R" commit -q --allow-empty -m two
+}
+
+@test "generate: unknown argument and no mode both exit 1" {
+    _gen_setup
+    run "$GEN" --bogus
+    [ "$status" -eq 1 ]
+    run "$GEN"
+    [ "$status" -eq 1 ]
+}
+
+@test "generate --check: exits 0 on the committed files" {
+    _gen_setup
+    run "$GEN" --check
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"structure: ok"* ]]
+    [[ "$output" == *"coverage: ok"* ]]
+    [[ "$output" == *"history: "* ]]
+}
+
+@test "generate --check: a --depth 1 clone skips only the history part" {
+    _gen_setup
+    git clone -q --depth 1 "file://$REPO_ROOT" "$TEST_DIR/shallow"
+    run "$GEN" --check --repo "$TEST_DIR/shallow"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"structure: ok"* ]]
+    [[ "$output" == *"coverage: ok"* ]]
+    [[ "$output" == *"history: skipped (shallow clone)"* ]]
+}
+
+@test "generate --check: history is checked on a full repo and fails naming the missing tag" {
+    _gen_setup
+    _make_repo
+    _list_edit "$TEST_DIR/l.json" 'd["tags"] = ["v0.0.1"]'
+    run "$GEN" --check --repo "$R" --list "$TEST_DIR/l.json"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"history: checked"* ]]
+    git -C "$R" tag v0.0.2 HEAD~1
+    run "$GEN" --check --repo "$R" --list "$TEST_DIR/l.json"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"v0.0.2"* ]]
+    git clone -q --depth 1 "file://$R" "$TEST_DIR/repo-shallow"
+    run "$GEN" --check --repo "$TEST_DIR/repo-shallow" --list "$TEST_DIR/l.json"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"history: skipped (shallow clone)"* ]]
+}
+
+@test "generate --check: a tag on HEAD itself is not required in the list" {
+    _gen_setup
+    _make_repo
+    git -C "$R" tag v0.0.2
+    _list_edit "$TEST_DIR/l.json" 'd["tags"] = ["v0.0.1"]'
+    run "$GEN" --check --repo "$R" --list "$TEST_DIR/l.json"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"history: checked"* ]]
+}
+
+@test "generate --check: fails naming a listed path no render ships and no retired entry covers" {
+    _gen_setup
+    _list_edit "$TEST_DIR/l.json" 'd["files"]["commands/ghost-command.md"] = ["'"$(printf 'a%.0s' $(seq 40))"'"]; d["files"] = dict(sorted(d["files"].items()))'
+    run "$GEN" --check --list "$TEST_DIR/l.json"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"commands/ghost-command.md"* ]]
+}
+
+@test "generate --check: a retired entry covers a listed path no render ships" {
+    _gen_setup
+    # hooks/async-discipline.js is a retired file entry: listing it is covered.
+    _list_edit "$TEST_DIR/l.json" 'h = ["'"$(printf 'b%.0s' $(seq 40))"'"]; d["files"]["hooks/async-discipline.js"] = h; d["files"] = dict(sorted(d["files"].items()))'
+    run "$GEN" --check --list "$TEST_DIR/l.json"
+    [ "$status" -eq 0 ]
+}
+
+@test "generate --check: fails on a hash that is not 40-hex" {
+    _gen_setup
+    _list_edit "$TEST_DIR/l.json" 'k = sorted(d["files"])[0]; d["files"][k] = ["not-a-hash"]'
+    run "$GEN" --check --list "$TEST_DIR/l.json"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"40"* ]]
+}
+
+@test "generate --check: fails on unsorted tags and on a path with .." {
+    _gen_setup
+    _list_edit "$TEST_DIR/l.json" 'd["tags"].reverse()'
+    run "$GEN" --check --list "$TEST_DIR/l.json"
+    [ "$status" -eq 1 ]
+    _list_edit "$TEST_DIR/l2.json" 'd["files"]["commands/../x"] = ["'"$(printf 'c%.0s' $(seq 40))"'"]; d["files"] = dict(sorted(d["files"].items()))'
+    run "$GEN" --check --list "$TEST_DIR/l2.json"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"commands/../x"* ]]
+}
+
+@test "shipped-hashes: tags hold every v* release from v4.2.0" {
+    _gen_setup
+    run python3 - "$LIST" <<'PY'
+import json, sys
+t = json.load(open(sys.argv[1]))["tags"]
+assert t[0] == "v4.2.0", t[0]
+assert len(t) >= 48 and "v4.17.10" in t, len(t)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "shipped-hashes: the older fixtures are listed and differ from the current plugin" {
+    _gen_setup
+    cmd_blob="$(_blob "$FIX/commands/plan.md")"
+    cur_cmd="$(_blob "$PLUGIN/commands/core/plan.md")"
+    [ "$cmd_blob" != "$cur_cmd" ]
+    agent_hash="$(_normhash "$FIX/agents" | awk -F'\t' '$1=="backend-implementer"{print $2}')"
+    cur_agent="$(_normhash "$PLUGIN/agents-lib" | awk -F'\t' '$1=="backend-implementer"{print $2}')"
+    [ -n "$agent_hash" ]
+    [ "$agent_hash" != "$cur_agent" ]
+    run python3 - "$LIST" "$FIX/stop-prompt.txt" "$PLUGIN/templates/claude-directory/settings.json" \
+        "$cmd_blob" "$agent_hash" "$cur_cmd" "$cur_agent" <<'PY'
+import hashlib, json, sys
+lst, prompt_file, tmpl, cmd, agent, cur_cmd, cur_agent = sys.argv[1:]
+d = json.load(open(lst))
+assert cmd in d["files"]["commands/plan.md"]
+assert agent in d["files"]["agents/backend-implementer.md"]
+blob = lambda b: hashlib.sha1(b"blob %d\0" % len(b) + b).hexdigest()
+old = open(prompt_file, encoding="utf-8", newline="").read()
+assert blob(old.encode()) in d["promptHooks"]
+cur = [h["prompt"] for g in json.load(open(tmpl))["hooks"].values() for e in g for h in e["hooks"] if h.get("type") == "prompt"]
+assert len(cur) == 1 and cur[0] != old and blob(cur[0].encode()) in d["promptHooks"]
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "generate --append: re-listing a tag is byte-identical and a live render yields the fixture hashes" {
+    _gen_setup
+    if [ "$(git -C "$REPO_ROOT" rev-parse --is-shallow-repository)" = "true" ] \
+        || ! git -C "$REPO_ROOT" rev-parse -q --verify "refs/tags/$(cat "$FIX/TAG")" >/dev/null; then
+        skip "no tags here (shallow clone)"
+    fi
+    tag="$(cat "$FIX/TAG")"
+    cp "$LIST" "$TEST_DIR/l.json"
+    run "$GEN" --append "$tag" --list "$TEST_DIR/l.json"
+    [ "$status" -eq 0 ]
+    cmp "$LIST" "$TEST_DIR/l.json"
+    # Built from nothing, the append holds exactly what that tag's render yields.
+    run "$GEN" --append "$tag" --list "$TEST_DIR/new.json"
+    [ "$status" -eq 0 ]
+    run python3 - "$TEST_DIR/new.json" "$FIX" "$(_blob "$FIX/commands/plan.md")" \
+        "$(_normhash "$FIX/agents" | awk -F'\t' '$1=="backend-implementer"{print $2}')" <<'PY'
+import hashlib, json, sys
+d = json.load(open(sys.argv[1]))
+assert d["tags"] == [open(sys.argv[2] + "/TAG").read().strip()]
+assert d["files"]["commands/plan.md"] == [sys.argv[3]]
+assert d["files"]["agents/backend-implementer.md"] == [sys.argv[4]]
+old = open(sys.argv[2] + "/stop-prompt.txt", encoding="utf-8", newline="").read().encode()
+assert hashlib.sha1(b"blob %d\0" % len(old) + old).hexdigest() in d["promptHooks"]
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "generate --append: an unknown tag exits 1 and writes nothing" {
+    _gen_setup
+    run "$GEN" --append v9.9.9 --list "$TEST_DIR/none.json"
+    [ "$status" -eq 1 ]
+    [ ! -e "$TEST_DIR/none.json" ]
+}

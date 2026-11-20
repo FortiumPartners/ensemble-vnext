@@ -1,0 +1,2415 @@
+{
+  "files": {
+    "agents/agent-implementer.md": [
+      "48b026772612afcbe97b181b6abc6cb07f006fbd",
+      "7639557d31345df907161300c22af7872a769cea",
+      "8d4a38c143405e340bd37c62dc93c93a257e95a7"
+    ],
+    "agents/app-debugger.md": [
+      "d7ff0f88a0e4b2aea0c9db4694c6f2ea295a2f35",
+      "fe63be5aaeaaae5f4801a7b2a2089f233fce58e6"
+    ],
+    "agents/backend-implementer.md": [
+      "7c0de44ebd092258500476f4021551589f3a239a",
+      "d0d3c644433033dadac6f92d32edb5a48880cd68",
+      "fda4fb812150435c2d13e4bfc072c208b3d5d9f2"
+    ],
+    "agents/cicd-specialist.md": [
+      "98435e1159ba969794617e28b70d837ccd0bca9c"
+    ],
+    "agents/code-reviewer.md": [
+      "214e442d661763b6d10c3dce2b531c6d73d55a08",
+      "7c5f3b7445871944abeb9b20d269e4f773e1a702",
+      "b9ef6213014b71ced79a7adbdce730bbda8ebe71"
+    ],
+    "agents/code-simplifier.md": [
+      "05e7ce486a1deed15a0b8b1fde927e053435aa6b",
+      "928d14bd6c1a73cf9bc1c5b64d0f3d5a5ee9c6d4"
+    ],
+    "agents/devops-engineer.md": [
+      "0cb9d1348ab75b808eb794088e1a0bf168b4de25"
+    ],
+    "agents/frontend-implementer.md": [
+      "3e5f38c602f4f2b18864b04f5e3569f37c5e0717",
+      "eabf3776b50e2e76431d0cb1b3350ddbcfe09750",
+      "ef848f17d53e0f74e4d821c446a34620cf0f7061"
+    ],
+    "agents/mobile-implementer.md": [
+      "269220ac020ddd5d1e8429415c042b331fc372af",
+      "a7a83b9320ba73360210528a2334e26c28a77b89",
+      "b6f71e7112a52e421cb1b92196676cbc373fe516"
+    ],
+    "agents/product-manager.md": [
+      "a02efbc5f6fd28ea47688ca85b69bb40d59fcbef"
+    ],
+    "agents/spec-planner.md": [
+      "30419b4c739015d49b5758a7be789a91800c107a",
+      "6084d999ddd97e7b24615b48d88234886d2af113"
+    ],
+    "agents/technical-architect.md": [
+      "6d966856989e835afa695cf325f60da29dfef577",
+      "9d46de9f776f45e98f6eecad7a988dd2fb0cdcea",
+      "f7cb59d04c963ed401f0c0b16e03f6087c18c87a"
+    ],
+    "agents/verify-app.md": [
+      "4efe4890408f10b560528878b13dda7717d9bcff",
+      "5ea72ffe19deacb525067acc3efdac4440b2cab1",
+      "bcb4412f0b463f03f1d18b1678428f6909bbd1ed"
+    ],
+    "commands/amend.md": [
+      "30cffbf358a61dab3f034b8c42861d101ed95d43",
+      "3b78a92a86bb084a1b98ce14d3a3bc5c51240079",
+      "42211b81d751b33ba9aec42b17ce297f74ec9307",
+      "5b9d664ad73baaaa2248af5f2d1f23bc208d3caa",
+      "6e09ae0465628dd0ad25ddfe1bc84d71a787f29e",
+      "e1c0cb45d904af9b28e3d761bdc5b16733fe06d7"
+    ],
+    "commands/audit-build.md": [
+      "128baae7a649c5854d016e084037c8d6e9a1ae53",
+      "22cb4ccd240c22e6b0f3de7ae9f82972c930d06b",
+      "2d289d3ee4e620c6b1bcce8753fd0cf6932931df",
+      "33fc8f80f78f0c3aadd3d6d310bab79f37c76b76",
+      "556dfdea19bbfc083f04aff1d911b49f2eaef30b",
+      "5918b9ba9523a61c67e23d2f7ce6db718972e61e",
+      "5c56a82fd9f78a391984cb50f534decd9eb4cb8b",
+      "5fc838cc34f44abc3c7923e61944c468efc4b050",
+      "6233fd9467b89cf255c9ff5e52a967fcc5a741eb",
+      "6be8c96f30daa93e46bed906f5db48a35e07ef04",
+      "8f55b1c76baed848303dbc2e02a9525370bc2d48",
+      "99abc3227ddfa690579e54b6340fce910608c28d",
+      "a932bd555f62efb945c5e18cb7826bf628b2546a",
+      "b03a336841745a6d47ee530b6f945045f63f1e63",
+      "b5b50a9b69ee5722796c0ade3721f559ec5c832c",
+      "bd599e5d46e328de512b93193f0d7d9d84388857",
+      "d0f667c3d7d3ef7ab3cf2e8b41ef086a493d0acd",
+      "d98dac2ae5d8a87196209b11c9c68b66b8c34080",
+      "db690b1a6de3a12f268877193739e579cde17e2a",
+      "fa0893f581e976b7bedec2fda39d72bc60bb7436"
+    ],
+    "commands/audit-design.md": [
+      "1caf36fdef239aa1bbdb1a641380fa061f1772ea",
+      "3e52caccc658353337644a1248ee0a86b6c2154a",
+      "6d501ff0b98c26315f275f4cd26842f08a160b38",
+      "e08251e0b40ba89b0416b63efece61f86a189d8f"
+    ],
+    "commands/audit-docs.md": [
+      "2813158dc7b5c56a704575029069130475ac4ecb",
+      "b71cebe940cb9822f124ea7bbe81a17d69ceb8c8",
+      "c743334edc7eccc0eb7ecbce3ec045392e1cdf70"
+    ],
+    "commands/audit-prd.md": [
+      "1d77b0126b98e6c30ab75106682a300abc899307",
+      "1ff371c193add8f8c4178db5e9e094cb64e35ab1",
+      "2f57b9527a9650cfbadd21deadd270dd8671f666",
+      "3c137ce9fbc1d5e0128b8c6b30a393c5d34d65c2",
+      "69fe819c91ca194d5a9d888e53afaef2d258ffba",
+      "6fb0f3d19d11b9d38260f13c950a6cac95f79ecd",
+      "97e23f20321c81a3021a1a6a2f8c22ea69bc0947",
+      "ae784633903d4e004bc655f137e0856cefef4b44",
+      "ba90408b15e5f9985e326c87469a05052e3b455b"
+    ],
+    "commands/audit-trd.md": [
+      "03d27d43b99f55c47becc63ae36016d69dc6c586",
+      "04f7d9828a58db305d35331ccd640d2957444393",
+      "2cd158921f34e4168a867136bf7787baff3814ff",
+      "709ed7c1d2481d8a756ec580b025557bf6eed5b9",
+      "a31ca518dff607585702355537cb37693af85324",
+      "c918e8fbd41db9c9ae66f0bd7a8524ec7cf0cd03",
+      "e6c2d778df8f64fa008f1565d16ede31a0251536",
+      "ef6ffb91f457e255e3aacabdd5076e73ad2d3f5b",
+      "ef96f32b3ced0b1d56fd97ef06e9b5a20038d6a3"
+    ],
+    "commands/augment-trd-figma.md": [
+      "094a022cb1071a051208ddc01fd62cc6bd8c4c60",
+      "12309bfcecb0d9a3f8a90ab21610af17a57a3a86",
+      "35f1603c9a3408edd3dca084bc7fe00a2a9ea83e",
+      "9c87eba0e1a210ce87708eafaf5d4b74b5fe1303",
+      "e8ae3b77abcbe2f63b9167a74022eeab17d43a77"
+    ],
+    "commands/cleanup-project.md": [
+      "d2af713790362113ee78b70f0e02d3f624ad48a5",
+      "f8008d19e78a2862ea02cc976a543ef973da5de5"
+    ],
+    "commands/close-feature.md": [
+      "131bf2b5517998e7b3b7b508165b920ad0c46575",
+      "13d99143ace9ca76341e3d0426bd9084ad4ea8a2",
+      "14d3bac046d59e6d421ac2f7c14983dfbf067346",
+      "17ce5799dcbaece92ea2740746177bc751729c69",
+      "4ccf43e3f24e98472b6757f228fe627ebf53e2f1",
+      "59338625dc310e220e0a421f53cabcd0157512e8",
+      "84a2d88c25430a646e7c84fe28b6beabedb05389",
+      "b05866b58b8744f6b944d9c4abdc5848cf931f91",
+      "ca2c19cbf7806d83482b2e146d0cc8db7ca7b333"
+    ],
+    "commands/create-design.md": [
+      "1a37fde76d972f0db6585916e1237bcbc2230703",
+      "9b0826da375e0fb32f594991ca89a6c2a7952d0a",
+      "afffe72a9d4e695d476c8a77358b60929e0af8e1",
+      "d501bd77c25aa94f0ff12decf46240fcd837ebd5"
+    ],
+    "commands/create-prd.md": [
+      "18651d0a20a8cfbb663f4daf0861101e1823ccf0",
+      "3276a568544bfe97fefa55c6907a803da6185108",
+      "67ef36cee6dd7a6f72961633e8ebc1c475e9a8d0",
+      "8b6bb2db7d26886535ad0fca553a4583be4be865",
+      "b4244e8871459ec18d04546bd711c31bd324992a",
+      "b7616edc0bd6f97c3b1933ccb492ea38439f31ca",
+      "dfc9b38dcda45e49258bf831148b1f74bfe488ae",
+      "f8daf18a03a1a6f06c888824144de8ce653b7137"
+    ],
+    "commands/create-trd.md": [
+      "1c4aa4e1d52427297deb0795023af9a5d78cd894",
+      "23a5280327c2b3beb384f8dc89835f50d95042ba",
+      "2949021bcf1fb8f4b6a256b803b453f45f8f06f7",
+      "2b2b4c274359a2f8571e882fef19e3c795573992",
+      "2c247a73d7d98cbd646b6e70b1b62a02046e0c53",
+      "3d66c9e2fe15822b8954ed08379afaf316956219",
+      "6f281a8267d1fa168114e54fe2faaa509e4c33bc",
+      "8d6b684c2912fee8f1150369de0833ed4be60c62",
+      "8da2e1822658861c53607218de603b45f511b66b",
+      "a3791c2f168f8cc9c3dbd523cf23f04711faa9aa",
+      "a62fca26e18b3bc74922a43c1ab54d660090eac0",
+      "aa2b9bae700b49b6df794c56aafe03887f38b63b",
+      "be11303ecaefd7626dfad3c52f5c11745b2797a9",
+      "ccd1d558454cbf4f08af655834533299f682e7a1",
+      "f182be49655186bb4b9bb46f3340a18690557c4b",
+      "f6911b8d091b2f61cc3310596c88ecfe7c681bc8"
+    ],
+    "commands/design-system.md": [
+      "45009e6713c93e303986a78c957981eed85dce07",
+      "fd034807819aac5f226c150c88064fdfa4266b09"
+    ],
+    "commands/fold-prompt.md": [
+      "105b3ef34408d1d5db9084d61ad4aacc66ccec9f",
+      "6d66711d175d5bb382c34979e5ecf773fcbdf048",
+      "a0b820ff29a5942d297f3dce99012c8a59937793"
+    ],
+    "commands/implement-trd.md": [
+      "0d205fff44e72aae410bf74ca013ff693a5f859a",
+      "1d8633560d5b4f76f0c411f634a29db13b4cc125",
+      "21286b53b5da80affc253c8b2ddf04af1ab9a658",
+      "213077ac396ee12f2da9b946f734013bb18a0663",
+      "2978fcb5024fb571d837a3750dc7d8bd72800c16",
+      "2ba0b0a924680df671a89ce12e8f08a2bf4ba33c",
+      "38b2c428900b4886be95504f80acdfb38d0a38f2",
+      "44a1a1a7ab00862de752ef89cddb1c94745baacb",
+      "4b44815028d7808734e90f14f2e606266eac7929",
+      "5268dd0ec2e224e19600a215d3311506ca024a6f",
+      "54cc53dd3ff98b2088c3a3fc23af4e6132f993c3",
+      "5988c6a78c0b75fc1664c77b2a32067a9440cf10",
+      "5d96022b2579e4de63c6711fabe1c2c5158b7d5e",
+      "6b917d2e748893e67f8687cb968c94b8332cf68e",
+      "737c8b39f4616d5c62ebea1c3f57c54f87edc98c",
+      "7bcc8e8bf24ab0005c458f1d5a9721460147bf65",
+      "8618729f81b83fd5fef64dc32da9df03a3de9f2b",
+      "8a1c59056918bc0f3b16215e0f49209f3172b82b",
+      "92ca7d09b385ffaa8637e8253ddda10521d5041f",
+      "968c97554ecc7881c84f6dbefc8a079f93066aa8",
+      "9f5489b4ea131095c0fa586f3baa88015a5262f8",
+      "b35c199a73c26292c8067d6600c528a739c1ef86",
+      "bc5449e30ff06920d60f442d69484f8bc2a0a1ec",
+      "cef46f52e4b8c992e53fea674c291c7d464fc43e",
+      "d423eb4849c19e1d9470d18e6ac4d9c410be5400",
+      "e83c0e05d724bf07e01c544e81824ccbb4a9c41d",
+      "e9a107000962bd93c0646f27262714f49cadbc7e",
+      "f187bc5fc39f94ac1b3222e8dbe29b4f89b85fc4"
+    ],
+    "commands/investigate.md": [
+      "1ad476ec976829d9c71331cb4c9be103e674d102",
+      "766fc85e6291c2d7898e840d7bd06d9b552b4423",
+      "aeb16bfa741beb5e8459348699cac6ded4a4ec09",
+      "d56a9c3fc3b8198dc73640779ad3aa1dab748bef"
+    ],
+    "commands/plan.md": [
+      "0a3e5d4df02c1a6897cdfeab3b513e3df6e62fec",
+      "1a0c16300bff0ce1247747c90281b9e1b0a7cb10",
+      "4437885a7e626be8ff53d060c334befde82b7f2a",
+      "5fa6126cb757984b1b55c7ec7d39c388d9ed8104",
+      "6a00ebbc6173034a6bcf6483fea5525dd33b47df",
+      "a78504d500666a310184de35166c6100b82c03c1",
+      "abdbd9aa0205d3c7db27f781bd77288f89ff537b",
+      "d44f56812913b76fa10b534f84d9baa86d88c40c",
+      "df6d67d4de6487c2afbae5e109d7a0a878a4127d",
+      "dfd262d6ee1ef32d450a7c58b85b62814889d3c4",
+      "e18892f64575f983821969fa2e455399209a9f8d",
+      "eb0923130986b96b053f711c167fe26a1a446585",
+      "ef78cd249b7477f0ff61046223201c4fda05d228",
+      "f31d2b85ec3bee5163b31858006ceec68d765f47",
+      "f5efc07e9015d3a1edbe394350c15569dad0b9c5",
+      "f60f83d55b5cb3220ef37a7d42b4fdfe8cb06c00",
+      "fc40a190e2116662486ad91cdcb63f0a80b84162"
+    ],
+    "commands/refine-design.md": [
+      "ac70beebf0840f0ec853620dc264fa2950f766a9",
+      "c7323012a98f3071b00e10abfe2d2e8dcd3d1d26",
+      "cf075fa14aaae5299882e76c14537e28d0a0b009",
+      "daf30bb19431d1b8840776e7e623173bf82141f5",
+      "f1acbe8d86d78f848058427d5eaf135761d10293"
+    ],
+    "commands/refine-prd.md": [
+      "083ab1a9ab83a143ef0339ad90e81a122659b6b0",
+      "2a80ff278baf1a5de5066ec112f62e3026e3f20d",
+      "53ecfdc993284f7da50a2dc7b71815e889329120",
+      "71eb126e4f94700b1e693fb466af37a135f18286",
+      "83b1fced742dffb22a1486b800259d0c66b672a5",
+      "8ae8523dcb991ae6a432fbe5ce98b6d8e9d60336",
+      "d5cace303893e9fb1dcb07e2dd54a9e331d25ea6",
+      "d6fed3ef6a98569919d42942de6b7b17d028d987"
+    ],
+    "commands/refine-trd.md": [
+      "01b6dac87b7908f365d2dc05c4c633092d47e00c",
+      "09ffbe05e0631f23719cf7c2943538a757372553",
+      "4b69ed3d82c97b94d8bec66127608585cd52e29d",
+      "54a0f03868006e5d209ef1b93881d36e8102424d",
+      "8a97c057056aec38144caac3871ab583b399a361",
+      "a6a444faa6346642476e1a54e7f628aa18b22dc0",
+      "afec9abab263f4d27a3b7c66c52fbaf58e629542",
+      "d52ef06e3e04fcbca0cdc3be08fe3e38766e2dc2"
+    ],
+    "commands/refine-verification.md": [
+      "15d7be7f2bca9dfd54d9c4d0fcb41e4468599666",
+      "37d473099384a7c412ad26221ead384060a74520",
+      "4d6d1a45cf02a036300ce2bbed6b9e6d315f6146",
+      "5f4c395b8b3953549fe0386bf2ad142956555cbf",
+      "649791a0c1c712a0dc41dec718d27f4256dd4cbf",
+      "7c29159924c3c0f54681fcd649df5cf23270928a",
+      "ef8f9708fc296a482b755fbb9629eac6ede14a60",
+      "fa4e2f5678d600733091e402f6f55c9307d48805"
+    ],
+    "commands/ship-build.md": [
+      "14267184a47329db7bd1a7d5bd20f5c1c21f19d9",
+      "6adcbd4595e2391e969a9b12e5bd12821bc772aa",
+      "7fd353771c50f31bd77b3796a6ed3e147ff26d74",
+      "b56a06f5f9f4aa49b1da138c0c5c585fbb2bdb88",
+      "dd2df2ef3ed0dc3dd154c45efea49eb436fe0c69",
+      "e495500db7d8d737e88995b573ce70dca317bc02",
+      "e63f6651dd434514cb01452f10a801b643ef301b"
+    ],
+    "commands/sweep.md": [
+      "4e8320f02a143062da0fb0313e96db7c76ee1e9e",
+      "4f2592651267c4d3f9a6a8a883c071ad13ecb247",
+      "6187d77a8b86a21e5384f70929e7b2166a562076",
+      "8781c2973f811f48e70454674b006c0f4db519fb",
+      "8d06d26eeb452487e7ca3ea688b93a7c0bd52fa9"
+    ],
+    "commands/sync-design.md": [
+      "00a30fa0f05118a5151b0984b57da49688b26cd2",
+      "44845898cdf436456697511572d0cba673e9a26e",
+      "5185e5cd894e68528b4e3f640178cb31109b1efd",
+      "d9559f850350336dd7d1568fc75afe90668e7bde",
+      "f152528468a4ac1ffe031913fccabae5025ff758"
+    ],
+    "commands/task.md": [
+      "04ecfd51291eb8a68bfe90b50f02000b87263991",
+      "6657047c48c54c28c50fdd521b00a83153b33865",
+      "7576f9d818267521288df359d57c2e1833a14635"
+    ],
+    "commands/update-project.md": [
+      "0d18e6bc2aa60d4799331c5abafd6fe82b3cef98",
+      "6f28e2d520d2f8861b9cf3a355d81c601ae36947",
+      "bb5a07d632c5db80c8da14035b714aed624cb0c8",
+      "ce338dc6194b76df98dd6028f5a82333a152cbfe"
+    ],
+    "commands/verify-build.md": [
+      "060f5fcd10b0f9a4623fdf437b3cf06428e90ba7",
+      "07cf070d092ceb21d866bdc3c2a921117a6d3551",
+      "10372ac1bd25ff36dcfeaf449322bdba884e3f17",
+      "1a9f9bce1241b0e9bde22b81c43cb6b7c81b8ea0",
+      "27f674188b50c411d2a9c761eda0b16f6179ac0a",
+      "34746e4c1680f2862ffe06785a84bb5e209a40a2",
+      "5c4f327b44d301ab3fbe0f61b539ada4875fb351",
+      "791893da5375045e9ac050011f4392cc8419ae8d",
+      "7a07b4a4ad2b60c30b1677e2698282bf295197b8",
+      "827b28aee8ca6d4af0871549eb658dbbf98a6d90",
+      "835d434585fb42fb0c4e665b1469f47016e2cee4",
+      "8381453db54e73c2892b8fa4f713ac5187119192",
+      "97bd46cc5209ee487af4847de7ca95e0c3179321",
+      "97c567e11f912de0892937d8def738f6df6ec6b8",
+      "9e0767a24d99485e1f31da1177d66945b3be4630",
+      "9fdf41c7ad48540b3d5cc20c4fcdd9e8ecb28566",
+      "b5379baf3996ce2e0152a9ea151247df1beb7693",
+      "e34025a92b8e7382ecbfe0e2dc2f0aa131351bb8",
+      "ec17689d26d83c67dc279634e4ef2fdd2191cb29",
+      "fa9f978a70f1141bb1522bf04e3462f1761383e6"
+    ],
+    "contracts/design-commands.md": [
+      "73d4e631679c2c0e27530d3d178e4d6a113dbcdb",
+      "b793273e7f443a38af8c4bb07e338c31a450ee2f",
+      "c4e4a8fec10cbe601601eeee5594414825d34c2b"
+    ],
+    "contracts/docs-audit.md": [
+      "837de507f584d51b614b4c27b545eb537849cd81"
+    ],
+    "contracts/functional-verification.md": [
+      "0626014b0a56278d51ec5b6ed2ae8a0c8ea7be08",
+      "140b4e24f7f946fb12c308b3838c5d7d35a70328",
+      "24a37f52c228dc248182e352af50e5fb8ff4e11a",
+      "3681e7c7c29b2d6d2edd18c960c8d19fa56f2af4",
+      "4af57b87a60118240ee2fe88dc496b5a5251bb6b",
+      "5e353356767f3240d77047a173b26c874ec5a9f6",
+      "68cc57555621611366ac4182c9a4faf8277ef3c0",
+      "69945253365d482c855d81d7aa2fbd598bde144d",
+      "7eaf44a169a8c0d806b48cb7eb2d1c9a539de160",
+      "8ff9c88dcad0a5dddbbefb8a7ed69c7c1cbc733f",
+      "933f8e10fd445eae7ed24de45dbfbded8f05e65d",
+      "9c449cba9c86a66a7b967f4920a607508365a646",
+      "d05caba53167c0c68e812205595e166a65a70f52",
+      "f4217d697abefdd2c4444b4daf42b7eb2c04c393"
+    ],
+    "contracts/prd-authoring.md": [
+      "41217d2c96b1be4630cb8ff5ebf3c0ccb43acb61",
+      "c59eaa32ef21f35d69879534385b963330f843a5"
+    ],
+    "contracts/rerun-scope.md": [
+      "645dba68a82aae5ec590539cdfc0265d7b765366"
+    ],
+    "contracts/ship-custody-gate.md": [
+      "88232bd128335b01eb5cef8ac664a6c45a865d0d",
+      "9f2327b162b748bf87f73b3d28caf576c59f44e1",
+      "c9a76283b914819d537d41665adda8bead61b0c6",
+      "e16838be517bfa8ff17b1021e22011c472aeb198"
+    ],
+    "contracts/ship-primitive-await-approval.md": [
+      "d63fd96b5f37f1a091310d8a6e5607bf7f8956ff",
+      "e502005f02c4a973ec7c4254cfb264b77767d9d1"
+    ],
+    "contracts/ship-primitive-close-issue.md": [
+      "04ad07c94afc4adbc6e4ad7a1f60264e0027d5d6",
+      "3625854bf3333164670a8e004be1f094c90dd138",
+      "8e6b20b5f20542bbd79a1fefd3989c431342d8ad"
+    ],
+    "contracts/ship-primitive-collect-findings.md": [
+      "02320dca05939fbbed106c1c52f5e79addc3dec0",
+      "35aeef31aeed492d90457693ea1c7baa44169a26",
+      "738b2eb493da7e380bdb2a74d88b4ccbd9c0a528",
+      "780bea2ec82b7bbaed019958eb70c27ab8e91073"
+    ],
+    "contracts/ship-primitive-file-followups.md": [
+      "55957c759740273ea42fd004cbbda1df0820ebd0",
+      "77c1fca65f6cc15720b926cc55938123a3b45a97",
+      "c1ccc92b6be71fc478f781f1a2666ab55a40c463",
+      "f5f027a6d43a4644032412bcf15a711876badf3a"
+    ],
+    "contracts/ship-primitive-fix-findings.md": [
+      "3ecdd8b965adb461bd039d34683e920093370a23",
+      "517de64f0327dc65110267c80bd055b0d3292439",
+      "86e9699f48a444fc682594c10d7ce6d6482d2dd8",
+      "9f3bbf83bc1bf9b890f90e3bd7b84facc326df44",
+      "bd465371f0bf2f1d7692ec0e6939f64c3ea7c945"
+    ],
+    "contracts/ship-primitive-merge.md": [
+      "446d41b36c4388a798a86102bd66411ce0d78c34",
+      "4d3d9b7b244bbc61e6df028808b55aef7f1dfbe9",
+      "a4b309781d0047b24b174285532a349ff5f4d189",
+      "c74b8a9c6782b236f44e5d67dd878017f20bd80d",
+      "c8d3736389a22eb1df86d6873741ba76d9564d48",
+      "e0ff86e03c48c7005d0da19208566a3ccda47869"
+    ],
+    "contracts/ship-primitive-open-pr.md": [
+      "1c044d2422961c9afe79e4ce266c8623393a57b9",
+      "fef5e3de2e98b7015b97852c6dfaff97d4daf25e"
+    ],
+    "contracts/ship-primitive-push.md": [
+      "ba4772b4ad6bd08562530b53e0d3c9d39bca637a",
+      "c42c71fbae3443dba39e3bb39db82adc090d9456",
+      "fab4457cfbab880b34f58acfe82f15b16f918f50"
+    ],
+    "contracts/ship-primitive-release.md": [
+      "619e330ec30805a83d9ec4e1721cb4da614da775",
+      "e158c6cfa0ef88bf7363eb0653f4d048c34086cb"
+    ],
+    "contracts/ship-primitive-request-review.md": [
+      "343ad8f649a5bf06db24c78420d2368745a47526",
+      "4fb1cbb9ab647c7135ddf8d4a45351502d1c4849"
+    ],
+    "contracts/ship-primitive-run.md": [
+      "31f1ad7fc5598cff40635b4189a7f6fedcc7ac9d",
+      "979568efa183b4358e12503fe36b98ab159dc823"
+    ],
+    "contracts/ship-primitive-sync-design.md": [
+      "0354149a4fe994abacd73d6330355f7176892fcf",
+      "5e8f976503faab8e8c9da22b422aa94eb680d69b"
+    ],
+    "contracts/ship-primitive-wait-ci.md": [
+      "11c0ef962381d3b8bdb4850c91639fd6f6919961",
+      "4dd14180ffdfee262a30c0c1f5ebd03e41824e18",
+      "e1ea2e0c5396d3a1fd53ed3008e939a9e10b0683",
+      "f9eb9daf62c57ae4b15f8e6c475ce8686a899733",
+      "fcdf91663254601f94746c5ddc0b21d449b26a95"
+    ],
+    "contracts/task-delegation.md": [
+      "499526966221e26030e14b0484424f0f3366458e",
+      "aa2986c78d6358cc4c293e316dafac1198958681"
+    ],
+    "contracts/trd-authoring.md": [
+      "040fe5eb6fbb2a12fa25af63f6320c20a723a5d1",
+      "086d01c94069bc95e350cf0735b90ece070058d3",
+      "24b5d4a1eecd75cd4927b529692637ae594ddc30",
+      "4201ed9b29cb7dba89c25eae17c7780a64d0df18",
+      "65d1e5fbb7f3a17f75d93ed9e7b03e63c6c63cf3",
+      "6a87c9aaef8a0c17148ace030c88f110751ae621",
+      "72fcfb1a208eb2059988b6df8a342edf272ad337",
+      "944ba038acdb59d6ecf42bf9d83df3a563e2d70a",
+      "972febbe44985f8e26675db39e4ac93b21f622b5",
+      "a9bb2646e1ab3467f58c58a987c36f9b19cac12e",
+      "c55ba1e49990e278c785f464bc14926f286ce42f",
+      "f3437cfef60e66e1514966b8c2a3188fe00f49b2"
+    ],
+    "hooks/dispatch-ledger.js": [
+      "adb86c6aaf915c8cccea9abf770a7504d454b05c",
+      "e881ab694aa2568108d6a9e6bf5c42eedbea70d9"
+    ],
+    "hooks/formatter.sh": [
+      "29ce1047b5c8e9a5a7419f9324edac3468fd6f98",
+      "e92f9132536c90dc89cf9e1a0207731d897ec1f6"
+    ],
+    "hooks/lib/dispatch-ledger.js": [
+      "291cfe10014a2f9e650e51435775470741f7e2d9",
+      "35f0bf701418cbacc4369bc0d60b5ce3877944e7"
+    ],
+    "hooks/lib/resolve-project-root.js": [
+      "d883467022be24755be1a2346db861c8755b5689"
+    ],
+    "hooks/notify-complete.sh": [
+      "667e92d8f154c7055206fba31ce166e78bbcca7e",
+      "e989fa787d00c9b04c1ff15f729cebc1e2f5d45c"
+    ],
+    "hooks/notify.sh": [
+      "7966d698428080c87ccca493855950bef9ea04e1"
+    ],
+    "hooks/precompact.js": [
+      "75bab5283ab999fa7d027acec3953d200477d48d",
+      "e34e8ed06c44a90b7487fd274e7dd8704d42359a"
+    ],
+    "hooks/prompts/discipline-stop.prompt.md": [
+      "29d4f93f55d06e8a442e91f477a8d9be736850a8",
+      "3f7b59b8f49943ae173654f9863f75bb69f4a2c6",
+      "53130fc005623efb1869f6b77d451668998ceed1",
+      "737cd7a170f6bd19ee9edbb659741552f8252270",
+      "a68409e6db282b976b18615fad1379a68dc1a78e",
+      "ca61d48f31fd178fecaa10b5c0d5faf2c1f3e4fb"
+    ],
+    "hooks/router.py": [
+      "03446b0db1d6d2718cc853f9114781e626518be0",
+      "1cfaa1d5cfef72423072807d0782ccd18cea39b2",
+      "22f2c2d9cb8d5a99e8fd928ebd7c9a663f0f6b5c",
+      "2641fc9818bfdbc31fe3e956d5badfb873bde824",
+      "33361829826386e2eb2afe7dd205805d3126e812",
+      "55d8908bd5107146f60ba839c973762f8b9b1d90",
+      "7220ad2a6b00621907a540cdb63c73b7f450c2c3",
+      "75c0f673473985390ec350d256202e5c5749875f",
+      "7a48eeb26e3a8074a90c71d88e0ca616af252812",
+      "96e1fb110784c7bb6be52c763e13263a7422e099",
+      "ba0ff5672c7fd248686274a6631e3fc7b1befb35",
+      "c042e66d35187ffe46fdb4e500e2b1ba2765b935",
+      "d3098af6a2a5dc7ae244c95bae73adf5a196d589"
+    ],
+    "hooks/runtime-refresh.sh": [
+      "44ec938945006456919739b7ad469f5d025b56bf",
+      "fd140ac7d056ef429358ab4103748f178c8ec200"
+    ],
+    "hooks/session-context.js": [
+      "03e92aa0fa8f002c75ca8aa299254a78ef0df288",
+      "8b128cad97984a4c55ee144f9b22a4d4c1d47d3d",
+      "c7c2003798215581a15308b702ff870d3e830601"
+    ],
+    "hooks/status.js": [
+      "60526027a685d9a904670f386dff33114f5f8ea5",
+      "c36ce2c40a3331490d9fc274c56aa6c940363264"
+    ],
+    "lib/agent-routing.js": [
+      "6676ac20181d920c4233ff925ff6c19e6b175f7c"
+    ],
+    "lib/artifacts.js": [
+      "52124cb47e275bd708a2b9a1b9f0278f4c304b66",
+      "823ebdf05975ad7f6f1f83ee6a14a4a7e083e8e6",
+      "894de211c40767bc329ae15c463a7fe2f0d05039",
+      "9f22cd1d5ceb8548179a8a419bc0628677932db2",
+      "cc06f388b99bc923e5ca78ebaf66b05131878114"
+    ],
+    "lib/audit-rounds.js": [
+      "032ca5804c4cec94e22e1492dfc23738df755c9b",
+      "0f9f89f35c75a6f596076f2d50ce4d17c88ebd8b",
+      "a1f28912c4794890ded462365c6fcb34ffa5dfc0",
+      "c9f703c2569132c8fa58b15424e059dd3ba32d34"
+    ],
+    "lib/ci-baseline.js": [
+      "32dc6b523bb8f492e50b2d962c5fe1a44062b8d5",
+      "411d8ad58fad37b91dec08f78bfd745beeb13bee",
+      "86eca35a696c88f6320be2fc414191de19c043e1"
+    ],
+    "lib/ci-fix-route.js": [
+      "62e021fdd4134dafc7540dd7007eff3c9f33f7d9"
+    ],
+    "lib/ci-time.js": [
+      "c14b5ddb79f021c82cb595f7becd11b6243c5c6c"
+    ],
+    "lib/custody.js": [
+      "3ac1d0aae0f741891856c7be6035cf77a301fdb4",
+      "5bfa35e8464a4ee8635ca6901a4536caaf6e33ce",
+      "7349c07f3784f5fc00482f523e4c2d281adeac00",
+      "a75d9df54f0c825fba8e14a0e028b1e18733d5f1",
+      "e2e406a05214eba1ef4fc2de7f789646e7e7ab0d",
+      "f245a0874c02f51c44a813a709253a0a0fb86ea8",
+      "ff92ca9b6631b5a3acd6046528b0f867b736c19e"
+    ],
+    "lib/dc-runtime.js": [
+      "910d9a3fc1c0827f43bc5bdccfd97f774a6e3f3e"
+    ],
+    "lib/design-bundle.js": [
+      "fd48dea3d5690d0d7f67727763fce17555ac9958"
+    ],
+    "lib/design-covers.js": [
+      "ff9d9fad1bedc1fe650295a8e17258334bbc4c78"
+    ],
+    "lib/design-criteria.js": [
+      "dc2166b830f32f000c0478221b291ce1cbdb6fd5"
+    ],
+    "lib/design-map.js": [
+      "049c80bfca0a8912f0fec65da1a697b63b3f1ac4",
+      "471d99550a5c68cb269de437d48469cbbdeaae04",
+      "82a7a5eec5ae67b1a47d3fe9eb9a53bbab589910",
+      "a415545cc71b0d05884d2c73601657c4548fb879",
+      "bc4fae3146b99dc81dd26c5da67bc48472020576",
+      "d7dccb60bafb57326e380573ec7ab1f1a48b31ee"
+    ],
+    "lib/design-mirror.js": [
+      "b4f34403464138571b5408d7109b9c7c71bcd94c"
+    ],
+    "lib/design-render.js": [
+      "039815a26edd528df1608212597e2c453bf1364b",
+      "1d773d2c8d0c6a5a5278eb8ed47adab16b0243c9",
+      "67e0928519801c927e108986b7625c26e7a22214",
+      "989f49c12e53c6c748e13a9cedb4950424c43dc4"
+    ],
+    "lib/discovered.js": [
+      "0363b3d2c0f2f01817c92d4e362508b8355ea883",
+      "10cb36fe7689d944e5cf446c3ef2a6eaf64dee28",
+      "3619d6e296becb08043b71d90f0156d4817b136a",
+      "399a6861a3db127d5bf35ae9f9cb2317e5ce8797",
+      "51f1413804bda5bca4688ce7a56b63f09bab21f0",
+      "630af73a1d35b6b67547424d6bccae39b1ad8788",
+      "a6dc9bf6385e34188e332188cadadf1947d1aaa7",
+      "bc030b0534083a5b6f8b0e909b499e2c4a764399",
+      "dd57413e190471067ee39ee6897b29d36a599275",
+      "ee342f34878fae2c8324e1c27ad5337ebc02e81b",
+      "f101b13e35261360a5a1206f513218719c4f6afa"
+    ],
+    "lib/docs-audit-apply.js": [
+      "2762e669190eeceb84e9b08ce084f953a68489ab"
+    ],
+    "lib/docs-audit-assemble.js": [
+      "05c4bbee14390f177263556c67f49181fa8a6a6d",
+      "19160d4ae5e07c57467880fa07344cce827898cd",
+      "2bbd14eb640ac82c32715429a875e16f7df4b25d"
+    ],
+    "lib/docs-audit-deliver.js": [
+      "a374bb6798a68206bb8b36ad40d9169ad5566f2f"
+    ],
+    "lib/fix-audit.js": [
+      "0d82f4d7aaceeee08801be2c7e6a90b688501faf",
+      "0ef1d5cce29f2cc029fdc84402b6ab68f2e2bf9b",
+      "3b408d9fe196144cadd675c7072a8fd36002a475",
+      "4cd72b68ceb4704e22ef39c81ea5d8e8e3704cd8",
+      "5c880f38c1906dd444c4ba4396326dc4a3b7e1a5",
+      "8ab7e062d07b0ea079d99b5b294e4837cb572680"
+    ],
+    "lib/fix-plan.js": [
+      "00ca6fddf50e90fbe99c766f933db13516e03896",
+      "2ebc6aed1be4d2f91c9af6d540882dd3f2eaea85",
+      "37cfa232edd5027bdcfbd1a5c4d0c6beb892f963",
+      "4c3c612fc14d606fe16e96e0953ff9d67c9c91ca",
+      "595e4fd82a80e3a95ff54d03c9871a0002ccf298",
+      "67f955c2d3dc7f98429502b72ccc49bc74ad8fb1",
+      "b4e6dab5eb07757cd4f6d0054fef15defab8b90a",
+      "bc298cd854d3237afa385a587c35346587ba818e",
+      "e9ed68df90594ea2801a93794cb5d59dd3b40f3b"
+    ],
+    "lib/fix-sizing.js": [
+      "2a3a111c0f1ec3a0b399257def2664c06dbb30b4",
+      "3b4f7c4c4c606e888330ef9b8f7c654b98895ea8",
+      "ca5cfbb98cb9113073780f3faaedc910e9dcf019"
+    ],
+    "lib/flaky-ci.js": [
+      "8f8222d57e32c31e4a30f710c1bcd1ae46f94ea4"
+    ],
+    "lib/followup-rank.js": [
+      "50cd011e8b45479e84c7f42ea4b9e356e1fde2b7"
+    ],
+    "lib/functional-verification.js": [
+      "2ba322d8d4bea403d601551dcbb5fc7349ae3856",
+      "30f9aaf9e2df45d3be43a0dc0d29fbb3c5a46daf",
+      "39ceb09cec0fd1226e2e96332a300b137e7ea18c",
+      "43c9e44a405d8374a44188b8f4f614ed5e547a3e",
+      "4fc058e0609ceec7542bcfed900b811e09e9f0d6",
+      "5f80f36db54af74d2699dc9b9599e0a51ca0f56d",
+      "6a47459947c53e8396dcfb53785b54af87209fe5",
+      "7e4d4057c261af7df40d2a9183fc3eb32e4fede5",
+      "80a811a8456a11fb103b5d087809f420d0ffe94c",
+      "90f4abeb1f82e31d7351875af102ff6e28d113ca",
+      "99f65c2c6879077dd376ffa99c22bd26b0e64873",
+      "9af88ec5a092beb82ff3d5563faa3ec98f6f68e3",
+      "aa659bffec8191d37cca3ee02d93c2d055fdca52",
+      "b82b3b80425b4dc60071dfbe0ce453d7223f4cad",
+      "bd97b508ace221caf6ccaa61f7eb13f43e9d71d2",
+      "c779f4ffda6052f61d64edea612816738e0c24ef",
+      "ccc0524e2773409b7ad93b8f17444224f9ba39a1",
+      "d236558bbf3932f3bf4ecbb8ad62db1ddc74786b",
+      "f84d09f6e86fc92a5dcf237e348525ceb3840023"
+    ],
+    "lib/implement-state.js": [
+      "1131515c4c69dab5dc2e6486e2875560666985c5",
+      "36f72937f75d349daa566783befa7e6a34d767c2",
+      "5f3974277fc9738355168d690fc5bdf9778fe632",
+      "73bf80d5635b1651dcb10a766d0fbb34e5bf7e14",
+      "ce0bf736390490c64c1e13d13c1e52c702a58a13",
+      "f5f8399cdd7b5b9ff3f714957c851bcadb3abcf2",
+      "ffab5784d1b4c71ec1a3d31999a81e5a5eabb210"
+    ],
+    "lib/live-evidence.js": [
+      "13cde49837a16c9b7ce05d431f2de705937e42f5",
+      "517addb12fb86b8b3a992bd7ded192e1d9e7201c",
+      "84d5a02abf89648d73a06c296ccaffb6f0017960",
+      "a1045774869cd23e4c45703b37875cf98a108d5d"
+    ],
+    "lib/merge-up.js": [
+      "857f318b2cbd6b2eee0d9d97c0ab164773a662e9",
+      "b29099b933582aa4bba4417134f152137bfb4d01"
+    ],
+    "lib/owner-rules.js": [
+      "e9dbceca3cb3f46fee745e1ec351272afa6db402"
+    ],
+    "lib/plan-weight.js": [
+      "2d42423ea55eb14431132c2b47a5d319df538de0"
+    ],
+    "lib/pull-request.js": [
+      "19e3c3c7095d4c092d64bfdc29a2a6a24de7670f",
+      "9fb50400fddc9333880718a059f1baad3a77ab30",
+      "e80f243ad5653e43483f51e492e3e504d03ea4ea"
+    ],
+    "lib/record-files.js": [
+      "62b3268e7f06eed3f1ddaec3111496ee03ece506",
+      "e1f321be3fa6d23dff66cf432adcfaea28f7ebaf"
+    ],
+    "lib/record-ref.js": [
+      "5544c0ca022f1d761bdb32824011fce46da53f05"
+    ],
+    "lib/records-cutover.js": [
+      "ed571b5f49fb5ada5d550ce81ae7f6c50431b1aa"
+    ],
+    "lib/rerun-scope.js": [
+      "baec542bcdd1b9ab7ac830186de5cd330e52cde0"
+    ],
+    "lib/ship-record-dir.js": [
+      "3f1b82610082fca8b4bfbe02bff9227d83ff454f",
+      "b79915d76148a7fceddb9f50776d02a13d7f6d10"
+    ],
+    "lib/ship-review.js": [
+      "fcd0fbe0a84d461a76ece3a103efc6b4dd60f1ca"
+    ],
+    "lib/ship-sequencer.js": [
+      "429b942af537f9dc82be5b375a4c0b6bd07e334e",
+      "4b90a6c6e4cee2b297bda3defdc51a0b2e8e7878",
+      "77e90640bbe232f923c294bc1e2b3a7b2f4fce81",
+      "89a83a3f3ac46866db30025a780be131e9bad24a",
+      "a43e6469b24e0eb5cbcfa60039998ba562b8f664",
+      "a58e5ed68525ab9f323af722975a412d8a885e17",
+      "f4cc13a78b3181e50ef48342ed787b3f818e223a"
+    ],
+    "lib/spec-scope.js": [
+      "1effa9e2789ee174cbe24f8630e7db427b567e4d",
+      "25dca1957040ed3c04c965aebdd310a898a9b6ab",
+      "3325534b81fb83b1a5b567023ed1494dd87f2911",
+      "6f2c08c6793ed7897b00bfd8930655457a507456"
+    ],
+    "lib/task-graph.js": [
+      "127c8698020c043e8154e04b8126f3beabd2eef9",
+      "17cf19e52a3168014849fcd296c3ed787791fd9a",
+      "229bbbb14d16c166070fe44bce24c007f99d413c",
+      "5b18d07f0f5d9a0c4bfbd4b55f6fca7b8d5b32e8",
+      "6f09dfdfc6b3d1c94d78eeb83e4ce5f1508d4e01",
+      "7e727b81fe946ca2adceab3e33ade5aaea083ad0"
+    ],
+    "lib/test-baseline.js": [
+      "9d38a56e8f52624b4d30fe4b29ecefcc8e0ac8c9"
+    ],
+    "lib/trd-graph.js": [
+      "bbbbce8b144ece9b6a3b5adef20c02798f7ec543"
+    ],
+    "lib/trd-grounding.js": [
+      "645a2ae5b3b6ba8c2d6a94626b0196ec9db5e7a7"
+    ],
+    "lib/trd-parser.js": [
+      "692bcd62548d22f3e5f52c66c8432e6c8c5497c9",
+      "698084a809ddc17d1bca3f0a703ed7975f9d691b",
+      "94ddb6fd3824cd6d4d03d89cc5eef37bb159d7cd"
+    ],
+    "lib/verification-runs.js": [
+      "171b43fab54b6e043299baeb6ca9f41d40233548"
+    ],
+    "lib/waived-defects.js": [
+      "6fff289345f05a6215fbafe8608f8bdd9ea7c1d5",
+      "9a0815fadd78a30ff7d01ac416b70225f56047f9"
+    ],
+    "rules/async-discipline.md": [
+      "5281f08b69bbc4eee2f96955a1e8920a9e232c28",
+      "89eff7fc395ee1f257659834a5983b9d4e591d0d",
+      "997a9f1775b47daa5f6a364b561bc5d9820b4599",
+      "b7423e08f746daab185dca089ad44eff7c758f27",
+      "dd4e4057f41b99d2bd44e8aad3c914d91996d6ee",
+      "e02b6b7e6c5f42dc5011f8fe7008432fcf657b7f"
+    ],
+    "rules/autonomy.md": [
+      "06b8efe12437a3ae464adf7fdd3db287e94dacdb",
+      "6c0234a153dfcf8d493cc4243448f79c4035358f",
+      "6ccb4b1194bef61b142ef338f9408186d21fd56d",
+      "6f51294fe343048d2d4551f22d53c286c0f24b34",
+      "733042bd20be05e2a53d66e6fd0731f6353bea44",
+      "9b7d61fca73964e6c1bf0833e334a4add87ff240",
+      "c37d1f9ad954a179b84e9e05e4da95b47a3a68d6",
+      "f01f3d2f0039b7a9a037847150e25a9fbd2e95b1",
+      "fe7f1fd49d55f227b899215e1bc227a6ddbed2df"
+    ],
+    "rules/command-status.md": [
+      "2be4aad234e3e3cce3664cd81780d53834294711",
+      "2c6a21eef88d9650356a4db02f9531bdb4cbd348",
+      "30292bf4ea6b086520319a736a00e7dc56ab02b1",
+      "39c9ca5f735cdc24a78f0b533b4f2019d4d73ef8",
+      "637743ec61623a1b210b28e99fd279f5bed6a4ca",
+      "6a30a80790911af47d8bdfc523b9ccce8b7eddde",
+      "75a73d904e7a4a02ccb7ea3648cd4ff5a93bf92f",
+      "7e0f002512afb82970e64326eb8eb476fb5a38e3",
+      "90987d808d5304977f91abc384105a134e942e68",
+      "95df888bf4728e1d7a71af23a9d2bbff09fa1f67",
+      "972ed333b6b6418d04d20942c9c257f9062d828b",
+      "9bf799289c32001ddf751736300743ce2e7f3b03",
+      "acb44ac493273988ac0e7a6fe88b4946d22d2783",
+      "d30258f27065b39644d8c4b07b80c8df7285f5b9",
+      "deb8ad3a262a634fb0260f76081bee16a6ea11f2",
+      "df7973969643444ee09eedaa57c008d7f794a096"
+    ],
+    "skills/act-local-ci/REFERENCE.md": [
+      "ba81265811c7913a2064a67d1cbb0397e1db9520"
+    ],
+    "skills/act-local-ci/SKILL.md": [
+      "19c921e4b8cdccf5356125e7f7ffd30488a90b20"
+    ],
+    "skills/act-local-ci/scripts/run-act.js": [
+      "2564f31f694b1cc7f6cfb0e840dfaa3835ee8a1d"
+    ],
+    "skills/act-local-ci/templates/act-config.yaml": [
+      "dcc07ab8361080d66a0d6ce6175b6652c784cee2"
+    ],
+    "skills/aws-cloud/REFERENCE.md": [
+      "f683b6110c8ec4c70977f772dbab16f705b32e2e"
+    ],
+    "skills/aws-cloud/SKILL.md": [
+      "864d7a5fe21f9a6ac0ce32681eab3030a21bed54"
+    ],
+    "skills/blazor/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/blazor/PATTERNS-EXTRACTED.md": [
+      "ad42e2b7381a285b728b138ee06e329e2a51cd91"
+    ],
+    "skills/blazor/README.md": [
+      "fedab0754c751f51b70e2aa5029e6014d0b4551b"
+    ],
+    "skills/blazor/REFERENCE.md": [
+      "844b23d86c42ef23415eeed8824dbb1eb1e638cd"
+    ],
+    "skills/blazor/SKILL.md": [
+      "eb2056d02c169dfce8cc14afe5c0053bcc2c33e1"
+    ],
+    "skills/blazor/VALIDATION.md": [
+      "762cf4d357656cf9d1d06b9d21c445dc2198e812"
+    ],
+    "skills/blazor/dotnet-framework/PATTERNS-EXTRACTED.md": [
+      "d091a9db487ab43cadbc569e31ee16d88bd82201"
+    ],
+    "skills/blazor/dotnet-framework/README.md": [
+      "ecf42a4673fc6050206b1a71f8ca909017c66de3"
+    ],
+    "skills/blazor/dotnet-framework/REFERENCE.md": [
+      "d6d918f9df177614c69c7259cd98aefa8a5ba497"
+    ],
+    "skills/blazor/dotnet-framework/SKILL.md": [
+      "d73671fe21a831f8ab6be981ccd6b1b56e0f6012"
+    ],
+    "skills/blazor/dotnet-framework/VALIDATION.md": [
+      "1e7a8a9287fcc635c667656c19a4b7bc03d23901"
+    ],
+    "skills/blazor/dotnet-framework/examples/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/blazor/dotnet-framework/examples/README.md": [
+      "62b7020484c9d0007bff5fbb0e03b6de681e436f"
+    ],
+    "skills/blazor/dotnet-framework/examples/event-sourcing.example.cs": [
+      "418bea352167f3f3ab9690bde6fd353b25906f0c"
+    ],
+    "skills/blazor/dotnet-framework/examples/web-api.example.cs": [
+      "fe70000940212ae58deeee4a8c91f5c66a6c19a1"
+    ],
+    "skills/blazor/dotnet-framework/templates/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/blazor/dotnet-framework/templates/controller.template.cs": [
+      "338be9e403b87e4df794c46e01ca1325dbd1c9ba"
+    ],
+    "skills/blazor/dotnet-framework/templates/entity.template.cs": [
+      "984814c829aed5456f574f48c568b7e58514e2a0"
+    ],
+    "skills/blazor/dotnet-framework/templates/event.template.cs": [
+      "ec6f5b96b860713e62cc99e26c3a0d8cdf959cba"
+    ],
+    "skills/blazor/dotnet-framework/templates/handler.template.cs": [
+      "acc2faf549f31d13618b16fd05356101ac122924"
+    ],
+    "skills/blazor/dotnet-framework/templates/minimal-api.template.cs": [
+      "e26a2d8cb232a9cad5de699e2e59ac14b81e7af5"
+    ],
+    "skills/blazor/dotnet-framework/templates/projection.template.cs": [
+      "99c717d324b3752b192ee6d6dc394eb1c8703510"
+    ],
+    "skills/blazor/dotnet-framework/templates/test.template.cs": [
+      "4217429ec8f2f4eecd675e0fdfdc104568349b7c"
+    ],
+    "skills/blazor/examples/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/blazor/examples/README.md": [
+      "3eae5f37fcf16bfadc9c392b135ea5771c0de5b4"
+    ],
+    "skills/blazor/examples/realtime-dashboard.example.razor": [
+      "9cabcf2b232bdc8414a5d04c37fe9b90cb673c3e"
+    ],
+    "skills/blazor/examples/todo-app.example.razor": [
+      "497ff4c760dc609ba2bfbeb008c10733368ff9cd"
+    ],
+    "skills/blazor/templates/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/blazor/templates/component.template.razor": [
+      "c99fa25be76e200d04d443cf7d85849d0b7c802d"
+    ],
+    "skills/blazor/templates/form.template.razor": [
+      "f9efe347b2b342a4decfd2be8b6b8f6d4114e039"
+    ],
+    "skills/blazor/templates/layout.template.razor": [
+      "ac9e1db3a9e1f1197b83e59624b5ace3bbb76b81"
+    ],
+    "skills/blazor/templates/page.template.razor": [
+      "b2df166410c75393812ba7fb924c1fd48efbe785"
+    ],
+    "skills/blazor/templates/service.template.cs": [
+      "0389e1450df72583832c283788ea61ea2801c2c8"
+    ],
+    "skills/blazor/templates/test.template.cs": [
+      "0f112f59e2e14714714afe37d44b853df5204b27"
+    ],
+    "skills/building-agent-memory/SKILL.md": [
+      "fd121237ccde520930e6c34425ca138c22cd5190"
+    ],
+    "skills/building-integrations/SKILL.md": [
+      "e8da100dca43f6e688dcc50c7da07d43fba065d0"
+    ],
+    "skills/building-integrations/building-integrations/SKILL.md": [
+      "96ac4eac96aa527d59334efed864ad91341be8d7"
+    ],
+    "skills/building-langgraph-agents/REFERENCE.md": [
+      "f21c9e6daf42943c38631c3d6a591f6250e53021"
+    ],
+    "skills/building-langgraph-agents/SKILL.md": [
+      "6756c0c5b847c7092ff73f422dd41f1b69830232"
+    ],
+    "skills/building-rag-pipelines/SKILL.md": [
+      "90c5d4c1294b1947657176d02f4c9febfbb82bcd"
+    ],
+    "skills/building-tool-orchestration/SKILL.md": [
+      "c4ac7bc04597278002063efdf169bc24ce562467"
+    ],
+    "skills/changelog-generator/REFERENCE.md": [
+      "c2b4e8d52544fa0a03ee744bafd66149878fa248"
+    ],
+    "skills/changelog-generator/SKILL.md": [
+      "16d899d60f929b6abd481c5e25df4901f326a7c6"
+    ],
+    "skills/changelog-generator/scripts/generate-changelog.js": [
+      "7452d3e5b7235c0c09803bff52188fb021346f55"
+    ],
+    "skills/changelog-generator/templates/changelog-config.yaml": [
+      "9792ee8598463fe058829d7f482941701ceb6fb1"
+    ],
+    "skills/cloud-provider-detector/SKILL.md": [
+      "531476ca89d332143b74427e5f9d8c063f7fa01a"
+    ],
+    "skills/cloud-provider-detector/cloud-provider-patterns.json": [
+      "1a53f034d2efc1ed5832fa838c8b56f3190f9ec7"
+    ],
+    "skills/cloud-provider-detector/detect-cloud-provider.js": [
+      "c0dc3390ac379343cd0a0993268b2a27cde63163"
+    ],
+    "skills/cloud-provider-detector/test-detect-cloud-provider.js": [
+      "ec5307b2b39ae045397456b0b13beedaa51b1eb4"
+    ],
+    "skills/design-grounding/SKILL.md": [
+      "651b16d930ce0ec9d6d9a11068b40baa2aafbddb"
+    ],
+    "skills/design-grounding/__tests__/skill-md.test.js": [
+      "601421be1d7cd5d4debea09d7e36e7bb9638e2f4"
+    ],
+    "skills/design-setup/SKILL.md": [
+      "380e0f585cbbe7cccc11be58dde69a805bc3d7a1",
+      "7622c0cb885a75ebcd77892b9796a617a7df20ec"
+    ],
+    "skills/design-setup/__tests__/skill-md.test.js": [
+      "7e210fcd8b3cbe627e3bfbcac144f4512871bf1e",
+      "bfd78d41cd15f5e3056fcaec0df9ce8be549d39b"
+    ],
+    "skills/design-setup/template.md": [
+      "18532f6dd44795548d7f9d8323767335d4de601b",
+      "d682e114011cdcb7bd8b41b4e969996e63999c94"
+    ],
+    "skills/designing-on-canvas/SKILL.md": [
+      "b0e28473110d201c95a3cff27ba4d898cefea517",
+      "ea34711f1ea676a6f13c0b5f9f0182797cb07ca3"
+    ],
+    "skills/designing-on-canvas/__tests__/skill-md.test.js": [
+      "4f8259dbe6257ed76b7f14c2ad36bbe04cc67022",
+      "810df137d954bba4da0d0c6d527c11c724cf5518"
+    ],
+    "skills/developing-with-dotnet/REFERENCE.md": [
+      "08c0b5d05993ff84c114c374774a9612c18cc6a0"
+    ],
+    "skills/developing-with-dotnet/SKILL.md": [
+      "ca1bfc14e3e8603952f3005955545ca6fd289dec"
+    ],
+    "skills/developing-with-flutter/README.md": [
+      "ac18b7c45e714fee8e494e564e87b176013e8896"
+    ],
+    "skills/developing-with-flutter/REFERENCE.md": [
+      "e1a052cbed6f15276dab190e6d26b4c7581a50b6"
+    ],
+    "skills/developing-with-flutter/SKILL.md": [
+      "558be6bb0d39e83db09f6ae3eb6cc6a422dd90d0"
+    ],
+    "skills/developing-with-flutter/examples/ci-cd.example.yaml": [
+      "d428cc072e6012127954f53e495bc3b4cd413728"
+    ],
+    "skills/developing-with-laravel/README.md": [
+      "272c7a9526870f33e06c7936dde67a1226d2db6d"
+    ],
+    "skills/developing-with-laravel/REFERENCE.md": [
+      "4cd7c519a5dc714c80bdd5f00dcbf85a2fa999ac"
+    ],
+    "skills/developing-with-laravel/SKILL.md": [
+      "a8ed8bcef1d7c4c90b3c9baa2d25ff84ba26c7b6"
+    ],
+    "skills/developing-with-laravel/VALIDATION.md": [
+      "777c7467d5995d82881478cdc6f17aa34b9bc583"
+    ],
+    "skills/developing-with-laravel/examples/api_resource.example.php": [
+      "0bb16e1d7887740e2cd7728646b10d2fd284c0be"
+    ],
+    "skills/developing-with-laravel/examples/artisan_patterns.example.php": [
+      "d778a4cc6f9c115245b8539fe4f78b7d9f59ce68"
+    ],
+    "skills/developing-with-laravel/examples/eloquent_patterns.example.php": [
+      "aeec5153535475c10c411d0fd2aa35211954b665"
+    ],
+    "skills/developing-with-laravel/examples/multi_tenant.example.php": [
+      "4119568be4c5afc4ec5c756b2035c1dcfae20f73"
+    ],
+    "skills/developing-with-laravel/examples/passport_oauth.example.php": [
+      "67915a752058a48f4f0991873b1fde94561fe7b6"
+    ],
+    "skills/developing-with-laravel/examples/permission_acl.example.php": [
+      "ba1074986f30715407be5c5c8e2835c7b5f729f4"
+    ],
+    "skills/developing-with-laravel/examples/queue_workflow.example.php": [
+      "0d9105498d550a59f4efc088423406c012476fcd"
+    ],
+    "skills/developing-with-laravel/templates/command.template.php": [
+      "b65d12a352d869e0c988df522bd124f4a8368e30"
+    ],
+    "skills/developing-with-laravel/templates/command_consumer.template.php": [
+      "4bf79fb4a25794570ba3025d6cf6cea875965694"
+    ],
+    "skills/developing-with-laravel/templates/command_scheduled.template.php": [
+      "4cec2c168ef83a077c5fa7bca1335c68b7b8ad48"
+    ],
+    "skills/developing-with-laravel/templates/controller.template.php": [
+      "687d44f5af67a8b5d28fc2673ee49649f9eb0bc7"
+    ],
+    "skills/developing-with-laravel/templates/custom_rule.template.php": [
+      "afd18c3d321b002dfc5346764973b77f67030bbb"
+    ],
+    "skills/developing-with-laravel/templates/event.template.php": [
+      "4e5139d598ab429989e37c0a696839bde6edd394"
+    ],
+    "skills/developing-with-laravel/templates/factory.template.php": [
+      "fbb220005df46c89f35dda1de5492cbff2844545"
+    ],
+    "skills/developing-with-laravel/templates/form_request.template.php": [
+      "5c8263d10c4e3db4b5bc6af294d4cf62fabb9a4c"
+    ],
+    "skills/developing-with-laravel/templates/job.template.php": [
+      "2098d36e5e0bb0b2ea6f2ec4ac7320c0b1d67f2c"
+    ],
+    "skills/developing-with-laravel/templates/listener.template.php": [
+      "fc319362aae9acb957747ff6a89d9fd71e218c1f"
+    ],
+    "skills/developing-with-laravel/templates/middleware.template.php": [
+      "eb5245253a0b75419428314bec6b5dd022d19ed8"
+    ],
+    "skills/developing-with-laravel/templates/migration.template.php": [
+      "7ba3b58d5e0f0954c6df05e5ba8c315e3fe82b39"
+    ],
+    "skills/developing-with-laravel/templates/model.template.php": [
+      "595bf47f99cf4d6aca64c9ce653d89073062f9da"
+    ],
+    "skills/developing-with-laravel/templates/policy.template.php": [
+      "8a928bf54d9d1eea964a01af89c9a6f6724ca82b"
+    ],
+    "skills/developing-with-laravel/templates/seeder.template.php": [
+      "ad9b6e9e81aede02a65bba84863316707edc2ab1"
+    ],
+    "skills/developing-with-laravel/templates/service_provider.template.php": [
+      "f246681cf34971eff06fda1826dde875b688a49d"
+    ],
+    "skills/developing-with-laravel/templates/test.template.php": [
+      "6aac2a8dca3b055019a89d715c23d45f15074e93"
+    ],
+    "skills/developing-with-php/README.md": [
+      "a8e9c62841b94e4a00a0ab441d45e7811cc4f3c1"
+    ],
+    "skills/developing-with-php/REFERENCE.md": [
+      "0f518ea4684cf32b0fb437792c23ac86ff8af7d7"
+    ],
+    "skills/developing-with-php/SKILL.md": [
+      "26a2e0ca2afed674bf1fc42426e5f509fe25d5da"
+    ],
+    "skills/developing-with-php/VALIDATION.md": [
+      "d8c954815507b671bb044ec6cdfff300d612bbcc"
+    ],
+    "skills/developing-with-php/examples/handler_architecture.example.php": [
+      "77b6c212c8d55989ef87411c4c17cb0c2e54c6b5"
+    ],
+    "skills/developing-with-php/templates/class.template.php": [
+      "f90f580bc41a18bf936b8b52a6e72728e9845dbd"
+    ],
+    "skills/developing-with-php/templates/composer.template.json": [
+      "18be5adb2aaa67c3c75ef9089806f2419ac2f138"
+    ],
+    "skills/developing-with-php/templates/enum.template.php": [
+      "969f564af2f1624bc2be21231f80154124a6bc61"
+    ],
+    "skills/developing-with-php/templates/handler.template.php": [
+      "b78ee1a5edc3d30d3039545a4878ff79b0cc9d91"
+    ],
+    "skills/developing-with-php/templates/interface.template.php": [
+      "b675efd650124d1bf41229e704fb6d9d684e7ba8"
+    ],
+    "skills/developing-with-php/templates/map_data.template.php": [
+      "19908bef018f9b3fdf072b324a7b56816788544a"
+    ],
+    "skills/developing-with-php/templates/pdo_repository.template.php": [
+      "c57d2db493eb2d5d59d12d01f4ef95b3484fedfd"
+    ],
+    "skills/developing-with-php/templates/phpunit.template.xml": [
+      "c5d1fa12a1cc27e7ad503e8dc8888a100d51d55c"
+    ],
+    "skills/developing-with-php/templates/trait.template.php": [
+      "b05dba5b0f4f4cba99655d8c4d136513684276dc"
+    ],
+    "skills/developing-with-python/SKILL.md": [
+      "196069ac55c22a008c58b8adf02a341ccacdb194"
+    ],
+    "skills/developing-with-react/SKILL.md": [
+      "c3e91c0317508a73905b4481cb50c4401a340aa6"
+    ],
+    "skills/developing-with-typescript/README.md": [
+      "e98a5f2958e4a30a0b47674cf3663028300daea7"
+    ],
+    "skills/developing-with-typescript/REFERENCE.md": [
+      "78a8626487981ac05cc21ff27d89131544a57520"
+    ],
+    "skills/developing-with-typescript/SKILL.md": [
+      "1b57ad9be0727497a31a1ded6e510f7cc6a3d4b0"
+    ],
+    "skills/exunit/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/exunit/SKILL.md": [
+      "c4f2d3266b02fff016c68e0edeca584c21a03ab7"
+    ],
+    "skills/exunit/generate-test.exs": [
+      "e0a2d741bf871226f83df5ed749e93b9d9792bc5"
+    ],
+    "skills/exunit/run-test.exs": [
+      "9dd8105f3697c00fe3db352174d2bee62cc34c6b"
+    ],
+    "skills/figma-pixel-perfect/LOOP-REFERENCE.md": [
+      "00db3e4bd9b8c6537824fb7f4b30bf9fd92a01e9"
+    ],
+    "skills/figma-pixel-perfect/SKILL.md": [
+      "9477755b6cb4234697595f3a8c31d3c68b669de5"
+    ],
+    "skills/flyio/REFERENCE.md": [
+      "1e9f518d1ab4f494fb65c476a8fa9189f21cd3cc"
+    ],
+    "skills/flyio/SKILL.md": [
+      "ac1eda99392574767e3cf4e13595cae15a95be72"
+    ],
+    "skills/flyio/examples/README.md": [
+      "b06fb48c74f78e2eb1e8b359610853c08400c902"
+    ],
+    "skills/flyio/examples/VALIDATION.md": [
+      "a5efb59845df7c5df733443881e81eaf76bfc263"
+    ],
+    "skills/flyio/examples/background-worker/Dockerfile": [
+      "b641ac6c3813e0dd5524070425f483a5adf94d07"
+    ],
+    "skills/flyio/examples/background-worker/README.md": [
+      "93e03d69f3d86e45faab73038fa9b8dd51fec3b8"
+    ],
+    "skills/flyio/examples/background-worker/deploy.sh": [
+      "746f0dba5e6db863071bad975ff7d1d13efdead0"
+    ],
+    "skills/flyio/examples/background-worker/fly.toml": [
+      "af6a6b1b1b79449be538e777515f990956655f3b"
+    ],
+    "skills/flyio/examples/background-worker/requirements.txt": [
+      "94dd5f0c5b22dae0ee363c2e5192c9caabed2554"
+    ],
+    "skills/flyio/examples/background-worker/tasks.py": [
+      "a56ee001e01b3188dbbbbd68f53ea5a0c1d0ac2f"
+    ],
+    "skills/flyio/examples/elixir-phoenix-liveview/Dockerfile": [
+      "2807bf820c49e85a90ea16597ae8853448742ca9"
+    ],
+    "skills/flyio/examples/elixir-phoenix-liveview/README.md": [
+      "897ea233a5961831b33020fa12f0965f16cb6375"
+    ],
+    "skills/flyio/examples/elixir-phoenix-liveview/deploy.sh": [
+      "cafee033c135f4cbcf405070ad0a6a101732633a"
+    ],
+    "skills/flyio/examples/elixir-phoenix-liveview/fly.toml": [
+      "a8436ce3be4061dda264626cee8fb04b79873f0c"
+    ],
+    "skills/flyio/examples/go-http-server/Dockerfile": [
+      "fd2b4d560512912e36657a521e37472e873c143c"
+    ],
+    "skills/flyio/examples/go-http-server/README.md": [
+      "15f5431adf8e8a008624c2ac4979e5259dcc1d88"
+    ],
+    "skills/flyio/examples/go-http-server/deploy.sh": [
+      "ffde643d786f054b6e0d957f4097a07066efc6a1"
+    ],
+    "skills/flyio/examples/go-http-server/fly.toml": [
+      "9045191f98dd15a0d62557b3e1cd7130c7b5c371"
+    ],
+    "skills/flyio/examples/go-http-server/go.mod": [
+      "69a9fef7c22ffd55428989947a61f94308f05311"
+    ],
+    "skills/flyio/examples/go-http-server/main.go": [
+      "b4fcf3088d4703787e352f33aa9d82a3a170e8ee"
+    ],
+    "skills/flyio/examples/multi-region/Dockerfile": [
+      "f86af7bcac1851f64700240de08a1262181f4e8f"
+    ],
+    "skills/flyio/examples/multi-region/README.md": [
+      "939ec880222824d5acd4bfaa8e68b34600f80ea3"
+    ],
+    "skills/flyio/examples/multi-region/deploy.sh": [
+      "290ef77d4937d74e3cfd2a4b61676e96e68c2589"
+    ],
+    "skills/flyio/examples/multi-region/fly.toml": [
+      "0d492c6106e81c1e6863b4594f63bd9468400d6b"
+    ],
+    "skills/flyio/examples/multi-region/package.json": [
+      "8b157df05e1d72d327f10597a3192a2c1636ef0c"
+    ],
+    "skills/flyio/examples/multi-region/server.js": [
+      "8b3a07de830881ee960c9204a31251a1668a0809"
+    ],
+    "skills/flyio/examples/nodejs-express-api/Dockerfile": [
+      "0c997881ca35f62261331ab14de230ce01e07e88"
+    ],
+    "skills/flyio/examples/nodejs-express-api/README.md": [
+      "5cfb53d89ae0ee25638beb24da4af6d269189508"
+    ],
+    "skills/flyio/examples/nodejs-express-api/deploy.sh": [
+      "73d747855a0a6b118f8bc74b77f4e3b9e55b659f"
+    ],
+    "skills/flyio/examples/nodejs-express-api/fly.toml": [
+      "a8b23a4f02ef86d87e67bcaf228b54c642a78410"
+    ],
+    "skills/flyio/examples/nodejs-express-api/package.json": [
+      "ab7a04ad7d8b781da05b28e7e3af238d2e10ca2e"
+    ],
+    "skills/flyio/examples/nodejs-express-api/server.js": [
+      "caedd608002a1d4e63cda4312918410a012f085d"
+    ],
+    "skills/flyio/examples/nodejs-nestjs-microservice/Dockerfile": [
+      "d6fee919ad98d73d9abd48117ce2d7b927779397"
+    ],
+    "skills/flyio/examples/nodejs-nestjs-microservice/README.md": [
+      "36c052448e6a048ef84328bf88cd64c56884fdb4"
+    ],
+    "skills/flyio/examples/nodejs-nestjs-microservice/deploy.sh": [
+      "c5a02ab89616167731b701f6d68f927d2dfc4a97"
+    ],
+    "skills/flyio/examples/nodejs-nestjs-microservice/fly.toml": [
+      "db1c6a2827f6dcab844ab10f25ea423fcdea3fa3"
+    ],
+    "skills/flyio/examples/nodejs-nestjs-microservice/package.json": [
+      "ba8d0c2421be71facf0be8cad169af5f9a7b4f12"
+    ],
+    "skills/flyio/examples/nodejs-nextjs-web/Dockerfile": [
+      "083cac3fb5fec06cf940c73400bad9ac0305ae31"
+    ],
+    "skills/flyio/examples/nodejs-nextjs-web/README.md": [
+      "f041d57961fa28ac9d689e8d476771dbda3bdcdd"
+    ],
+    "skills/flyio/examples/nodejs-nextjs-web/deploy.sh": [
+      "4fc8cdc054dd97a9eab01d7c1cac300cf8eddf29"
+    ],
+    "skills/flyio/examples/nodejs-nextjs-web/fly.toml": [
+      "18c2ed993113f86a9637b98d69a9844b3ff8fa02"
+    ],
+    "skills/flyio/examples/nodejs-nextjs-web/next.config.js": [
+      "19b7fa7edc288799d121b83b3396e16a9461d344"
+    ],
+    "skills/flyio/examples/nodejs-nextjs-web/package.json": [
+      "916a457473b655024cb3c9dbd4ddb630e7f933bc"
+    ],
+    "skills/flyio/examples/python-django-web/Dockerfile": [
+      "62757535987e4c167502d88d6e449c295144a743"
+    ],
+    "skills/flyio/examples/python-django-web/README.md": [
+      "6aa084f122f28cc5f637171ff0ec7b9622233a61"
+    ],
+    "skills/flyio/examples/python-django-web/deploy.sh": [
+      "4d0593a63279bf6efc227b5ab290b72896ad69b4"
+    ],
+    "skills/flyio/examples/python-django-web/fly.toml": [
+      "39eef0968292493e661b94e2617137e84c6fe4bf"
+    ],
+    "skills/flyio/examples/python-django-web/requirements.txt": [
+      "38cf301cd37c1304caf2eae707a5bb0cc495bf15"
+    ],
+    "skills/flyio/examples/python-fastapi-async/Dockerfile": [
+      "0610cbd1748ecccc76eb6fdab650faa3e036adf7"
+    ],
+    "skills/flyio/examples/python-fastapi-async/README.md": [
+      "f1d4437908624b6826d20e0e336146579feed1c4"
+    ],
+    "skills/flyio/examples/python-fastapi-async/deploy.sh": [
+      "916e11678868842630b5c88980262089cf1d4064"
+    ],
+    "skills/flyio/examples/python-fastapi-async/fly.toml": [
+      "54f966d479b5c498b8d1b1c1f535bdaeafd67d23"
+    ],
+    "skills/flyio/examples/python-fastapi-async/main.py": [
+      "70ccddda041b217e05a71750ddca4afca82249ca"
+    ],
+    "skills/flyio/examples/python-fastapi-async/requirements.txt": [
+      "591619039311952825035577866ec132bed6eda0"
+    ],
+    "skills/flyio/examples/python-flask-redis/Dockerfile": [
+      "8686babd303559609ae35b212afaad41c9150c6d"
+    ],
+    "skills/flyio/examples/python-flask-redis/README.md": [
+      "c8fada76e4e22227f54d7be58dfb64366b77a4be"
+    ],
+    "skills/flyio/examples/python-flask-redis/app.py": [
+      "246e58a1447fcc4e65e50f9f1b05ed2090e5db9e"
+    ],
+    "skills/flyio/examples/python-flask-redis/deploy.sh": [
+      "8315bdcd4dfb00652a41e72a67aae6490953b756"
+    ],
+    "skills/flyio/examples/python-flask-redis/fly.toml": [
+      "78a6b64400d80be36f8aac53b0d737a08ead862c"
+    ],
+    "skills/flyio/examples/python-flask-redis/requirements.txt": [
+      "85b7ff3928c9b2b4e2b432ed448e8429bf33adce"
+    ],
+    "skills/flyio/examples/ruby-rails-api/Dockerfile": [
+      "8cc8dd5050421a03ea9ad94a87dcf995ac449b97"
+    ],
+    "skills/flyio/examples/ruby-rails-api/Gemfile": [
+      "1482e4f7e41ccd928129510899dab458459a1da9"
+    ],
+    "skills/flyio/examples/ruby-rails-api/README.md": [
+      "a2f3ae3deab6f484412a1c41c10d7c1c395f4a59"
+    ],
+    "skills/flyio/examples/ruby-rails-api/deploy.sh": [
+      "cc265f2383d78e6d30014ec23dd7257f812601de"
+    ],
+    "skills/flyio/examples/ruby-rails-api/fly.toml": [
+      "bbc08074e1335f13d52d0178788542bbcd93a4c9"
+    ],
+    "skills/flyio/examples/static-site/Dockerfile": [
+      "9f98e3f90e34973cd55d4147c2aab4cf107e00a7"
+    ],
+    "skills/flyio/examples/static-site/README.md": [
+      "e2d6638ba2ffe7ac84e6d5c5e4c68c4d43d3016d"
+    ],
+    "skills/flyio/examples/static-site/deploy.sh": [
+      "74b85c847854d8779b9abb8206f79c7512271a17"
+    ],
+    "skills/flyio/examples/static-site/fly.toml": [
+      "40a3721da23ef1959fe80ef430a3eb55a9b3e996"
+    ],
+    "skills/flyio/examples/static-site/nginx.conf": [
+      "f7d4a4535b4aac109c6b14daf2976bbb0b034a17"
+    ],
+    "skills/framework-detector/SKILL.md": [
+      "465d431f203d6cea123519c59b6214f04eb51612"
+    ],
+    "skills/framework-detector/__tests__/detect-framework.test.js": [
+      "d42252d8e82c0d69c460b95ad7a8374383430e46"
+    ],
+    "skills/framework-detector/detect-framework.js": [
+      "fb3e1b06f655e39bf73fc01336a676e994b2da38"
+    ],
+    "skills/framework-detector/framework-patterns.json": [
+      "244e4e1efb50d26b7144e46c83905c58e353eb1d"
+    ],
+    "skills/framework-skills.txt": [
+      "09ef4b3690f6d45ad28fcd1d6b2aa2d82e9237a1",
+      "241f32d93391a9cfc097c982c5cf9ac9ba859ca6",
+      "56293aa181465300832719ce487c265513293603",
+      "9be58c04a54b139495fb46a36b28f4fd46c5bcb3",
+      "b9b10c733670c8115824600a7b33b11a8ce92ece"
+    ],
+    "skills/frontend-design/SKILL.md": [
+      "15c0648c6f862620f413db1f205c1b7f1c3afc7d",
+      "2f5966215c1855f53716fa0b6c1a1270afbd762f",
+      "4bceae4a5277dc64fb6c790cc2eac61a1aff5780"
+    ],
+    "skills/frontend-design/__tests__/skill-md.test.js": [
+      "d5aa91c12e46c69bcdd33d246095342e930c22f2"
+    ],
+    "skills/git-town/COMPLETION_SUMMARY.md": [
+      "2a6735d0277dfb815cf93bb75a5aea24b39587a0"
+    ],
+    "skills/git-town/ERROR_HANDLING.md": [
+      "5ac5fcb0ff863960ffed63db8021cd8ba504e45f"
+    ],
+    "skills/git-town/README.md": [
+      "e9b9480159a1b991b290f55c862a896d55ed89d0"
+    ],
+    "skills/git-town/REFERENCE.md": [
+      "063814fe92ff1c119e4b3f8ca208af57349dc081"
+    ],
+    "skills/git-town/SKILL.md": [
+      "da373ba6466464f85baa76c5498de95c7fa08a2a"
+    ],
+    "skills/git-town/TESTING.md": [
+      "d5df20af5f71539fff9bf7e513e6af1a14097bd0"
+    ],
+    "skills/git-town/cicd/INTEGRATION.md": [
+      "cb8bf397c81c4a384276bf244aa63f6a6eb9cce2"
+    ],
+    "skills/git-town/cicd/examples/github-actions.yml": [
+      "b88247e8d25853e1404a7e1dd7ddcc384abe32cb"
+    ],
+    "skills/git-town/cicd/examples/gitlab-ci.yml": [
+      "9a79c6fe455c93c9f5e274528a8ce5197b143f13"
+    ],
+    "skills/git-town/guides/agent-skill-integration.md": [
+      "84e8f5b5962c40fbbfa64d91200be3a07aea7a26"
+    ],
+    "skills/git-town/guides/migration-git-flow.md": [
+      "a7d9a8117f1d31c314d3967ff44a52ee647a150d"
+    ],
+    "skills/git-town/guides/migration-github-flow.md": [
+      "21c00605084f8756161665d73f94a432303660d6"
+    ],
+    "skills/git-town/guides/migration-trunk-based.md": [
+      "ad99f4977de29ec58dd6aa18ef5637a4c9bc92ed"
+    ],
+    "skills/git-town/guides/monorepo.md": [
+      "b4e6a9f2a5fb3328210d592b689247deaaa20c02"
+    ],
+    "skills/git-town/guides/onboarding.md": [
+      "e26961b9e4d8bc0bea61070d412e76464e0581d2"
+    ],
+    "skills/git-town/scripts/test-validate.sh": [
+      "5d57b614207fe17d0ea5d887135ef2f69538cde2"
+    ],
+    "skills/git-town/scripts/validate-git-town.sh": [
+      "7e3578b9b4f21786963d2c6faa04524b56dab538"
+    ],
+    "skills/git-town/templates/SKILL_TEMPLATE.md": [
+      "2a7bbebd7f81d9b1bdaf4311c709dd1eb897123e"
+    ],
+    "skills/git-town/templates/interview-branch-creation.md": [
+      "5e0a3b3be06f9f0864cae2bd518a9f83ca726f05"
+    ],
+    "skills/git-town/templates/interview-completion.md": [
+      "7d0e1cb5b174a75f3caa3b0a7140e05855b0f3b6"
+    ],
+    "skills/git-town/templates/interview-pr-creation.md": [
+      "cb8e2767b7220844d4eb67459753662a480492b8"
+    ],
+    "skills/git-town/tests/comprehensive-test.sh": [
+      "d9b66558a26119793a4878b75ed3ea46002be258"
+    ],
+    "skills/git-town/tests/test-integration.sh": [
+      "cbdbd762afda5b28fd8ea78e6d23ef97a8d5a1ab"
+    ],
+    "skills/git-town/tests/test-skill.sh": [
+      "2b5d10e6546ce5661ab3ab45a62d366874f3295f"
+    ],
+    "skills/helm/REFERENCE.md": [
+      "9e9f3cfa8884d8e37201dde443a76af5e00bf6d0"
+    ],
+    "skills/helm/SKILL.md": [
+      "59f689f503bf67b096d1be238851371592f25965"
+    ],
+    "skills/jest/SKILL.md": [
+      "1235e05c5624310659927cad49ea0dc083ce38d6"
+    ],
+    "skills/kubernetes/REFERENCE.md": [
+      "14b47590e8c51b4982c80556567051db0b031f62"
+    ],
+    "skills/kubernetes/SKILL.md": [
+      "c3cd292b4d6bcf8a9fd414f451de3e459196f51b"
+    ],
+    "skills/managing-azure-devops/REFERENCE.md": [
+      "fa739ad972804056c3371496bcf0e5f6493de949"
+    ],
+    "skills/managing-azure-devops/SKILL.md": [
+      "5d80d04904d8ad6597e9b69550be2eb3fb6fd666"
+    ],
+    "skills/managing-azure-devops/managing-azure-devops/REFERENCE.md": [
+      "fa739ad972804056c3371496bcf0e5f6493de949"
+    ],
+    "skills/managing-azure-devops/managing-azure-devops/SKILL.md": [
+      "662b01e3445a4f2348919ce9fa547a3707b9a359"
+    ],
+    "skills/managing-jira-issues/SKILL.md": [
+      "78d0b54765fd3540078c609850ccacad83a346cd"
+    ],
+    "skills/managing-linear-issues/SKILL.md": [
+      "07a4deb91b5802ed3003011cf39c8b276ad772b8"
+    ],
+    "skills/managing-railway/README.md": [
+      "323aa6ace70849ef0b1023fd558d293b931e2b3d"
+    ],
+    "skills/managing-railway/REFERENCE.md": [
+      "9c7e0ac4858ebad42eabdad73723b75fbf3c681d"
+    ],
+    "skills/managing-railway/SKILL.md": [
+      "aa0aba6aee6dc68ff98f8af11d11bf767308e274"
+    ],
+    "skills/managing-railway/examples/ci-cd.example.yaml": [
+      "0efe4dab386c1de81cfa8362db3f5d459a061b97"
+    ],
+    "skills/managing-supabase/README.md": [
+      "d109889ef05181109e452768deab9e5ed986bddd"
+    ],
+    "skills/managing-supabase/REFERENCE.md": [
+      "bae2484e046bcde1e9b6554813b4999185da2640"
+    ],
+    "skills/managing-supabase/SKILL.md": [
+      "a2f91f94c9b3dd481ebb39dcce81d53fa11e72c0"
+    ],
+    "skills/managing-supabase/examples/ci-cd.example.yaml": [
+      "00d0d6cb9f853403691c64e05b49a5701b324615"
+    ],
+    "skills/managing-vercel/README.md": [
+      "6844b32fe7523e54fc0a8a04b3f8b9cb3729f94b"
+    ],
+    "skills/managing-vercel/REFERENCE.md": [
+      "6dd65872ed566191acc9db692b1eb445be480c38"
+    ],
+    "skills/managing-vercel/SKILL.md": [
+      "731062a127db949a009be91fb5558f57cf1f43aa"
+    ],
+    "skills/managing-vercel/examples/ci-cd.example.yaml": [
+      "e0455dc674ae2c9c3c6848b4087de8f168a98ddb"
+    ],
+    "skills/nestjs/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/nestjs/REFERENCE.md": [
+      "49436cfd9121d01a0237b2fc8007953d4e238b2c"
+    ],
+    "skills/nestjs/SKILL.md": [
+      "299e34f1985632cbea06716ae369fe8e130b4b57"
+    ],
+    "skills/nestjs/VALIDATION.md": [
+      "22ad4aa84287501dbff5b6a3a8579119b5ad258d"
+    ],
+    "skills/nestjs/examples/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/nestjs/examples/README.md": [
+      "ebdacd36a3c488f0218c22ad0cf966726f48737b"
+    ],
+    "skills/nestjs/examples/jwt-authentication.example.ts": [
+      "705a5b2de0ab245d5123657cba7354cad7d0bd35"
+    ],
+    "skills/nestjs/examples/user-management-crud.example.ts": [
+      "c7ff7691beba33b903d2c72a836b260f2e83c5ff"
+    ],
+    "skills/nestjs/templates/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/nestjs/templates/TEST-RESULTS.md": [
+      "4f5710f61fc13911fe5a13825923c4e4791ea52b"
+    ],
+    "skills/nestjs/templates/controller.template.ts": [
+      "27ce8119c30992a2f700a8c681e5a8c2a33474a4"
+    ],
+    "skills/nestjs/templates/dto.template.ts": [
+      "bb0f2fa4dc3cc8d818f953bad0892486aad8ed7e"
+    ],
+    "skills/nestjs/templates/entity.template.ts": [
+      "73baf06425b227478a4845fc14e6b7ef573e2c18"
+    ],
+    "skills/nestjs/templates/module.template.ts": [
+      "86cffaf04b8db1401a84e22cd846044a79381035"
+    ],
+    "skills/nestjs/templates/repository.template.ts": [
+      "ddce2c1e2e70b9f6b24c107202c0c924832e82b0"
+    ],
+    "skills/nestjs/templates/service.spec.template.ts": [
+      "144e7bbbd27665bc0ce0ffb25333c7e5a88835a2"
+    ],
+    "skills/nestjs/templates/service.template.ts": [
+      "b89d3c84c9154185de95d351b4322699b1b46b2d"
+    ],
+    "skills/nestjs/templates/test-templates.js": [
+      "d03c267f04af0ad25d41edd4eb93a2c644f5308b"
+    ],
+    "skills/phoenix/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/phoenix/PATTERNS-EXTRACTED.md": [
+      "5d38e40a0edd2b9f1ba76822f41454e02bdff49f"
+    ],
+    "skills/phoenix/README.md": [
+      "8b06851ffa453edcda3d401581f1978cd84b99cf"
+    ],
+    "skills/phoenix/REFERENCE.md": [
+      "6eb41b3448f0b906d6ebe896b285df1f2fa6fc5a"
+    ],
+    "skills/phoenix/SKILL.md": [
+      "6dcf74929c2a2b5e5961b2876ea9e02308f98602"
+    ],
+    "skills/phoenix/VALIDATION.md": [
+      "304abccb2f0bf64a89ff5ea28b5f14e1cc9d4076"
+    ],
+    "skills/phoenix/examples/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/phoenix/examples/README.md": [
+      "448453c3046acea55b1383382768c5c2402e6899"
+    ],
+    "skills/phoenix/examples/background-jobs.example.ex": [
+      "86b3291be9fa627699bcdf861a86171afa901beb"
+    ],
+    "skills/phoenix/examples/blog-post-crud.example.ex": [
+      "7badb17e3321d1f39fef28c09efc6c674a267f35"
+    ],
+    "skills/phoenix/examples/real-time-chat.example.ex": [
+      "18acf2db79d192a25c67ad8961e24c07927f0509"
+    ],
+    "skills/phoenix/templates/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/phoenix/templates/README.md": [
+      "aed8ead731858360a4be5b18957f59048e255793"
+    ],
+    "skills/phoenix/templates/context.template.ex": [
+      "60eaff0f3eb4ba7b0aa1697de01e450275d3fa40"
+    ],
+    "skills/phoenix/templates/controller.template.ex": [
+      "20bd74d48276a30a88e24408191c157838a1a608"
+    ],
+    "skills/phoenix/templates/json_view.template.ex": [
+      "f97d3c9ab1c5ceaf82b17013dc329243e16f7fe4"
+    ],
+    "skills/phoenix/templates/liveview.template.ex": [
+      "38bd4c5afbb0911112d41a392fde73ebf6f3f18e"
+    ],
+    "skills/phoenix/templates/migration.template.exs": [
+      "e5d4b188e4505cb84424d5c8b470c04d885f7a02"
+    ],
+    "skills/phoenix/templates/schema.template.ex": [
+      "2149f71192f43078f025b5bee11c1c0d09f92b03"
+    ],
+    "skills/phoenix/templates/test.template.exs": [
+      "59a55203ad7ab9644049d3770e272f126996a790"
+    ],
+    "skills/playwright-automation/REFERENCE.md": [
+      "e5e0a3f49b4af0ebbd38bcf985075a7406fa595a"
+    ],
+    "skills/playwright-automation/SKILL.md": [
+      "d1f8a7678b9138a69354f0cad2221c204b521aa5"
+    ],
+    "skills/pytest/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/pytest/REFERENCE.md": [
+      "51f89b2f4e507e6450838a0a4786970a6dd474d9"
+    ],
+    "skills/pytest/SKILL.md": [
+      "af1151cf7614ccf2a627cc8930ffe1ca7ff8bcc1"
+    ],
+    "skills/pytest/generate-test.py": [
+      "8239abed8dacfccc83419be5597e2f63c4187f19"
+    ],
+    "skills/pytest/run-test.py": [
+      "cc70b58f5469f2a36ccf966717caba9bd4fb4bfe"
+    ],
+    "skills/rails/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/rails/PATTERNS-EXTRACTED.md": [
+      "a43f61ac437c5d995143ebb8ee6bc15380c28bce"
+    ],
+    "skills/rails/README.md": [
+      "c3a07bd8dc9614a563f0bd19ee32065229bf3519"
+    ],
+    "skills/rails/REFERENCE.md": [
+      "087c0730446f7e6e6d107d57f77ed140f74121d8"
+    ],
+    "skills/rails/SKILL.md": [
+      "9e79e7add764dffc01af754c4b6c1736ba2a179b"
+    ],
+    "skills/rails/VALIDATION.md": [
+      "129ddcbb051171e36b98492ce9dabb8658216d29"
+    ],
+    "skills/rails/examples/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/rails/examples/README.md": [
+      "be692908d6e89a3d1efa98df13b96d689542b609"
+    ],
+    "skills/rails/examples/background-jobs.example.rb": [
+      "521c26e5554016f9d99030f714cac9bd3a72a801"
+    ],
+    "skills/rails/examples/blog-api.example.rb": [
+      "aab8647c3681f8244a97f226599a6075486a939c"
+    ],
+    "skills/rails/templates/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/rails/templates/controller.template.rb": [
+      "62a4a856ba1947489960ede13d9faf820898e8f9"
+    ],
+    "skills/rails/templates/job.template.rb": [
+      "826906f3029eac8161566c4e889231e03b530bf5"
+    ],
+    "skills/rails/templates/migration.template.rb": [
+      "4ede4885222a99ac0db924be3fd8e73bc18c0447"
+    ],
+    "skills/rails/templates/model.template.rb": [
+      "689648c16e9bf8ae6f2fc041cf8de7a0f3af066c"
+    ],
+    "skills/rails/templates/serializer.template.rb": [
+      "ac11dafaf6af766d9b29f8735755d202c435da35"
+    ],
+    "skills/rails/templates/service.template.rb": [
+      "8356878d575f72d8480e1b0e89005820f56946b6"
+    ],
+    "skills/rails/templates/spec.template.rb": [
+      "9f2a3008da7452d9c5d16cb7aeef817789c25050"
+    ],
+    "skills/rspec/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/rspec/SKILL.md": [
+      "97e253642e2dd649e90e3accc337d57bb6e94ac2"
+    ],
+    "skills/rspec/generate-test.rb": [
+      "53c6ddff1bf77bea857b6938e1c034ff0053d55e"
+    ],
+    "skills/rspec/run-test.rb": [
+      "3226a85307e9ad98f88be04518a5e089f8862ed4"
+    ],
+    "skills/ship-setup/SKILL.md": [
+      "0c35236803f8411dc420ccce15fd8c6d717f0215",
+      "39a9c12c394202b052b4cc7f3bac8080f4a423a4",
+      "9c2f196d34fac0b17a0c62341fd41e482c1afee0",
+      "a52664cceca8bee0104cc33f5ebb09ebe56323aa",
+      "ca8654436f333311621b067b391e3109247c4066"
+    ],
+    "skills/ship-setup/__tests__/skill-md.test.js": [
+      "0f3bf08b186c56d58c92ed08eefc58dbcbf49d9d",
+      "659ec2659108baed28a1df389488957ac470d696",
+      "80b4536c5e8d693a21cf59447fa7a4d132bac2c0",
+      "cbe1b80c5979fd2fe9899dd975066e124d398eb0"
+    ],
+    "skills/ship-setup/ensemble-ship-resume.yml": [
+      "6c60556ffb2e0b3329d878421337231f55d0c785",
+      "9da19eb6d99c5a495f12cd4c652384cdb229841b"
+    ],
+    "skills/ship-setup/template.md": [
+      "031f8f6999ff497b1af40337ecdbe910c08793a1",
+      "8e0e69eee11c924863f30114518a26440b70f3b0",
+      "e8a295aeb2446ce9c77bc18cc9ab1670c02c2c94"
+    ],
+    "skills/smoke-test-api/REFERENCE.md": [
+      "6a7f0bb3fc863bb0b9ba41de848e7b9e458d50aa"
+    ],
+    "skills/smoke-test-api/SKILL.md": [
+      "0043fd7fe9b159e1f0b915c5cdabcec6b20f095d"
+    ],
+    "skills/smoke-test-api/scripts/execute-health-checks.js": [
+      "273d7028a7704481ab6e8621a7b349e9d24da1b0"
+    ],
+    "skills/smoke-test-api/templates/health-check-config.yaml": [
+      "1de21fc7e9143b04b4676ecdec29b64b34fe3435"
+    ],
+    "skills/smoke-test-auth/SKILL.md": [
+      "32b340b582739e3f452798ce4b26d933ff582615"
+    ],
+    "skills/smoke-test-auth/scripts/test-auth-flows.js": [
+      "2c7b0c9860091621726716efb3bf9ff3a6c285dc"
+    ],
+    "skills/smoke-test-auth/templates/auth-config.yaml": [
+      "f7ce9de037aefeef3bdc3871305ecdc611051705"
+    ],
+    "skills/smoke-test-critical-paths/SKILL.md": [
+      "f56873194f110b99fff4f20a00fbeb4f199abc9e"
+    ],
+    "skills/smoke-test-critical-paths/scripts/execute-journeys.js": [
+      "6598c6a0e686087784f34727c5a1f9200dbcc69e"
+    ],
+    "skills/smoke-test-critical-paths/templates/critical-paths-config.yaml": [
+      "3b73e484218b174e04b26042cdcd2eb33724f428"
+    ],
+    "skills/smoke-test-database/REFERENCE.md": [
+      "050d6aff65b0a9385329fea5052006b3a199bd64"
+    ],
+    "skills/smoke-test-database/SKILL.md": [
+      "fbcd3df9bb3ccdd96704bccb4627ee2c49c717da"
+    ],
+    "skills/smoke-test-database/scripts/test-connectivity.js": [
+      "543e29ed08e4b911c9848bfffec2811debbcbd66"
+    ],
+    "skills/smoke-test-database/templates/database-config.yaml": [
+      "cb53f765c68be45e81cf5267c2aea52b92b98dd7"
+    ],
+    "skills/smoke-test-external-services/SKILL.md": [
+      "cdbca9ee597561fa3aeac3e289f3e445e751e005"
+    ],
+    "skills/smoke-test-external-services/scripts/test-integrations.js": [
+      "c21854e7f7299b14a20e8d8fb2f5f04191a048a3"
+    ],
+    "skills/smoke-test-external-services/templates/external-services-config.yaml": [
+      "7bf82b82b0ee1d31781e96fff16373a491a72308"
+    ],
+    "skills/smoke-test-runner/SKILL.md": [
+      "a3480d5d17f88bbfb7cdfb55d320e14a9f3779f9"
+    ],
+    "skills/smoke-test-runner/scripts/orchestrate-smoke-tests.js": [
+      "dbf380b67be453503f68df341451498d81b30ce0"
+    ],
+    "skills/smoke-test-runner/templates/smoke-test-config.yaml": [
+      "67b45411456e81b5941a8973774f7fa95037a3ac"
+    ],
+    "skills/style-pack-clean-product/SKILL.md": [
+      "23bee9f1c5e1e59e75981469c08aae76842a29a6"
+    ],
+    "skills/style-pack-dense-enterprise/SKILL.md": [
+      "633a21e04d3fbc6d2eda587bb057baba96682c29"
+    ],
+    "skills/style-pack-expressive-editorial/SKILL.md": [
+      "5f52ecc4009f5e206119dafc6e3e1201b0938714"
+    ],
+    "skills/style-pack-modern-b2b-saas/SKILL.md": [
+      "715e2a26207f1836e34be80f83395642c3d5847c"
+    ],
+    "skills/style-pack-modern-consumer/SKILL.md": [
+      "bd56820b69f7e5363e529c689036ddae93c63ab7"
+    ],
+    "skills/style-pack-playful-consumer/SKILL.md": [
+      "14ddbbc117471763aa3f381c3955e9d5b5874b25"
+    ],
+    "skills/styling-with-tailwind/README.md": [
+      "b87d214ca6fe364b6435e84f7efb39f0c58021e3"
+    ],
+    "skills/styling-with-tailwind/REFERENCE.md": [
+      "fcd64bc8bac5d2b5f0d3fe9227288e7e0d1f70a5"
+    ],
+    "skills/styling-with-tailwind/SKILL.md": [
+      "8e827d619938d527e647a48ef84e2a55c246b2e9"
+    ],
+    "skills/test-detector/SKILL.md": [
+      "b6e0cc45b7c9c258d7c271fa58e3041d99e99331"
+    ],
+    "skills/test-detector/detect-framework.js": [
+      "628bd1a7af4741d4e096e11c31738e12aa88e90c"
+    ],
+    "skills/test-detector/framework-patterns.json": [
+      "579a428b2e558184c80a64e1b042e17cc2ba9190"
+    ],
+    "skills/tooling-detector/SKILL.md": [
+      "e06626e633c6879631b897fc1cd1008202294c31"
+    ],
+    "skills/tooling-detector/detect-tooling.js": [
+      "df14edef7b204a5754a95cc438359654adfd56ff"
+    ],
+    "skills/tooling-detector/performance-benchmark.js": [
+      "09a4ddc02b8beb673c20b5e2dafd6951694bdca3"
+    ],
+    "skills/tooling-detector/tooling-patterns.json": [
+      "a05a714631b245303b737b2d60123c3e8e43aa57"
+    ],
+    "skills/using-anthropic-platform/README.md": [
+      "3884d40b9706fd2bef3756e93004944257d30517"
+    ],
+    "skills/using-anthropic-platform/REFERENCE.md": [
+      "ca0128b427b3c27bafc73ada53f30c38b66e0ecc"
+    ],
+    "skills/using-anthropic-platform/SKILL.md": [
+      "8c57061cbc4fb6eb9586e12e42b3a840d2893258"
+    ],
+    "skills/using-anthropic-platform/VALIDATION.md": [
+      "38e6085240783b58c0a62759c961ae1f8ba31fea"
+    ],
+    "skills/using-anthropic-platform/examples/README.md": [
+      "6be81b8b97328771950b2d35b99ca8ea27bf7bed"
+    ],
+    "skills/using-anthropic-platform/examples/basic-chat.example.py": [
+      "57f02677edd17f735d209e9f08ebee49718e3297"
+    ],
+    "skills/using-anthropic-platform/examples/streaming.example.py": [
+      "ea368760b5dbaf51e3f0fc5fe8932f67325e12b0"
+    ],
+    "skills/using-anthropic-platform/examples/tool-use.example.py": [
+      "479f656688d579850fc01ffa33fb9f302e69ad67"
+    ],
+    "skills/using-anthropic-platform/examples/vision.example.py": [
+      "344d17b307f13378ab1011a6e5cdae78b7671f34"
+    ],
+    "skills/using-anthropic-platform/templates/README.md": [
+      "e7f8cac6704d35c64fbedb94d8e0c1bde675e0b3"
+    ],
+    "skills/using-anthropic-platform/templates/extended-thinking.template.py": [
+      "e58901fcfff2f09db54d272d63b33a785f1928b6"
+    ],
+    "skills/using-anthropic-platform/templates/messages.template.py": [
+      "980b56b1e27f1b056f495dbe7b11d88f716124ae"
+    ],
+    "skills/using-anthropic-platform/templates/messages.template.ts": [
+      "0fdaa5186a3686159a397ad4cdae3c3f051a6757"
+    ],
+    "skills/using-anthropic-platform/templates/streaming.template.py": [
+      "8dc88c3656ee9b06b25a960e974dacec5ea91031"
+    ],
+    "skills/using-anthropic-platform/templates/tool-use.template.py": [
+      "1c319617132757947f3c24c0a793ecb8a2b62416"
+    ],
+    "skills/using-azure-functions/REFERENCE.md": [
+      "76097fa5cbf976e97f3e2e05d5546cb43d641a84"
+    ],
+    "skills/using-azure-functions/SKILL.md": [
+      "2459e499c0da68adf04aa0d481ae4b908962955f"
+    ],
+    "skills/using-celery/README.md": [
+      "264c27f21b7ce275c1d14c571a3293bfb4e3454e"
+    ],
+    "skills/using-celery/REFERENCE.md": [
+      "42759bccdacdee4307597d5e01434b7903637054"
+    ],
+    "skills/using-celery/SKILL.md": [
+      "d18d2c4283e8b23c7e7ab767515161b489ada285"
+    ],
+    "skills/using-celery/VALIDATION.md": [
+      "f2cfa769f0948af31496e06cc7ef5a8ea46568a5"
+    ],
+    "skills/using-celery/examples/README.md": [
+      "3a056dcd1ed942626088a1979d330d9f526b9e7a"
+    ],
+    "skills/using-celery/examples/fastapi_celery.example.py": [
+      "4f5c24af45dd9e61dd12f30cf483dc6aaf667c50"
+    ],
+    "skills/using-celery/examples/task_patterns.example.py": [
+      "d031ed4539586d0efee89dff8c2426bdde4a984d"
+    ],
+    "skills/using-celery/templates/README.md": [
+      "938a3b6c90524abdd7926c6d77cd6a5a06c61939"
+    ],
+    "skills/using-celery/templates/beat_schedule.template.py": [
+      "205b1196c883ec805674e057a512bf6c7b24f373"
+    ],
+    "skills/using-celery/templates/celery_config.template.py": [
+      "79be179e0857f92fa5714135b984482a7ddddefc"
+    ],
+    "skills/using-celery/templates/pytest_celery.template.py": [
+      "7d33676abfc05af9a8c136f399cdd202fd7e50ea"
+    ],
+    "skills/using-celery/templates/task.template.py": [
+      "7430f6ee02ed665a21f3244277f4ed6a6f4f7368"
+    ],
+    "skills/using-clerk/SKILL.md": [
+      "5e6f1dcf45b492241e0d5e7ed92599a93d99aa1b"
+    ],
+    "skills/using-langfuse/SKILL.md": [
+      "d0d61422833d6a2d9749cb73237c58ba14e07462"
+    ],
+    "skills/using-openai-platform/README.md": [
+      "372bb4697d1b5524e05b52ee0f21e63f1a2a82e5"
+    ],
+    "skills/using-openai-platform/REFERENCE.md": [
+      "ba40dfcc7689e054edb926a552d1cd25ae93d840"
+    ],
+    "skills/using-openai-platform/SKILL.md": [
+      "ebf98e0a401f46aa07a52906e59af5ff17e2b429"
+    ],
+    "skills/using-openai-platform/VALIDATION.md": [
+      "d17ad36258253584be4d05c1f2fd9cb611442e5a"
+    ],
+    "skills/using-openai-platform/examples/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/using-openai-platform/examples/README.md": [
+      "aaa0664e86aca689b41e3687c8b0237df6e1533c"
+    ],
+    "skills/using-openai-platform/examples/agent.example.py": [
+      "3cad511a5144b57c7c5db3375725655de2fd6571"
+    ],
+    "skills/using-openai-platform/examples/async-client.example.py": [
+      "566999d45401a9a86053555ed2b3135076b284c4"
+    ],
+    "skills/using-openai-platform/examples/basic-chat.example.py": [
+      "03bc2fdf2ec42a52529351bf4cf8a6323d7a1063"
+    ],
+    "skills/using-openai-platform/examples/embeddings.example.py": [
+      "05f6724455cb1208c60e398d03b8b75340c35396"
+    ],
+    "skills/using-openai-platform/examples/multi-turn.example.py": [
+      "34a7fb1065f8d5b71f08cc50983c28817013bdc1"
+    ],
+    "skills/using-openai-platform/examples/responses-api.example.py": [
+      "7db356ca9053362e0b02c10bd098866e83d5400d"
+    ],
+    "skills/using-openai-platform/examples/streaming.example.py": [
+      "dbb648db925b2722f3203cfebb706cc9bbd152f0"
+    ],
+    "skills/using-openai-platform/examples/structured-output.example.py": [
+      "9ef151e0929a4aa3eb21a9425c8af6242e85afe5"
+    ],
+    "skills/using-openai-platform/examples/tool-calling.example.py": [
+      "e9f87dd677c88954db99d0c3eef1fbf9532f2d75"
+    ],
+    "skills/using-openai-platform/templates/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/using-openai-platform/templates/README.md": [
+      "2e67fb90c305a7f55d656c51f17c433a97604319"
+    ],
+    "skills/using-openai-platform/templates/agent.template.py": [
+      "c4ba224d15e317312a6c58fb09dbc1fb101bc39a"
+    ],
+    "skills/using-openai-platform/templates/chat-completion.template.py": [
+      "29c656a1e24b380a2caf0a7a1a4a7b2fd7992836"
+    ],
+    "skills/using-openai-platform/templates/chat-completion.template.ts": [
+      "84c20504e87a5effe23f72fc3675f85ee10e138a"
+    ],
+    "skills/using-openai-platform/templates/embeddings.template.py": [
+      "4898afb3ca63881e65ec0dc5014e2ca79626866e"
+    ],
+    "skills/using-openai-platform/templates/responses-api.template.py": [
+      "110791e3eb82b295cb31569398c1dda5027d7306"
+    ],
+    "skills/using-openai-platform/templates/streaming.template.py": [
+      "e161319edc4bc3da2de7fa4ea5ea8de4043cebec"
+    ],
+    "skills/using-openai-platform/templates/tool-calling.template.py": [
+      "3a0425617904f1cec3c4e000e5124dda901bf737"
+    ],
+    "skills/using-perplexity-platform/README.md": [
+      "5d78829b8bf883abc7c9deb772e35738884d2112"
+    ],
+    "skills/using-perplexity-platform/REFERENCE.md": [
+      "b3dc06079734d1083e39deeddfc714a902eec7f9"
+    ],
+    "skills/using-perplexity-platform/SKILL.md": [
+      "0a84f7bac3e07554c30f33b6748cb6264d2203dc"
+    ],
+    "skills/using-perplexity-platform/VALIDATION.md": [
+      "86e6c037e413e2df7973e4651200e5ba1a850511"
+    ],
+    "skills/using-perplexity-platform/examples/README.md": [
+      "db245aa7d49df9ea7f4f4e873edb6ce580004955"
+    ],
+    "skills/using-perplexity-platform/examples/basic-chat.example.py": [
+      "9b869ec8aeb02f8caff5fd6e5401c57649a20b91"
+    ],
+    "skills/using-perplexity-platform/examples/citations.example.py": [
+      "daf7a440b7ba231eb904a9dfd932be6dcd93f802"
+    ],
+    "skills/using-perplexity-platform/examples/research-assistant.example.py": [
+      "2f73d822151b2f44557a05d42890c049b5750603"
+    ],
+    "skills/using-perplexity-platform/examples/streaming.example.py": [
+      "0d3b4ec68771bbb9967ac4d00c595562bc01909b"
+    ],
+    "skills/using-perplexity-platform/templates/README.md": [
+      "018bab843d8ab748489a343d21fd6d41f83bef20"
+    ],
+    "skills/using-perplexity-platform/templates/chat.template.py": [
+      "6aa553ed4a53257bf0815cd0c29b5beec20ee9a5"
+    ],
+    "skills/using-perplexity-platform/templates/chat.template.ts": [
+      "d340b982359d51cf8ebb72431ec3692ed30ec964"
+    ],
+    "skills/using-perplexity-platform/templates/search-config.template.py": [
+      "260250b10df0b925a71321f28c3e80b1ec7baf93"
+    ],
+    "skills/using-perplexity-platform/templates/streaming.template.py": [
+      "8c1697c174c69f4e24f072e5cb5804f084641524"
+    ],
+    "skills/using-pgvector/SKILL.md": [
+      "011055885d8cb0680c0177499a01d0f5a685b99c"
+    ],
+    "skills/using-prisma/README.md": [
+      "d5065d9bc65122398667c76eee902adb811a7292"
+    ],
+    "skills/using-prisma/REFERENCE.md": [
+      "1139e024060477ee8815c3a7d20ba70516710e13"
+    ],
+    "skills/using-prisma/SKILL.md": [
+      "1c3431be5850c34906374bdae04e9bfeffe3b47f"
+    ],
+    "skills/using-prisma/VALIDATION.md": [
+      "aea91f8b75c4da76d8621a01fc02e0550b265efa"
+    ],
+    "skills/using-prisma/examples/multi_database.example.ts": [
+      "4c20f496fb950011f4f52e0418aac2292cf34165"
+    ],
+    "skills/using-prisma/examples/nestjs_prisma.example.ts": [
+      "28f5eef80a14c9fd76bb3b2e190510c78f3b292c"
+    ],
+    "skills/using-prisma/examples/schema_patterns.example.prisma": [
+      "d2947c0077410b2962d1ffd850e9a72f9be1f252"
+    ],
+    "skills/using-prisma/examples/supabase_integration.example.ts": [
+      "39915c64df84db33402905e3ab7be23694e5d6cd"
+    ],
+    "skills/using-prisma/templates/README.md": [
+      "3fd431073bea7cdec83e40a4e7ee561001514e05"
+    ],
+    "skills/using-prisma/templates/client.template.ts": [
+      "11da9a6c7c065cdb767f8ab320a2c4996a04d615"
+    ],
+    "skills/using-prisma/templates/migration.template.ts": [
+      "1c334bb7e3f7243854a6581b6eed0b5f891714cf"
+    ],
+    "skills/using-prisma/templates/model.template.prisma": [
+      "9164f98bd550209d98d8bcdb64f515c5283a5a3d"
+    ],
+    "skills/using-prisma/templates/repository.template.ts": [
+      "926ed237315db30543787bedc5e5d25a057f7791"
+    ],
+    "skills/using-prisma/templates/rls_migration.template.sql": [
+      "6f7f946956483e69064526a71b381ebcb5b14ac3"
+    ],
+    "skills/using-prisma/templates/schema.template.prisma": [
+      "93cf199d4597b607009116c35c4e4ea5a9cd2f0e"
+    ],
+    "skills/using-prisma/templates/seed.template.ts": [
+      "4e8399306a052a494e42edcdd3da79c2729a822b"
+    ],
+    "skills/using-prisma/templates/supabase_schema.template.prisma": [
+      "bb17f1a4cd45fad2907a107bfe4e75387d4c54c5"
+    ],
+    "skills/using-terraform-azure/REFERENCE.md": [
+      "81b28680a83308d7739e064ecbd932fa56406d97"
+    ],
+    "skills/using-terraform-azure/SKILL.md": [
+      "858a871c8b9ff8a664a6f5cf70eda0fc75820e02"
+    ],
+    "skills/using-weaviate/REFERENCE.md": [
+      "3d9cbdbb7c514e23ac6504061c5eff3e0cff9b6b"
+    ],
+    "skills/using-weaviate/SKILL.md": [
+      "02da4c8e497b332b37a665e0a17b0fda9278b748"
+    ],
+    "skills/verification-setup/SKILL.md": [
+      "1e987515b4ded1622bea0703fb45c69a943a31f1",
+      "4039683d6fd39dbcf45cffb800959bae9ef75abc",
+      "5d535da24383afb0f60d4f733c52b95449cea83e",
+      "64f5a291a6a814c5243d887ecb1de8d24573be2d",
+      "c0e516b42ab123e358763c412addabcb070c3a6c",
+      "eacdbb12158f9f1f5b2c976e4b91cb343fac7c69"
+    ],
+    "skills/verification-setup/__tests__/skill-md.test.js": [
+      "094239ca5fb0d1d95e2ae7c6bb372b4ba689f001",
+      "383081e3c9f597f6a63f5d0239616c2bd650d69f",
+      "acf96924f5c163feb9338f14f8702f28a33dd1e7"
+    ],
+    "skills/verification-setup/template.md": [
+      "22e0bdb6cd27b09848298a625ddcb6122be92fc5",
+      "61a0106ba3a14f6d6af3e8afa1631c580f244372",
+      "8f06a7f4c106e3e93c96766e43518f9dcfe55481",
+      "f468396d2e6e970598b9b39ea2f0aa0994f7d086",
+      "fbd9d032ff45a3fab0c4e1e9f92f03e608508447",
+      "feb8c76622064bb616d4ea7044255a28ff85efe6"
+    ],
+    "skills/verify-data-fidelity/SKILL.md": [
+      "f472820de2d145d2c41d02f19c9f1aba5e6abe68"
+    ],
+    "skills/verify-data-fidelity/__tests__/skill-md.test.js": [
+      "10500ecfe8263f320d8c5ec808f2bc63b2169283"
+    ],
+    "skills/verify-design-comparison/SKILL.md": [
+      "b6a9f694f141499ec3b7074e00c94d76291e2b8b",
+      "d260656fa408520e689d4bec3e343bde85bb4744",
+      "edca8bb97c030f6eb3af37d9735dc8702a51c7dd"
+    ],
+    "skills/verify-design-comparison/__tests__/skill-md.test.js": [
+      "04e62e11d7a42f24a279e18681366a0c79ce9660",
+      "535192be5b0638a220e4b173d861c95e1bc20da9",
+      "b8b5a77f062e694b5a93d88552fb92c4f6e9653b"
+    ],
+    "skills/verify-design-structure/SKILL.md": [
+      "fe4bd204920aaa270193b28f4e3e6328924fc557"
+    ],
+    "skills/verify-design-structure/__tests__/skill-md.test.js": [
+      "360275f587545e49364a8ad64c0736a7d813d47c"
+    ],
+    "skills/verify-flow-as-built/SKILL.md": [
+      "c95c0708774bc8a244697fa02a954077978a3242",
+      "fbf9e1816bc76d6a818e4e6f6ebcdafe22644803"
+    ],
+    "skills/verify-flow-as-built/__tests__/skill-md.test.js": [
+      "62e88ddb35c96fecf07bb4cd2e912fec86768b82"
+    ],
+    "skills/verify-goal/SKILL.md": [
+      "5de5e1cc2f34f4ee89845daad8149301e648c2ab"
+    ],
+    "skills/verify-plan-recovery/SKILL.md": [
+      "0c7386bf992f4aeea1f15c4b4e7815001f12504e",
+      "abe15d4dc606623713f5140f8b2372c08f488119"
+    ],
+    "skills/verify-plan-recovery/__tests__/skill-md.test.js": [
+      "191e6405775cc22990d2c2f0f3ee5661a2651596"
+    ],
+    "skills/writing-playwright-tests/README.md": [
+      "f95054d4267b072515b6c609041833da7d168826"
+    ],
+    "skills/writing-playwright-tests/REFERENCE.md": [
+      "92bc698db152000fc531af4b98dd13f5e4055008"
+    ],
+    "skills/writing-playwright-tests/SKILL.md": [
+      "ab3e2fbebe6d920a854d2574eaad7d3494263086"
+    ],
+    "skills/writing-playwright-tests/VALIDATION.md": [
+      "541c507fe4f800aee70e913110c4f5762dbb62b6"
+    ],
+    "skills/writing-playwright-tests/examples/authentication-flow.example.ts": [
+      "7f8fa9647a51d0baf377ed6c1b0f4e6ea6dcfac3"
+    ],
+    "skills/writing-playwright-tests/examples/data-table-crud.example.ts": [
+      "492aa9eeaae87109be0ff13bd274eb0dd611175c"
+    ],
+    "skills/writing-playwright-tests/examples/form-validation.example.ts": [
+      "c88d8334881467bb9d01f8434a0c770cda57477b"
+    ],
+    "skills/writing-playwright-tests/examples/legacy-app-conversion.example.ts": [
+      "c3d93787c32a2bc055e2c7f7d532d28de7c2ecf5"
+    ],
+    "skills/writing-playwright-tests/examples/visual-regression.example.ts": [
+      "2793763e9169e0b50a2394a84955d1ba0f9d7094"
+    ],
+    "skills/writing-playwright-tests/templates/api-mock.template.ts": [
+      "d4ba96e2586a7cfcd8dde625d8c27c51ad2614ae"
+    ],
+    "skills/writing-playwright-tests/templates/auth-setup.template.ts": [
+      "c7570f6e807ff88970e3f7c8f9967efb59cf4ba6"
+    ],
+    "skills/writing-playwright-tests/templates/component.template.ts": [
+      "595ddff7ea8211df710f3d201a66a3355b1011e0"
+    ],
+    "skills/writing-playwright-tests/templates/config.template.ts": [
+      "78b0ad7758893a97ad9fe0eb81096b9307daf2b4"
+    ],
+    "skills/writing-playwright-tests/templates/fixtures.template.ts": [
+      "e50ab8ab27ba5c8eba9f8803552c8eb49088148a"
+    ],
+    "skills/writing-playwright-tests/templates/legacy-selectors.template.ts": [
+      "6b8115eaf450a895c0c561440cad44a7ff9d9537"
+    ],
+    "skills/writing-playwright-tests/templates/page-object.template.ts": [
+      "fdda6ada066275a10103453ded7c69dc30ab9a9d"
+    ],
+    "skills/writing-playwright-tests/templates/test-spec.template.ts": [
+      "afb3f2f4e190a010f1cc13587e1f0f2871544e53"
+    ],
+    "skills/xunit/.gitkeep": [
+      "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    ],
+    "skills/xunit/SKILL.md": [
+      "8202ee812d8263b56e65149cf3a98a2486c1d120"
+    ],
+    "skills/xunit/generate-test.cs": [
+      "ddb86743b53530078e670e46ef72b3a4b4a7b03f"
+    ],
+    "skills/xunit/run-test.sh": [
+      "9b2e5341bf1cf8ea8a4255732829ad82e6a42d8c"
+    ],
+    "workflows/audit-build.js": [
+      "19e8dba5316565d3dad84d6d9506ec957f8186f9",
+      "a11a9e91e037d4805ace4a8daed15b7f9de654c2",
+      "a9ae3bd5e21ae1fc05adb08cc0238c34144f9f23",
+      "e2f4bae74cf113ebc5d92190f986ec5ed9daee7f",
+      "e9772822bd0085364930631a8b187299eddb5215",
+      "fa7e9de6bc3c72ddcef48e84a33a3ee62f63ab03",
+      "fc9399993833ba5abb29245cae8dcb00df7336da"
+    ],
+    "workflows/audit-design.js": [
+      "0c42435c3335ae7ba9926034149d0b90fca0ce99",
+      "5a8fd2c7652e653a3815ad87dd85d125ac1863c8",
+      "ab02796011f024749bea6828f8534178cd1ad31f",
+      "b038bd961a973bef91eecaa1da9a31571e0f6f94"
+    ],
+    "workflows/audit-docs.js": [
+      "bca2ffc9ee3b20504a24b47b0016a92a4846717f"
+    ],
+    "workflows/audit-prd.js": [
+      "2320bd60d8bb05c965116c348a4dee0ceaa0c9e0",
+      "84697138b9d76a17897026a71c4f16ceaf803fea",
+      "98aeb364b204afa64ffdea81a62fa1762ee4c3e7",
+      "9bfb18ec37059a27ad2b83d16f33d164cb2e22a1",
+      "9c95c624e02da2415ba4e2dd7786f0c2d01b7111",
+      "d2ba9bdeb5d393ea0c62fab0ed47abbf0093c903"
+    ],
+    "workflows/audit-trd.js": [
+      "0ef29a10428ece37e83cb2eea6ec7efa72bb9ff7",
+      "35c3f5e70d541f7ab2d9bf93990acf405342f82f",
+      "64003974647f9bb916efb916b1a2ea2ad0104a69",
+      "71ab27c27df344559603f3ce77b02fe70f481af9",
+      "7e680099eaa2c9c8ff70d2480b13ff441829ad27",
+      "7f79f8f48ed7e2126514409af17b72de12fdc662",
+      "80f128d3c37eaab47c58ad311e5d68cd40a88c56"
+    ],
+    "workflows/create-design.js": [
+      "021df6595015639b76d6e7713128bfdd6d204232",
+      "15fec0208260b20317f2e44d46580a9bcd0f2c07",
+      "4d901c8707c544ddb938b9bb0d8b53a23317bd63",
+      "b057ab137bfe5ea0b2c34d3b14f6543e69d34515"
+    ],
+    "workflows/create-prd.js": [
+      "5131340aae6b5f97baf9d079727374e855572c12",
+      "82e8dbb752d68cf313a4c70e994b3c51dbfea89f",
+      "bd264cfa5b911de497c503847ab8e4609152ba3b",
+      "f9a859f895f4b7e748ebf5d4532320061e0a7ce6"
+    ],
+    "workflows/create-trd.js": [
+      "33cf109ebcf2b9b632389faca91fcbfb73ed6763",
+      "491df428f9e2b7e3cf87e47d47057925e5fa976b",
+      "6f0b14e776353deb9683342aa8aa0f2608297608",
+      "8839bf901ac4b8ed4deb22d23fc7935392737da4",
+      "a901ee78f728a62db6590d40a646947093229c58",
+      "ab47100970e90dd7f1b165be7affe614a334c23c",
+      "db4ce158594b3723e263c013dfd2ed84bca8d263"
+    ],
+    "workflows/implement-phase.js": [
+      "5f691708b493f31c451b279dfb6b532ebb254c79",
+      "78eddeca4125bd720154cfe5bf7f4010e403fbcd",
+      "a0aea05510cf68506a93db93a0dbaebb4c1a19c2",
+      "a7d7ec3ac9a61dbf70bc6d8ed7acc8be3dfa9e9d",
+      "e6e2a8caa5557c5772988d01467bf45b1565a5bc"
+    ],
+    "workflows/sweep.js": [
+      "076398d61b331b1d8cd17b34043b97046a227aae",
+      "117ef8fec8880a6ce8ee9eebd8a6aab2e0fd03be",
+      "1ca4b881ec5f76e8ae082f13e84e51373ab716c6",
+      "3154370a7c9c85de4760a38ee7316df6997738f4",
+      "68401dc7bc947a6a908dfcf3fc0afa3b6c833326",
+      "bfb6f15bd1afb82fb8729bdf3b41b936a0a6ca73",
+      "c1011db2f65a64860ae779e35251d113254bfd58"
+    ],
+    "workflows/sync-design.js": [
+      "493a13fbdb2293e9648a31adb5e283b7481af53d"
+    ],
+    "workflows/verify-functional.js": [
+      "11bfd25b8602ae49b3c5a642001202b7689e8790",
+      "1b93cefca2215a2241c3fe062b43375b928f40fa",
+      "3ecdb3451872322ea3862022d89208d87a659c2c",
+      "4c3374fb94ff38a127fda99711bd9b457484f95e",
+      "58682a1c607fa60ca203c15663a35dd9fb7fdca3",
+      "6aebfa1db8ea792659dd54f9e2c34835c2823919",
+      "70ebfddbf7bdc877760f7638d73e4b06f8bc40ef",
+      "88142f5861e8e8585623bbc764cf788dd61ee6ae",
+      "b833dfe810bf0cc0966451abf064f4a08a80d7a8",
+      "bfec72461666fcbe145466b84ddb6fe43562c183",
+      "c7582b66e1f1eae4923d95efae09c2bafb062de0",
+      "e5fc1831d568e2c8b453249fda1bec563db22d11",
+      "f93f9d21a14137e71683793f920acddfa9b2412c"
+    ]
+  },
+  "hash": "git-blob-sha1",
+  "promptHooks": [
+    "09267a197c5a38f751a5d8c96a919c0fec57212d",
+    "18a7ce81ea7bf205704ed10df9bec1fc8f19e9bf",
+    "1f2b380eda4172f5d61a539eb7a1657042487173",
+    "65afebb3ef08f75f7dd67e1ed6ce191a591f828d",
+    "90f76d6de6170f6c089a17042a5bd0eaf192206a",
+    "bd0eef284a7b1aab4cd3f68a328f1892dc12f913"
+  ],
+  "tags": [
+    "v4.2.0",
+    "v4.2.1",
+    "v4.2.2",
+    "v4.3.0",
+    "v4.3.1",
+    "v4.4.0",
+    "v4.5.0",
+    "v4.5.1",
+    "v4.6.0",
+    "v4.7.0",
+    "v4.7.1",
+    "v4.7.2",
+    "v4.8.0",
+    "v4.9.0",
+    "v4.10.0",
+    "v4.10.1",
+    "v4.10.2",
+    "v4.10.3",
+    "v4.10.4",
+    "v4.10.5",
+    "v4.11.0",
+    "v4.12.0",
+    "v4.12.1",
+    "v4.13.0",
+    "v4.13.1",
+    "v4.13.2",
+    "v4.13.3",
+    "v4.13.4",
+    "v4.13.5",
+    "v4.13.6",
+    "v4.13.7",
+    "v4.13.8",
+    "v4.14.0",
+    "v4.15.0",
+    "v4.15.1",
+    "v4.16.0",
+    "v4.16.1",
+    "v4.17.0",
+    "v4.17.1",
+    "v4.17.2",
+    "v4.17.3",
+    "v4.17.4",
+    "v4.17.5",
+    "v4.17.6",
+    "v4.17.7",
+    "v4.17.8",
+    "v4.17.9",
+    "v4.17.10"
+  ],
+  "version": 1
+}
