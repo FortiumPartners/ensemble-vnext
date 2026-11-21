@@ -98,13 +98,63 @@ extra passes (rounds + 1 passes in all). The merge loop runs its body only after
 `rounds=N` is N body rounds and at most N + 1 attempts of `merge`. Spent without a merge, the run
 stops with `step <id> (merge) loop ended after <N> rounds`.
 
+### The graded merge
+
+When GitHub says the PR clashes with its base (or the branch rules require it to be up to date),
+the `merge` step first merges the base in with `record-files.js merge-base-in`, which settles clashes
+in record files (the notes file, `OWNER-CALLS.md`, `.trd-state/`). When the clash reaches other files it
+no longer stops outright: `merge-resolve.js` grades each conflicted file with
+`conflict-classifier.js` and the step goes on only for a clash that is plainly mechanical. The model's
+only job is editing conflict hunks; grading, the checks, the commit and the record are code.
+
+**What resolves.** A file where every hunk is a mechanical clash: both sides made the same edit,
+both sides added entries to a list (imports, exports, a manifest, a dependency list), or the two
+sides edited different lines. The step edits only the conflict hunks, then the library runs the
+project's checks (lint, typecheck, the tests that touch the affected files), commits the merge, and
+the step sends it with a plain `git push` (a fast-forward; never forced), waits for the head to
+show on the PR and for CI, and carries on to the custody gate as for any merge-in.
+
+**What stops.** Each stop is a COMMAND STUCK that names the files and the clash, nothing is sent,
+and `--resume` is how a run continues after you have settled it:
+
+| Case | What the library does | What you see |
+|---|---|---|
+| A forbidden file (anything under `.claude/rules/`, or a TRD other than the feature's own) | Aborts the merge at once, whatever the hunks look like, even beside mechanical files | Reason names the file; you merge it by hand |
+| A behavioural clash (both sides changed the same lines differently, a file deleted on one side, a binary or non-regular file, a hunk over 500 lines a side) | Aborts the merge; the branch is as it was | Reason names the file and the two edits |
+| Checks still failing after two failed fix attempts | Leaves the merge in place for repair by hand | Reason names the resolved files and the last failure |
+| A refused start (wrong branch, uncommitted changes outside record files, the PR head not in the branch) | Does nothing | Reason says which |
+
+**Limits.** The checks are the project's own, read from the branch as it was before the merge, so a
+hunk merged into `.claude/settings.json` or `package.json` cannot choose what runs. Set
+`ensemble.mergeChecks` in `.claude/settings.json` to name them (`{ "lint": ["npm", "run", "lint"], "test": ["npx", "jest", "{files}"] }`, each an argument
+list, `{files}` standing for the resolved files); with nothing set it detects a `lint` script, `tsc --noEmit`
+when `tsconfig.json` exists, and `jest --findRelatedTests` when Jest is configured. A check with nothing to run
+is recorded as skipped, never as a failure: CI on the merged head is the proof. A passing check is not a
+proof that the merge is right; it only rules out a resolution that breaks lint, types or the nearby tests.
+
+#### Resolution record
+
+Every graded merge, resolved or stopped, is written to the run's record: the step returns it as
+`data.resolution` and the sequencer keeps it in `shipped.json` with the step's result. The entry is built
+by `merge-resolve.js entry`, never by hand.
+
+| Field | Meaning |
+|---|---|
+| `outcome` | `resolved` (committed) or `stopped`. |
+| `class` | The grade: `mechanical`, `behavioural` or `forbidden`. Checks failing twice reads `behavioural` with `escalated: true`. |
+| `files` | One `{ path, class }` per conflicted file (`record` files included; a stopping file adds its `reason`). |
+| `checks` | One `{ name, status, command }` for lint, typecheck and test; `status` is `passed`, `failed` or `skipped` (with its `reason`). |
+| `reproofScope` | What the custody gate must re-prove: the resolved files, and the criteria the gate narrowed to. A stop reads `none: stopped before the custody gate`. |
+| `failedAttempts` | Failed fix attempts after the resolution (the first failed check is not one); 2 means it stopped. |
+| `stuck` | On a stop, the COMMAND STUCK text shown. |
+
 ### What stops a run, and what does not
 
 Stops are sorted by who clears them. A **wait** clears itself on a later check, with no decision:
 `merge` re-reads an unreadable PR up to 8 times (15s apart), polls mergeability up to 8 times,
 and polls for the PR head to catch up to the push up to 40 times (10 minutes). A **loop** is
 bounded mechanical retry: a red head under `merge` (above). A **real** stop needs a person: a PR
-closed unmerged, a clash `merge-base-in` cannot resolve, a failed push, a custody-gate stop, a
+closed unmerged, a clash the graded merge stops on (a forbidden or behavioural file, or checks still failing after two fix attempts), a failed push, a custody-gate stop, a
 pr-head mismatch, a `gh pr merge` refusal (branch protection, a required review, the base moved:
 `--resume` merges the base in again), a failed merge-link proof, an unauthorized step, an
 unreadable record, and a `repeat` or loop spent without its exit.

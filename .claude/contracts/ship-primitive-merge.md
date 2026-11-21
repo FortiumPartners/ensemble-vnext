@@ -76,14 +76,58 @@ for `red`.
        --pr-head <PR head>
      ```
      It performs a real local `git merge --no-ff --no-commit` of the base, so the project's
-     `.gitattributes` applies, and resolves clashes only in record files (the notes file and
-     `.trd-state/`), keeping the feature's lines then the base's. `ok: false` returns `stop`
-     naming `notRecord` or `invalidJson` (the files it will not resolve) or its `reason`; the
-     branch is left as it was. `ok: true` carries `head`: the new merge commit, or the
-     unchanged head only when the branch already contained the base. Then, in order:
-     `git push origin <branch>`; poll
-     `gh pr view <pr> --json headRefOid` up to 40 times, 15s apart (10 minutes), until it equals
-     the pushed commit (still different: `stop`).
+     `.gitattributes` applies, and resolves clashes in record files (the notes file and
+     `.trd-state/`), keeping the feature's lines then the base's. Read `outcome` first:
+     - `ok: true` carries `head`: the new merge commit, or the unchanged head only when the
+       branch already contained the base. Then, in order: `git push origin <branch>`; poll
+       `gh pr view <pr> --json headRefOid` up to 40 times, 15s apart (10 minutes), until it equals
+       the pushed commit (still different: `stop`).
+     - `outcome: "refused"` (nothing was attempted; an uncommitted tree is one) returns `stop`
+       naming `notRecord` or its `reason`; the branch is left as it was.
+     - `outcome: "stopped"` with an `invalidJson` list or only a `reason` returns `stop` naming
+       them; the merge was aborted and the branch is left as it was.
+     - `outcome: "stopped"` with a non-empty `notRecord` (the base clashes with the PR head in
+       more than record files; the merge was aborted) runs the **graded merge** below. The test
+       is the `outcome` AND `notRecord`, never `notRecord` alone: a `refused` result also lists it.
+
+     **Graded merge.** A library grades each conflicted file and decides; you only edit conflict
+     hunks. Run, with the same `<branch>` and `<PR head>`:
+     ```bash
+     node .claude/lib/merge-resolve.js start --base origin/<base> --branch <branch> \
+       --pr-head <PR head> --trd <work.trd|none>
+     ```
+     It prints one JSON line, and the other commands below do too. Act on `outcome`:
+     - `stopped` (a forbidden file, such as one under `.claude/rules/`, or a behavioural clash:
+       both sides changed the same lines, a file was deleted on one side, a binary file): the
+       library aborted the merge, so the branch is as it was. Return `stop` with `reason` set to
+       `stuck.reason` then `stuck.next`, and `data: { resolution }`, `resolution` being the
+       field of that name in its output. Resolve nothing yourself.
+     - `refused` or `ok: false` with only a `reason`: return `stop` with it.
+     - `clean` or `resolved` (nothing left to settle, or only record files): carries `head`; go on to the push below.
+     - `resolving` (every conflict is mechanical: a shared edit, list additions by both sides, or
+       disjoint edits): the merge is in progress, record files are already settled, and the files in
+       `mechanical` hold conflict markers. Edit **only the conflict hunks** of those files: replace each
+       `<<<<<<<` to `>>>>>>>` block with the text that keeps both sides' intent, and change nothing else, in
+       those files or any other. Then run `node .claude/lib/merge-resolve.js check` and act on it:
+       - `outcome: "refused"`: a marker is left, or text outside a hunk changed (it names the files).
+         Put that right and run `check` again; a refusal is not a failed attempt.
+       - `action: "fix"`: the project's checks (lint, typecheck, the affected tests, read from the
+         branch's own settings, never from model text) failed; `failures` has each output. Fix the
+         resolved hunk text, with the same hunks-only rule, and run `check` again.
+       - `action: "stop"` (the checks still fail after two failed fix attempts): return `stop` with
+         `stuck.reason` then `stuck.next` and `data: { resolution }`. Leave the merge as it is for
+         repair by hand: do not abort it and send nothing.
+       - `action: "commit"`: run `node .claude/lib/merge-resolve.js commit`; it commits the merge
+         and carries `head`. Then send it with a plain `git push origin <branch>`, never with
+         force (`--force`, `--force-with-lease`) and never to another ref; a rejected send is a
+         `stop`. Poll `gh pr view <pr> --json headRefOid` up to 40 times, 15s apart (10 minutes), until it
+         equals the pushed commit (still different: `stop`).
+     Keep `resolution` (the field of `start`, `check` or `commit` output): it is the ship record's entry
+     for this clash. After the custody gate (step 2) read `ids` from the gate's last `reverify` line
+     (none: `none`) and run `node .claude/lib/merge-resolve.js entry --reproof-ids <ids|none>`, which prints the
+     entry with the re-proof scope filled in. Every result this step returns after a graded merge ran
+     (`merged`, `red`, `moved`, and any `stop`) carries it as `data.resolution`, so `shipped.json`
+     records the files, their class, the checks run, the re-proof scope and the failed-attempt count.
    Then, after whichever action ran, **wait for CI on every PR head that is not
    `context.judgedHead`**: a head another session pushed (`moved` from step 0), a merge-in commit
    this step pushed just now, or one pushed by an earlier attempt that stopped (a `--resume`
@@ -148,7 +192,7 @@ for `red`.
    `ok: false` returns `stop` with the reason and the differing files.
 5. The merged head is the PR's `headRefOid` read from `gh pr view <pr> --json headRefOid,state`.
 
-**One rule for every stop.** Before returning any `stop` or `red` from this contract (a `sync-head` failure, a `decide` failure, a `merge-base-in` stop, a failed push, a head wait that times out, a CI failure on the new head,
+**One rule for every stop.** Before returning any `stop` or `red` from this contract (a `sync-head` failure, a `decide` failure, a `merge-base-in` stop, a graded-merge stop (`merge-resolve.js start` or `check`), a failed push, a head wait that times out, a CI failure on the new head,
 a custody-gate stop, a pr-head failure, a `gh pr merge` failure, a merge-link failure), read
 `gh pr view <pr> --json state` again. When it reads `MERGED`, a `stop` carries
 `data: { merged: true, base }`, so the run record can still leave the tracked tree; a `red` is not
@@ -163,6 +207,10 @@ merge ran.
 `moved`, with `data`: `{ failed: [], flaky, head, judgedHead }`: the branch moved under this run
 (another session pushed), CI passed on the new head, and the new commits are more than the base
 merged in; no merge ran. The loop collects findings on them, then hands this step out again.
+
+`resolution` (any result): when the graded merge ran in this step, `data.resolution` is the entry
+`merge-resolve.js` printed: `{ outcome, class, files: [{ path, class }], checks: [{ name, status }],
+reproofScope, failedAttempts }` (a stop adds `stuck`). It is the only data the sequencer needs to keep it.
 
 `merged`, with `data`: `{ merged: true, mergedHead, base, method }`. `merged` is the key
 `sync-design` needs and `mergedHead` is what it reads. After `merged`, or after any stop carrying `data.merged: true`, the sequencer keeps the run

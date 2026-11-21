@@ -287,8 +287,32 @@ describe('merge', () => {
     expect(t).toMatch(/closed without being merged returns\s*`stop` at once/);
     expect(t).toMatch(/One rule for every stop[^]*`decide` failure/);
   });
-  test('the ok: false stop of merge-base-in names the paths', () => {
-    expect(t).toMatch(/`ok: false` returns `stop` naming `notRecord` or `invalidJson`/);
+  test('a refused or reason-only stop of merge-base-in names the paths or the reason', () => {
+    expect(t).toMatch(/`outcome: "refused"`[^]*returns `stop`\s*naming `notRecord` or its `reason`/);
+    expect(t).toMatch(/`outcome: "stopped"` with an `invalidJson` list or only a `reason` returns `stop`/);
+  });
+  test('the graded merge runs only on outcome "stopped" with a non-empty notRecord, never on notRecord alone', () => {
+    expect(t).toMatch(/`outcome: "stopped"` with a non-empty `notRecord`[^]*graded merge/);
+    expect(t).toMatch(/never `notRecord` alone: a `refused` result also lists it/);
+  });
+  test('the graded merge calls merge-resolve.js start, check, commit and entry, and edits only conflict hunks', () => {
+    const marks = ['merge-resolve.js start', 'merge-resolve.js check', 'merge-resolve.js commit', 'git push origin <branch>', 'merge-resolve.js entry'].map((m) => t.indexOf(m, t.indexOf('Graded merge')));
+    for (const i of marks) expect(i).toBeGreaterThan(-1);
+    for (let k = 1; k < marks.length; k += 1) expect(marks[k - 1]).toBeLessThan(marks[k]);
+    expect(t).toMatch(/Edit \*\*only the conflict hunks\*\*/);
+    expect(t).toMatch(/never with\s+force/);
+  });
+  test('the graded merge stops on a behavioural or forbidden clash and on two failed fix attempts, with the STUCK reason and next', () => {
+    expect(t).toMatch(/`stopped` \(a forbidden file[^]*behavioural clash[^]*`stuck\.reason` then `stuck\.next`/);
+    expect(t).toMatch(/checks still fail after two failed fix attempts[^]*`stuck\.reason` then\s+`stuck\.next`[^]*do not abort it and send nothing/);
+  });
+  test('data.resolution rides on every result after a graded merge, and the entry is built by the library', () => {
+    expect(t).toMatch(/Every result this step returns after a graded merge ran[^]*`data\.resolution`/);
+    expect(t).toMatch(/`resolution` \(any result\)[^]*reproofScope, failedAttempts/);
+    expect(t).toMatch(/--reproof-ids <ids\|none>/);
+  });
+  test('graded-merge stops are listed under "One rule for every stop"', () => {
+    expect(t).toMatch(/One rule for every stop[^]*graded-merge stop/);
   });
   test('the new stops are listed under "One rule for every stop"', () => {
     expect(t).toMatch(/One rule for every stop[^]*merge-base-in[^]*push[^]*(head wait|headRefOid)[^]*CI/);
