@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "kind": "task",
+  "trd_file": null,
+  "brief": null,
+  "phase_cursor": 1,
+  "tasks": {
+    "STEP-001": {
+      "description": "Seed the task-list Node project (src/tasks.js, store.js, format.js + Jest tests, all passing), commit it, archive the committed tree as a tarball with its sha256",
+      "status": "success",
+      "started_at": "2026-11-21T02:11:56.793Z",
+      "completed_at": "2026-11-21T02:12:38.023Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/code-mode-medium/evidence/seed.tar.gz",
+        ".trd-state/code-mode-medium/evidence/seed.tar.gz.sha256"
+      ],
+      "current_problem": null
+    },
+    "STEP-002": {
+      "description": "Scaffold two fixture slots from the tarball with scaffold-project.sh --plugin-dir packages/full and confirm both start from the identical tree",
+      "status": "success",
+      "started_at": "2026-11-21T02:12:38.083Z",
+      "completed_at": "2026-11-21T02:13:48.198Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/code-mode-medium/evidence/live/work/slot-1/package.json",
+        ".trd-state/code-mode-medium/evidence/live/work/slot-2/package.json"
+      ],
+      "current_problem": null
+    },
+    "STEP-003": {
+      "description": "Run /plan --implement with the identical prompt in slot 1 with Code Mode on (as conectiv, interactive tmux) to its final banner",
+      "status": "success",
+      "started_at": "2026-11-21T02:14:46.489Z",
+      "completed_at": "2026-11-21T02:41:47.904Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/code-mode-medium/evidence/live/work/slot-1/docs/TRD/task-priorities-due-dates.md"
+      ],
+      "current_problem": null
+    },
+    "STEP-004": {
+      "description": "Run the same prompt in slot 2 with Code Mode off to its final banner",
+      "status": "success",
+      "started_at": "2026-11-21T02:14:46.545Z",
+      "completed_at": "2026-11-21T02:41:47.968Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/code-mode-medium/evidence/live/work/slot-2/docs/TRD/task-priorities-due-dates.md"
+      ],
+      "current_problem": null
+    },
+    "STEP-005": {
+      "description": "Measure both arms from session and subagent transcripts: wall clock, model requests and tokens (lead vs subagents, deduped by message id), REPL calls, TRD tasks, tests, banner, audit/verification outcomes, hook blocks",
+      "status": "success",
+      "started_at": "2026-11-21T02:43:05.914Z",
+      "completed_at": "2026-11-21T02:43:05.962Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/code-mode-medium/evidence/live/logs/cmm-on-measure.json",
+        ".trd-state/code-mode-medium/evidence/live/logs/cmm-off-measure.json"
+      ],
+      "current_problem": null
+    },
+    "STEP-006": {
+      "description": "Compare the two resulting source trees: run the tests and spot-check sorting, filters and migration",
+      "status": "success",
+      "started_at": "2026-11-21T02:43:06.011Z",
+      "completed_at": "2026-11-21T02:45:29.277Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/code-mode-medium/evidence/live/logs/spotcheck.txt",
+        ".trd-state/code-mode-medium/evidence/spotcheck.js"
+      ],
+      "current_problem": null
+    },
+    "STEP-007": {
+      "description": "Write .trd-state/code-mode-medium/report.md",
+      "status": "success",
+      "started_at": "2026-11-21T02:45:29.328Z",
+      "completed_at": "2026-11-21T02:45:29.379Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/code-mode-medium/report.md"
+      ],
+      "current_problem": null
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": null,
+      "review": null,
+      "timestamp": "2026-11-21T02:45:29.429Z"
+    }
+  ],
+  "created_at": "2026-11-21T02:11:50.549Z",
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": "2026-11-21T02:45:29.429Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "feature": "task-code-mode-medium",
+  "trd": null,
+  "closedAt": "2026-11-21T02:45:51Z",
+  "closedBy": "task",
+  "note": null,
+  "audit": null,
+  "reason": "task-complete",
+  "outputs": [".trd-state/code-mode-medium/report.md", ".trd-state/code-mode-medium/evidence/seed.tar.gz", ".trd-state/code-mode-medium/evidence/measure.js", ".trd-state/code-mode-medium/evidence/spotcheck.js", ".trd-state/code-mode-medium/evidence/live/logs/"],
+  "followups": [
+    { "summary": "Rerun this medium test 2-3 times per arm before quoting the Code Mode savings (24% wall time, 37% input tokens) anywhere", "evidence": "n=1 per arm, and the off arm built more code (41 new tests vs 26, a stricter loader), which confounds the cost comparison" },
+    { "summary": "Place future fixture slots outside the ensemble-vnext checkout so agents cannot wander into the parent repo and its 156k chars of instructions", "evidence": "agents in both arms read or listed the parent repo's docs/TRD (report, What broke item 3)" },
+    { "summary": "token-usage.js header still says subagent turns are not counted; evidence/measure.js shows subagents were about half of all requests here", "evidence": "packages/core/scripts/token-usage.js header comment; on arm 127 of 175 requests were subagents" }
+  ]
+}
