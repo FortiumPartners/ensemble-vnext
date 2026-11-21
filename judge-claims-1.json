@@ -1,0 +1,84 @@
+[
+  {
+    "criterion": "FS-1",
+    "artifact": ".trd-state/check-mergeability-before-wait-ci/evidence/pre-ci-live.txt",
+    "locator": "\"action\":\"conflicted\"",
+    "reason": "Ran the real merge-up.js pre-ci CLI against a stub gh reporting CONFLICTING: it answered conflicted. The Jest case 'preCi ... CONFLICTING sends the run to the merge step: conflicted, never a wait' passed too (jest-mergeup.txt).",
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-2",
+    "artifact": ".trd-state/check-mergeability-before-wait-ci/evidence/wait-ci-contract-excerpt.txt",
+    "locator": "0. **Read mergeability before waiting.**",
+    "reason": "wait-ci is a model-executed contract, so no CI-status stub-call count can be captured. The artifact is the contract's step 0, which runs merge-up.js pre-ci --pr and, on conflicted, says return conflicted now and wait for nothing. It sits before step 1, 'Find the checks'. The live pre-ci run issued one 'pr view' call and no checks or run list query (pre-ci-live.txt).",
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-3",
+    "artifact": ".trd-state/check-mergeability-before-wait-ci/evidence/sequencer-live-caseAB.txt",
+    "locator": "--- next after conflicted:",
+    "reason": "Drove the real ship-sequencer CLI with the real contracts over push, open-pr, wait-ci, collect-findings, merge. After wait-ci was recorded conflicted, next handed out step 5 (merge), skipping step 4 (collect-findings). The Jest case 'redirect-on a redirected result skips the steps between' also passed.",
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-4",
+    "artifact": ".trd-state/check-mergeability-before-wait-ci/evidence/sequencer-live-caseC.txt",
+    "locator": "--- recording 6.4 (wait-ci inside merge loop) conflicted:",
+    "reason": "Real sequencer CLI run: merge was recorded red, which entered its recovery loop (6.1 collect-findings, 6.2 fix-findings, 6.3 push, 6.4 wait-ci). Recording 6.4 as conflicted made the next step handed out the owning merge step, id 6, not a later step. No Jest test covers this owner case; the redirect-on tests only cover a later target, so this live run is the only evidence.",
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-5",
+    "artifact": ".trd-state/check-mergeability-before-wait-ci/evidence/sequencer-live-caseAB.txt",
+    "locator": "recorded conflicted, which needs a later merge step, and ship.md lists none",
+    "reason": "Real sequencer CLI run over push, wait-ci, collect-findings with no merge step. Recording wait-ci as conflicted gave status stuck with the reason naming conflicted. Step 3 (collect-findings) stayed unrun in status. The Jest case 'with no later target step the run stops, naming the result' passed too.",
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-6",
+    "artifact": ".trd-state/check-mergeability-before-wait-ci/evidence/pre-ci-live.txt",
+    "locator": "\"action\":\"proceed\",\"reason\":\"PR is mergeable\"",
+    "reason": "Real merge-up.js pre-ci CLI against a stub gh reporting MERGEABLE answered proceed. The Jest case 'MERGEABLE goes on to the CI wait, even when behind' passed. The contract text for proceed says go on to step 1 (wait-ci contract excerpt). The wait-ci step itself is model-run, so no CI-status stub call count exists.",
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-7",
+    "artifact": ".trd-state/check-mergeability-before-wait-ci/evidence/pre-ci-drive.txt",
+    "locator": "read 1 -> {\"ok\":true,\"action\":\"poll\",\"reason\":\"GitHub has not finished computing mergeability\"}",
+    "reason": "Stub gh answering UNKNOWN then MERGEABLE: first pre-ci read answers poll, second answers proceed (2 gh pr view calls in log-unknown-then-mergeable.txt, no pr checks call). The wait-ci loop and CI wait are model-executed contract prose, so the repeat is shown by the contract text (contract-excerpts.txt) and the Jest name list (jest-names.txt: 'preCi ... UNKNOWN polls'), not a live wait-ci run.",
+    "screenshot": null,
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-8",
+    "artifact": ".trd-state/check-mergeability-before-wait-ci/evidence/pre-ci-drive.txt",
+    "locator": "== scenario behind (gh answers in order: OPEN:MERGEABLE:BEHIND,OPEN:MERGEABLE:BEHIND)",
+    "reason": "Stub reporting mergeable with BEHIND merge state: both reads answer proceed, not conflicted (next lines of the artifact). Jest 'MERGEABLE goes on to the CI wait, even when behind' passes. Entering the CI status query is wait-ci prose step 1 after proceed; no stubbed CI query was called by pre-ci itself (zero pr checks calls in log-behind.txt).",
+    "screenshot": null,
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-9",
+    "artifact": ".trd-state/check-mergeability-before-wait-ci/evidence/pre-ci-drive.txt",
+    "locator": "\"action\":\"conflicted\"",
+    "reason": "CLI run across stubbed values printed exactly one answer each: conflicted (CONFLICTING), proceed (MERGEABLE, BEHIND, MERGED), poll (UNKNOWN), refused (CLOSED, bad PR number). Jest names in jest-names.txt confirm 319 passing across the three suites.",
+    "screenshot": null,
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-10",
+    "artifact": ".trd-state/check-mergeability-before-wait-ci/evidence/jest-names.txt",
+    "locator": "passed | redirect-on a redirected result skips the steps between and hands out the target step",
+    "reason": "That test uses a contract with redirect-on: conflicted=lima (a listed primitive other than merge); recording conflicted moves the cursor to step 3 lima. The real wait-ci contract names merge (contract-excerpts.txt, line 6 redirect-on: conflicted=merge), so the target comes from the contract.",
+    "screenshot": null,
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-11",
+    "artifact": ".trd-state/check-mergeability-before-wait-ci/evidence/record-files-names.txt",
+    "locator": "passed | mergeBase code clash: stopped, nothing changes",
+    "reason": "Not run end to end through a live redirect. Evidence: the wait-ci contract says the merge step stops naming the files when the conflict is in more than record files (contract-excerpts.txt), the merge contract routes the redirected run into merge-in, and record-files tests pass for code clash stop with nothing changed (24 passing). The sequencer stop on a missing target is in jest-names.txt ('with no later target step the run stops, naming the result').",
+    "screenshot": null,
+    "judgeOnly": false
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "functional_verification": {
+    "runs": [
+      {
+        "n": 1,
+        "command": "/verify-build",
+        "started_at": "2026-11-21T20:27:43.521Z",
+        "scope": "full",
+        "outcome": "satisfied",
+        "finished_at": "2026-11-21T20:32:20.156Z",
+        "open": []
+      }
+    ]
+  }
+}

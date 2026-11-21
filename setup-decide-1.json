@@ -1,0 +1,25 @@
+{
+  "head": "c1b163b169958396c7a01228d176a52c500976ba",
+  "checkout": "/private/tmp/ensemble-vnext-feature-20-check-mergeability-before-wait-ci",
+  "facts": [
+    {
+      "environment": "local",
+      "refreshable": false,
+      "reach": {
+        "ok": null,
+        "detail": "target names no url"
+      },
+      "identity": {
+        "command": "",
+        "output": null,
+        "exitCode": null
+      },
+      "holderCheck": "not-applicable",
+      "listeners": []
+    }
+  ],
+  "refreshCommand": "",
+  "refreshCount": 0,
+  "refreshExitCode": null,
+  "debugRefresh": null
+}

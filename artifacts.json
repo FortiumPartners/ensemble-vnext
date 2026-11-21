@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "success-definition": {
+    "path": ".trd-state/check-mergeability-before-wait-ci/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-21T20:27:17.613Z",
+    "command": "/verify-build"
+  },
+  "verification-report": {
+    "path": ".trd-state/check-mergeability-before-wait-ci/verification-report.md",
+    "url": "",
+    "updated_at": "2026-11-21T20:32:20.220Z",
+    "command": "/verify-build"
+  }
+}
