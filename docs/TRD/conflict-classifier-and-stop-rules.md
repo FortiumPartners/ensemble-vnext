@@ -81,7 +81,7 @@ None apply — this change has no UI design, no interaction diagram and renders 
 
 ### FIX-001
 - **Touches:** `packages/core/lib/conflict-classifier.js`, `packages/full/lib/conflict-classifier.js`, `.claude/lib/conflict-classifier.js`
-- **Reuse:** `isRecordFile` from `./record-files` (`record-files.js:38`); the CLI shape of `merge-up.js` (`flag`, `main(argv)` emitting `JSON.stringify(o) + '\n'` and returning 0, `if (require.main === module) process.exit(main(...))`, `module.exports`) [read]
+- **Reuse:** `isRecordFile` from `./record-files` (`record-files.js:34`); the CLI shape of `merge-up.js` (`flag`, `main(argv)` emitting `JSON.stringify(o) + '\n'` and returning 0, `if (require.main === module) process.exit(main(...))`, `module.exports`) [read]
 - **Replaces:** nothing; `record-files.js` `classifyClash` keeps grading record-only clashes for `mergeBase` and is not touched [read]
 - **Follow:** header comment states WHY A MODULE, the rules and the CLI as `merge-up.js` and `record-files.js` do; `spawnSync` array args only if git is ever called (it is not); no shell. New libs are mirrored as `packages/full/lib/<name>.js` -> `../../core/lib/<name>.js` (symlink, see `rerun-scope.js`) and a plain copy in `.claude/lib/` (`cp -L`, what `scaffold-project.sh copy_libs` does) [read]
 - **Careful:** the forbidden check must normalise before matching (`path.posix.normalize`, strip `./`, lower-case) or `.claude/rules/../rules/x.md` slips through; `featureTrd` is compared after the same normalisation and exactly; do not define any `.trd-state` or `OWNER-CALLS` literal here (the single-definition test greps the source); the line diff must be bounded (cap 500 lines per side) so a large file cannot hang the merge step; do not edit `packages/core/templates/shipped-hashes.json` (release-time)
@@ -95,4 +95,7 @@ None apply — this change has no UI design, no interaction diagram and renders 
 
 ## Could Not Verify
 
-- A real conflict on GitHub (the plan's live-proof item covers it); the classifier is checked here only against hand-built hunks, including shapes taken from the source request's Storybook examples (`prisma/schema.prisma`, barrel files, `package.json`).
+After the delivered-code audit of 2026-11-21 (five of five verifiers reported; both tasks and 17 requirements checked against the code and `npx jest packages/core/lib/conflict-classifier.test.js packages/core/lib/record-files.test.js`, 143 tests passing):
+
+- **A real conflict on GitHub.** Out of scope for this audit: it needs a live merge, and the plan's live-proof item covers it. The classifier is checked here only against hand-built hunks, including shapes taken from the source request's Storybook examples (`prisma/schema.prisma`, barrel files, `package.json`).
+- **Fidelity to product requirements.** No PRD was supplied to the audit, so whether the objectives above match what the product asked for, and whether anything it asked for was left out, was not checked. Only TRD-to-code traceability was.
