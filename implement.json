@@ -139,7 +139,19 @@
     "source_kind": "intended-change",
     "prd_path": "docs/TRD/rebase-prompt-on-the-engine.md § Intended Change",
     "derive_dispatched": true,
-    "runs": [],
+    "runs": [
+      {
+        "n": 1,
+        "command": "/implement-trd",
+        "started_at": "2026-11-20T23:54:31.040Z",
+        "scope": "full",
+        "outcome": "must-pass-unproven",
+        "finished_at": "2026-11-21T00:22:48.496Z",
+        "open": [
+          "FS-3"
+        ]
+      }
+    ],
     "target": {
       "environment": "local",
       "source": "trd"
@@ -166,5 +178,10 @@
         "reason": "must not be touched"
       }
     }
+  },
+  "audit": {
+    "return": "passed, close deferred",
+    "runId": "wf_626385e3-79b",
+    "calls": 1
   }
 }

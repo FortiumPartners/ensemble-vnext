@@ -11,5 +11,17 @@
     "url": "",
     "updated_at": "2026-11-20T23:53:43.299Z",
     "command": "/audit-build"
+  },
+  "success-definition": {
+    "path": ".trd-state/rebase-prompt-on-the-engine/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-20T23:53:51.254Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/rebase-prompt-on-the-engine/verification-report.md",
+    "url": "",
+    "updated_at": "2026-11-21T00:22:55.107Z",
+    "command": "/implement-trd"
   }
 }
