@@ -20,7 +20,17 @@
  *
  * CLI (each prints ONE JSON line and exits 0, even on a refusal or gh failure):
  *   node merge-up.js decide --pr N
+ *   node merge-up.js pre-ci --pr N
  *   node merge-up.js sync-head --pr N --branch B --base <base> --judged <sha|none> --trd <path|none>
+ *
+ * PRE-CI (feature check-mergeability-before-wait-ci): the question `wait-ci` asks before it waits.
+ * A PR that conflicts with its base gets no `pull_request` CI from GitHub, so a wait on it never
+ * ends (issue #136). Only CONFLICTING matters here: a head that is merely BEHIND still gets CI.
+ *   MERGED                 -> proceed (a merged PR reads UNKNOWN forever; its checks are the merge commit's)
+ *   CLOSED (not merged)    -> refused
+ *   mergeable CONFLICTING  -> conflicted (the run goes to the merge step, which brings the base in)
+ *   mergeable UNKNOWN      -> poll (GitHub has not computed it yet)
+ *   mergeable MERGEABLE    -> proceed
  *
  * SYNC-HEAD (TRD resume-re-proves-a-moved-pr-head): brings local HEAD up to the PR branch's pushed
  * tip and says whether that tip is a head CI has not judged. Stateless: the caller passes the head
@@ -35,7 +45,7 @@
 const { spawnSync } = require('child_process');
 const { isRecordFile } = require('./record-files');
 
-const USAGE = 'usage: merge-up.js decide --pr <integer> | sync-head --pr <integer> --branch <name> --base <name> --judged <sha|none> --trd <path|none>';
+const USAGE = 'usage: merge-up.js decide --pr <integer> | pre-ci --pr <integer> | sync-head --pr <integer> --branch <name> --base <name> --judged <sha|none> --trd <path|none>';
 
 function run(cmd, args, cwd) {
   const r = spawnSync(cmd, args, { cwd, env: process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
@@ -46,18 +56,42 @@ function run(cmd, args, cwd) {
   };
 }
 
+/** Reads the PR's state and mergeability. @returns {{refused: object}|{prNum: string, pr: object}} */
+function readPr(args) {
+  const prNum = args && args.pr;
+  if (!/^[0-9]+$/.test(String(prNum === undefined ? '' : prNum))) return { refused: { ok: false, action: 'refused', reason: USAGE } };
+  const v = run('gh', ['pr', 'view', String(prNum), '--json', 'state,mergeable,mergeStateStatus'], args.cwd);
+  if (!v.ok) return { refused: { ok: false, action: 'refused', reason: `could not read PR ${prNum}: ${v.err || 'gh failed'}` } };
+  try {
+    return { prNum: String(prNum), pr: JSON.parse(v.out) };
+  } catch {
+    return { refused: { ok: false, action: 'refused', reason: `could not parse gh output for PR ${prNum}` } };
+  }
+}
+
+/**
+ * Whether `wait-ci` may wait on this PR. Only a conflict stops it: GitHub starts no
+ * `pull_request` run for a conflicted PR, so the wait would never end.
+ * @param {{pr: number|string, cwd?: string}} args @returns {{ok: boolean, action: string, reason: string}}
+ */
+function preCi(args) {
+  const r = readPr(args || {});
+  if (r.refused) return r.refused;
+  const { prNum, pr } = r;
+  if (pr.state === 'MERGED') return { ok: true, action: 'proceed', reason: 'PR already merged' };
+  if (pr.state === 'CLOSED') return { ok: false, action: 'refused', reason: `PR ${prNum} is closed without being merged` };
+  if (pr.mergeable === 'CONFLICTING') {
+    return { ok: true, action: 'conflicted', reason: `PR ${prNum} conflicts with its base branch, so GitHub starts no CI for it; the merge step must bring the base in` };
+  }
+  if (pr.mergeable === 'MERGEABLE') return { ok: true, action: 'proceed', reason: 'PR is mergeable' };
+  return { ok: true, action: 'poll', reason: 'GitHub has not finished computing mergeability' };
+}
+
 /** @param {{pr: number|string, cwd?: string}} args @returns {{ok: boolean, action: string, reason: string}} */
 function decide(args) {
-  const prNum = args && args.pr;
-  if (!/^[0-9]+$/.test(String(prNum === undefined ? '' : prNum))) return { ok: false, action: 'refused', reason: USAGE };
-  const v = run('gh', ['pr', 'view', String(prNum), '--json', 'state,mergeable,mergeStateStatus'], args.cwd);
-  if (!v.ok) return { ok: false, action: 'refused', reason: `could not read PR ${prNum}: ${v.err || 'gh failed'}` };
-  let pr;
-  try {
-    pr = JSON.parse(v.out);
-  } catch {
-    return { ok: false, action: 'refused', reason: `could not parse gh output for PR ${prNum}` };
-  }
+  const r = readPr(args || {});
+  if (r.refused) return r.refused;
+  const { prNum, pr } = r;
   const state = pr.state;
   const mergeable = pr.mergeable;
   const status = pr.mergeStateStatus;
@@ -198,6 +232,7 @@ function main(argv) {
     return 0;
   };
   if (argv[0] === 'decide') return emit(decide({ pr: flag(argv, '--pr') }));
+  if (argv[0] === 'pre-ci') return emit(preCi({ pr: flag(argv, '--pr') }));
   if (argv[0] === 'sync-head') {
     return emit(syncHead({ pr: flag(argv, '--pr'), branch: flag(argv, '--branch'), base: flag(argv, '--base'), judged: flag(argv, '--judged'), trd: flag(argv, '--trd') }));
   }
@@ -206,4 +241,4 @@ function main(argv) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { decide, syncHead, main };
+module.exports = { decide, preCi, syncHead, main };

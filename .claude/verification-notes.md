@@ -1765,3 +1765,12 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] A same-named function added by both sides at one insertion point classifies behavioural with code `same-place`, not `same-decl`; `same-decl` appears only when the insertions sit at different places. Read FS-14 "(or the declaration's stable code)" against that.
 - [ran] `stuck` for a forbidden-class set names only the forbidden files, not behavioural files in the same set; for a behavioural set it names every behavioural file. Read FS-22 "every stopping file" against that.
 - [ran] `stuck` takes the classify OUTPUT as `classification` (plus `command`, `failedAttempts`, `lastFailure`); a hand-built classification without `reason`/`clash` per file prints "(undefined: undefined)". Drive it as classify --file then stuck --file (evidence/fs22-iter2/). Hunks are `{base,ours,theirs}` line arrays.
+## Exercising check-mergeability-before-wait-ci (2026-11-21, iteration 1)
+
+- [ran] `merge-up.js pre-ci --pr N` runs against a stub `gh` first on PATH (logs argv, answers `pr view` from a comma list of STATE:MERGEABLE:MERGE_STATUS in call order); driver `.trd-state/check-mergeability-before-wait-ci/evidence/drive.sh`. `wait-ci`'s poll loop and CI wait are contract prose executed by a model, so "UNKNOWN then MERGEABLE" is shown as two successive pre-ci reads plus the contract text, not as a model run.
+- [ran] `npx jest --no-watchman <3 files> --json --outputFile=<f>` over merge-up, ship-sequencer and ship-primitives tests gives 319 passing; per-test names via the json (reporter prints none).
+
+## Exercising check-mergeability-before-wait-ci (2026-11-21)
+
+- [ran] `merge-up.js pre-ci --pr N` runs against a stub `gh` first on PATH (answers `pr view` with `{state,mergeable,mergeStateStatus}` from an env var, logs argv): CONFLICTING gives `conflicted`, MERGEABLE `proceed`, UNKNOWN `poll`, one gh call each. `wait-ci` itself is a model-run contract, so "no CI-status query" is shown only by contract text order (step 0 before step 1) and the `pre-ci` answer.
+- [ran] The real `ship-sequencer.js` CLI with the real `packages/core/contracts` walks redirects with no model: `start --kind sweep --id x --branch feat` in a `git init` temp repo, `next/record --autonomy .claude/rules/autonomy.md`. A `merge` loop is entered by recording `red` on it; collect-findings results are `clean|found`; a body step (6.4) can be recorded only after `next` hands it out. Zsh-safe: write the driver to a bash file (a `${` in a JS template literal breaks the REPL).

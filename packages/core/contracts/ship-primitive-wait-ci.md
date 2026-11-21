@@ -1,8 +1,9 @@
 ---
 primitive: wait-ci
 params:
-results: passed, failed, no-checks
+results: passed, failed, no-checks, conflicted
 stops-on: failed
+redirect-on: conflicted=merge
 outward: no
 needs: head
 section: ship
@@ -26,6 +27,25 @@ what runs on the base branch.
 
 ## Do
 
+0. **Read mergeability before waiting.** Skip this step when `context.merged` is true (a merged PR
+   reads `UNKNOWN` forever, and its checks are the merge commit's) or when the work has no PR.
+   GitHub starts no `pull_request` run for a PR that conflicts with its base, so a wait on one
+   never ends (issue #136). Ask:
+   ```bash
+   node .claude/lib/merge-up.js pre-ci --pr <pr>
+   ```
+   It prints one JSON line with `ok`, `action` and `reason`. `ok: false` because it could not
+   read the PR (a `gh` or API error) is run again, up to 8 times, 15s apart; still unreadable
+   returns `stop` with the `reason`. `ok: false` because the PR is closed without being merged
+   returns `stop` at once. Otherwise act on `action`:
+   - `proceed` (mergeable): go on to step 1.
+   - `poll` (GitHub has not computed mergeability yet): run the same command up to 8 times, 15s
+     apart, until it answers `proceed` or `conflicted`. Still `poll` after the 8 runs: treat it
+     as `proceed`; the wait below has its own bound.
+   - `conflicted`: return `conflicted` now, with the `reason`. Wait for nothing, rerun nothing.
+     The sequencer sends the run to the `merge` step, whose merge-in handling brings the base
+     in and waits for CI on the pushed head. Where the conflict is in more than record files, that
+     step stops, naming the files; it does not wait.
 1. Find the checks on the current head: `gh pr checks <pr> --json name,bucket,state,link`, or
    `gh run list --commit <sha> --json databaseId,status,conclusion,name` when there is no PR
    or when `context.merged` is true (read with the merge commit as `<sha>`). None configured
@@ -60,7 +80,8 @@ what runs on the base branch.
 
 ## Result
 
-`passed`, `failed` or `no-checks`, with `data`: `{ failed: [...], flaky: [...], judgedHead, wallSeconds, budgetSeconds, over, slowest }` (the last four from Do step 4, omitted when the run could not be timed); a `failed` entry carries `capped: true` when the job is capped. `judgedHead` is the full id of the head the checks were read on (the PR's `headRefOid`, or the `commit` of the latest `pushed` result when there is no PR), recorded on every result so the merge step knows CI has judged that head.
+`passed`, `failed`, `no-checks` or `conflicted` (`data` is `{ judgedHead }` and nothing else: no
+check was read), with `data`: `{ failed: [...], flaky: [...], judgedHead, wallSeconds, budgetSeconds, over, slowest }` (the last four from Do step 4, omitted when the run could not be timed); a `failed` entry carries `capped: true` when the job is capped. `judgedHead` is the full id of the head the checks were read on (the PR's `headRefOid`, or the `commit` of the latest `pushed` result when there is no PR), recorded on every result so the merge step knows CI has judged that head.
 
 ## Waiting
 

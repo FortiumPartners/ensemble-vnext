@@ -31,7 +31,8 @@ const CONTRACTS = {
   foxtrot: { primitive: 'foxtrot', params: '', results: 'good, bad', outward: 'no', needs: 'head', section: 'ship', 'repeat-until': 'good' },
   golf: { primitive: 'golf', params: 'command', results: 'ran', outward: 'yes', section: 'any', rest: 'command' },
   hotel: { primitive: 'hotel', params: 'below-bar=no', results: 'filed, none', outward: 'yes', section: 'after' },
-  'wait-ci': { primitive: 'wait-ci', params: '', results: 'passed, failed, no-checks', 'stops-on': 'failed', outward: 'no', section: 'ship' },
+  'wait-ci': { primitive: 'wait-ci', params: '', results: 'passed, failed, no-checks, conflicted', 'stops-on': 'failed', 'redirect-on': 'conflicted=lima', outward: 'no', section: 'ship' },
+  lima: { primitive: 'lima', params: '', results: 'merged', outward: 'no', section: 'ship' },
   india: { primitive: 'india', params: '', results: 'gone', outward: 'no', section: 'ship' },
   // A step with a recovery loop: `red` runs delta, echo, alpha, wait-ci, up to `rounds` times.
   kilo: {
@@ -350,6 +351,68 @@ describe('failure results outside a repeat', () => {
 
   test('no-checks advances', () => {
     expect(drive(noAuth(), { 1: 'done', 2: 'no-checks', 3: 'gone' }).handed.map((h) => h.id)).toEqual(['1', '2', '3']);
+  });
+});
+
+describe('redirect-on', () => {
+  const opts = () => ({ contractsDir });
+  const go = (text) => { seq.start(startOpts(text)); };
+  const rec = (step, result) => seq.record(stateDir(), { step, result }, opts());
+
+  test('a redirected result skips the steps between and hands out the target step', () => {
+    go(policy('1. wait-ci\n2. alpha\n3. lima\n4. alpha'));
+    const n = seq.next(stateDir(), opts());
+    expect(n.step.primitive).toBe('wait-ci');
+    const r = rec('1', 'conflicted');
+    expect(r).toMatchObject({ ok: true, status: 'running' });
+    expect(seq.next(stateDir(), opts()).step).toMatchObject({ id: '3', primitive: 'lima' });
+  });
+
+  test('from inside a repeat the run leaves the repeat for the target', () => {
+    go(policy('1. alpha\n2. repeat until=clean rounds=2\n   - wait-ci\n   - delta\n3. lima'));
+    seq.next(stateDir(), opts());
+    rec('1', 'done');
+    seq.next(stateDir(), opts());
+    rec('2.1', 'conflicted');
+    expect(seq.next(stateDir(), opts()).step.primitive).toBe('lima');
+  });
+
+  test('from inside the owning step recovery loop the run returns to that owning step with the next pass', () => {
+    // wait-ci in this fixture redirects to lima; make lima the loop owner so the target IS the owner.
+    writeContract(contractsDir, { primitive: 'lima', params: 'rounds=2', results: 'merged, red', 'stops-on': 'red', outward: 'no', section: 'ship', 'loop-on': 'red', 'loop-via': 'wait-ci', 'loop-rounds': 'rounds' });
+    go(policy('1. wait-ci\n2. lima'));
+    seq.next(stateDir(), opts());
+    rec('1', 'passed');
+    seq.next(stateDir(), opts());
+    expect(rec('2', 'red')).toMatchObject({ ok: true, status: 'running' });
+    expect(seq.next(stateDir(), opts()).step.primitive).toBe('wait-ci');
+    const r = rec(seq.next(stateDir(), opts()).step.id, 'conflicted');
+    expect(r).toMatchObject({ ok: true, status: 'running' });
+    // back at the owning merge-like step (not stuck, not skipped past it), ready for its next round
+    expect(seq.next(stateDir(), opts()).step).toMatchObject({ id: '2', primitive: 'lima' });
+  });
+
+  test('passed does not redirect', () => {
+    go(policy('1. wait-ci\n2. alpha\n3. lima'));
+    seq.next(stateDir(), opts());
+    rec('1', 'passed');
+    expect(seq.next(stateDir(), opts()).step.primitive).toBe('alpha');
+  });
+
+  test('with no later target step the run stops, naming the result', () => {
+    go(policy('1. lima\n2. wait-ci'));
+    seq.next(stateDir(), opts()); rec('1', 'merged');
+    seq.next(stateDir(), opts());
+    const r = rec('2', 'conflicted');
+    expect(r.status).toBe('stuck');
+    expect(r.reason).toMatch(/conflicted.*lima/);
+  });
+
+  test('a loader error names a redirect to a missing contract or an undeclared result', () => {
+    writeContract(contractsDir, { primitive: 'mike', params: '', results: 'ok', 'redirect-on': 'bad=lima, ok=nowhere', outward: 'no', section: 'ship' });
+    const { errors } = seq.loadPrimitives(contractsDir);
+    expect(errors.join('\n')).toMatch(/"bad", which is not one of its results/);
+    expect(errors.join('\n')).toMatch(/"nowhere", which has no contract/);
   });
 });
 
