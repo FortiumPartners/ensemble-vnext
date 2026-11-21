@@ -14,7 +14,8 @@ describe('the four token classes stay separate', () => {
   test('no `total` field is produced — a caller must own that decision', () => {
     // Summing them is the obvious mistake and it is badly wrong: cache_read dwarfs
     // output by ~500x in real data, so a combined figure tracks session LENGTH, not
-    // cost. Measured on this machine over 7 days: 12.7M output vs 6.0B cache-read.
+    // cost. Measured on this machine over 7 days: 12.7M output vs 6.0B cache-read
+    // (taken before the per-message-id dedup, so both are ~2x high; the ratio holds).
     expect(Object.keys(blank()).sort()).toEqual(
       ['cacheCreate', 'cacheRead', 'input', 'msgs', 'output'].sort()
     );
@@ -80,5 +81,48 @@ describe('aggregate', () => {
     const { total } = aggregate(rows, 'project', 0);
     expect(total.output).toBe(1149);
     expect(total.cacheRead).toBe(15999);
+  });
+});
+
+describe('aggregate deduplicates by message.id', () => {
+  const row = (id, o = {}) => ({ usage: usage({ out: 5, cr: 100 }), id, dir: 'd', model: 'm', ts: T('2026-01-02T00:00:00Z'), ...o });
+
+  test('lines sharing one id count once; another id counts separately', () => {
+    const { total } = aggregate([row('a'), row('a'), row('a'), row('b')], 'model');
+    expect(total.msgs).toBe(2);
+    expect(total.output).toBe(10);
+    expect(total.cacheRead).toBe(200);
+  });
+
+  test('rows sharing one id with different usage count the LAST row in every class, once', () => {
+    // Identical usage blocks cannot tell last-wins from first-wins; these differ in all four classes.
+    const first = usage({ out: 1, in: 2, cw: 3, cr: 4 });
+    const mid = usage({ out: 10, in: 20, cw: 30, cr: 40 });
+    const last = usage({ out: 100, in: 200, cw: 300, cr: 400 });
+    const { total, groups } = aggregate(
+      [row('a', { usage: first }), row('a', { usage: mid }), row('a', { usage: last })], 'model');
+    expect(total).toEqual({ output: 100, input: 200, cacheCreate: 300, cacheRead: 400, msgs: 1 });
+    expect(groups.m).toEqual(total);
+  });
+
+  test('a row with no id is still counted', () => {
+    const { total } = aggregate([row(undefined), row(undefined), row('a')], 'model');
+    expect(total.msgs).toBe(3);
+  });
+
+  test('the same id in rows from different dirs counts once', () => {
+    // Different usage and dir per row: the LAST row's dir group must hold the last row's usage.
+    const { total, groups } = aggregate(
+      [row('a', { dir: 'x', usage: usage({ out: 1 }) }), row('a', { dir: 'y', usage: usage({ out: 9 }) })], 'project');
+    expect(total.msgs).toBe(1);
+    expect(Object.keys(groups)).toEqual(['y']);
+    expect(groups.y.output).toBe(9);
+    expect(total.output).toBe(9);
+  });
+
+  test('out-of-window lines never replace an in-window one', () => {
+    const since = T('2026-01-01T00:00:00Z');
+    const { total } = aggregate([row('a', { usage: usage({ out: 7 }) }), row('a', { usage: usage({ out: 99 }), ts: T('2025-12-01T00:00:00Z') })], 'model', since);
+    expect(total.output).toBe(7);
   });
 });
