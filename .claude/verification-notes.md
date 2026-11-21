@@ -1750,3 +1750,7 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] Exerciser slices share `evidence/regression-2/`: another exerciser overwrote my `drive.sh` mid-run (bash read the new file: `cho: command not found`). Keep every script and artifact for a slice in its own subfolder (this slice used `regression-2/fs2/`) and never reuse generic names such as `drive.sh`, `build.sh`, `ALLDONE` at the shared top level.
 - [ran] The regression-1 scripts (`build.sh`, `build-d.sh`, `drive.sh`, `drive-d.sh`) reuse unchanged with `regression-1` replaced by the new folder; four headless `/rebase-project` runs in parallel each took about 2-4 minutes, rc 0. FS-11 fixture D now yields "replaced" (regression-1 had "kept").
 - [ran] token-usage.js verification: copy a transcript into a throwaway HOME (HOME=<dir> node packages/core/scripts/token-usage.js --json --days 3650); `aggregate` is exported and callable via node -e.
+
+## Exercising rebase-prompt-on-the-engine FS-3 (reverify, 2026-11-20)
+
+- [ran] FS-3 needs no session: `git show main:packages/core/commands/rebase-project.md` gives the 1,451-line prompt; grep the current file for `4.7a`, `4.7b`, `4.8`, `Step 4`, `python3`, `capability`, `selective` (all 0 now). Words `Step 2`, `gitFiles`, `recordsCutover`, `stamp` still match legitimately: new Step 2 is "Resolve reported conflicts" and the others are field names in the engine's JSON result, not script calls. Only script call left is the single `scaffold-project.sh --rebase` (line 196).
