@@ -97,7 +97,11 @@ function classify({ id, action, check } = {}, ctx = {}) {
 /**
  * Count a reconcile handoff. Uncovered items (no covering task) stop for design and are never
  * handed to the fix run, so they count ONLY as uncovered -- never as defects or test gaps, or
- * a run with nothing but uncovered items would chain an empty fix run. Notes and deferred items
+ * a run with nothing but uncovered items would chain an empty fix run. A coverage objective
+ * ({kind:'coverage-objective', target, scope?}) is met when the phase gate's figure (same unit as
+ * target) reaches it: ctx.coverage.measured, or ctx.coverage[scope] when the item names a scope
+ * ('unit' | 'integration') and the context carries per-kind figures, else a test gap; a covered:false item whose id is deferred-only
+ * counts deferred. Notes and deferred items
  * are counted for the report but never toward defects/testGaps, so decide() can close on them.
  */
 function tally(handoff = [], ctx = {}) {
@@ -107,6 +111,17 @@ function tally(handoff = [], ctx = {}) {
     // A fixed citation is already done: no task covers a descriptive sentence, so the agent may
     // well mark it covered:false, and counting it uncovered would hold the feature open forever.
     // The same holds for the no-PRD finding (action 'no-source'): the verdict carries it.
+    if (item.kind === 'coverage-objective') {
+      // A coverage objective is judged by the phase gate's measured figure, not by a task: met is
+      // covered (counts nothing); unmet, or no figure at all, is a test gap.
+      const cov = ctx.coverage || {};
+      const m = item.scope && cov[item.scope] !== undefined ? cov[item.scope] : cov.measured;
+      const met = typeof m === 'number' && typeof item.target === 'number' && m >= item.target;
+      if (!met) out.testGaps += 1;
+      continue;
+    }
+    // A requirement served only by deferred-by-design tasks is deferred, not uncovered.
+    if (item.covered === false && !NOTE_ACTIONS.has(item.action) && isDeferredId(item.id, ctx)) { out.deferred += 1; continue; }
     if (item.covered === false && !NOTE_ACTIONS.has(item.action)) { out.uncovered += 1; continue; }
     const cls = classify(item, ctx);
     if (cls === 'defect') out.defects += 1;
@@ -275,7 +290,7 @@ function cli(argv) {
   const raw = arg !== undefined ? arg : fs.readFileSync(0, 'utf8');
   if (raw && raw.trim()) input = JSON.parse(raw);
   const ledger = (opts) => input.rounds || (input.stateDir ? readRounds(input.stateDir, opts) : []);
-  const ctx = { deferred: input.deferred, index: input.index };
+  const ctx = { deferred: input.deferred, index: input.index, coverage: input.coverage };
   switch (cmd) {
     case 'tally': return tally(input.handoff, ctx);
     case 'decide': return decide({ ...input, ...(input.handoff ? tally(input.handoff, ctx) : {}), rounds: ledger() });

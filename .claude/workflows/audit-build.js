@@ -682,7 +682,11 @@ ones:
 ${CHAIN_NOTE}
 ALSO return \`handoff\`: one item per finding you ACCEPTED that /implement-trd --reconcile would
 act on (id, action, check, summary, evidence, covered), plus every requirement with no covering
-task as covered: false, plus every FIXED THE CITATION item (action "fix-citation") and every
+task as covered: false (EXCEPT a requirement or objective that is a test-coverage target, such as
+"unit coverage >= 80%": no task covers it by design, so never report it covered: false for
+lack of a task. Return it with kind "coverage-objective", target = the percent as a number,
+scope "unit" or "integration" when the objective names one, and covered: true; the caller judges
+it against the phase gate's measured figure), plus every FIXED THE CITATION item (action "fix-citation") and every
 PLANNED, NOT BUILT YET gap -- the caller counts those as notes, never as work. The no-PRD
 finding (action "no-source", id "NO-PRD") stays in \`handoff\` with that action and never as covered: false;
 it is a caveat the verdict already carries, not a requirement. Do not classify
@@ -723,6 +727,9 @@ One screen. If there are 40 clean requirements, print the COUNT as one line, not
               summary: { type: 'string' },
               evidence: { type: 'string' },
               covered: { type: 'boolean', description: 'true when a task in the TRD covers it' },
+              kind: { type: 'string', enum: ['coverage-objective'], description: 'set only for a test-coverage target (e.g. unit coverage >= 80%); the caller judges it by the measured figure, not by a task' },
+              target: { type: 'number', description: 'with kind coverage-objective: the target, in percent' },
+              scope: { type: 'string', enum: ['unit', 'integration'], description: 'with kind coverage-objective: which coverage the target is about, when stated' },
             },
           },
         },
