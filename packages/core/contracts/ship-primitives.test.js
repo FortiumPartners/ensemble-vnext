@@ -418,6 +418,11 @@ describe('the waiting primitives', () => {
     expect(t).toMatch(/up to 8 times, 15s apart/);
     expect(contracts.get('wait-ci').redirectOn).toEqual({ conflicted: 'merge' });
   });
+  test('wait-ci re-polls an unknown mergeability up to 8 times, then proceeds', () => {
+    const t = flat('wait-ci');
+    expect(t).toMatch(/`poll` \(GitHub has not computed mergeability yet\): run the same command up to 8 times, 15s\s+apart/);
+    expect(t).toMatch(/Still `poll` after the 8 runs: treat it\s+as `proceed`/);
+  });
   test('wait-ci reads the merge commit after a merge and polls 120s before no-checks', () => {
     const t = flat('wait-ci');
     expect(t).toMatch(/context\.merged/);

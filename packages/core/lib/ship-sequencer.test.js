@@ -377,6 +377,21 @@ describe('redirect-on', () => {
     expect(seq.next(stateDir(), opts()).step.primitive).toBe('lima');
   });
 
+  test('from inside the owning step recovery loop the run returns to that owning step with the next pass', () => {
+    // wait-ci in this fixture redirects to lima; make lima the loop owner so the target IS the owner.
+    writeContract(contractsDir, { primitive: 'lima', params: 'rounds=2', results: 'merged, red', 'stops-on': 'red', outward: 'no', section: 'ship', 'loop-on': 'red', 'loop-via': 'wait-ci', 'loop-rounds': 'rounds' });
+    go(policy('1. wait-ci\n2. lima'));
+    seq.next(stateDir(), opts());
+    rec('1', 'passed');
+    seq.next(stateDir(), opts());
+    expect(rec('2', 'red')).toMatchObject({ ok: true, status: 'running' });
+    expect(seq.next(stateDir(), opts()).step.primitive).toBe('wait-ci');
+    const r = rec(seq.next(stateDir(), opts()).step.id, 'conflicted');
+    expect(r).toMatchObject({ ok: true, status: 'running' });
+    // back at the owning merge-like step (not stuck, not skipped past it), ready for its next round
+    expect(seq.next(stateDir(), opts()).step).toMatchObject({ id: '2', primitive: 'lima' });
+  });
+
   test('passed does not redirect', () => {
     go(policy('1. wait-ci\n2. alpha\n3. lima'));
     seq.next(stateDir(), opts());
