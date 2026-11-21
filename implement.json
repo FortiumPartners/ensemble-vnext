@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "kind": "task",
+  "trd_file": null,
+  "brief": null,
+  "phase_cursor": 1,
+  "tasks": {
+    "STEP-001": {
+      "description": "Copy the baseline fixture tarball and measuring scripts; check the tarball sha256 against the baseline report's",
+      "status": "success",
+      "started_at": "2026-11-21T00:54:55.184Z",
+      "completed_at": "2026-11-21T00:55:01.897Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/rebase-project-fast/evidence/fixture/rebase-fixture-v4.15.0.tar.gz",
+        ".trd-state/rebase-project-fast/evidence/after/run.sh"
+      ],
+      "current_problem": null
+    },
+    "STEP-002": {
+      "description": "Run headless /rebase-project --dry-run against the current packages/full on a fresh fixture copy; capture transcript, wall clock, git status",
+      "status": "success",
+      "started_at": "2026-11-21T00:55:11.033Z",
+      "completed_at": "2026-11-21T00:55:49.428Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/rebase-project-fast/evidence/after/dry-run/session.jsonl",
+        ".trd-state/rebase-project-fast/evidence/after/dry-run/timing.json"
+      ],
+      "current_problem": null
+    },
+    "STEP-003": {
+      "description": "Run headless /rebase-project against the current packages/full on a fresh fixture copy; capture transcript, wall clock, git status",
+      "status": "success",
+      "started_at": "2026-11-21T00:55:49.483Z",
+      "completed_at": "2026-11-21T00:56:30.463Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/rebase-project-fast/evidence/after/full/session.jsonl",
+        ".trd-state/rebase-project-fast/evidence/after/full/timing.json"
+      ],
+      "current_problem": null
+    },
+    "STEP-004": {
+      "description": "Derive per-step seconds and deduplicated tokens for both runs",
+      "status": "success",
+      "started_at": "2026-11-21T00:56:30.511Z",
+      "completed_at": "2026-11-21T00:57:00.585Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/rebase-project-fast/evidence/after/dry-run/analysis.json",
+        ".trd-state/rebase-project-fast/evidence/after/full/analysis.json"
+      ],
+      "current_problem": null
+    },
+    "STEP-005": {
+      "description": "Compare the after-change resulting tree against the baseline resulting tree and explain every difference",
+      "status": "success",
+      "started_at": "2026-11-21T00:57:00.637Z",
+      "completed_at": "2026-11-21T00:57:43.695Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/rebase-project-fast/evidence/after/full/changed-files.txt"
+      ],
+      "current_problem": null
+    },
+    "STEP-006": {
+      "description": "Write .trd-state/rebase-project-fast/after.md with the before/after table and tree comparison",
+      "status": "success",
+      "started_at": "2026-11-21T00:57:43.745Z",
+      "completed_at": "2026-11-21T00:58:41.632Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/rebase-project-fast/after.md"
+      ],
+      "current_problem": null
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": null,
+      "review": null,
+      "timestamp": "2026-11-21T00:58:41.682Z"
+    }
+  ],
+  "created_at": "2026-11-21T00:54:47.629Z",
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": "2026-11-21T00:58:41.682Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "feature": "task-after-change-rebase-timing",
+  "trd": null,
+  "closedAt": "2026-11-21T00:58:52Z",
+  "closedBy": "task",
+  "note": null,
+  "audit": null,
+  "reason": "task-complete",
+  "outputs": [".trd-state/rebase-project-fast/after.md", ".trd-state/rebase-project-fast/evidence/after/", ".trd-state/rebase-project-fast/evidence/fixture/", ".trd-state/rebase-project-fast/evidence/baseline-copy/"],
+  "followups": [
+    { "summary": "Rebase engine selects no skills for a project without .claude/selected-skills.txt; the old rebase added stack-matched skills (jest on this fixture)", "evidence": "after.md, 'The two resulting trees': .claude/skills/jest/SKILL.md added by the baseline run, not by the new one; full-run readout ISSUES says selection was skipped" },
+    { "summary": "Rebase engine reports settings.written: true on --dry-run while writing nothing", "evidence": "engine dry run re-run on the clean slot-dry-run: git status empty, settings.written true" },
+    { "summary": "rebase-project prompt could tell the model to pipe the engine result instead of saving it under /tmp (a stale /tmp/rr.txt owned by another user cost one extra engine call)", "evidence": "dry-run transcript turns 2-3; after.md Issues" },
+    { "summary": "rebase-project readout banner totals for added files are model arithmetic and were wrong (64 and 52; actual 49 framework files plus 2 git files)", "evidence": "after.md Issues; engine categories in the dry-run result" }
+  ]
+}
