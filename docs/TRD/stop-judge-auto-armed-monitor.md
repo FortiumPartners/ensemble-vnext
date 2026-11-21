@@ -165,8 +165,9 @@ None apply — this changes a model-judge prompt; no screen, data view, design o
 
 After `/audit-build` on 2026-11-20 (5 of 5 verifiers reported; no PRD supplied). The clause's
 presence in the built prompt, the three `settings.json` files and `docs/reference/hooks.md`,
-the vendored copy's byte-identity and the prompt tests were checked and hold; the replay not
-being re-run on the shipped wording is an audit finding, not an entry here.
+the vendored copy's byte-identity and the prompt tests were checked and hold. The replay on the
+shipped wording was re-run after the audit (`replay-final-wording.jsonl`, 40 runs, 0 errors)
+and passes every FIX-002 threshold; it is not an entry here.
 
 - **No PRD exists for this defect, so nothing was validated against product requirements.**
   The objectives trace only to the owner's 2026-11-20 report; whether the TRD captures all of
