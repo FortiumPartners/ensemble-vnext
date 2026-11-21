@@ -1,0 +1,41 @@
+== headings at main
+29:## User Input
+43:## Goals
+56:## Pre-Flight Checks
+58:### Step 0: Validate Installation
+185:## Execution Steps
+187:### Step 1: Version Detection
+237:### Step 2: Component Diff
+628:## Rebase Diff Summary
+653:### Step 3: Display diff summary and proceed
+684:### Step 4: Selective Update
+1180:### Step 5: Generate Rebase Report
+1189:## Rebase Report
+1302:## Rollback
+1337:## Error Handling
+1351:## Flag Behavior Summary
+1366:## Readout
+1373:## Notes
+1390:## Output discipline (see `.claude/rules/command-status.md`)
+1412:## Autonomous-execution discipline (see `.claude/rules/autonomy.md`)
+== distinctive phrases now (expect none)
+-- Compare each component: 0
+-- git-files: 0
+-- cutover: 5
+154:reproducibility"), and `.gitignore` excludes `*.local.*`, the framework-written working files that differ on every branch (`.trd-state/current.json`, the dispatch logs; the engine adds these ignore rules) and the run records under `.trd-state/` (they live on the records ref; the engine's records cutover untracks them, staged). So git already holds every
+206:- `steps`: `modes`, `selection`, `preloads`, `gitFiles`, `recordsCutover`, `stamp`, each `ok`, `skipped: <why>`, `failed: <why>` or `not run` (every step is `not run` under `--dry-run`);
+275:- **Git files and records cutover** (not under `--dry-run`), read from git:
+-- stamp: 10
+156:diff` shows exactly what the rebase changed, which a timestamped parallel tree cannot.
+159:parallel `<dir>.backup.<timestamp>/` trees, needed their own cleanup step, and made the
+206:- `steps`: `modes`, `selection`, `preloads`, `gitFiles`, `recordsCutover`, `stamp`, each `ok`, `skipped: <why>`, `failed: <why>` or `not run` (every step is `not run` under `--dry-run`);
+-- ensemble.version: 2
+91:   - the vendored version: `ensemble.version` in `.claude/settings.json` (read the one key; never print the `env` values);
+271:- **Version**: before (Step 0's value, which the stamp's `ensemble.previous_version` confirms when the version changed) and after (`ensemble.version` as now stamped; `pluginVersion` under `--dry-run`).
+-- for each.*skill: 0
+-- jest: 0
+-- pytest: 0
+-- frontend: 0
+-- count: 2
+204:- `categories.<name>` for `commands`, `agents`, `hooks`, `hook-libs`, `hook-prompts`, `workflows`, `libs`, `contracts`, `skills`, `rules`: lists `added`, `replaced`, `removed`, `preserved` (paths relative to `.claude/`), a count `unchanged`, and `conflicts` (each `{path, reason}`);
+205:- `settings`: `added`, `replaced`, `removed`, `preserved`, `unchanged`, `conflicts`, `counts`, `written`, `refused`;

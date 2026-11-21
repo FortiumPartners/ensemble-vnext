@@ -1,0 +1,46 @@
+file: packages/core/commands/rebase-project.md  lines now:      434  lines at main:     1451
+== pattern: 4\.7a  current: 0  at-main: 4
+== pattern: 4\.7b  current: 0  at-main: 6
+== pattern: 4\.8  current: 0  at-main: 3
+== pattern: Step 2  current: 6  at-main: 2
+20:> - **One deterministic engine call does the whole update.** A framework file (agent, skill, command, hook, workflow, lib, contract, framework rule) is replaced only when it differs from the plugin's current version **and** matches a version the framework has shipped. A file that matches no shipped version is an owner edit: the engine leaves it alone and reports it as a conflict, and this command resolves it (Step 2). Files the plugin no longer ships are removed only when they are on the framework's retired-file list; anything else the plugin does not ship is preserved as a user customization.
+148:**What the table is for here.** It gives the plugin root for the engine call, and it locates the shipped version of a conflicted file (Step 2): the render the engine compared against is gone when it exits. A conflict's `path` is relative to `.claude/`; its shipped version under the plugin root is `commands/core/<name>.md` for `commands/`, `agents-lib/<name>.md` for `agents/`, `skills-lib/<rest>` for `skills/<rest>`, `templates/claude-directory/rules/<name>.md` for `rules/`, and the same path for `hooks/`, `workflows/`, `lib/` and `contracts/`. The `@` notation is for documentation clarity only; use absolute resolved paths.
+217:### Step 2: Resolve reported conflicts
+341:| (default)        | Replaces framework files that match a shipped version, adds new ones, removes retired ones, merges settings, refreshes skill selection and preloads, untracks run records, stamps the version | Resolved in Step 2 |
+343:| `--preserve-all` | Adds missing files but replaces no existing agent, skill or framework rule; replaces commands, hooks, workflows, libs and contracts; leaves framework rules and retired files; still regenerates the ensemble-owned `hooks` block | Resolved in Step 2 |
+== pattern: Step 4  current: 0  at-main: 10
+== pattern: python3  current: 0  at-main: 1
+== pattern: capability  current: 0  at-main: 1
+== pattern: stack\.md  current: 7  at-main: 20
+24:> - **User governance files** (`constitution.md`, `stack.md`, `process.md`, `verification.md`, `design.md`, `ship.md`) are NEVER modified.
+49:- Preserve user governance files (constitution.md, stack.md, process.md, verification.md, design.md, ship.md)
+51:- Keep installed skills current and their selection in step (the engine does this; it does not read `stack.md`). A skill the project wants is added by copying its folder from the plugin's `skills-lib/` into `.claude/skills/`
+273:- **Governance files preserved**: `constitution.md`, `stack.md`, `process.md`, `verification.md`, `design.md`, `ship.md`, untouched.
+335:`Rules` splits in two: **governance** (`constitution.md`, `stack.md`, `process.md`, `verification.md`, `design.md`, `ship.md`)
+== pattern: skill table  current: 0  at-main: 0
+== pattern: selective  current: 0  at-main: 3
+== pattern: Selective  current: 0  at-main: 1
+== pattern: git-file  current: 0  at-main: 1
+== pattern: records-cutover  current: 0  at-main: 1
+== pattern: version-stamp  current: 0  at-main: 0
+== headings now
+7:# Expensive, and its description matches how a user would phrase the task —
+8:# so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
+29:## User Input
+43:## Goals
+56:## Pre-Flight Checks
+58:### Step 0: Validate Installation
+94:### Path Resolution
+150:### Recovery is git. Check the working tree BEFORE touching anything.
+189:## Execution Steps
+191:### Step 1: One engine call
+217:### Step 2: Resolve reported conflicts
+267:### Step 3: Readout
+286:## Rollback
+318:## Error Handling
+333:## Flag Behavior Summary
+348:## Readout
+355:## Notes
+373:## Output discipline (see `.claude/rules/command-status.md`)
+395:## Autonomous-execution discipline (see `.claude/rules/autonomy.md`)
+430:### Autonomy is the default, not a mode

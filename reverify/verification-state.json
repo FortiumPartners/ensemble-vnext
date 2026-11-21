@@ -1,0 +1,35 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rebase-prompt-on-the-engine/reverify/evidence/fs3-removed-sections.txt",
+      "reason": "The rebase prompt (packages/core/commands/rebase-project.md) is 434 lines, was 1451 at main. The old Step 2 Component Diff and Step 4 Selective Update headings are gone, and 4.7a, 4.7b, 4.8, python3, capability, selective and git-file each match zero times now. The remaining hits are the new Step 2 (resolve conflicts), engine JSON field names, and the single scaffold-project.sh --rebase call; the prompt says the engine does not read stack.md.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": "satisfied",
+  "causes": [],
+  "exercised": [
+    {
+      "iteration": 1,
+      "ids": [
+        "FS-3"
+      ]
+    }
+  ]
+}
