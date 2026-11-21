@@ -1,0 +1,94 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "The graded-merge entry is under [Unreleased] in CHANGELOG.md and in docs/guides/ship-build.md (must pass)",
+      "source": "TRD Objectives table, O1 (source: feature description, acceptance 1)",
+      "served_by": [
+        "DOC-001"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "The entry names issue #97 (its graded-merge part) and issue #136 (must pass)",
+      "source": "TRD Objectives table, O2 (source: feature description, acceptance 2)",
+      "served_by": [
+        "DOC-001"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "It carries one plain sentence telling Storybook's PM that it may turn on Forge's ship_queue merge scope, and that the setting is Storybook's PM's to make; no setting is changed (must pass)",
+      "source": "TRD Objectives table, O3 (source: feature description, acceptance 3)",
+      "served_by": [
+        "DOC-001"
+      ]
+    },
+    {
+      "id": "O4",
+      "statement": "The live-proof result is stated only as its report shows, with its caveats (must pass)",
+      "source": "TRD Objectives table, O4 (source: feature description, acceptance 4)",
+      "served_by": [
+        "DOC-001"
+      ]
+    },
+    {
+      "id": "O5",
+      "statement": "The doc-consistency tests pass (must pass)",
+      "source": "TRD Objectives table, O5 (source: feature description, acceptance 5)",
+      "served_by": [
+        "DOC-001"
+      ]
+    },
+    {
+      "id": "AC-DOC-001-1",
+      "statement": "The graded-merge entry is under [Unreleased] in CHANGELOG.md and in docs/guides/ship-build.md",
+      "source": "TRD Master Task List, DOC-001 acceptance criteria (1)",
+      "served_by": [
+        "DOC-001"
+      ]
+    },
+    {
+      "id": "AC-DOC-001-2",
+      "statement": "It names issues #97 (graded-merge part) and #136",
+      "source": "TRD Master Task List, DOC-001 acceptance criteria (2)",
+      "served_by": [
+        "DOC-001"
+      ]
+    },
+    {
+      "id": "AC-DOC-001-3",
+      "statement": "One plain sentence tells Storybook's PM it may turn on Forge's ship_queue merge scope, that the setting is Storybook's PM's to make, and changes no setting",
+      "source": "TRD Master Task List, DOC-001 acceptance criteria (3)",
+      "served_by": [
+        "DOC-001"
+      ]
+    },
+    {
+      "id": "AC-DOC-001-4",
+      "statement": "The live-proof result is stated only as the report shows, with its caveats",
+      "source": "TRD Master Task List, DOC-001 acceptance criteria (4)",
+      "served_by": [
+        "DOC-001"
+      ]
+    },
+    {
+      "id": "AC-DOC-001-5",
+      "statement": "The doc-consistency tests pass",
+      "source": "TRD Master Task List, DOC-001 acceptance criteria (5)",
+      "served_by": [
+        "DOC-001"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "DOC-001",
+      "description": "Document the graded merge in CHANGELOG.md (under [Unreleased]) and docs/guides/ship-build.md. Serves O1, O2, O3, O4, O5. No dependencies. Delivered in commit aa802d8b per the TRD Decision section.",
+      "touches": [
+        "CHANGELOG.md",
+        "docs/guides/ship-build.md"
+      ]
+    }
+  ]
+}

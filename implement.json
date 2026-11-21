@@ -1,0 +1,34 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/document-the-graded-merge.md",
+  "branch": "feature/60-document-the-graded-merge-and-tell-storybook",
+  "phase_cursor": 1,
+  "tasks": {
+    "DOC-001": {
+      "description": "Document the graded merge",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "CHANGELOG.md",
+        "docs/guides/ship-build.md"
+      ],
+      "commit": "aa802d8b",
+      "completed_at": "2026-11-21T22:44:44.137Z"
+    },
+    "AMEND-001": {
+      "description": "test-gap: assert the doc text",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/graded-merge-docs.test.js"
+      ],
+      "commit": null,
+      "completed_at": "2026-11-21T22:44:44.137Z"
+    }
+  },
+  "checkpoints": []
+}
