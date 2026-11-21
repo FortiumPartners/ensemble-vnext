@@ -11,5 +11,17 @@
     "url": "",
     "updated_at": "2026-11-21T01:08:14.976Z",
     "command": "/audit-build"
+  },
+  "success-definition": {
+    "path": ".trd-state/stop-judge-auto-armed-monitor/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-21T01:08:35.362Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/stop-judge-auto-armed-monitor/verification-report.md",
+    "url": "",
+    "updated_at": "2026-11-21T01:12:44.328Z",
+    "command": "/implement-trd"
   }
 }

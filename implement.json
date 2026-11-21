@@ -137,7 +137,17 @@
     "source_kind": "reproduction",
     "prd_path": "docs/TRD/stop-judge-auto-armed-monitor.md § Reproduction",
     "derive_dispatched": true,
-    "runs": [],
+    "runs": [
+      {
+        "n": 1,
+        "command": "/implement-trd",
+        "started_at": "2026-11-21T01:08:49.406Z",
+        "scope": "full",
+        "outcome": "satisfied",
+        "finished_at": "2026-11-21T01:12:13.096Z",
+        "open": []
+      }
+    ],
     "target": {
       "environment": "local",
       "source": "trd"
@@ -164,5 +174,10 @@
         "reason": "must not be touched"
       }
     }
+  },
+  "audit": {
+    "return": "passed, close deferred",
+    "runId": "wf_97d8a93c-1ff",
+    "calls": 1
   }
 }

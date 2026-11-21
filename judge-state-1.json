@@ -1,0 +1,89 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/stop-judge-auto-armed-monitor/evidence/exercise-i1-core.jsonl",
+      "reason": "Tier-1 evidence check failed: locator \"aam-complete-monitor-only-allow allowed=5 blocked=0 other=0\" not found in the artifact (the tally line the exerciser cited appears to live in its tally file, not in the replay JSONL it named); the verdict itself was not judged.",
+      "cause": "locator-not-found",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": "evidence-gap",
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-2",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/stop-judge-auto-armed-monitor/evidence/exercise-i1-variants.jsonl",
+      "reason": "Tier-1 evidence check failed: locator \"v1-msg-mentions-watch allowed=5 blocked=0 other=0\" not found in the artifact (the tally line the exerciser cited appears to live in its tally file, not in the replay JSONL it named); the verdict itself was not judged.",
+      "cause": "locator-not-found",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": "evidence-gap",
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-3",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/stop-judge-auto-armed-monitor/evidence/exercise-i1-core.jsonl",
+      "reason": "Tier-1 evidence check failed: locator \"aam-promise-monitor-only-block allowed=0 blocked=5 other=0\" not found in the artifact (the tally line the exerciser cited appears to live in its tally file, not in the replay JSONL it named); the verdict itself was not judged.",
+      "cause": "locator-not-found",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": "evidence-gap",
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-4",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/stop-judge-auto-armed-monitor/evidence/exercise-i1-core.jsonl",
+      "reason": "Tier-1 evidence check failed: locator \"aam-promise-no-tasks-block allowed=0 blocked=5 other=0\" not found in the artifact (the tally line the exerciser cited appears to live in its tally file, not in the replay JSONL it named); the verdict itself was not judged.",
+      "cause": "locator-not-found",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": "evidence-gap",
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": null,
+  "causes": [],
+  "exercised": [
+    {
+      "iteration": 1,
+      "ids": [
+        "FS-1",
+        "FS-2",
+        "FS-3",
+        "FS-4"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "feature": "stop-judge-auto-armed-monitor",
+  "trd": "docs/TRD/stop-judge-auto-armed-monitor.md",
+  "closedAt": "2026-11-21T01:12:35Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; the replay that scores the fix (FIX-002) was run on the first wording of the clause, not the shipped one, so the shipped prompt is unscored; the allow case passes with or without the fix, so nothing shows the live block is fixed (it never reproduced); nothing automated asserts the clause stays in the built prompt and settings files",
+    "report": ".trd-state/stop-judge-auto-armed-monitor/audit-build-report.md",
+    "auditedCommit": "5d67c7b5e1b7d3718afbd3d1acccd8c28ffa5382",
+    "anchorCommit": "c7fc7ede16ecdba62dc6ce53418a24f110238ea6"
+  }
+}

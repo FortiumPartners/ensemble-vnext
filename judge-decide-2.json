@@ -1,0 +1,1 @@
+{"iteration":2,"gaps":[],"unbuilt":[],"previousGaps":[],"cap":3,"coverageFloor":0.5,"settledEvidenceGaps":[],"refreshFailed":false,"met":["FS-1","FS-2","FS-3","FS-4"],"total":4,"mustPass":["FS-1","FS-2","FS-3","FS-4"],"evidenceOnly":[],"coreMustPass":[],"mustPassUncovered":[],"causes":[],"previousCauses":[],"awaitingRegression":[]}

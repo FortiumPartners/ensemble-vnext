@@ -1,0 +1,99 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/stop-judge-auto-armed-monitor/evidence/exercise-i2-core-tally.txt",
+      "reason": "Allowed in 5 of 5 replays of the shipped discipline-stop prompt on claude-sonnet-5 (no errors): the case's final message ends with the readout and COMMAND COMPLETE, and background_tasks holds one running live-updates monitor the agent did not start. Tally line matches the 5 per-run records in exercise-i2-core.jsonl.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/stop-judge-auto-armed-monitor/evidence/exercise-i2-variants-tally.txt",
+      "reason": "All five variants (watch named in the message, generic description, no description, two watches plus a completed agent, earlier finished dispatch) allowed in 5 of 5 runs each, 25 of 25 overall, no errors; per-run records in exercise-i2-variants.jsonl agree with the tally.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/stop-judge-auto-armed-monitor/evidence/exercise-i2-core-tally.txt",
+      "reason": "Blocked in 5 of 5 runs: the final message promises to report unit-battery results later, and background_tasks holds only the auto-armed live-updates monitor; the judge did not accept the watch as backing the promise.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/stop-judge-auto-armed-monitor/evidence/exercise-i2-core-tally.txt",
+      "reason": "Blocked in 5 of 5 runs on the identical final message with background_tasks empty, matching FS-3's 5 of 5 blocks with the watch present: the verdict does not change with the watch.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    }
+  ],
+  "gapsClosed": [
+    0,
+    4
+  ],
+  "outcome": "satisfied",
+  "causes": [],
+  "exercised": [
+    {
+      "iteration": 1,
+      "ids": [
+        "FS-1",
+        "FS-2",
+        "FS-3",
+        "FS-4"
+      ]
+    },
+    {
+      "iteration": 2,
+      "ids": [
+        "FS-1",
+        "FS-2",
+        "FS-3",
+        "FS-4"
+      ]
+    }
+  ]
+}
