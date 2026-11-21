@@ -1,0 +1,16 @@
+{
+  "feature": "task-product-check-graded-merge",
+  "trd": null,
+  "closedAt": "2026-11-21T23:16:48Z",
+  "closedBy": "task",
+  "note": null,
+  "audit": null,
+  "reason": "task-complete",
+  "outputs": [".trd-state/task-product-check-graded-merge/report.md"],
+  "followups": [
+    {"summary": "Append v4.17.11 to packages/core/templates/shipped-hashes.json so rebase-engine BATS tests 216 and 221 pass", "evidence": "generate-shipped-hashes.sh --check: newest v* tag merged into HEAD is v4.17.11, list's newest is v4.17.10"},
+    {"summary": "Add PR #189's three fixes to CHANGELOG [Unreleased]", "evidence": "no mention of stop-check scope, uncoverable requirements or identity re-check in the section"},
+    {"summary": "Decide whether CHANGELOG should list open caveat issues #190, #194, #195, #197, #198", "evidence": "none of them is named in [Unreleased]"},
+    {"summary": "status.test.js fails to load (mock-fs) on Node v26.12.0; decide if known CI exclusion", "evidence": "same TypeError on main and v4.17.11"}
+  ]
+}

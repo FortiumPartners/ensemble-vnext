@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "kind": "task",
+  "trd_file": null,
+  "brief": null,
+  "phase_cursor": 1,
+  "tasks": {
+    "STEP-001": {
+      "description": "Clean checkout of origin/main (52f28b75) and of tag v4.17.11 in the scratchpad; install deps",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T23:16:40.455Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/task-product-check-graded-merge/report.md"
+      ],
+      "current_problem": null
+    },
+    "STEP-002": {
+      "description": "Run full battery on main: jest, pytest, bats (packages/core, test/integration/tests); record counts and failures",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T23:16:40.504Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/task-product-check-graded-merge/report.md"
+      ],
+      "current_problem": null
+    },
+    "STEP-003": {
+      "description": "Re-run any failing tests on v4.17.11 to separate pre-existing from new failures",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T23:16:40.551Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/task-product-check-graded-merge/report.md"
+      ],
+      "current_problem": null
+    },
+    "STEP-004": {
+      "description": "Packaging check: core lib/workflows files referenced by commands are present in packages/full; run check-version-sync.sh and generate-*-artifacts --check",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T23:16:40.599Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/task-product-check-graded-merge/report.md"
+      ],
+      "current_problem": null
+    },
+    "STEP-005": {
+      "description": "Read [Unreleased] CHANGELOG; confirm PRs 189,191,192,193,196,199 and issues 190,194,195,197,198",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T23:16:40.647Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/task-product-check-graded-merge/report.md"
+      ],
+      "current_problem": null
+    },
+    "STEP-006": {
+      "description": "Write report.md with results table, failure output and releasability verdict",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T23:16:40.695Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/task-product-check-graded-merge/report.md"
+      ],
+      "current_problem": null
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": null,
+      "review": null,
+      "timestamp": "2026-11-21T23:16:40.741Z"
+    }
+  ],
+  "created_at": "2026-11-21T22:59:37.986Z",
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": "2026-11-21T23:16:40.741Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  }
+}
