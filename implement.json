@@ -58,6 +58,22 @@
     "prd_resolved": true,
     "source_kind": "intended-change",
     "prd_path": "docs/TRD/conflict-classifier-and-stop-rules.md ## Intended Change",
-    "derive_dispatched": true
+    "derive_dispatched": true,
+    "runs": [
+      {
+        "n": 1,
+        "command": "/implement-trd",
+        "started_at": "2026-11-21T20:41:05.801Z",
+        "scope": "full",
+        "outcome": "satisfied",
+        "finished_at": "2026-11-21T20:49:49.176Z",
+        "open": []
+      }
+    ]
+  },
+  "audit": {
+    "return": "passed, close deferred",
+    "runId": "wf_86e5e57f-c20",
+    "calls": 1
   }
 }

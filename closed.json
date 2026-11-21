@@ -1,0 +1,13 @@
+{
+  "feature": "conflict-classifier-and-stop-rules",
+  "trd": "docs/TRD/conflict-classifier-and-stop-rules.md",
+  "closedAt": "2026-11-21T20:50:10Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; a real conflict on GitHub is not verified here (the plan's live-proof item covers it)",
+    "report": ".trd-state/conflict-classifier-and-stop-rules/audit-build-report.md",
+    "auditedCommit": "814b53e566cb266d55e05536f3c306831bc89f3e",
+    "anchorCommit": "a893aba5054b3c0282a638c9423c9a0d536ab07c"
+  }
+}

@@ -1,0 +1,591 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-1.txt",
+      "reason": "Fresh CLI transcript: classify on a valid set returns one JSON line with ok, class, stop, stopNow and files[{path,class,reason,clash}].",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-2.txt",
+      "reason": "Mixed sets follow precedence forbidden > behavioural > mechanical > record with correct stop/stopNow.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-3.txt",
+      "reason": "Empty, missing and malformed input each return ok:false with a reason.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-4.txt",
+      "reason": "Record-only set classifies record, stop false.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-5.txt",
+      "reason": "Rules file with a mechanical-looking hunk classifies forbidden.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-6.txt",
+      "reason": "All five rules-path spellings classify forbidden.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-7.txt",
+      "reason": "Other TRD, case-different featureTrd and no featureTrd are forbidden; own TRD and its normalised spelling graded by hunks.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-8.txt",
+      "reason": "/etc/x, C:\\x, ../x each forbidden outside-repo.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-9.txt",
+      "reason": "Rename out of .claude/rules classifies forbidden.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-10.txt",
+      "reason": "node -e calls exported isForbidden; answers match classify.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-11.txt",
+      "reason": "./.trd-state/x and .TRD-STATE/x are not record (behavioural).",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-12.txt",
+      "reason": "package.json shared-comma case classifies mechanical.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-13.txt",
+      "reason": "Barrel exports and list bullets classify mechanical.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-14.txt",
+      "reason": "Same key two values: behavioural, same-key, clash names the key.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-15.txt",
+      "reason": "Disjoint pair mechanical; adjacent insertion behavioural.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-16.txt",
+      "reason": "Flagged test: no hunks and disjoint mechanical; overlap behavioural.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-17.txt",
+      "reason": "Overlap classifies behavioural with both sides' lines.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-18.txt",
+      "reason": "no-hunks, malformed, deleted, binary, non-regular, too-large each behavioural with its code.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-19.txt",
+      "reason": "Jest 144/144 with tests named for and asserting the reason codes.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-20.txt",
+      "reason": "decide: forbidden stop, behavioural stop, record record-merge, full shape.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-21",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-21.txt",
+      "reason": "Mechanical: resolve, commit, fix at 0 and 1, escalated stop at 2.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-22",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/fs22-iter2/fs22-transcript.txt",
+      "reason": "Transcript, re-run live against both .claude/lib and packages/core/lib conflict-classifier.js, shows COMMAND STUCK banner, one-line Reason naming the forbidden file with its rule, the overlap file with ours/theirs differing lines, and the same-key file with its key; the escalation case names the failing check; each has a Next line.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-23",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-23.txt",
+      "reason": "All subcommands via --file/--stdin and bad usage print one JSON line, exit 0; no --json flag.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    },
+    {
+      "id": "FS-24",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/conflict-classifier-and-stop-rules/evidence/regression-1/FS-24.txt",
+      "reason": "Requires ./record-files; pinning test passes; both suites pass.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "regression": 1
+    }
+  ],
+  "gapsClosed": [
+    0,
+    1
+  ],
+  "outcome": "satisfied",
+  "causes": [
+    {
+      "key": "stuck-reason-omits-behavioural-in-forbidden-set",
+      "representative": "FS-22",
+      "members": [
+        "FS-22"
+      ],
+      "status": "closed",
+      "closedAt": 2
+    }
+  ],
+  "exercised": [
+    {
+      "iteration": 1,
+      "ids": [
+        "FS-1",
+        "FS-2",
+        "FS-3",
+        "FS-4",
+        "FS-5",
+        "FS-6",
+        "FS-7",
+        "FS-8",
+        "FS-9",
+        "FS-10",
+        "FS-11",
+        "FS-12",
+        "FS-13",
+        "FS-14",
+        "FS-15",
+        "FS-16",
+        "FS-17",
+        "FS-18",
+        "FS-19",
+        "FS-20",
+        "FS-21",
+        "FS-22",
+        "FS-23",
+        "FS-24"
+      ]
+    },
+    {
+      "iteration": 2,
+      "ids": [
+        "FS-22"
+      ]
+    },
+    {
+      "iteration": 2,
+      "ids": [
+        "FS-1",
+        "FS-2",
+        "FS-3",
+        "FS-4",
+        "FS-5",
+        "FS-6",
+        "FS-7",
+        "FS-8",
+        "FS-9",
+        "FS-10",
+        "FS-11",
+        "FS-12",
+        "FS-13",
+        "FS-14",
+        "FS-15",
+        "FS-16",
+        "FS-17",
+        "FS-18",
+        "FS-19",
+        "FS-20",
+        "FS-21",
+        "FS-23",
+        "FS-24"
+      ],
+      "regression": 1
+    }
+  ],
+  "regression": {
+    "rounds": [
+      {
+        "round": 1,
+        "iteration": 2,
+        "scope": [
+          {
+            "id": "FS-1",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-2",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-3",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-4",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-5",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-6",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-7",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-8",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-9",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-10",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-11",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-12",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-13",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-14",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-15",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-16",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-17",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-18",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-19",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-20",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-21",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          },
+          {
+            "id": "FS-23",
+            "reason": "no-covers"
+          },
+          {
+            "id": "FS-24",
+            "reason": "covers-changed",
+            "files": [
+              ".claude/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.js",
+              "packages/core/lib/conflict-classifier.test.js"
+            ]
+          }
+        ],
+        "counts": {
+          "covers-changed": 16,
+          "no-covers": 7
+        },
+        "scopeWord": "targeted",
+        "caught": []
+      }
+    ],
+    "notRewalked": [
+      "FS-22"
+    ],
+    "unclaimedChanges": [],
+    "gateBeforeEdits": false
+  }
+}

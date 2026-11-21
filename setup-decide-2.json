@@ -1,0 +1,28 @@
+{
+  "head": "f8872f356aba632a2ba449f40e49c94b3dd39998",
+  "checkout": "/private/tmp/ensemble-vnext-feature-10-conflict-classifier-and-stop-rules",
+  "facts": [
+    {
+      "environment": "local",
+      "refreshable": false,
+      "reach": {
+        "ok": null,
+        "detail": "target names no url"
+      },
+      "identity": {
+        "command": "",
+        "output": null,
+        "exitCode": null
+      },
+      "holderCheck": "not-applicable",
+      "listeners": []
+    }
+  ],
+  "refreshCommand": "",
+  "refreshCount": 0,
+  "refreshExitCode": null,
+  "debugRefresh": {
+    "ran": false,
+    "exitCode": null
+  }
+}
