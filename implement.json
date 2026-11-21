@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "kind": "task",
+  "trd_file": null,
+  "brief": null,
+  "phase_cursor": 1,
+  "tasks": {
+    "STEP-001": {
+      "description": "Prepare the fixture slot: clone islayjames/ship-build-live-test, refresh its .claude from packages/full, clear leftover PRs",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T21:55:19.475Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/ship-graded-merge/evidence/live/work/slot-1/.claude/settings.json"
+      ],
+      "current_problem": null
+    },
+    "STEP-002": {
+      "description": "Live run 1: mechanical conflict (both sides add to a list) resolved in place, checked, pushed and merged by /ship-build",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T21:55:19.539Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/ship-graded-merge/evidence/live/run-1-mechanical/shipped.json"
+      ],
+      "current_problem": null
+    },
+    "STEP-003": {
+      "description": "Live run 2: behavioural clash stops with files and the clash named",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T21:56:50.245Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/ship-graded-merge/evidence/live/run-2-behavioural/shipped.json"
+      ],
+      "current_problem": null
+    },
+    "STEP-004": {
+      "description": "Live run 3: PR conflicted by a base commit pushed after it opened goes to the merge step without waiting on CI",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T22:03:23.023Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/ship-graded-merge/evidence/live/run-3-pre-ci-conflict/shipped.json"
+      ],
+      "current_problem": null
+    },
+    "STEP-005": {
+      "description": "Capture the three ship records, write the report under .trd-state/ship-graded-merge/, clean up fixture branches and PRs",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T22:03:23.107Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/ship-graded-merge/live-proof-report.md"
+      ],
+      "current_problem": null
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": null,
+      "review": null,
+      "timestamp": "2026-11-21T22:03:23.179Z"
+    }
+  ],
+  "created_at": "2026-11-21T21:48:49.392Z",
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": "2026-11-21T22:03:23.179Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  }
+}

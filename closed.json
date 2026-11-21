@@ -1,0 +1,27 @@
+{
+  "feature": "task-live-proof-ship-build-test-repo",
+  "trd": null,
+  "closedAt": "2026-11-21T22:03:32Z",
+  "closedBy": "task",
+  "note": null,
+  "audit": null,
+  "reason": "task-complete",
+  "outputs": [
+    ".trd-state/ship-graded-merge/live-proof-report.md",
+    ".trd-state/ship-graded-merge/evidence/live/"
+  ],
+  "followups": [
+    {
+      "summary": "Link packages/core/lib/merge-resolve.js into packages/full/lib/ (every other lib is linked there); until then no project gets the graded merge from the plugin.",
+      "evidence": "packages/full/lib has no merge-resolve.js; a scaffold --refresh of the fixture installed .claude/lib/conflict-classifier.js but not merge-resolve.js"
+    },
+    {
+      "summary": "Show the narrowed re-proof live: a fixture with a success definition and criterion-covers.json, so the entry's re-proof scope names criteria instead of 'none'.",
+      "evidence": "All three records read 'criteria: none' with scopeReason 'no success definition'"
+    },
+    {
+      "summary": "Delete the fixture slot folder by hand and decide whether to delete the four records refs (refs/ensemble/records/graded-mech, graded-list, graded-clash, graded-late) on islayjames/ship-build-live-test.",
+      "evidence": "rm of the slot folder was blocked by a safety check; the refs are not covered by the destroy command"
+    }
+  ]
+}
