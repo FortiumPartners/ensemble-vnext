@@ -1,0 +1,179 @@
+{
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "Write packages/core/lib/conflict-classifier.js (classify, decide, stuckText, CLI main), add the packages/full/lib/ symlink and the .claude/lib/ copy. Acceptance: .claude/rules/x.md returns forbidden with stopNow; two list additions to a barrel return mechanical; two different edits of the same line return behavioural; .trd-state/a/implement.json returns record; decide stops a mechanical conflict at failedAttempts 2 with checksFailed true and not at 1; CLI prints one JSON line; core and .claude/lib copies diff empty; packages/full/lib copy is a symlink to core.",
+      "touches": [
+        "packages/core/lib/conflict-classifier.js",
+        "packages/full/lib/conflict-classifier.js",
+        ".claude/lib/conflict-classifier.js"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "Write packages/core/lib/conflict-classifier.test.js covering each class, forbidden path forms, the feature's own TRD, every mechanical and behavioural rule, the two-attempt rule at 0, 1, 2, STUCK text for each stop, the CLI, mixed sets, the package.json comma case, path edge cases (absolute, escaping, renamed, symlink mode), isRecordFile called (mocked), the mirror, and pinned mutations. Acceptance: npx jest packages/core/lib/conflict-classifier.test.js packages/core/lib/record-files.test.js is green.",
+      "touches": [
+        "packages/core/lib/conflict-classifier.test.js"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "O1",
+      "source": "TRD Objectives O1",
+      "statement": "A library packages/core/lib/conflict-classifier.js classifies a set of conflicted paths, each with the two sides' hunks, as exactly one of record, mechanical, behavioural or forbidden. Must pass: yes.",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O2",
+      "source": "TRD Objectives O2",
+      "statement": "A path under .claude/rules/, or any file under docs/TRD/ other than the feature's own TRD, classifies forbidden however its hunks look, and never as a record file. Must pass: yes.",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O3",
+      "source": "TRD Objectives O3",
+      "statement": "Both sides adding entries to a list, schema or barrel file, disjoint hunks in one region, and a test broken only by the base's changes classify mechanical; anything not placeable as mechanical (overlapping changes, same key with two values, missing hunks, deleted file) classifies behavioural. Must pass: yes.",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O4",
+      "source": "TRD Objectives O4",
+      "statement": "Stop rules live in the library: forbidden and behavioural stop (forbidden at once); a mechanical conflict whose checks still fail after two failed fix attempts following a resolution becomes behavioural and stops. Must pass: yes.",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O5",
+      "source": "TRD Objectives O5",
+      "statement": "The library produces STUCK text: a one-line Reason naming every file that forced the stop and the clash in each, and a Next line. Must pass: yes.",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O6",
+      "source": "TRD Objectives O6",
+      "statement": "isRecordFile in packages/core/lib/record-files.js stays the single definition of a record file; the classifier calls it and defines no record path of its own; record-files.test.js still passes. Must pass: yes.",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O7",
+      "source": "TRD Objectives O7",
+      "statement": "A one-JSON-line CLI (classify, decide, stuck) exists in the manner of merge-up.js; the library is mirrored to packages/full/lib/ (symlink) and .claude/lib/ (copy). Must pass: no.",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "R-Intended-1",
+      "source": "TRD Intended Change, After item 1",
+      "statement": "classify({files, featureTrd}) returns {ok, class, stop, stopNow, files:[{path,class,reason,clash?}]} with precedence forbidden > behavioural > mechanical > record; stop true for forbidden and behavioural; empty or malformed input returns ok false with a reason.",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "R-Intended-2",
+      "source": "TRD Intended Change, After item 2",
+      "statement": "Per-file order: forbidden path, then isRecordFile, then hunk rules. Hunk shape {base, ours, theirs}; optional oldPath, mode, deletedBy, binary, testBrokenByBase; a test with testBrokenByBase and no hunks is an entry with the flag and no hunks.",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "R-Intended-3",
+      "source": "TRD Intended Change, After item 3",
+      "statement": "Forbidden paths normalised (./, .., doubled slashes, backslashes); .claude/rules prefix matched case-insensitively; everything under docs/TRD/ forbidden except featureTrd (exact, case-sensitive); no featureTrd means every TRD forbidden; absolute, drive-letter or escaping paths forbidden; oldPath checked; isForbidden(path, featureTrd) exported; isRecordFile receives the path unnormalised.",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "R-Intended-4",
+      "source": "TRD Intended Change, After item 4",
+      "statement": "Mechanical rules (a) same-edit-to-last-entry with shared leading lines, (b) add-only list entries with no same-key or same-declaration clash, (c) edits to different base lines with no insertion beside a changed line, (d) test file with testBrokenByBase mechanical unless both sides changed the same base lines differently; each hunk must pass or the file is behavioural. Hunks over 500 lines per side, missing hunks, malformed hunks, deletedBy, binary and non-regular mode are behavioural; each reason has a stable code (overlap, same-key, no-hunks, deleted, non-regular, too-large, ...).",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "R-Intended-5",
+      "source": "TRD Intended Change, After item 5",
+      "statement": "decide({classification, resolved, checksFailed, failedAttempts}) returns {action, effectiveClass, stop, escalated, reason}: forbidden stops at once; behavioural stops; record gives record-merge; mechanical gives resolve, commit, fix, or stop with effectiveClass behavioural and escalated true when checks failed and failedAttempts is 2 or more.",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "R-Intended-6",
+      "source": "TRD Intended Change, After item 6",
+      "statement": "stuckText({classification, command, failedAttempts, lastFailure}) returns {reason, next, text}; text is '═══ COMMAND STUCK: <command> ═══' then Reason and Next lines; Reason is one line naming each stopping file with its clash (differing lines for overlap, key for clash, rule for forbidden, failing check for escalation).",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "R-Intended-7",
+      "source": "TRD Intended Change, After item 7",
+      "statement": "CLI: node conflict-classifier.js classify|decide|stuck (--file <path> | --stdin), no --json flag; prints one JSON line and exits 0, including for bad usage (ok false).",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "R-Intended-8",
+      "source": "TRD Intended Change, After item 8",
+      "statement": "conflict-classifier.js requires ./record-files for isRecordFile and contains no record-file path literal of its own; a test pins both.",
+      "served_by": [
+        "FIX-001",
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "AC-FIX-001",
+      "source": "TRD Master Task List, FIX-001 acceptance",
+      "statement": "Concrete checks: forbidden for .claude/rules/x.md with stopNow; mechanical for two barrel additions; behavioural for two different edits of one line; record for .trd-state/a/implement.json; decide stops at failedAttempts 2 (checksFailed true) and not at 1; one JSON line from CLI; core and .claude/lib copies identical; packages/full/lib is a symlink.",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "AC-FIX-002",
+      "source": "TRD Master Task List, FIX-002 acceptance",
+      "statement": "Test file covers the classes, path forms, mechanical and behavioural rules, two-attempt rule, STUCK text, CLI, mixed sets, package.json comma case, path edge cases, mocked isRecordFile, mirror, and pinned mutations; npx jest packages/core/lib/conflict-classifier.test.js packages/core/lib/record-files.test.js is green.",
+      "served_by": [
+        "FIX-002"
+      ]
+    }
+  ],
+  "open_questions": [
+    "OQ-1: How does a caller show 'a test broken only by the base's changes'? Assumed: a testBrokenByBase flag measured by the caller (owner-only: no). OQ-2: Is an insertion beside a line the other side changed mechanical? Assumed: no, behavioural (owner-only: no)."
+  ],
+  "could_not_verify": [
+    "A real conflict on GitHub (the plan's live-proof item covers it); the classifier is checked here only against hand-built hunks, including Storybook-example shapes (prisma/schema.prisma, barrel files, package.json). Source: TRD 'Could Not Verify' section, line 96-98 (one row)."
+  ]
+}

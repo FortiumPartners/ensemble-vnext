@@ -5,5 +5,11 @@
     "url": "https://claude.ai/artifact/8vFvAipkiB2MLgMhKR9MwY",
     "updated_at": "2026-11-21T20:27:53.342Z",
     "command": "/plan"
+  },
+  "audit-build": {
+    "path": ".trd-state/conflict-classifier-and-stop-rules/audit-build-report.md",
+    "url": "",
+    "updated_at": "2026-11-21T20:40:32.207Z",
+    "command": "/audit-build"
   }
 }
