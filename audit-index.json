@@ -1,0 +1,27 @@
+{
+ "requirements": [
+  {
+   "id": "O1",
+   "served_by": [
+    "FIX-001"
+   ]
+  },
+  {
+   "id": "O2",
+   "served_by": [
+    "FIX-001"
+   ]
+  },
+  {
+   "id": "AC-FIX-001",
+   "served_by": [
+    "FIX-001"
+   ]
+  }
+ ],
+ "tasks": [
+  {
+   "id": "FIX-001"
+  }
+ ]
+}
