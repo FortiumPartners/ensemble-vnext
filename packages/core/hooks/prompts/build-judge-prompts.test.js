@@ -296,3 +296,33 @@ describe('the shipped Stop prompt (hand-authored, 2026-09-24)', () => {
     expect(prompt.length).toBeLessThan(6000);
   });
 });
+
+describe('the auto-armed running-task clause reaches every shipped copy (AMEND-005)', () => {
+  // Guards presence of the clause, not the judge's verdict (the replay measures that).
+  // Built from the source, so removing the clause from discipline-stop.source.md fails this
+  // the moment the prompt is rebuilt; whitespace is normalised because the source wraps
+  // lines inside the clause.
+  it('discipline-stop prompt carries the auto-armed running-task clause', () => {
+    const flat = buildStopDisciplinePrompt().replace(/\s+/g, ' ');
+    expect(flat).toContain('a running task the platform armed on its own');
+    expect(flat).toContain('a `Monitor` the agent itself called still counts');
+  });
+
+  // The Stop entry in each shipped settings.json embeds the prompt file text with trailing
+  // newlines stripped (generate-hooks-artifacts.sh: fh.read().rstrip("\n")), i.e. exactly the
+  // fresh build. Fails if any copy is regenerated from a stale prompt or hand-edited.
+  it.each([
+    '.claude/settings.json',
+    'packages/full/.claude/settings.json',
+    'packages/core/templates/claude-directory/settings.json',
+  ])('%s Stop prompt hook equals the freshly built prompt', (rel) => {
+    const settings = JSON.parse(
+      fs.readFileSync(path.join(__dirname, '..', '..', '..', '..', rel), 'utf-8')
+    );
+    const promptHooks = settings.hooks.Stop.flatMap((e) => e.hooks || []).filter(
+      (h) => h.type === 'prompt'
+    );
+    expect(promptHooks).toHaveLength(1);
+    expect(promptHooks[0].prompt).toBe(buildStopDisciplinePrompt());
+  });
+});

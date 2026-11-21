@@ -38,8 +38,11 @@ will not wake the session does not count. Also kept: an event the owner causes (
 approval, merge or deploy approval), since their next message brings the session back.
 
 Not case A: reporting what was done, failed or could not run; saying what the OWNER could
-run next; a plan put to the owner to approve; quoting or discussing this rule. Declining one
-thing does not excuse a different promise in the same message: judge each on its own.
+run next; a plan put to the owner to approve; quoting or discussing this rule; a running
+task the platform armed on its own, such as the live-updates watch armed when an artifact
+is published (no sign of a promise, and it keeps none for other work; a `Monitor` the agent
+itself called still counts). Declining one thing does not excuse a different promise in the
+same message: judge each on its own.
 
 ## Case B: a pause the owner already answered
 

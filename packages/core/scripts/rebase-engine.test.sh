@@ -366,7 +366,9 @@ blob = lambda b: hashlib.sha1(b"blob %d\0" % len(b) + b).hexdigest()
 old = open(prompt_file, encoding="utf-8", newline="").read()
 assert blob(old.encode()) in d["promptHooks"]
 cur = [h["prompt"] for g in json.load(open(tmpl))["hooks"].values() for e in g for h in e["hooks"] if h.get("type") == "prompt"]
-assert len(cur) == 1 and cur[0] != old and blob(cur[0].encode()) in d["promptHooks"]
+# The current prompt's hash is NOT required to be listed: promptHooks only gains entries from
+# tagged releases, so a branch that edits the Stop prompt is unreleased until the next tag.
+assert len(cur) == 1 and cur[0] != old
 PY
     [ "$status" -eq 0 ]
 }

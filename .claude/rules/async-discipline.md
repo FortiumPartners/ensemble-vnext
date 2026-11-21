@@ -42,6 +42,7 @@ sits idle until nudged. **The root cause is a hallucinated notification.**
   a claim naming one. It is a fifth primitive, the only one with a genuine notification path
   and no payload trace; the judge allows when a turn points at a specific, checkable process
   (task id, PID, log file).
+  Not counted: a task the platform armed itself (an artifact's live-updates watch).
 - `hookData.session_crons` non-empty — `ScheduleWakeup` / `/schedule` registered a future
   wakeup or recurring task.
 - `Monitor` in use, or `/goal` active — the Stop event wouldn't fire at all.
