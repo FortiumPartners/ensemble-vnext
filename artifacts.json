@@ -5,5 +5,11 @@
     "url": "https://claude.ai/artifact/WmdV1XfX9Fmk4yG5QLa216",
     "updated_at": "2026-11-21T00:52:20.382Z",
     "command": "/plan"
+  },
+  "audit-build": {
+    "path": ".trd-state/stop-judge-auto-armed-monitor/audit-build-report.md",
+    "url": "",
+    "updated_at": "2026-11-21T01:08:14.976Z",
+    "command": "/audit-build"
   }
 }
