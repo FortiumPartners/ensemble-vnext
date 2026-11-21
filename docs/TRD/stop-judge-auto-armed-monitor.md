@@ -57,10 +57,16 @@ message waits on). The paragraph becomes, exactly:
 
 > Not case A: reporting what was done, failed or could not run; saying what the OWNER could
 > run next; a plan put to the owner to approve; quoting or discussing this rule; a running
-> task the agent did not start, such as the live-updates watch the platform arms when an
-> artifact is published (it keeps no promise either; a `Monitor` the agent itself called
-> still counts). Declining one thing does not excuse a different promise in the same
-> message: judge each on its own.
+> task the platform armed on its own, such as the live-updates watch armed when an artifact
+> is published (no sign of a promise, and it keeps none for other work; a `Monitor` the agent
+> itself called still counts). Declining one thing does not excuse a different promise in the
+> same message: judge each on its own.
+
+Amended by the end-of-run review (2026-11-20): the first wording, "a running task the agent did
+not start", asked the judge who started each task, which a truncated transcript cannot show,
+and "it keeps no promise either" was wrong for a promise to act on a comment sent to Claude,
+which that watch does deliver. `.claude/rules/async-discipline.md` (and its template copy)
+gained the matching one-line exemption so the rule and the prompt agree.
 
 Then rebuild through the normal pipeline (`build-judge-prompts.js`, then
 `generate-hooks-artifacts.sh`) and copy the built prompt to the vendored `.claude/hooks/prompts/`.
