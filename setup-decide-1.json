@@ -1,0 +1,25 @@
+{
+  "head": "0c0a3fec57b368ed57d9710a870e60c595c293b9",
+  "checkout": "/private/tmp/ensemble-vnext-feature-30-resolve-mechanical-conflicts-in-place",
+  "facts": [
+    {
+      "environment": "local",
+      "refreshable": false,
+      "reach": {
+        "ok": null,
+        "detail": "target names no url"
+      },
+      "identity": {
+        "command": "",
+        "output": null,
+        "exitCode": null
+      },
+      "holderCheck": "not-applicable",
+      "listeners": []
+    }
+  ],
+  "refreshCommand": "",
+  "refreshCount": 0,
+  "refreshExitCode": null,
+  "debugRefresh": null
+}

@@ -1,0 +1,12 @@
+## Intended Change
+
+size: 7 files touched (`packages/core/lib/merge-resolve.js` new, `.claude/lib/merge-resolve.js` copy, `packages/core/lib/merge-resolve.test.js` new, `packages/core/contracts/ship-primitive-merge.md`, `.claude/contracts/ship-primitive-merge.md`, `docs/guides/ship-build.md`, `packages/core/contracts/ship-primitives.test.js`) plus one added seam case in `packages/core/lib/ship-build.seam.test.js` (8 in all)
+
+predecessor: Conflict classifier and stop rules (merged 2026-11-21, 6cda21f6) already provides: `classify`, `decide` (the two-attempt rule), `stuckText`, the forbidden-path rules. rebuilds: none — this change calls them and adds no grading logic.
+
+The new library `merge-resolve.js` owns every deterministic step the merge step needs when the base clashes beyond record files; the model's only job is editing conflict hunks:
+
+- `start --base origin/<base> --branch B --pr-head SHA --trd <path|none> --state-dir D`: same preconditions as `record-files.js merge-base-in` (branch, PR head contained, clean tree), runs a real `git merge --no-ff --no-commit`, reads each unmerged file's three stages into hunks, grades with `classify`, then `decide`. Record-file clashes are unioned exactly as `record-files.js` does. Forbidden or behavioural: aborts the merge, returns the STUCK text from `stuckText` and the resolution entry. Mechanical: leaves the merge in progress with markers in only the mechanical files, saves, straight from the merged files on disk (before the model touches them), a snapshot of each file's text outside the hunks, and returns the file list.
+- `check --state-dir D`: refuses a file that still holds markers or whose text outside the hunks changed (the model edited more than the hunks); then runs lint, typecheck and the affected tests through `spawnSync` with argument arrays; calls `decide` with `checksFailed` and the failed-attempt count; returns `commit`, `fix` or `stop` plus the STUCK text.
+- `commit --state-dir D`: only after a passing check; `git add` of the mechanical files, `git commit --no-edit`; returns the new head. Never pushes and never forces; the contract pushes with a plain `git push origin <branch>`.
+- `abort --state-dir D`, `entry --state-dir D`: abort the merge; print the ship-record entry (`{ files: [{path, class}], checks, reproofScope, failedAttempts, outcome }`) the contract passes as `data.resolution` of the step's result.
