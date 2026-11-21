@@ -23,6 +23,7 @@ const SEQ = path.join(__dirname, 'ship-sequencer.js');
 const CUSTODY = path.join(__dirname, 'custody.js');
 const MERGE_UP = path.join(__dirname, 'merge-up.js');
 const RECORD_FILES = path.join(__dirname, 'record-files.js');
+const MERGE_RESOLVE = path.join(__dirname, 'merge-resolve.js');
 const LIVE_EVIDENCE = path.join(__dirname, 'live-evidence.js');
 const RANK = path.join(__dirname, 'followup-rank.js');
 const AUTH_SENTENCE = 'A step listed in `.claude/rules/ship.md` is the owner\'s standing authorization for that act.';
@@ -478,7 +479,7 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
    * `sync: false` plays the contract as it read before step 0 (no catch-up), for the contrast case.
    * Counts how many times origin's branch ref moved during the step with an `update` hook.
    */
-  function playMerge(s, { mergeable, status, redNew = false, mergedDuringWait = false, step = null, sync = true }) {
+  function playMerge(s, { mergeable, status, redNew = false, mergedDuringWait = false, step = null, sync = true, resolve = null }) {
     const bare = path.join(s.root, 'origin.git');
     const refLog = path.join(s.root, 'ref-moves.log');
     const mergeLog = path.join(s.root, 'merge-calls.log');
@@ -515,8 +516,19 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
     if (out.decide.action === 'merge-in') {
       s.g(s.repo, 'fetch', 'origin', 'main');
       out.mergedIn = json(RECORD_FILES, ['merge-base-in', '--base', 'origin/main', '--branch', 'feature/f', '--pr-head', prHead()]);
-      expect(out.mergedIn.ok).toBe(true);
-      s.g(s.repo, 'push', 'origin', 'feature/f');
+      // The graded merge (ship-primitive-merge.md): only on outcome "stopped" with a non-empty notRecord.
+      if (resolve && out.mergedIn.outcome === 'stopped' && (out.mergedIn.notRecord || []).length > 0) {
+        out.graded = { start: json(MERGE_RESOLVE, ['start', '--base', 'origin/main', '--branch', 'feature/f', '--pr-head', prHead(), '--trd', TRD]) };
+        if (out.graded.start.outcome === 'resolving') {
+          resolve(out.graded.start.mechanical);
+          out.graded.check = json(MERGE_RESOLVE, ['check']);
+          out.graded.commit = json(MERGE_RESOLVE, ['commit']);
+          s.g(s.repo, 'push', 'origin', 'feature/f');
+        }
+      } else {
+        expect(out.mergedIn.ok).toBe(true);
+        s.g(s.repo, 'push', 'origin', 'feature/f');
+      }
     }
     // The CI wait: every PR head that is not the judged one. A red check there returns `red`
     // before the custody gate, so no merge call follows.
@@ -549,6 +561,10 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
       }
     }
     out.gate = s.playGate({ reverifiedStatus: 'met' });
+    // After the gate: the entry, with the criteria the gate narrowed to, built by the library.
+    if (out.graded && out.graded.commit) {
+      out.resolution = json(MERGE_RESOLVE, ['entry', '--reproof-ids', (out.gate.reconcile.ids || []).join(',') || 'none']).resolution;
+    }
     // Step 3: an already-MERGED PR skips the pr-head check and gh pr merge, straight to the merge link.
     if (prState() === 'MERGED') {
       out.prHead = null;
@@ -686,6 +702,42 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
       expect(merge).toMatchObject({ ok: true, link: 'merge', observed: played.head });
       const deploy = s.custody('check', '--state-dir', s.stateDir, '--link', 'deploy', '--identity-output', `build ${tokenOf(played.head, 12)}`, '--trd', TRD);
       expect(deploy).toMatchObject({ ok: true, link: 'deploy' });
+    });
+
+    test('a graded merge: a mechanical clash is resolved in place, sent as a fast-forward, and its resolution is read back from shipped.json', () => {
+      const s = twoCriteria();
+      // The PR adds src/index.js; so does the base, with a different export line.
+      s.commit('add index', { 'src/index.js': "export * from './a';\n" });
+      s.g(s.repo, 'push', 'origin', 'feature/f');
+      landOnBase(s, { 'src/index.js': "export * from './b';\n" });
+      const before = s.g(s.repo, 'ls-remote', 'origin', 'refs/heads/feature/f').split(/\s+/)[0];
+      for (const [word, data] of [['pushed', { head: 'h' }], ['opened', { pr: 7, head: 'h' }]]) s.record(s.next().step.id, word, data);
+      const step = s.next();
+      const keepBoth = (files) => {
+        for (const f of files) {
+          const text = fs.readFileSync(s.abs(f), 'utf8');
+          fs.writeFileSync(s.abs(f), text.replace(/<{7}[^\n]*\n([^]*?)={7}\n([^]*?)>{7}[^\n]*\n/g, (m, ours, theirs) => ours + theirs));
+        }
+      };
+      const played = playMerge(s, { mergeable: 'CONFLICTING', status: 'DIRTY', step, resolve: keepBoth });
+
+      // merge-base-in could not settle it; the graded flow did, and the send was a fast-forward.
+      expect(played.mergedIn).toMatchObject({ ok: false, outcome: 'stopped', notRecord: ['src/index.js'] });
+      expect(played.graded.start).toMatchObject({ outcome: 'resolving', mechanical: ['src/index.js'] });
+      expect(played.graded.check).toMatchObject({ ok: true, action: 'commit' });
+      expect(played.graded.commit).toMatchObject({ ok: true, outcome: 'resolved', head: played.head });
+      expect(played.refMoves).toEqual([played.head]);
+      expect(s.g(s.repo, 'merge-base', '--is-ancestor', before, played.head)).toBe('');
+      expect(s.g(s.repo, 'show', 'HEAD:src/index.js')).toBe("export * from './a';\nexport * from './b';");
+
+      // The entry came from the library, and rides on the merge step's result into shipped.json.
+      expect(played.resolution).toMatchObject({ outcome: 'resolved', class: 'mechanical', failedAttempts: 0,
+        files: [{ path: 'src/index.js', class: 'mechanical' }] });
+      expect(played.resolution.reproofScope).toMatch(/^files: src\/index\.js; criteria: /);
+      const rec = s.record(step.step.id, 'merged', { merged: true, mergedHead: played.head, base: 'main', method: 'merge', resolution: played.resolution });
+      expect(rec).toMatchObject({ ok: true });
+      const merged = refJson(s, 'shipped.json').results.find((x) => x.result === 'merged');
+      expect(merged.data.resolution).toEqual(played.resolution);
     });
 
     test('a plain start with closed.json only on the ref anchors custody at the audited commit, not HEAD', () => {
@@ -972,5 +1024,31 @@ describe('merge step: bringing the base in, then the gate, pr-head check and gh 
         expect(s.next()).toMatchObject({ action: 'done', shipped: true });
       });
     });
+  });
+});
+
+
+describe('docs/guides/ship-build.md describes the graded merge', () => {
+  const guide = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'guides', 'ship-build.md'), 'utf8');
+  const section = guide.slice(guide.indexOf('### The graded merge'), guide.indexOf('### What stops a run, and what does not'));
+
+  test('has the graded-merge section, before "What stops a run"', () => {
+    expect(guide).toMatch(/^### The graded merge$/m);
+    expect(section.length).toBeGreaterThan(500);
+  });
+
+  test('names each stop case: forbidden, behavioural, two failed fix attempts, refused start', () => {
+    expect(section).toMatch(/A forbidden file/);
+    expect(section).toMatch(/A behavioural clash/);
+    expect(section).toMatch(/Checks still failing after two failed fix attempts/);
+    expect(section).toMatch(/A refused start/);
+    expect(section).toMatch(/ensemble\.mergeChecks/);
+  });
+
+  test('lists every field of the resolution record', () => {
+    for (const field of ['outcome', 'class', 'files', 'checks', 'reproofScope', 'failedAttempts', 'stuck']) {
+      expect(section).toContain('| ' + String.fromCharCode(96) + field + String.fromCharCode(96) + ' |');
+    }
+    expect(section).toMatch(/data\.resolution/);
   });
 });

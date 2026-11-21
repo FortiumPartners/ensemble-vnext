@@ -1782,3 +1782,10 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 
 - [ran] `merge-up.js pre-ci --pr N` runs against a stub `gh` first on PATH (answers `pr view` with `{state,mergeable,mergeStateStatus}` from an env var, logs argv): CONFLICTING gives `conflicted`, MERGEABLE `proceed`, UNKNOWN `poll`, one gh call each. `wait-ci` itself is a model-run contract, so "no CI-status query" is shown only by contract text order (step 0 before step 1) and the `pre-ci` answer.
 - [ran] The real `ship-sequencer.js` CLI with the real `packages/core/contracts` walks redirects with no model: `start --kind sweep --id x --branch feat` in a `git init` temp repo, `next/record --autonomy .claude/rules/autonomy.md`. A `merge` loop is entered by recording `red` on it; collect-findings results are `clean|found`; a body step (6.4) can be recorded only after `next` hands it out. Zsh-safe: write the driver to a bash file (a `${` in a JS template literal breaks the REPL).
+
+## Exercising merge-resolve.js (resolve-mechanical-conflicts-in-place, 2026-11-21, iteration 1)
+
+- [ran] `merge-resolve.js` needs no model session: a node driver builds a repo with a bare origin, a `feature/f` branch and a clashing `main` (shape copied from `merge-resolve.test.js`'s `fixture()`), then calls `node .claude/lib/merge-resolve.js start|check|commit|abort|entry`. Every call prints one JSON line and exits 0, refusals included, so read `outcome`/`action`, not the exit code. Driver and transcripts: `.trd-state/resolve-mechanical-conflicts-in-place/evidence/fvx1/`.
+- [ran] A `check` that fails twice then stops needs a third call: `fix`, `fix`, then `stop` (`failedAttempts` 2). After a `stop` the state is `stopped`, so `commit` answers "no resolution in progress", not "checks have not passed"; the latter wording appears after a `fix`.
+- [ran] FS-8 grep for `exec(` matches the regex `.exec(entry)` at merge-resolve.js:86; it is not a process call. Only two `spawnSync` calls exist, both with argument arrays.
+- [ran] `npx jest --no-watchman` on merge-resolve, ship-primitives and ship-build.seam tests: 220 passed, ~88s.
