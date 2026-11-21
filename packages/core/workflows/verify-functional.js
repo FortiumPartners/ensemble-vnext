@@ -1642,6 +1642,25 @@ const SETUP_SCHEMA = {
   },
 }
 
+// The build-identity re-read (Exercise stale check). One entry per target: the stdout of its
+// identity command, or null when the command failed or could not be run.
+const IDENTITY_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['identities'],
+  properties: {
+    identities: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['environment', 'output'],
+        properties: { environment: { type: 'string' }, output: { type: ['string', 'null'] } },
+      },
+    },
+  },
+}
+
 const RECORD_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -2676,6 +2695,10 @@ function dispatchRender(skill, iteration, judgeResult) {
 // branch because that branch calls buildFinalResult before any later `const` exists.
 const setupState = { checked: 0, refreshed: 0, flags: [], problems: [] }
 const setupFlagKeys = new Set()
+// Build identity (re-check after each Exercise pass). `issues` are ISSUES lines for a remote or
+// shared target that declares no identity command; `stale` records each pass whose evidence was
+// thrown away because the target's build changed while it was being exercised.
+const identityState = { issues: [], stale: [] }
 // The last Debug pass's reported refresh, `{ ran, exitCode }`; null before any Debug pass, after a
 // dead Debug agent, and for a result without one (only a test stub can produce that).
 let lastDebugRefresh = null
@@ -2733,7 +2756,40 @@ function setupSummary(problems) {
     refreshed: setupState.refreshed,
     flags: [...setupState.flags],
     problems: problems === undefined ? [...setupState.problems] : problems,
+    // Only present when something happened, so a run with no identity concern keeps its old shape.
+    ...(identityState.issues.length > 0 ? { issues: [...identityState.issues] } : {}),
+    ...(identityState.stale.length > 0 ? { staleExercises: [...identityState.stale] } : {}),
   }
+}
+
+// A target is remote or shared when it names a url that is not this machine (owner's call,
+// 2026-11-21: the "remote or shared" test is a non-localhost url).
+function isRemoteTarget(t) {
+  if (!t.url) return false
+  let host
+  try {
+    host = new URL(t.url).hostname
+  } catch (e) {
+    return true // a url we cannot parse is not provably local
+  }
+  return !['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0'].includes(host)
+}
+
+// Runs each target's identity command and returns Map(environment -> stdout | null). The script
+// has no shell, so an agent runs the commands exactly as declared and decides nothing.
+async function readIdentities(iteration, when, targets) {
+  const out = new Map()
+  const r = await agent(
+    `Functional verification -- build identity read (${when}), iteration ${iteration}.\n${SCOPE}\n` +
+      `Run NO refresh, rebuild or restart and edit nothing. For EACH target below run its identity command exactly as given and ` +
+      `return its stdout (trimmed) in "output", or null when it failed or could not be run.\n` +
+      `Targets: ${JSON.stringify(targets.map((t) => ({ environment: t.environment, identity: t.identity })))}\n` +
+      `Return { "identities": [ { "environment": <name>, "output": <string|null> } ] }.`,
+    { label: 'identity', phase: 'Setup', model: 'sonnet', schema: IDENTITY_SCHEMA }
+  )
+  if (!r) return out
+  for (const e of r.identities || []) out.set(e.environment, e.output)
+  return out
 }
 
 // --------------------------------------------------------------------------- empty criteria
@@ -3848,9 +3904,31 @@ for (; iteration <= CAP; iteration++) {
       if (setupProblems) return await endOnSetupFailure(setupProblems, iteration, openCriteria, settled, debugAttempts)
     }
 
+    // Remote or shared targets with no identity command cannot be re-checked: say so, once.
+    for (const t of setupNow) {
+      const line = `build identity not checkable: ${t.environment} (${t.url}) declares no identity command`
+      if (t.identity === '' && isRemoteTarget(t) && !identityState.issues.includes(line)) identityState.issues.push(line)
+    }
+    const identityTargets = setupNow.filter((t) => t.identity !== '')
+    const identityBefore = identityTargets.length > 0 ? await readIdentities(iteration, 'before Exercise', identityTargets) : new Map()
+
     phase('Exercise')
 
     const pass = await exercisePass(iteration, exerciseCriteria)
+    if (identityTargets.length > 0) {
+      // The build may have been redeployed under the pass: its evidence then describes two builds.
+      const identityAfter = await readIdentities(iteration, 'after Exercise', identityTargets)
+      const changed = identityTargets.filter((t) => {
+        const b = identityBefore.get(t.environment)
+        const af = identityAfter.get(t.environment)
+        return typeof b === 'string' && typeof af === 'string' && b !== af
+      })
+      if (changed.length > 0) {
+        for (const t of changed) identityState.stale.push({ iteration, environment: t.environment, before: identityBefore.get(t.environment), after: identityAfter.get(t.environment) })
+        log(`iteration ${iteration}: the build identity of ${changed.map((t) => t.environment).join(', ')} changed during Exercise -- this pass's evidence is stale and is not judged; re-exercising (counts against the iteration cap)`)
+        continue
+      }
+    }
     claims = pass.claims
     recaptureIds = pass.recaptureIds
     // `exercised` reports over the open set (§3.4) -- criteria in no lane were never walked and

@@ -6217,3 +6217,54 @@ describe('verify-functional: evidence-only criteria and Core must-pass ids', () 
     });
   });
 });
+
+describe('verify-functional: build identity re-check after each Exercise pass', () => {
+  const idTarget = (over = {}) => setupTarget({ identity: 'curl -s https://dev.example.com/version', url: 'https://dev.example.com', ports: [], ...over });
+  const identities = (output) => ({ identities: [{ environment: 'local', output }] });
+
+  it('marks a pass stale when the identity changed, re-exercises it, and records it', async () => {
+    let reads = 0;
+    const outputs = ['build-1', 'build-2', 'build-2', 'build-2'];
+    const agent = makeAgentStub(setupPlan({ setup: setupResult(), identity: () => identities(outputs[reads++]) }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [idTarget()] }) });
+    // the first pass is never judged; the second pass is exercised, read twice more, and judged
+    expect(labelsOf(agent).filter((l) => l === 'exercise')).toHaveLength(2);
+    expect(labelsOf(agent).filter((l) => l === 'judge')).toHaveLength(1);
+    expect(result.outcome).toBe('satisfied');
+    expect(result.setup.staleExercises).toEqual([{ iteration: 1, environment: 'local', before: 'build-1', after: 'build-2' }]);
+  });
+
+  it('counts the stale pass against the iteration cap', async () => {
+    let reads = 0;
+    const agent = makeAgentStub(setupPlan({ setup: setupResult(), identity: () => identities(`build-${reads++}`) }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [idTarget()], cap: 1 }) });
+    expect(labelsOf(agent).filter((l) => l === 'exercise')).toHaveLength(1);
+    expect(labelsOf(agent)).not.toContain('judge');
+    expect(result.outcome).toBe('stuck');
+  });
+
+  it('judges the pass when the identity is unchanged, and when a read returns nothing', async () => {
+    const same = makeAgentStub(setupPlan({ setup: setupResult(), identity: identities('build-1') }));
+    const a = await runWorkflow(SOURCE, { agent: same, args: baseArgs({ setupTargets: [idTarget()] }) });
+    expect(a.result.setup.staleExercises).toBeUndefined();
+    expect(labelsOf(same)).toEqual(['setup', 'identity', 'exercise', 'identity', 'judge']);
+    const dead = makeAgentStub(setupPlan({ setup: setupResult(), identity: null }));
+    const b = await runWorkflow(SOURCE, { agent: dead, args: baseArgs({ setupTargets: [idTarget()] }) });
+    expect(labelsOf(dead).filter((l) => l === 'exercise')).toHaveLength(1);
+    expect(b.result.outcome).toBe('satisfied');
+  });
+
+  it('reports one "build identity not checkable" line for a remote target with no identity command', async () => {
+    const agent = makeAgentStub(setupPlan({ setup: setupResult() }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [idTarget({ identity: '' })] }) });
+    expect(labelsOf(agent)).not.toContain('identity');
+    expect(result.setup.issues).toHaveLength(1);
+    expect(result.setup.issues[0]).toMatch(/^build identity not checkable: local/);
+  });
+
+  it('does not report it for a localhost target', async () => {
+    const agent = makeAgentStub(setupPlan({ setup: setupResult() }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
+    expect(result.setup.issues).toBeUndefined();
+  });
+});

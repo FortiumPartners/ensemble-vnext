@@ -2366,7 +2366,7 @@ it than the outcome.
 **Carry `setup`** (`{ checked, refreshed, flags: [{ environment, flag, default }], problems:
 [{ environment, problem, fix }] }`; present on every return) into the same block (D10): `flags`
 are defaults the setup check applied, and `problems` is non-empty only when `outcome` is
-`setup-failure`. It is what Step 9's DECISIONS, ISSUES and NEXT lines for the environment read.
+`setup-failure`. It is what Step 9's DECISIONS, ISSUES and NEXT lines for the environment read. Each `result.setup.issues` line (for example `build identity not checkable: <env> (<url>) declares no identity command`) is one ISSUES line, verbatim; passes made stale by a changed build identity (`result.setup.staleExercises`) are named in the report.
 
 **Carry `pages`** (`Array<{ skill, page, rendered, iteration, reason }>`; `[]` when no check
 criteria exist) into the same block too — it is the last Render per selected check skill, and
