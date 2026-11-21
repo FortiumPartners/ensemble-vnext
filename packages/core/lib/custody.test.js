@@ -1456,6 +1456,94 @@ describe('reconcile: base, head and set-only', () => {
     expect(r).toMatchObject({ action: 'reverify', ids: ['FS-1'], differing: ['src/b.js'] });
   });
 
+  // F-4 (ship-graded-merge): after a merge of the base, only criteria whose covered code changed are re-proved.
+  // Storybook's custody refusals (storybook-stuck-2026-11-14-to-21.tsv) came from files BOTH sides changed
+  // that git merged cleanly (lib/domain/index.ts, prisma/schema.prisma, e2e/spec-map.json): the feature's
+  // part was proven at the anchor, so only the base's part is new.
+  describe('narrow re-proof after a base merge (F-4)', () => {
+    const CONFIG = ['// feature-1', 'const a = 1;', 'const b = 2;', 'const c = 3;', 'const d = 4;', 'const e = 5;', 'const f = 6;', 'const g = 7;', '// base-9', ''];
+    const withLine = (lines, i, text) => lines.map((l, k) => (k === i ? text : l)).join('\n');
+    /** A feature that edits line 1 of next.config.ts before the anchor, and a base that edits line 9. */
+    function bothSides(coverPath) {
+      const s = setup();
+      git(s.repo, 'checkout', '-q', 'main');
+      s.commit('config on base', { 'next.config.ts': CONFIG.join('\n') });
+      git(s.repo, 'push', 'origin', 'main');
+      git(s.repo, 'checkout', '-q', 'feature/x');
+      git(s.repo, 'merge', '-q', 'main');
+      s.commit('feature edits the config', { 'next.config.ts': withLine(CONFIG, 0, '// feature-edited') });
+      reconcile(s.args());
+      withDefinition(s, [coverPath]);
+      landOnBase(s, { 'next.config.ts': withLine(CONFIG, 8, '// base-edited') });
+      return s;
+    }
+
+    test('a base-only framework config file no criterion covers re-proves nothing', () => {
+      const s = anchored();
+      withDefinition(s, ['src/a.js']);
+      landOnBase(s, { 'next.config.ts': 'export default {};\n' });
+      const merged = mergeBase(s);
+      const r = reconcile(s.args({ base: 'origin/main' }));
+      expect(r).toMatchObject({ action: 'moved', anchor: merged, reused: ['FS-1'], differing: [], excused: ['next.config.ts'], scope: 'none' });
+      expect(r.ids).toBeUndefined();
+    });
+
+    test('a base-only file no cover names, in a directory with no cover and at the root, re-proves nothing', () => {
+      const s = anchored();
+      withDefinition(s, ['src/a.js']);
+      landOnBase(s, { 'lib/domain/index.ts': 'export {};\n', 'tsconfig.paths.json': '{}\n' });
+      mergeBase(s);
+      const r = reconcile(s.args({ base: 'origin/main' }));
+      expect(r).toMatchObject({ action: 'moved', reused: ['FS-1'], differing: [], scope: 'none' });
+      expect(r.excused.sort()).toEqual(['lib/domain/index.ts', 'tsconfig.paths.json']);
+    });
+
+    test('a file both sides changed, merged cleanly, that no cover names re-proves nothing', () => {
+      const s = bothSides('src/a.js');
+      const merged = mergeBase(s);
+      expect(fs.readFileSync(path.join(s.repo, 'next.config.ts'), 'utf8')).toContain('// feature-edited');
+      expect(fs.readFileSync(path.join(s.repo, 'next.config.ts'), 'utf8')).toContain('// base-edited');
+      const r = reconcile(s.args({ base: 'origin/main' }));
+      expect(r).toMatchObject({ action: 'moved', anchor: merged, reused: ['FS-1'], differing: [], excused: ['next.config.ts'], scope: 'none' });
+      expect(s.readCustody().moves.pop().rule).toBe('base-merge');
+    });
+
+    test('a file the feature touched and a criterion covers still re-proves that criterion', () => {
+      const s = bothSides('next.config.ts');
+      mergeBase(s);
+      const r = reconcile(s.args({ base: 'origin/main' }));
+      expect(r).toMatchObject({ action: 'reverify', ids: ['FS-1'], differing: [], excused: ['next.config.ts'], scope: 'targeted' });
+    });
+
+    test('a feature edit to the same file after the anchor is not excused, and an unnamed file widens to full', () => {
+      const s = bothSides('src/a.js');
+      s.commit('late feature edit', { 'next.config.ts': withLine(CONFIG, 0, '// feature-edited').replace('const b = 2;', 'const b = 20;') });
+      mergeBase(s);
+      const r = reconcile(s.args({ base: 'origin/main' }));
+      expect(r.differing).toEqual(['next.config.ts']);
+      expect(r.excused).toEqual([]);
+      expect(r).toMatchObject({ action: 'reverify', scope: 'full' });
+    });
+
+    test('a file both sides changed that needed a hand edit to merge is not excused', () => {
+      const s = bothSides('src/a.js');
+      mergeBase(s);
+      // Rewrite the merged result by hand: the head no longer equals a clean merge of the two sides.
+      s.commit('hand edit in the merge', { 'next.config.ts': fs.readFileSync(path.join(s.repo, 'next.config.ts'), 'utf8') + '// hand\n' });
+      const r = reconcile(s.args({ base: 'origin/main' }));
+      expect(r.differing).toEqual(['next.config.ts']);
+      expect(r.scope).toBe('full');
+    });
+
+    // Storybook row 2026-11-19T21:08 (feature 20, video render job): "the 4 video-ending checks were not
+    // re-run (develop's next.config.ts change pulled them in)". Not reproduced: that session's log
+    // (/Users/tg/.claude/projects/...) is unreadable from here, and the row does not say whether a recorded cover named
+    // next.config.ts (then re-proving is correct, see the covered-file case above), whether the feature
+    // also edited it (fixed above), or whether those criteria were never met (a never-proven criterion
+    // is re-verified by design). Custody is left as it is for this row until a log shows which.
+    test.skip('storybook 2026-11-19T21:08: develop next.config.ts pulled 4 video-ending criteria in (not reproducible: session log unreadable)', () => {});
+  });
+
   test('a promoted lockfile that came in from the base (excused) still reverifies', () => {
     const s = setup();
     // The setting is committed before the anchor, so it is not itself a difference.
