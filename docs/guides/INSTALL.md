@@ -179,11 +179,12 @@ After updating the plugin, run in each project, on a clean git tree:
 /rebase-project            # or --dry-run to preview
 ```
 
-It replaces every framework-owned file that differs from the plugin, adds new ones, removes
-commands, agents and skills the framework has retired, recomputes plugin skills against your
-`stack.md`, rebuilds each agent's preloaded skills from what is actually installed, and stamps
-the new `ensemble.version`. Agents are reported as updated only when their content really
-changed. It writes no backup copies: git is the undo, which is why it refuses to run with
+It makes one call to `scaffold-project.sh --rebase`, which replaces each framework-owned file
+that matches a version the framework shipped, adds new ones, removes files the framework has
+retired, keeps installed skills current (it does not recompute them from your `stack.md`),
+rebuilds each agent's preloaded skills from what is installed, and stamps the new
+`ensemble.version`. A framework file you edited is reported as a conflict; the command then
+merges it or keeps your copy, and never discards your edit. It writes no backup copies: git is the undo, which is why it refuses to run with
 uncommitted changes under `.claude/`, or outside a git repo, unless you pass `--force`
 (which discards those changes). Review with `git diff`, then commit.
 

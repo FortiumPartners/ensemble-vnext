@@ -266,8 +266,8 @@ Skills are Markdown knowledge packs loaded when a task calls for them. They are 
 code.
 
 - **Stack skills** are chosen by `/init-project` from the plugin's library to match
-  `stack.md` (languages, test runners, platforms, AI SDKs, issue trackers), and recomputed by
-  `/rebase-project`. The library is `packages/skills/` in the plugin repository.
+  `stack.md` (languages, test runners, platforms, AI SDKs, issue trackers), and kept current by
+  `/rebase-project` from the skill folders installed in `.claude/skills/` (not recomputed from `stack.md`). The library is `packages/skills/` in the plugin repository.
 - **Framework skills** ship to every project, listed once in the plugin's
   `packages/skills/framework-skills.txt`:
 

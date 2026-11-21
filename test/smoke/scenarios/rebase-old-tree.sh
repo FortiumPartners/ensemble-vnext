@@ -10,12 +10,12 @@
 #
 # The DETERMINISTIC half of rebase delivery — scaffold-project.sh --refresh — is
 # already covered there and in packages/core/scripts/scaffold-project.test.sh,
-# with no model involved. What neither can touch is the part item 13 names: the
-# CLASSIFICATION decisions inside /rebase-project, which is a markdown prompt.
-# Which commands are stale, which skills are the user's, which rules the
-# framework owns — §4.1–4.7 of rebase-project.md is an independently specified
-# LLM-executed procedure that never shells out to the refresh script. The only
-# way to observe it is to run it.
+# with no model involved. Classification (which commands are retired, which
+# skills are the user's, which rules the framework owns) is now the engine's too:
+# /rebase-project makes one scaffold-project.sh --rebase call. What no BATS test
+# can touch is the prompt around that call: that it makes the call, resolves the
+# conflicts it reports without discarding owner work, and finishes. The only way
+# to observe that is to run it.
 #
 # EVERY ASSERTION READS THE FILESYSTEM. /rebase-project writes a prose Rebase
 # Report saying what it changed; asserting against that text would pass for a run
@@ -113,10 +113,19 @@ done
 # -----------------------------------------------------------------------------
 # 4.1.19 bug: framework rules were preserve-as-is, so they could NEVER update.
 # -----------------------------------------------------------------------------
-if grep -q -- '--wiggum' "${PROJECT_DIR}/.claude/rules/autonomy.md" 2>/dev/null; then
-    assert_fail_raw "framework rule autonomy.md refreshed (stale --wiggum text still present)"
+if cmp -s "${REPO_ROOT}/packages/core/templates/claude-directory/rules/autonomy.md" \
+    "${PROJECT_DIR}/.claude/rules/autonomy.md"; then
+    assert_pass_raw "framework rule autonomy.md refreshed (equals the current template byte for byte)"
 else
-    assert_pass_raw "framework rule autonomy.md refreshed (stale --wiggum text gone)"
+    assert_fail_raw "framework rule autonomy.md refreshed (differs from the current template)"
+fi
+
+# The owner's committed line in a framework command must survive, whether the
+# prompt merged it into the new version or kept the owner's copy.
+if grep -qF -- "$SMOKE_OWNER_LINE" "${PROJECT_DIR}/.claude/commands/plan.md" 2>/dev/null; then
+    assert_pass_raw "owner line in commands/plan.md survived the rebase"
+else
+    assert_fail_raw "owner line in commands/plan.md was discarded by the rebase"
 fi
 
 # -----------------------------------------------------------------------------
@@ -157,10 +166,11 @@ assert_true "ensemble.previous_version records the aged value (got '${PREV}')" \
 # The command must terminate on its banner (command-status.md).
 # -----------------------------------------------------------------------------
 FINAL="$(smoke_final_text "$SESSION_FILE" 2>/dev/null | grep -v '^\s*$' | tail -12)"
-if grep -qE '═══ COMMAND (COMPLETE|STUCK): /rebase-project ═══' <<< "$FINAL"; then
-    assert_pass_raw "output carries a COMMAND COMPLETE/STUCK banner"
+if grep -qE '═══ COMMAND COMPLETE: /rebase-project ═══' <<< "$FINAL" \
+    && ! grep -qE '═══ COMMAND STUCK: /rebase-project ═══' <<< "$FINAL"; then
+    assert_pass_raw "output carries the COMMAND COMPLETE banner (a STUCK ending fails)"
 else
-    assert_fail_raw "output carries a COMMAND COMPLETE/STUCK banner"
+    assert_fail_raw "output carries the COMMAND COMPLETE banner (a STUCK ending fails)"
 fi
 
 smoke_finish

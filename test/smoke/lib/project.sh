@@ -285,23 +285,23 @@ smoke_agent_invoked() {
 #   - workflows/ lib/ contracts/ absent   -> 4.1.18: never delivered at all
 #   - hook execute bits cleared           -> 4.1.18: Permission denied every event
 #   - retired team commands present       -> 4.1.18: classified stale, not deleted
-#   - a framework rule frozen stale       -> 4.1.19: rules could never be updated
+#   - a framework rule at v4.10.0's bytes -> 4.1.19: rules could never be updated
+#   - an owner line in commands/plan.md   -> the prompt's conflict path: owner work survives
 #   - a user-authored skill planted       -> 4.1.19: custom skills marked for deletion
-#   - ensemble.version rolled back        -> puts Step 1 on the "Older -> Newer" branch
+#   - ensemble.version rolled back        -> the engine's stamp must move it forward
 #
 # Prints the three governance-file hashes (constitution/stack/process) on stdout,
 # one "<name> <hash>" per line, so the caller can prove rebase left them alone.
 # Returns non-zero if any degradation did not take — see smoke_assert_aged.
+SMOKE_OWNER_LINE='<!-- smoke: owner edit that rebase must keep -->'
 smoke_age_project() {
     local d="$1"
 
     rm -rf "${d}/.claude/workflows" "${d}/.claude/lib" "${d}/.claude/contracts"
 
-    # Retired commands MUST carry ensemble frontmatter with a `category:` field:
-    # rebase-project.md's diff step classifies a vendored-not-in-plugin file as
-    # Stale only if it looks framework-shipped. Without frontmatter it reads as
-    # a user-authored Custom command and is deliberately PRESERVED — the
-    # scenario would then fail against correct behaviour.
+    # Retired commands: the engine removes them because retired-files.json lists
+    # them, whatever their frontmatter. The frontmatter is kept so the fixture
+    # still looks like what an old scaffold left behind.
     local c
     for c in harden-trd-team verify-trd-team implement-trd-team; do
         cat > "${d}/.claude/commands/${c}.md" <<EOF
@@ -319,17 +319,17 @@ EOF
     find "${d}/.claude/hooks" -type f \( -name '*.sh' -o -name '*.js' -o -name '*.py' \) \
         -exec chmod a-x {} + 2>/dev/null || true
 
-    # A framework rule frozen at stale content. --wiggum was deleted in 4.1.18;
-    # a project still reading about it is the exact symptom that surfaced the
-    # "framework rules could never be updated" bug.
-    cat > "${d}/.claude/rules/autonomy.md" <<'EOF'
-# Autonomous-execution discipline (STALE FIXTURE)
+    # A framework rule frozen at the bytes v4.10.0 shipped. The engine
+    # (scaffold-project.sh --rebase) matches the file's hash to that shipped version
+    # and replaces it deterministically; a hand-written stale file would read as an
+    # owner edit (a conflict) and make the check depend on the model's merge choice.
+    cp "${REPO_ROOT}/test/fixtures/rebase-engine/older/rules/autonomy.md" \
+        "${d}/.claude/rules/autonomy.md"
 
-Pass `--wiggum` to run without confirmation prompts.
-
-This file is deliberately out of date. A correct rebase replaces it with the
-framework's current template.
-EOF
+    # An owner edit to a framework command, committed in the aging commit below so
+    # the history shows an owner change after install. Rebase may merge or keep the
+    # owner's copy, but must never discard this line.
+    printf '\n%s\n' "$SMOKE_OWNER_LINE" >> "${d}/.claude/commands/plan.md"
 
     # User-authored skill: the discriminator is absence from packages/skills/.
     mkdir -p "${d}/.claude/skills/smoke-user-skill"
@@ -393,8 +393,14 @@ smoke_assert_aged() {
     if [[ -n "$(find "${d}/.claude/hooks" -type f \( -name '*.sh' -o -name '*.js' \) -perm -u+x -print -quit 2>/dev/null)" ]]; then
         echo "aging failed: some hooks are still executable" >&2; bad=1
     fi
-    grep -q -- '--wiggum' "${d}/.claude/rules/autonomy.md" 2>/dev/null \
-        || { echo "aging failed: autonomy.md not staled" >&2; bad=1; }
+    local fx="${REPO_ROOT}/test/fixtures/rebase-engine/older/rules/autonomy.md"
+    local cur="${REPO_ROOT}/packages/core/templates/claude-directory/rules/autonomy.md"
+    cmp -s "$fx" "${d}/.claude/rules/autonomy.md" \
+        || { echo "aging failed: autonomy.md is not the v4.10.0 fixture" >&2; bad=1; }
+    ! cmp -s "$cur" "${d}/.claude/rules/autonomy.md" \
+        || { echo "aging failed: autonomy.md still equals the current template" >&2; bad=1; }
+    grep -qF -- "$SMOKE_OWNER_LINE" "${d}/.claude/commands/plan.md" 2>/dev/null \
+        || { echo "aging failed: owner line not planted in commands/plan.md" >&2; bad=1; }
     [[ -f "${d}/.claude/skills/smoke-user-skill/SKILL.md" ]] \
         || { echo "aging failed: user skill not planted" >&2; bad=1; }
     [[ -z "$(git -C "$d" status --porcelain)" ]] \

@@ -1,7 +1,7 @@
 'use strict';
 
-// Holds packages/core/templates/retired-files.json (D9) in step with the retired
-// tables in rebase-project.md and with what the current plugin ships (D10).
+// Holds packages/core/templates/retired-files.json (D9) in step with the names the old
+// /rebase-project prose carried (frozen below) and with what the current plugin ships (D10).
 
 const fs = require('fs');
 const os = require('os');
@@ -10,7 +10,6 @@ const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const LIST = path.join(ROOT, 'packages/core/templates/retired-files.json');
-const PROSE = path.join(ROOT, 'packages/core/commands/rebase-project.md');
 const KNOWN = ['commands', 'agents', 'skills', 'hooks', 'hooks/lib', 'hooks/prompts',
   'workflows', 'lib', 'contracts', 'rules'];
 const tmpRoots = [];
@@ -26,40 +25,25 @@ function tmp(prefix) {
 const load = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const listed = (file) => load(file).entries.map((e) => e.path.replace(/\/$/, ''));
 
-/** Section of the prose from a bold heading to the next blank-line-delimited stop. */
-function section(text, startMarker, endMarker) {
-  const s = text.indexOf(startMarker);
-  const e = text.indexOf(endMarker, s + startMarker.length);
-  if (s < 0 || e < 0) throw new Error(`marker missing: ${startMarker}`);
-  return text.slice(s, e);
-}
-
-/** Paths named by the prose, as .claude-relative names (no trailing slash). */
-function proseNames(file) {
-  const text = fs.readFileSync(file, 'utf8');
-  const names = [];
-  const tableFirstCol = (block, dir, strip) => {
-    for (const line of block.split('\n')) {
-      const m = line.match(/^\s*\|\s*`([^`]+)`\s*\|/);
-      if (m) names.push(`${dir}/${strip ? m[1].replace(/\/$/, '') : m[1]}`);
-    }
-  };
-  tableFirstCol(section(text, '**Retired framework agents**', 'Keep this list current'), 'agents');
-  tableFirstCol(section(text, '**Retired framework skills', 'Keep this list current'), 'skills');
-  tableFirstCol(section(text, '**Retired framework commands', 'The three `-team`'), 'commands');
-  const para = section(text, '**Retired hooks.**', '1. **List plugin hooks:**');
-  const sentence = para.slice(0, para.indexOf('The `lib/`'));
-  // Only file-like names (a dot or trailing slash); `SubagentStop` is an event, not a file.
-  for (const m of sentence.matchAll(/`([^`]+)`/g)) {
-    if (/[./]/.test(m[1])) names.push(`hooks/${m[1].replace(/\/$/, '')}`);
-  }
-  return names;
-}
+/**
+ * The names the OLD /rebase-project prose carried (retired-agent/skill/command tables and the
+ * retired-hooks paragraph), frozen when the prompt became a thin caller of the engine. The
+ * prompt no longer lists retired files; retired-files.json is the only list. This literal is a
+ * ratchet: nothing the old prose once named may drop out of the data file.
+ */
+const FROZEN_PROSE_NAMES = [
+  'skills/verify-plan-recovery', 'commands/harden-trd-team.md', 'commands/verify-trd-team.md',
+  'commands/implement-trd-team.md', 'commands/fix-issue.md', 'commands/investigate-issue.md',
+  'commands/fix.md', 'commands/investigate.md', 'hooks/permitter', 'hooks/learning.sh',
+  'hooks/save-remote-logs.js', 'hooks/async-discipline.js', 'hooks/autonomy-discipline.js',
+  'hooks/subagent-discipline.js', 'hooks/lib/async-claim-detector.js',
+  'hooks/lib/transcript-text.js', 'hooks/wiggum.js', 'hooks/prompts/subagent-discipline.prompt.md',
+];
 
 /** assertion (a): every prose name is in the data file. Returns missing names. */
-function missingFromList(listFile, proseFile) {
+function missingFromList(listFile) {
   const have = new Set(listed(listFile));
-  return proseNames(proseFile).filter((n) => !have.has(n));
+  return FROZEN_PROSE_NAMES.filter((n) => !have.has(n));
 }
 
 /** assertion (c): returns a list of problems with the entries. */
@@ -125,14 +109,14 @@ describe('retired-files.json', () => {
     expect(new Set(paths).size).toBe(paths.length);
   });
 
-  test('(a) holds every name in the prose tables and retired-hooks paragraph', () => {
-    expect(proseNames(PROSE).length).toBeGreaterThanOrEqual(18);
-    expect(missingFromList(LIST, PROSE)).toEqual([]);
+  test('(a) holds every name the old prose carried (frozen list)', () => {
+    expect(FROZEN_PROSE_NAMES.length).toBe(18);
+    expect(missingFromList(LIST)).toEqual([]);
   });
 
   test('(a) fails when one prose name is removed from the list', () => {
     const f = mutated((d) => { d.entries = d.entries.filter((e) => e.path !== 'commands/fix.md'); });
-    expect(missingFromList(f, PROSE)).toEqual(['commands/fix.md']);
+    expect(missingFromList(f)).toEqual(['commands/fix.md']);
   });
 
   test('holds the history-only deletions and not the never-installed paths', () => {

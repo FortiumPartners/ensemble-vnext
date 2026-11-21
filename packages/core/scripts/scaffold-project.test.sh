@@ -2517,12 +2517,16 @@ _status_of() { printf '%s\n' "$1" | awk -F'\t' -v n="$2" '$2==n{print $1}'; }
     [ "$status" -ne 0 ]
 }
 
-@test "FIX-002: rebase-project.md uses the script for the agent steps" {
+@test "FIX-002: rebase-project.md delegates the agent steps to the engine in one call" {
+    # WHY: the agent sync and preload steps are now the engine's (`scaffold-project.sh --rebase`);
+    # the prompt must make that one call and carry no agent step or byte-diff instructions.
     local f="$SCRIPT_DIR/../commands/rebase-project.md"
-    grep -q -- '--agent-status' "$f"
-    grep -q -- '--sync-agents' "$f"
-    grep -q '@packages/core/scripts/' "$f"
+    [ "$(grep -c 'scaffold-project.sh" --rebase' "$f")" -eq 1 ]
+    ! grep -q -- '--sync-agents' "$f"
+    ! grep -q -- '--agent-status' "$f"
     ! grep -q 'byte-level diff of the full file' "$f"
+    # and the engine's post steps still run the preload step
+    sed -n '/^rebase_post_steps() {/,/^}/p' "$SCAFFOLD_SCRIPT" | grep -q '_rebase_step inject_agent_skills'
 }
 
 # ---------------------------------------------------------------------------
@@ -2614,15 +2618,19 @@ _recon_sync() {
     [ -z "$(ls "$PROJ"/.claude/selected-skills.txt.tmp.* 2>/dev/null)" ]
 }
 
-@test "FIX-001 (f): rebase-project.md runs the skill step (4.1) before the agent step (4.2)" {
+@test "FIX-001 (f): the engine reconciles the skill selection before the agent preloads; the prompt has one engine call" {
+    # WHY: the preload step must see the reconciled selection or it preloads removed skills. That
+    # order is now the engine's (selection, then preloads, in rebase_post_steps); the prompt no
+    # longer sequences skill and agent steps itself.
     local f; f="$(rebase_cmd)"
-    local skill agent first
-    skill="$(grep -n '^#### 4.1 Update Skills' "$f" | cut -d: -f1)"
-    agent="$(grep -n '^#### 4.2 Update Agents' "$f" | cut -d: -f1)"
-    first="$(awk '/^### Step 4/{s=1} s && /--sync-agents/{print NR; exit}' "$f")"
-    [ -n "$skill" ] && [ -n "$agent" ] && [ -n "$first" ]
-    [ "$skill" -lt "$agent" ]
-    [ "$first" -gt "$skill" ]
+    [ "$(grep -c 'scaffold-project.sh" --rebase' "$f")" -eq 1 ]
+    ! grep -q '^#### 4\.[0-9]' "$f"
+    local post sel pre
+    post="$(sed -n '/^rebase_post_steps() {/,/^}/p' "$SCAFFOLD_SCRIPT")"
+    sel="$(grep -n '_rebase_step reconcile_selected_skills' <<<"$post" | head -1 | cut -d: -f1)"
+    pre="$(grep -n '_rebase_step inject_agent_skills' <<<"$post" | head -1 | cut -d: -f1)"
+    [ -n "$sel" ] && [ -n "$pre" ]
+    [ "$sel" -lt "$pre" ]
     diff -q "$f" "$REPO_ROOT/.claude/commands/rebase-project.md"
     diff -q "$f" "$REPO_ROOT/packages/full/commands/plugin-only/rebase-project.md"
 }
@@ -2681,7 +2689,8 @@ _agent_sums() { ( cd "$PROJ/.claude/agents" && for f in *.md; do printf '%s\t%s\
     run bash -c "'$SCAFFOLD_SCRIPT' --plugin-dir '$PLUG' --sync-agents '$PROJ' 2>/dev/null"
     [ "$(_status_of "$output" verify-app)" = "new" ]
     grep -q 'prints `refreshed`' "$SCAFFOLD_SCRIPT"
-    grep -qF 'Refreshed skill preloads: [names]' "$(rebase_cmd)"
+    # the readout wording moved with the prompt: the engine reports the preloads step
+    grep -q '`preloads`' "$(rebase_cmd)"
 }
 
 # ---------------------------------------------------------------------------
@@ -2774,19 +2783,21 @@ PY
     [ "$(_stamp_json "'rebased_at' in d['ensemble'] or 'previous_version' in d['ensemble']")" = "False" ]
 }
 
-@test "FIX-006 stamp: rebase-project.md runs --stamp-version as the last subsection of Step 4, unconditionally" {
+@test "FIX-006 stamp: rebase-project.md has no stamp of its own; the engine stamps last, unconditionally" {
+    # WHY: a rebase that does not stamp leaves the version unrecorded. The stamp is now the
+    # engine's last post step (strict, whatever settings_preserve says); the prompt reads the
+    # `stamp` step of the result and must not run --stamp-version or hand-write the JSON.
     local f; f="$(rebase_cmd)"
-    local sec; sec="$(awk '/^#### 4\.8 /{p=1} /^### Step 5/{p=0} p' "$f")"
-    [ -n "$sec" ]
-    grep -q '^#### 4\.7 ' "$f"
-    [ "$(grep -n '^#### 4\.7 ' "$f" | cut -d: -f1)" -lt "$(grep -n '^#### 4\.8 ' "$f" | cut -d: -f1)" ]
-    [ "$(grep -n '^#### 4\.8 ' "$f" | cut -d: -f1)" -lt "$(grep -n '^### Step 5' "$f" | cut -d: -f1)" ]
-    [[ "$sec" == *"scaffold-project.sh"*"--stamp-version"* ]]
-    [[ "$sec" == *"whatever"*"settings_preserve"* ]]
-    # dry-run still skips Step 4
-    grep -q 'skip Step 4' "$f"
-    # the hand-written JSON block in 4.6 is gone
+    [ "$(grep -c 'scaffold-project.sh" --rebase' "$f")" -eq 1 ]
+    grep -q '`stamp`' "$f"
+    ! grep -q -- '--stamp-version' "$f"
     ! grep -q '"previous_version": "\[old version\]"' "$f"
+    local post lc ls
+    post="$(sed -n '/^rebase_post_steps() {/,/^}/p' "$SCAFFOLD_SCRIPT")"
+    lc="$(grep -n '_rebase_step _rebase_records_cutover' <<<"$post" | head -1 | cut -d: -f1)"
+    ls="$(grep -n '_rebase_step stamp_ensemble_version' <<<"$post" | head -1 | cut -d: -f1)"
+    [ -n "$lc" ] && [ -n "$ls" ]
+    [ "$lc" -lt "$ls" ]
     diff -q "$f" "$REPO_ROOT/.claude/commands/rebase-project.md"
     diff -q "$f" "$REPO_ROOT/packages/full/commands/plugin-only/rebase-project.md"
 }

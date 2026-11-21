@@ -203,15 +203,18 @@ authored_rules() {
 # and Step 7 even after a run that exited satisfied.
 
 @test "rebase restores the execute bit on every hook, not just .sh" {
-    REBASE_MD="${CORE_COMMANDS}/rebase-project.md"
-    # Hooks are invoked DIRECTLY by the harness, so a copy that drops the mode
-    # yields "/bin/sh: .claude/hooks/router.py: Permission denied" on every event.
-    # scaffold-project.sh has always chmod'd every hook regardless of extension;
-    # this step did not, so a scaffolded-then-rebased project came out WORSE than
-    # one never rebased. Six hooks lost the bit in the reported case.
-    grep -q 'RESTORE THE EXECUTE BIT ON EVERY HOOK' "$REBASE_MD"
-    grep -q 'chmod +x .claude/hooks/\*.js' "$REBASE_MD"
-    grep -q 'Permission denied' "$REBASE_MD"
+    # WHY: hooks are invoked DIRECTLY by the harness, so a copy that drops the mode yields
+    # "Permission denied" on every event. The execute bit is now the engine's (the `modes`
+    # step of `scaffold-project.sh --rebase`); the prompt must delegate to it and not carry
+    # its own chmod, and the engine's post steps must still call ensure_hooks_executable.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    SCAFFOLD="${REPO_ROOT}/packages/core/scripts/scaffold-project.sh"
+    grep -q 'scaffold-project.sh" --rebase' "$RP"
+    grep -q '`modes`' "$RP"
+    refute grep -q 'chmod +x' "$RP"
+    POST="$(sed -n '/^rebase_post_steps() {/,/^}/p' "$SCAFFOLD")"
+    [ -n "$POST" ]
+    grep -q '_rebase_step ensure_hooks_executable' <<<"$POST"
 }
 
 @test "every file mirrored into .claude/ matches its packages/ source" {
@@ -265,32 +268,25 @@ PY
 }
 
 @test "framework-shipped rules are UPDATED on rebase, not frozen on first install" {
-    # Found 2026-08-21 from a live rebase in another project: its autonomy.md still
-    # documented an autonomous-mode flag deleted five releases earlier. Nothing had
-    # failed — rebase-project's §4.7 declared "two categories with opposite update
-    # policies" and then gave BOTH categories the same policy (preserve-as-is), so a
-    # framework rule was copied once and could never be updated again. Rules were
-    # getting strictly worse treatment than commands, which are replaced-if-differs.
+    # WHY (found 2026-08-21): a framework rule was once copied once and never updated again.
+    # The update policy is now the engine's (it replaces a framework rule that matches a shipped
+    # version, and reports an owner edit as a conflict); the prompt must delegate to it, keep
+    # recovery on git, and keep the user-owned governance files untouchable.
     RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
-    SECTION="$(sed -n '/^#### 4.7 Rules/,/^<\/selective-update>/p' "$RP")"
-    [ -n "$SECTION" ]
-
-    # The framework category must say UPDATED, and must NOT say preserve-as-is.
-    grep -q 'Framework-shipped rules (UPDATED on rebase' <<<"$SECTION"
-    refute grep -q 'copied-if-missing on rebase' <<<"$SECTION"
-    refute grep -q 'preserve as-is' <<<"$SECTION"
-
-    # Replacement must point at git for recovery — no parallel backup copies.
-    grep -q 'Recovery is git' <<<"$SECTION"
-    refute grep -q 'bak-' <<<"$SECTION"
-
-    # User-owned governance must STILL be untouchable. The fix must not have
-    # widened to constitution/stack/process.
-    grep -q 'NEVER modified by rebase' <<<"$SECTION"
-    for g in constitution stack process; do
-        grep -q "rules/${g}.md" <<<"$SECTION"
+    SCAFFOLD="${REPO_ROOT}/packages/core/scripts/scaffold-project.sh"
+    grep -q 'scaffold-project.sh" --rebase' "$RP"
+    grep -q 'framework rule' "$RP"
+    refute grep -q 'copied-if-missing on rebase' "$RP"
+    refute grep -q 'preserve as-is' "$RP"
+    refute grep -q 'bak-' "$RP"
+    grep -q 'Recovery is git' "$RP"
+    # Governance stays untouchable: the prompt says NEVER modified, and the engine's
+    # authored-rules list (the one source) holds all six.
+    grep -q 'NEVER modified' "$RP"
+    for g in constitution stack process verification design ship; do
+        grep -q "\`${g}.md\`" "$RP"
+        grep -q "AUTHORED_RULES=(.*\"${g}.md\"" "$SCAFFOLD"
     done
-    grep -q 'still never modified' <<<"$SECTION"
 }
 
 @test "every framework rule template matches the live copy it ships" {
@@ -315,145 +311,99 @@ PY
 }
 
 @test "a user-authored skill is never removed by rebase" {
-    # Found 2026-08-21 from a live rebase. Commands get a frontmatter discriminator,
-    # agents get a name list, hooks get extension rules — skills had NOTHING. The
-    # stack-match table only knows plugin skills, so a project-authored skill matched
-    # nothing and was classified "no longer matches the stack" -> removed, on EVERY
-    # rebase. Four survived only because that agent overrode its own instructions.
-    # This is the one category where a wrong removal destroys unrecoverable work.
+    # WHY (found 2026-08-21): the one category where a wrong removal destroys unrecoverable work.
+    # The guard is now structural in the engine: a file the plugin does not ship is removed only
+    # when retired-files.json lists it, so a project-authored skill matches nothing and stays.
+    # The prompt must say so and must not carry a skill stack-match table of its own.
     RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
-
-    # The diff step must carry a Custom row keyed on absence from the plugin library.
-    grep -q 'does not exist in the plugin.s skill library at all' "$RP"
-
-    # The APPLY step must check it before deleting — a table row nothing reads is not a guard.
-    APPLY="$(sed -n '/^#### 4.1 Update Skills/,/^#### 4.2 Update Agents/p' "$RP")"
-    grep -q 'Check the Custom guard FIRST' <<<"$APPLY"
-    grep -q 'Do not delete it' <<<"$APPLY"
-
-    # The discriminator it names must actually be a real, populated directory.
+    SCAFFOLD="${REPO_ROOT}/packages/core/scripts/scaffold-project.sh"
+    grep -q 'removed only when they are on the framework.s retired-file list' "$RP"
+    grep -q 'preserved as a user customization' "$RP"
+    grep -q 'retired-files.json' "$SCAFFOLD"
+    refute grep -q 'Check the Custom guard' "$RP"
+    # The discriminator it relies on must be a real, populated directory.
     [ -d "${REPO_ROOT}/packages/skills" ]
     [ "$(ls "${REPO_ROOT}/packages/skills" | wc -l)" -gt 10 ]
 }
 
 @test "the three framework skills are never classified Stale by rebase" {
-    # VFIX-P001 (D14, docs/TRD/verification-fix-loop.md §3.8): the framework
-    # skills' names are no longer hand-copied here -- they're read from the one
-    # list, packages/skills/framework-skills.txt. Its "check"-role skills match
-    # nothing in the stack-match table, so under the plain Stale rule they would
-    # be removed on every rebase. They are named as a Framework category
-    # instead: always installed, never Stale, added when missing.
+    # WHY (VFIX-P001): framework skills match nothing in a stack table, so under a Stale rule
+    # they would be removed on every rebase. There is no Stale rule or stack table any more:
+    # the engine removes only retired-listed files, and the framework skills are read from the
+    # one list, framework-skills.txt, by copy_framework_skills and reconcile_selected_skills.
     RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    SCAFFOLD="${REPO_ROOT}/packages/core/scripts/scaffold-project.sh"
     LIST_FILE="${REPO_ROOT}/packages/skills/framework-skills.txt"
-
     [ -f "$LIST_FILE" ]
-
-    # The categorisation table (§2.2) must name a Framework row.
-    DIFF="$(sed -n '/^#### 2.2 Skill Diff/,/^#### 2.3/p' "$RP")"
-    grep -q '\*\*Framework\*\*' <<<"$DIFF"
-    grep -q 'never classified Stale' <<<"$DIFF"
-
-    # The APPLY step (§4.1) must guard against removal AND add it when missing.
-    APPLY="$(sed -n '/^#### 4.1 Update Skills/,/^#### 4.2 Update Agents/p' "$RP")"
-    grep -q 'Check the Framework guard' <<<"$APPLY"
-    grep -q 'never remove it' <<<"$APPLY"
-    grep -q 'Added framework skill' <<<"$APPLY"
-
-    # All three copies of the command stay byte-identical.
+    refute grep -q 'Stale' "$RP"
+    grep -q 'scaffold-project.sh" --rebase' "$RP"
+    grep -q '^load_framework_skills() {' "$SCAFFOLD"
+    grep -q 'load_framework_skills "\$src"' "$SCAFFOLD"
     diff -q "$RP" "${REPO_ROOT}/.claude/commands/rebase-project.md"
     diff -q "$RP" "${REPO_ROOT}/packages/full/commands/plugin-only/rebase-project.md"
 }
 
-@test "rebase delivers the framework git files: an always-run step calls --git-files before the version stamp" {
-    # docs/TRD/per-feature-framework-writes.md FIX-002 (gap found by /audit-build,
-    # promoted as AMEND-001). The scaffold half (ensure_gitignore, --git-files) is
-    # tested in scaffold-project.test.sh; this is the command half. Without the call,
-    # an existing project that is only ever rebased never receives the ignore and
-    # union lines, and parallel feature branches keep clashing on current.json.
+@test "rebase delivers the framework git files: the engine's post steps run git files before the version stamp" {
+    # WHY (per-feature-framework-writes FIX-002): without the ignore and union lines, parallel
+    # feature branches keep clashing on current.json. That delivery is now the engine's
+    # (`gitFiles` step); the prompt makes one engine call and has no stamp or git-files step of
+    # its own, and in the engine _rebase_git_files runs before stamp_ensemble_version.
     RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
     SCAFFOLD="${REPO_ROOT}/packages/core/scripts/scaffold-project.sh"
-
-    STEP="$(sed -n '/^#### 4.7a /,/^#### 4.8 /p' "$RP")"
-    [ -n "$STEP" ]
-    # The heading marks the step always-run, and it calls the strict mode on the project.
-    grep -q '^#### 4.7a .*(always)' <<<"$STEP"
-    grep -q 'scaffold-project.sh" --git-files \.$' <<<"$STEP"
-    # It must sit before 4.8, the version stamp, and after 4.7. Each heading must
-    # occur exactly once, and the two comparisons stay on separate lines: in an
-    # `a && b` list errexit ignores a failing `a`, so a joined check was dead.
-    [ "$(grep -c '^#### 4.7 ' "$RP")" -eq 1 ]
-    [ "$(grep -c '^#### 4.7a ' "$RP")" -eq 1 ]
-    [ "$(grep -c '^#### 4.8 ' "$RP")" -eq 1 ]
-    l47="$(grep -n '^#### 4.7 ' "$RP" | cut -d: -f1)"
-    l47a="$(grep -n '^#### 4.7a ' "$RP" | cut -d: -f1)"
-    l48="$(grep -n '^#### 4.8 ' "$RP" | cut -d: -f1)"
-    [ "$l47" -lt "$l47a" ]
-    [ "$l47a" -lt "$l48" ]
-    # The flag the command calls is a real mode of the script, not a stale name.
+    [ "$(grep -c 'scaffold-project.sh" --rebase' "$RP")" -eq 1 ]
+    grep -q '`gitFiles`' "$RP"
+    refute grep -q -- '--git-files' "$RP"
+    refute grep -q -- '--stamp-version' "$RP"
+    POST="$(sed -n '/^rebase_post_steps() {/,/^}/p' "$SCAFFOLD")"
+    [ -n "$POST" ]
+    lg="$(grep -n '_rebase_step _rebase_git_files' <<<"$POST" | head -1 | cut -d: -f1)"
+    ls="$(grep -n '_rebase_step stamp_ensemble_version' <<<"$POST" | head -1 | cut -d: -f1)"
+    [ -n "$lg" ]
+    [ -n "$ls" ]
+    [ "$lg" -lt "$ls" ]
+    # The flag the standalone mode uses is still a real mode of the script, not a stale name.
     grep -qE '^[[:space:]]+--git-files\)' "$SCAFFOLD"
 
     # gitignore-additions.txt no longer tells projects to commit the shared pointer.
     GA="${REPO_ROOT}/packages/core/templates/gitignore-additions.txt"
-    # (Before this change it listed current.json under ".trd-state/ ... committed".)
     refute grep -q '^#   current\.json ' "$GA"
     refute grep -q 'Current feature pointer' "$GA"
     grep -A2 'current\.json' "$GA" | grep -q 'deliberately untracked'
-
-    # All three copies of the command stay byte-identical.
     diff -q "$RP" "${REPO_ROOT}/.claude/commands/rebase-project.md"
     diff -q "$RP" "${REPO_ROOT}/packages/full/commands/plugin-only/rebase-project.md"
 }
 
 @test "rebase-project.md and CLAUDE.md name framework-skills.txt, not a hardcoded skill list" {
-    # VFIX-P002 (D14, docs/TRD/verification-fix-loop.md §3.8): the Framework
-    # category and guard read the one list rather than naming skills literally --
-    # otherwise a fifth line added to framework-skills.txt would ship the skill
-    # (VFIX-P001) but rebase would still not protect it from Stale removal, and
-    # CLAUDE.md's own delivery sentence would drift from what's actually shipped.
+    # WHY (VFIX-P002): the framework-skill protection reads the one list, so a fifth line added
+    # to framework-skills.txt is protected without editing prose. That protection is now the
+    # engine's; the prompt must not name any framework skill literally, and CLAUDE.md's delivery
+    # sentence must still name the list.
     RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    SCAFFOLD="${REPO_ROOT}/packages/core/scripts/scaffold-project.sh"
     CLAUDE_MD="${REPO_ROOT}/CLAUDE.md"
 
-    DIFF="$(sed -n '/^#### 2.2 Skill Diff/,/^#### 2.3/p' "$RP")"
-    grep -q 'framework-skills.txt' <<<"$DIFF"
-    refute grep -q 'verify-design-comparison' <<<"$DIFF"
-
-    APPLY="$(sed -n '/^#### 4.1 Update Skills/,/^#### 4.2 Update Agents/p' "$RP")"
-    grep -q 'framework-skills.txt' <<<"$APPLY"
-    refute grep -q 'verify-design-comparison' <<<"$APPLY"
-
-    # It must say "whatever its role" (or equivalent) rather than re-scoping to
-    # the check-role skills alone -- verification-setup (role: support) must
-    # equally survive Stale removal.
-    grep -qi 'whatever its role' <<<"$DIFF$APPLY"
+    refute grep -q 'verify-design-comparison' "$RP"
+    grep -q 'framework-skills.txt' "$SCAFFOLD"
 
     grep -q 'framework-skills.txt' "$CLAUDE_MD"
     refute grep -q 'verify-design-comparison' "$CLAUDE_MD"
-
-    # All three copies stay byte-identical.
     diff -q "$RP" "${REPO_ROOT}/.claude/commands/rebase-project.md"
     diff -q "$RP" "${REPO_ROOT}/packages/full/commands/plugin-only/rebase-project.md"
 }
 
-@test "the skill stack-match table has no rows orphaned outside it" {
-    # Three rows (Tailwind, Jira, Linear) sat AFTER a prose paragraph, outside the
-    # table, so they rendered as stray text and read as not-part-of-the-mapping.
+@test "the skill stack-match table and the per-component Step 2 / Step 4 sections are gone" {
+    # WHY: the stack.md-driven skill table (and its orphaned-row hazard) was the model's job and
+    # is replaced by the engine, which does not read stack.md. A table back in the prompt means
+    # the model is deciding skills again, so fail on it, and on the per-component sections.
     RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
-    SECTION="$(sed -n '/^#### 2.2 Skill Diff/,/^#### 2.3/p' "$RP")"
-    # Every pipe-delimited mapping row must be preceded by another row or a header
-    # separator — never by a blank line or prose.
-    mapfile -t LINES <<<"$SECTION"
-    for i in "${!LINES[@]}"; do
-        line="${LINES[$i]}"
-        [[ "$line" =~ ^[[:space:]]*\|.*\|[[:space:]]*$ ]] || continue
-        prev="${LINES[$((i - 1))]:-}"
-        next="${LINES[$((i + 1))]:-}"
-        # Legitimate: a body row following another row, or a header row whose
-        # very next line is the |---|---| separator.
-        [[ "$prev" =~ ^[[:space:]]*\| ]] && continue
-        [[ "$next" =~ ^[[:space:]]*\|[[:space:]]*-+ ]] && continue
-        echo "orphaned table row: $line (preceded by: '$prev')" >&2
-        false
-    done
+    refute grep -q '^#### 2\.[0-9]' "$RP"
+    refute grep -q '^#### 4\.[0-9]' "$RP"
+    refute grep -q '^### Step 4' "$RP"
+    refute grep -q 'Skill Diff' "$RP"
+    refute grep -qi 'stack-match' "$RP"
+    refute grep -q 'Tailwind' "$RP"
+    # Exactly the new shape: Step 1 (engine call), Step 2 (conflicts), Step 3 (readout).
+    [ "$(grep -c '^### Step [123]:' "$RP")" -eq 3 ]
 }
 
 @test "rebase writes no backup copies — git is the undo" {
@@ -494,6 +444,78 @@ PY
     # --force must be a documented flag, since the precondition points at it.
     grep -q 'argument-hint.*--force' "$RP"
     grep -q '`--force` - Proceed even when' "$RP"
+}
+
+@test "rebase prompt states the file-conflict rule: replace only on proven unedited install, never discard an owner change" {
+    # WHY: the engine reports owner edits as conflicts and the model resolves them. The one
+    # unsafe move is replacing a file that holds an owner change, so the prompt must say when
+    # replacement is allowed (history proves the install was unedited) and that otherwise the
+    # owner's change is merged or kept.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    STEP2="$(sed -n '/^### Step 2: Resolve reported conflicts/,/^### Step 3/p' "$RP")"
+    grep -q 'Never discard an owner change' <<<"$STEP2"
+    grep -q 'Only when the history shows this' <<<"$STEP2"
+    grep -q 'treat it as an owner change' <<<"$STEP2"
+    grep -q '\*\*Merge\*\*' <<<"$STEP2"
+    grep -q 'Keep the owner.s copy' <<<"$STEP2"
+    grep -q 'needing a manual merge' <<<"$STEP2"
+}
+
+@test "rebase prompt states the settings-conflict rule: resolve or leave, no second engine call" {
+    # WHY: a second engine call could re-stamp the version over an unresolved hooks block.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    STEP2="$(sed -n '/^### Step 2: Resolve reported conflicts/,/^### Step 3/p' "$RP")"
+    grep -q 'Resolve it only when the local value can be put into the shape the engine understands' <<<"$STEP2"
+    grep -q 'otherwise leave it' <<<"$STEP2"
+    grep -q 'Do not call the engine a second time' <<<"$STEP2"
+    grep -q 'Say in DECISIONS which settings conflicts you resolved and which you left' <<<"$STEP2"
+}
+
+@test "rebase prompt states that --dry-run lists conflicts and resolves none" {
+    # WHY: a dry run must write nothing, and resolving a conflict writes.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    STEP2="$(sed -n '/^### Step 2: Resolve reported conflicts/,/^### Step 3/p' "$RP")"
+    grep -q 'Under `--dry-run`, list every conflict' <<<"$STEP2"
+    grep -q 'resolve none' <<<"$STEP2"
+}
+
+@test "rebase prompt states the engine-error rule: planning stage wrote nothing, apply stage may be partial" {
+    # WHY: the owner needs to know whether the tree changed. Wrongly saying "unchanged" after
+    # an apply-stage failure hides a half-applied, unstamped tree.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    STEP1="$(sed -n '/^### Step 1: One engine call/,/^### Step 2/p' "$RP")"
+    grep -q 'An error from the planning stage wrote nothing' <<<"$STEP1"
+    grep -q 'An error from the apply stage' <<<"$STEP1"
+    grep -q 'partly applied tree with no version stamp' <<<"$STEP1"
+    grep -q 'git status --short .claude/' <<<"$STEP1"
+    grep -q 'git restore .claude/' <<<"$STEP1"
+    grep -q 'empty output means nothing was written' <<<"$STEP1"
+}
+
+@test "rebase prompt makes a missing REBASE_RESULT line COMMAND STUCK and forbids a by-hand update" {
+    # WHY: with no result the model has no plan; improvising the update by hand is the
+    # failure the engine exists to remove.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    STEP1="$(sed -n '/^### Step 1: One engine call/,/^### Step 2/p' "$RP")"
+    grep -q 'no `REBASE_RESULT` line at all' <<<"$STEP1"
+    grep -q 'COMMAND STUCK' <<<"$STEP1"
+    grep -q 'Never fall back to doing any part of the update by hand' <<<"$STEP1"
+    grep -q 'Read only the last line of standard output' <<<"$STEP1"
+}
+
+@test "rebase prompt routes a settings refusal or skipped stamp to ISSUES and NEXT says fix hooks then re-run" {
+    # WHY: a refused settings write can leave the version stamped over the old hooks block;
+    # the owner must be told to fix the block and re-run, not that the rebase succeeded.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    STEP2="$(sed -n '/^### Step 2: Resolve reported conflicts/,/^### Step 3/p' "$RP")"
+    grep -q '`settings.refused`' <<<"$STEP2"
+    grep -q 'settings write refused by the guard' <<<"$STEP2"
+    grep -q 'go in ISSUES' <<<"$STEP2"
+    grep -q 'bring the local `hooks` block to the shipped shape' <<<"$STEP2"
+    grep -q 'commit and run `/rebase-project` again' <<<"$STEP2"
+    # And the Error Handling table and readout carry the same rule for failed/skipped steps.
+    grep -q '`settings.refused` set | ISSUES line; NEXT: commit, then run `/rebase-project` again' "$RP"
+    grep -q 'A `stamp` that failed or was skipped means the version is not recorded: re-run' "$RP"
 }
 
 @test "every command the router banner names exists on disk" {

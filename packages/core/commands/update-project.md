@@ -315,7 +315,7 @@ Default: "No, skip stack changes"
 
 4. **If skills should be added:**
    - Check if skill exists in `.claude/skills/`
-   - If not present, tell the user to run `/rebase-project`, which installs the skills matching the updated stack.md
+   - If not present, copy its folder from the plugin's `skills-lib/` into `.claude/skills/` (`/rebase-project` does not read stack.md; it keeps installed skills current and adds them to the selection)
 
 5. **If changes applied:**
    ```
