@@ -313,7 +313,7 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released **4.17.10** (2026-11-17). 28 commands, 13 subagents. Test battery: 3233 Jest,
+Released **4.17.11** (2026-11-20). 28 commands, 13 subagents. Test battery: 3233 Jest,
 125 pytest, 641 BATS. **History: `CHANGELOG.md`.**
 
 4.15.0–4.16.1: the design stage (`/create-design` and siblings). 4.17.0–4.17.2: `/ship-build`
@@ -322,13 +322,15 @@ and `/ship-setup` (#74–#77), docs and live-test fixes (#79–#84).
 4.17.6–4.17.8: run records on a git ref (#116–#124); targeted verify (#114–#130); moved-head resume (#141).
 4.17.9: audit first (#171); run cap (#165); re-proof scope (#164); per-kind publish (#166); Core boards (#169).
 4.17.10: skipped verify loop recorded (#174); `/plan` sizes the delta (#176).
+4.17.11: scripted rebase engine (#181, #183, #186); token count once per message (#179); Stop judge (#185).
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first (details and older ones in `CHANGELOG.md`):
-- 4.17.7–4.17.10: unproven live: waived-failure filing (#131), moved-head resume (#142–#145), #167, #170, #172, #175.
+- 4.17.7–4.17.11: unproven live: waived-failure filing (#131), moved-head resume (#142–#145), #167, #170, #172, #175,
+  #180, #182, #184, #187.
 - 4.17.3–4.17.5: not live on GitHub: #95, #99–#103, #106–#111, a second-account approval,
   CodeRabbit/Codex. A merge re-dispatched after its branch is deleted stops at custody.
 - 4.16.1: design-quality live runs and the first critique-calibration replay not run;

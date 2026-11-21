@@ -12,19 +12,27 @@ the work is actually released.
 
 ## [Unreleased]
 
-A rebase that takes a script run instead of a long model session: `scaffold-project.sh --rebase` works out, file by file, what to add, replace, remove or leave alone, and reports it as one line of JSON.
+## [4.17.11] - 2026-11-20
+
+Five changes since 4.17.10. **A rebase is now a script run instead of a long model session** (#181, #183): `scaffold-project.sh --rebase` works out, file by file, what to add, replace, remove or leave alone, and reports it as one line of JSON; `/rebase-project` calls it and keeps the owner's edits to vendored files as conflicts rather than overwriting them. A full rebase took 36.3 s (was 111.7 s) and a dry run 31.4 s (was 89.5 s). Also: `token-usage.js` counts each message once (#179), the Stop judge no longer blocks on a monitor the platform armed by itself (#185), and four rebase follow-ups (#186).
 
 ### Changed
 
-- **`/rebase-project` is now a thin caller of `scaffold-project.sh --rebase`.** One engine call does the update; the model resolves only the conflicts it reports (a file: git history shows no owner commit, replace; otherwise merge or keep the owner's copy, never discard; settings: resolve or leave) and writes the readout. The old Step 4.x tables, the `--agent-status` / `--sync-agents` comparison and the recomputation of skills from `stack.md` are gone. A skill is added by copying its folder from the plugin's `skills-lib/` into `.claude/skills/`. `/init-project`, the reference docs and the install and architecture guides are corrected to match.
+- **`/rebase-project` is now a thin caller of `scaffold-project.sh --rebase` (#183).** One engine call does the update; the model resolves only the conflicts it reports (a file: git history shows no owner commit, replace; otherwise merge or keep the owner's copy, never discard; settings: resolve or leave) and writes the readout. The old Step 4.x tables, the `--agent-status` / `--sync-agents` comparison and the recomputation of skills from `stack.md` are gone. A skill is added by copying its folder from the plugin's `skills-lib/` into `.claude/skills/`. `/init-project`, the reference docs and the install and architecture guides are corrected to match.
 
 ### Added
 
-- **`scaffold-project.sh --rebase --plugin-dir DIR [project]`: a deterministic rebase of the vendored `.claude/` runtime.** It renders the plugin as a scaffold would install it (outside the project), then classifies every installed path. A framework file that matches an older shipped version is replaced. A file the owner edited is reported as a conflict and left untouched. A file on the retired list is removed. New files are added, and `settings.json` is merged with the owner's keys and registrations kept. `--dry-run` reports the same plan and writes nothing. `--preserve-all` adds new files only for agents and skills, replaces no framework rules and removes nothing. The mode is exclusive with every other mode, `--force`, `--copy-skills` and `--new-only`. The conflict handling treats `autonomy.md` as framework-shipped, not owner-governed, and only `--rebase` removes retired files; `--refresh` does not.
+- **`scaffold-project.sh --rebase --plugin-dir DIR [project]`: a deterministic rebase of the vendored `.claude/` runtime (#181).** It renders the plugin as a scaffold would install it (outside the project), then classifies every installed path. A framework file that matches an older shipped version is replaced. A file the owner edited is reported as a conflict and left untouched. A file on the retired list is removed. New files are added, and `settings.json` is merged with the owner's keys and registrations kept. `--dry-run` reports the same plan and writes nothing. `--preserve-all` adds new files only for agents and skills, replaces no framework rules and removes nothing. The mode is exclusive with every other mode, `--force`, `--copy-skills` and `--new-only`. The conflict handling treats `autonomy.md` as framework-shipped, not owner-governed, and only `--rebase` removes retired files; `--refresh` does not.
 - **`REBASE_RESULT <json>` as the last stdout line.** It carries `mode`, `preserveAll`, `pluginVersion`, per-category `added`, `replaced`, `removed`, `preserved`, `unchanged` (a count) and `conflicts` (`{path, reason}`), the same for `settings`, the ordered `steps` (each `ok`, `skipped` or `failed`), and `error` when the run stopped before writing. Every other message goes to stderr. Exit 0 whenever the run completed, including runs that reported conflicts.
 - **Two data files the engine reads.** `packages/core/templates/retired-files.json` lists files the framework no longer ships, so a rebase can delete them. `packages/core/templates/shipped-hashes.json` lists, per installed path, the hash of every version any `v*` release installed, so a rebase can tell "an older shipped version" from "an owner edit".
 - **`packages/core/scripts/generate-shipped-hashes.sh`** builds and checks the hash list. `--seed` renders every `v*` tag merged into HEAD and writes the list. `--append <tag>` renders one more tag and adds its hashes without removing any. `--check` exits 1, naming what is wrong, if the list is malformed or does not cover the retired list.
 - **New release step for contributors:** before cutting a release, run `packages/core/scripts/generate-shipped-hashes.sh --append <previous tag>` (the newest `v*` tag older than HEAD), so the next rebase recognises the release just before the one being cut as an older shipped version. `CLAUDE.md` does not carry this step yet; it changes through `/update-project`.
+
+### Fixed
+
+- **`token-usage.js` counts each model message once (#179).** Claude Code writes one message as several transcript lines that repeat the same message id and usage block, so token totals were counted two or three times. Totals now keep one usage block per message id (the last one seen). Subagent transcripts are still not read; the script's header says so.
+- **The Stop judge no longer treats a monitor the platform armed by itself as an unkept promise (#185).** Publishing an artifact arms a live-updates watch the agent did not start; the `discipline-stop` judge now reads that as no promise of later work. On the shipped prompt, a finished turn with only that watch running was allowed 30 of 30 times, and an unbacked promise was still blocked 10 of 10.
+- **Four rebase follow-ups (#186).** With no `selected-skills.txt`, the engine derives the stack skills from `stack.md` instead of installing none; a dry run reports `settings.written: false` (it reported `true`); `/rebase-project` reads the engine's result directly instead of from a fixed `/tmp` file; and the result carries `totals`, which the banner and readout now read.
 
 ### Not yet proven
 
@@ -32,6 +40,8 @@ A rebase that takes a script run instead of a long model session: `scaffold-proj
 - No headless `/rebase-project` run was made against the engine.
 - `--refresh`, which runs at SessionStart after every plugin upgrade, still overwrites owner-edited framework files without comparing bytes. Conflict detection therefore protects only edits made since the last upgrade, or with refresh turned off.
 - Files installed from an untagged build match no recorded hash and read as conflicts.
+- The one live Stop-judge block that prompted #185 never reproduced in replay, so the fix hardens the prompt rather than proving that case fixed.
+- Audit caveats left open are filed as #180 (token usage), #182 (rebase engine), #184 (rebase prompt) and #187 (Stop judge).
 
 ## [4.17.10] - 2026-11-17
 
