@@ -1518,7 +1518,7 @@ inject_agent_skills() {
 # rules are removed from the render (D15). Output goes to stderr; returns non-zero
 # when the scaffold fails or the render holds no command, agent or hook.
 render_plugin_tree() {
-    local target_dir="$1" render_dir="$2"
+    local target_dir="$1" render_dir="$2" derived="${3:-}"
     local skills_dir="$target_dir/.claude/skills" d
 
     mkdir -p "$render_dir/.claude"
@@ -1529,6 +1529,8 @@ render_plugin_tree() {
             basename "$d" >> "$render_dir/.claude/selected-skills.txt"
         done
     fi
+    # A dry run has not copied the derived skills yet; the render still holds them.
+    [[ -z "$derived" ]] || printf '%s\n' "$derived" >> "$render_dir/.claude/selected-skills.txt"
 
     # GIT_CEILING_DIRECTORIES: a TMPDIR inside a repository must not let the
     # scaffold's git steps find it and untrack anything.
@@ -2408,6 +2410,7 @@ CATEGORIES = ["commands", "agents", "hooks", "hook-libs", "hook-prompts",
 TOP_DIRS = {"commands": "commands", "agents": "agents", "hooks": "hooks",
             "workflows": "workflows", "lib": "libs", "contracts": "contracts",
             "skills": "skills", "rules": "rules"}
+TOTALS = ["added", "replaced", "removed", "preserved", "conflicts", "gitFiles"]
 STEPS = ["modes", "selection", "preloads", "gitFiles", "recordsCutover", "stamp"]
 # Left to the strict stamp that runs after the merge (D11 5).
 VERSION_KEYS = {"version", "refreshed_at", "rebased_at", "previous_version"}
@@ -2603,6 +2606,7 @@ def plan_settings(claude, plugin_settings_path, hook_files, shipped, retired_pat
     path = os.path.join(claude, "settings.json")
     entry = {"path": path, "pluginPath": plugin_settings_path, "content": None, "mode": None}
     sres["written"] = False
+    sres["would_write"] = False
     sres["counts"] = {"plugin": dict(zip(("registrations", "prompts"), count_hooks(plugin))),
                       "merged": None}
     pj = collections.OrderedDict
@@ -2660,7 +2664,8 @@ def plan_settings(claude, plugin_settings_path, hook_files, shipped, retired_pat
         mode = stat.S_IMODE(os.stat(path).st_mode)
         entry["mode"] = mode
     entry["content"] = json.dumps(data, indent=2) + "\n"
-    sres["written"] = True
+    # Planning only decides; "written" turns true in write_settings, so a dry run says false.
+    sres["would_write"] = True
     return entry
 
 
@@ -2686,6 +2691,7 @@ def write_settings(entry, sres):
         if os.path.lexists(tmp):
             os.unlink(tmp)
         raise
+    sres["written"] = True
 
 
 def plan(argv):
@@ -2695,7 +2701,8 @@ def plan(argv):
     preserve_all = preserve_flag == "true"
     res = {"mode": mode, "preserveAll": preserve_all, "pluginVersion": None,
            "categories": {c: empty_lists() for c in CATEGORIES},
-           "settings": dict(empty_lists(), written=False, refused=None, counts=None),
+           "settings": dict(empty_lists(), written=False, would_write=False, refused=None, counts=None),
+           "totals": dict.fromkeys(TOTALS, 0),
            "steps": {s: "not run" for s in STEPS}}
     try:
         build(res, render, target, plan_file, retired_file, shipped_file,
@@ -2834,6 +2841,9 @@ def build(res, render, target, plan_file, retired_file, shipped_file,
     settings_entry = plan_settings(claude, plugin_settings, hook_files, shipped,
                                    retired_paths, preserve_all, res["settings"])
 
+    for key in TOTALS[:-1]:
+        res["totals"][key] = sum(len(cats[c][key]) for c in CATEGORIES)
+
     with open(plan_file, "w") as fh:
         json.dump({"claude": claude, "claudeReal": claude_real,
                    "authored": sorted(authored), "actions": actions,
@@ -2910,6 +2920,38 @@ rebase_emit_error() {
     python3 -c 'import json, sys; print("REBASE_RESULT " + json.dumps({"mode": sys.argv[2], "error": sys.argv[1]}))' "$1" "$2"
 }
 
+# Stack-to-skill table for a project with no .claude/selected-skills.txt (--rebase). Built from
+# the Common Skill Mappings in templates/skill-selection-instructions.md: "<word>=<skill>", matched
+# case-insensitively as a whole word against stack.md. Framework skills never appear here.
+STACK_SKILL_TABLE=(
+    "python=developing-with-python" "typescript=developing-with-typescript"
+    "php=developing-with-php" "react=developing-with-react"
+    "laravel=developing-with-laravel" "flutter=developing-with-flutter"
+    "nestjs=nestjs" "jest=jest" "pytest=pytest" "rspec=rspec"
+    "playwright=writing-playwright-tests" "prisma=using-prisma"
+    "railway=managing-railway" "vercel=managing-vercel" "supabase=managing-supabase"
+    "anthropic=using-anthropic-platform" "openai=using-openai-platform"
+    "langgraph=building-langgraph-agents"
+)
+
+# Print the library skills the project's stack.md names, one per line, in table order. Prints
+# nothing without a stack.md or a skill library; a skill whose folder is not in the library is skipped.
+derive_stack_skills() {
+    local target_dir="$1"
+    local stack="$target_dir/.claude/rules/stack.md" src entry word skill
+    [[ -f "$stack" ]] || return 0
+    src="$(plugin_skills_src)"
+    [[ -d "$src" ]] || return 0
+    for entry in "${STACK_SKILL_TABLE[@]}"; do
+        word="${entry%%=*}"
+        skill="${entry#*=}"
+        [[ -d "$src/$skill" ]] || continue
+        if grep -qiw -- "$word" "$stack"; then
+            printf '%s\n' "$skill"
+        fi
+    done
+}
+
 # --rebase entry point (D1-D3, D16). Render, plan, then (unless --dry-run) apply. The
 # last stdout line is REBASE_RESULT <json>; everything else goes to stderr.
 rebase_project() {
@@ -2932,7 +2974,25 @@ rebase_project() {
     plan_file="$work_dir/plan.json"
     mkdir -p "$render_dir"
 
-    if ! render_plugin_tree "$target_dir" "$render_dir"; then
+    # No selection file: derive one from stack.md. An apply writes it and copies the folders
+    # now, so the render and the steps below see them; a dry run only reports them.
+    local derived=""
+    if [[ ! -f "$target_dir/.claude/selected-skills.txt" ]]; then
+        derived="$(derive_stack_skills "$target_dir")"
+        if [[ -n "$derived" && "$DRY_RUN" != "true" ]]; then
+            local dname lib_src
+            lib_src="$(plugin_skills_src)"
+            mkdir -p "$target_dir/.claude/skills"
+            printf '%s\n' "$derived" > "$target_dir/.claude/selected-skills.txt"
+            while IFS= read -r dname; do
+                [[ -d "$target_dir/.claude/skills/$dname" ]] || cp -R "$lib_src/$dname" "$target_dir/.claude/skills/$dname"
+            done <<< "$derived"
+        fi
+    fi
+    local render_extra=""
+    [[ "$DRY_RUN" == "true" ]] && render_extra="$derived"
+
+    if ! render_plugin_tree "$target_dir" "$render_dir" "$render_extra"; then
         rebase_emit_error "Rendering the plugin failed or the render is empty" "$mode"
         return 1
     fi
@@ -2982,6 +3042,12 @@ rebase_project() {
         if [[ $rc -eq 0 ]]; then
             result="$(rebase_post_steps "$target_dir" "$manifest" "$result")"
         fi
+    fi
+    if [[ -n "$derived" ]]; then
+        result="$(printf '%s' "$result" | python3 -c 'import json, sys
+res = json.load(sys.stdin)
+res["derivedSkills"] = sys.argv[1].split()
+print(json.dumps(res))' "$derived")"
     fi
     printf 'REBASE_RESULT %s\n' "$result"
     return "$rc"
@@ -3055,7 +3121,12 @@ for c in json.load(sys.stdin)["categories"]["agents"]["conflicts"]:
     fi
 
     # gitFiles: ignore and merge-union lines; failures are warnings, not return codes.
+    local git_before_ignore git_before_attr git_files=0
+    git_before_ignore="$(cksum < "$target_dir/.gitignore" 2>/dev/null || true)"
+    git_before_attr="$(cksum < "$target_dir/.gitattributes" 2>/dev/null || true)"
     _rebase_step _rebase_git_files "$target_dir" || true
+    [[ "$(cksum < "$target_dir/.gitignore" 2>/dev/null || true)" == "$git_before_ignore" ]] || git_files=$((git_files + 1))
+    [[ "$(cksum < "$target_dir/.gitattributes" 2>/dev/null || true)" == "$git_before_attr" ]] || git_files=$((git_files + 1))
     warn_line="$(_rebase_first_warn)"
     if [[ -n "$warn_line" ]]; then
         printf 'gitFiles\tfailed: %s\n' "$warn_line" >> "$steps_file"
@@ -3093,7 +3164,8 @@ res = json.load(sys.stdin)
 for line in open(sys.argv[1]):
     key, _, status = line.rstrip("\n").partition("\t")
     res["steps"][key] = status
-print(json.dumps(res))' "$steps_file"
+res.setdefault("totals", {})["gitFiles"] = int(sys.argv[2])
+print(json.dumps(res))' "$steps_file" "$git_files"
     rm -f "$steps_file"
 }
 

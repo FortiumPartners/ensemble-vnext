@@ -77,3 +77,25 @@ describe('copies', () => {
     expect(read(p)).toBe(text);
   });
 });
+
+describe('Step 3 readout: totals come from the engine', () => {
+  test('names the engine totals object as the banner and readout source', () => {
+    const flat = flatten(text);
+    expect(flat).toMatch(/`totals`/);
+    expect(flat).toMatch(/never add up the lists yourself/);
+    expect(flat).toMatch(/`gitFiles`/);
+  });
+});
+
+describe('Step 1 captures the engine result directly', () => {
+  const step1 = text.slice(text.indexOf('### Step 1'), text.indexOf('### Step 2'));
+  test('the engine command pipes stdout through tail -n 1 (or a per-run mktemp path)', () => {
+    expect(step1).toMatch(/--rebase[^\n]*\|\s*tail -n 1|mktemp/);
+  });
+  test('forbids a fixed result file', () => {
+    expect(flatten(step1)).toMatch(/Never save the result to a file in `\/tmp` or any other fixed path/);
+  });
+  test('contains no fixed /tmp/<name> path', () => {
+    expect(text).not.toMatch(/\/tmp\/[A-Za-z0-9_.-]+/);
+  });
+});
