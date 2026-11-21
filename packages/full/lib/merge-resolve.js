@@ -1,0 +1,1 @@
+../../core/lib/merge-resolve.js
