@@ -12,9 +12,32 @@ the work is actually released.
 
 ## [Unreleased]
 
+The graded merge: `/ship-build` no longer stops on every clash with the base branch. It resolves the plainly mechanical ones in place and stops, with the files and the clash named, on the rest.
+
+**For Storybook's PM:** now that this has shipped, you may turn on Forge's `ship_queue` `merge` scope; that setting is yours to make, and nothing in Forge or Storybook was changed here.
+
+### Added
+
+- **`/ship-build` resolves mechanical base-branch conflicts in place (issue #97, its graded-merge part).** When the base clashes with the PR head in more than record files, `merge-resolve.js` grades each conflicted file with `conflict-classifier.js`. A clash is mechanical when both sides made the same edit, both added entries to a list (imports, exports, a manifest, a dependency list), or the two sides edited different lines. For those the model edits only the conflict hunks; the library then runs lint, typecheck and the affected tests, commits the merge, and the step pushes it with a plain `git push` (a fast-forward) and waits for CI on the merged head. The checks come from `ensemble.mergeChecks` in `.claude/settings.json`, or are detected (a `lint` script, `tsc --noEmit`, `jest --findRelatedTests`), and are read from the branch as it was before the merge.
+- **What still stops, and why.** A behavioural clash (both sides changed the same lines differently, a file deleted on one side, a binary file, a hunk over 500 lines a side) aborts the merge and ends in a COMMAND STUCK naming the files and the clash, so a person or Forge's resolver can take it from there. So does any file under `.claude/rules/` (owner-governed) or a TRD other than the shipped feature's own, at once and even beside mechanical files. Checks still failing after two fix attempts leave the merge in place for repair by hand. The run never force-pushes and never rebases a published branch.
+- **Where the resolution is recorded.** Every graded merge, resolved or stopped, is written to the run's ship record (`shipped.json`, the merge step's `data.resolution`): outcome, class, each file, the checks run and their result, the re-proof scope, and the failed-attempt count. [The guide](docs/guides/ship-build.md#the-graded-merge) lists the fields.
+
 ### Fixed
 
+- **A pull request that became conflicted no longer waits forever for CI (issue #136).** GitHub starts no CI on a conflicted PR, so `wait-ci` used to wait on a run that never came (about 8 of Storybook's 32 stopped runs). `wait-ci` now reads the PR's mergeability first, polling while GitHub has not computed it; a conflicted PR returns `conflicted` at once and the run goes to the `merge` step, which resolves or stops as above.
+- **`merge-resolve.js` is now delivered to projects.** It was missing from `packages/full/lib/`, so a scaffold or `--refresh` installed the classifier but not the resolver; the live proof below found this and #196 fixed it.
+
 - **Custody no longer re-proves everything after a base merge that changed a file on both sides.** A file the feature and the base both edited, which git merged without a conflict (a schema, a barrel file, a framework config), used to read as an unnamed modified path and widen the re-proof to every must-pass criterion; Storybook's read-along-epub run was refused that way on `prisma/schema.prisma`, `lib/domain/index.ts` and two more. It is now excused when the head's copy is exactly a clean three-way merge of the base's change onto the anchor's copy, so only criteria whose covers name the file are re-proved. A feature edit after the anchor or a hand-resolved conflict still widens. One Storybook row (develop's `next.config.ts` pulling in 4 video-ending criteria) could not be reproduced from the stop table and is recorded as a skipped test.
+
+### Live proof of the graded merge
+
+Run on 2026-11-21 against `islayjames/ship-build-live-test`, from the report `.trd-state/ship-graded-merge/live-proof-report.md`. Three runs behaved as specified. A mechanical clash (both sides added a line to a list file) was resolved in place, checked (lint and test passed), pushed without force and merged in the same run (PR #7). A behavioural clash (`wave` worded two ways) stopped at the merge step, naming `src/greet.sh` and `test/run-tests.sh` and the clash, with nothing pushed (PR #8). A PR made conflicted after CI had passed went to the merge step 9 seconds after the run reached `wait-ci`, without waiting on CI, and was then resolved and merged (PR #9). Each ship record carries its resolution entry.
+
+Three things the proof did not show or did not run as specified:
+
+- **The proof did not exercise the shipped package.** When it ran, `merge-resolve.js` was not linked into `packages/full/lib/`, so the fixture got a hand-copied file. The link has since landed (#196); no live run was repeated on it.
+- **The narrowed re-proof was not shown.** The fixture features had no success definition, so every entry reads `criteria: none` and no custody refusal was seen to attribute to, or clear of, the in-place resolution.
+- **Checks needed configuration.** The fixture has no `package.json`, so detection found nothing; the run set `ensemble.mergeChecks` in the fixture's settings.
 
 ## [4.17.11] - 2026-11-20
 

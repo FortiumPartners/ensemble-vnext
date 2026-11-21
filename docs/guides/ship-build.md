@@ -100,6 +100,10 @@ stops with `step <id> (merge) loop ended after <N> rounds`.
 
 ### The graded merge
 
+Issues #97 (its graded-merge part) and #136 are closed by this behaviour. A PR that has become
+conflicted gets no CI from GitHub, so `wait-ci` reads its mergeability first and, on a conflict,
+returns `conflicted` without waiting; the run goes straight to the `merge` step described here.
+
 When GitHub says the PR clashes with its base (or the branch rules require it to be up to date),
 the `merge` step first merges the base in with `record-files.js merge-base-in`, which settles clashes
 in record files (the notes file, `OWNER-CALLS.md`, `.trd-state/`). When the clash reaches other files it
@@ -131,6 +135,18 @@ list, `{files}` standing for the resolved files); with nothing set it detects a 
 when `tsconfig.json` exists, and `jest --findRelatedTests` when Jest is configured. A check with nothing to run
 is recorded as skipped, never as a failure: CI on the merged head is the proof. A passing check is not a
 proof that the merge is right; it only rules out a resolution that breaks lint, types or the nearby tests.
+
+**Never forced.** The run never force-pushes and never rebases a published PR branch; the only
+push is a fast-forward. Files under `.claude/rules/` and another feature's TRD are never resolved
+here, they stop. Whether Forge's `ship_queue` `merge` scope is on is not this framework's setting.
+For Storybook's PM: now that this has shipped, you may turn on Forge's `ship_queue` `merge` scope;
+that setting is yours to make.
+
+**Live proof (2026-11-21, `islayjames/ship-build-live-test`).** A mechanical list clash was resolved
+in place and merged, a behavioural clash stopped naming its files, and a PR conflicted after CI
+passed went to the merge step without waiting. It ran before `merge-resolve.js` was linked into the
+plugin's `lib/` (since fixed), so it did not exercise the shipped package, and the narrowed re-proof
+was not shown (the fixture had no success definition). Details are in the CHANGELOG.
 
 #### Resolution record
 
@@ -173,7 +189,7 @@ outward step is subject to the [authorization gate](#the-outward-authorization-g
 | `push` | Publishes the work's `HEAD`; sets the custody anchor if none exists (it never moves one). | no | provides `head` | `pushed` |
 | `open-pr` | Opens the work's pull request, or reuses the open one. Param `base`. | unless `ensemble.openPullRequest=auto` | needs `head`, provides `pr` | `opened`, `reused` |
 | `request-review` | Asks an outside reviewer to review the current head (a PR comment) and waits. Param `tool` (`coderabbit`, `codex`, `claude`, or a GitHub login). | yes | needs `pr` | `reviewed` |
-| `wait-ci` | Waits for CI on the current head; re-runs failed jobs once. A job that passes only on rerun is recorded as a flake; once it has flaked 3 times across every feature, the rerun-pass counts as `failed`. | no | needs `head`; `stops-on: failed` | `passed`, `failed`, `no-checks` |
+| `wait-ci` | Reads the PR's mergeability first: a conflicted PR gets no CI from GitHub, so it returns `conflicted` at once and the run goes to `merge` (see [The graded merge](#the-graded-merge)). Otherwise waits for CI on the current head; re-runs failed jobs once. A job that passes only on rerun is recorded as a flake; once it has flaked 3 times across every feature, the rerun-pass counts as `failed`. | no | needs `head`; `stops-on: failed` | `passed`, `failed`, `no-checks`, `conflicted` |
 | `collect-findings` | Gathers what CI and reviewers found, decides which the work must fix, and records it. Never fixes or files. Param `bar` (default `significant`). | no | needs `head`, provides `findings`; `repeat-until: clean` | `clean`, `found` |
 | `fix-findings` | Turns the open blocking findings into code through the recorded path; never pushes. A CI failure whose fix lies only in test files or CI config is fixed directly, without the reconcile build or a whole-branch review. Param `format` (the project's format/lint command). | no | needs `findings` | `fixed`, `nothing` |
 | `await-approval` | Parks the run until a human approves the PR. Param `trigger` (`github-actions` is the one value). | no | needs `pr` | `approved` |
