@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { decide } = require('./merge-up');
+const { decide, preCi } = require('./merge-up');
 
 const LIB = path.join(__dirname, 'merge-up.js');
 const origPath = process.env.PATH;
@@ -89,6 +89,43 @@ describe('decide', () => {
   test('a non-integer PR is refused', () => {
     expect(decide({ pr: 'x1' })).toMatchObject({ ok: false });
     expect(decide({})).toMatchObject({ ok: false });
+  });
+});
+
+describe('preCi (the check wait-ci makes before waiting)', () => {
+  test('CONFLICTING sends the run to the merge step: conflicted, never a wait', () => {
+    pr('OPEN', 'CONFLICTING', 'DIRTY');
+    const r = preCi({ pr: 7 });
+    expect(r).toMatchObject({ ok: true, action: 'conflicted' });
+    expect(r.reason).toMatch(/conflicts with its base/);
+  });
+  test('MERGEABLE goes on to the CI wait, even when behind (a behind head still gets CI)', () => {
+    pr('OPEN', 'MERGEABLE', 'CLEAN');
+    expect(preCi({ pr: 7 })).toMatchObject({ ok: true, action: 'proceed' });
+    pr('OPEN', 'MERGEABLE', 'BEHIND');
+    expect(preCi({ pr: 7 })).toMatchObject({ ok: true, action: 'proceed' });
+  });
+  test('UNKNOWN polls', () => {
+    pr('OPEN', 'UNKNOWN', 'UNKNOWN');
+    expect(preCi({ pr: 7 })).toMatchObject({ ok: true, action: 'poll' });
+  });
+  test('a merged PR proceeds despite reading UNKNOWN; a closed one is refused', () => {
+    pr('MERGED', 'UNKNOWN', 'UNKNOWN');
+    expect(preCi({ pr: 7 }).action).toBe('proceed');
+    pr('CLOSED', 'CONFLICTING', 'DIRTY');
+    expect(preCi({ pr: 7 })).toMatchObject({ ok: false, action: 'refused' });
+  });
+  test('a failing gh and a bad PR number are ok: false', () => {
+    process.env.STUB_PR_FAIL = '1';
+    expect(preCi({ pr: 7 }).ok).toBe(false);
+    delete process.env.STUB_PR_FAIL;
+    expect(preCi({ pr: 'x' })).toMatchObject({ ok: false, action: 'refused' });
+  });
+  test('the CLI prints one JSON line', () => {
+    pr('OPEN', 'CONFLICTING', 'DIRTY');
+    const r = spawnSync('node', [LIB, 'pre-ci', '--pr', '7'], { encoding: 'utf8', env: process.env });
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout)).toMatchObject({ action: 'conflicted' });
   });
 });
 

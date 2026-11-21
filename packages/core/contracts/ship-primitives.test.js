@@ -31,7 +31,7 @@ const EXPECTED = {
   push: { results: ['pushed'], outward: 'no', needs: [], provides: ['head'], section: 'ship' },
   'open-pr': { results: ['opened', 'reused'], outward: { unless: 'ensemble.openPullRequest', equals: 'auto' }, needs: ['head'], provides: ['pr'], section: 'ship' },
   'request-review': { results: ['reviewed'], outward: 'yes', needs: ['pr'], provides: [], section: 'ship' },
-  'wait-ci': { results: ['passed', 'failed', 'no-checks'], outward: 'no', needs: ['head'], provides: [], section: 'ship' },
+  'wait-ci': { results: ['passed', 'failed', 'no-checks', 'conflicted'], outward: 'no', needs: ['head'], provides: [], section: 'ship' },
   'await-approval': { results: ['approved'], outward: 'no', needs: ['pr'], provides: [], section: 'ship' },
   'collect-findings': { results: ['clean', 'found'], outward: 'no', needs: ['head'], provides: ['findings'], section: 'ship' },
   'fix-findings': { results: ['fixed', 'nothing'], outward: 'no', needs: ['findings'], provides: [], section: 'ship' },
@@ -410,6 +410,14 @@ describe('release', () => {
 });
 
 describe('the waiting primitives', () => {
+  test('wait-ci reads mergeability before waiting and returns conflicted instead of waiting', () => {
+    const t = flat('wait-ci');
+    expect(t).toMatch(/merge-up\.js pre-ci --pr <pr>/);
+    expect(t.indexOf('pre-ci')).toBeLessThan(t.indexOf('1. Find the checks'));
+    expect(t).toMatch(/return .conflicted. now/);
+    expect(t).toMatch(/up to 8 times, 15s apart/);
+    expect(contracts.get('wait-ci').redirectOn).toEqual({ conflicted: 'merge' });
+  });
   test('wait-ci reads the merge commit after a merge and polls 120s before no-checks', () => {
     const t = flat('wait-ci');
     expect(t).toMatch(/context\.merged/);
