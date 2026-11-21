@@ -150,6 +150,15 @@
         "open": [
           "FS-3"
         ]
+      },
+      {
+        "n": 2,
+        "command": "/verify-build",
+        "started_at": "2026-11-21T00:37:19.337Z",
+        "scope": "targeted",
+        "outcome": "satisfied",
+        "finished_at": "2026-11-21T00:39:00.402Z",
+        "open": []
       }
     ],
     "target": {

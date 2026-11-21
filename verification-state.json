@@ -1,5 +1,5 @@
 {
-  "iteration": 2,
+  "iteration": 1,
   "criteria": [
     {
       "id": "FS-1",
@@ -12,7 +12,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "Step 1 of the prompt makes exactly one engine call, `bash \"<plugin-root>/scripts/scaffold-project.sh\" --rebase --plugin-dir \"<plugin-root>\" [--dry-run] [--preserve-all] \"<project-root>\"`, passing `--dry-run` and `--preserve-all` through, and reads only the last stdout line, `REBASE_RESULT <json>`",
+      "cites": "lines 23–25",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-2",
@@ -25,22 +32,33 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "In a headless `/rebase-project` on an aged fixture with no conflicts, the model issues exactly one `scaffold-project.sh --rebase` call and no tree-changing action of its own: no per-component diff, copy, delete, chmod, settings write, preload injection, git-file, records-cutover or version-stamp command",
+      "cites": "lines 23–25 (one engine call); lines 3–7 (the per-component diff, settings merge and three separate git-file / cutover / stamp script calls the prompt used to make itself)",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-3",
-      "status": "not_met",
-      "tier1": "fail",
-      "artifact": ".trd-state/rebase-prompt-on-the-engine/evidence/regression-1/fs3-search.txt",
-      "reason": "Tier 1 locator-not-found: locator 'wc -l: 429; was 1451' does not match the artifact text '(wc -l:      429; was 1451)' (padding spaces). The content shows zero matches and 429 vs 1,451 lines, but a failed locator cannot be ruled met.",
-      "cause": "locator-not-found",
-      "provenAt": 2,
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rebase-prompt-on-the-engine/evidence/fs3-reverify2/fs3-search.txt",
+      "reason": "The search transcript shows the prompt is now 434 lines, was 1,451 on main. The removed sections all have 0 matches now: the 4.7a, 4.7b and 4.8 script calls, the old Step 4, the python3 settings count, the capability-word inference and the selective-update prose (4, 6, 3, 10, 1, 1 and 3 matches on main). The one remaining scaffold-project.sh call is the --rebase engine call. The 7 remaining stack.md mentions are governance-preservation lines, not the stack-to-skill table. The vendored copy is byte-identical.",
+      "cause": null,
+      "provenAt": 1,
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "kind": "evidence-gap",
-      "settled": "regression-unchecked",
-      "regression": 1
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null,
+      "statement": "The prompt no longer contains the per-component diff prose (old Step 2), the selective-update prose (old Step 4), the stack.md→skill table, capability-word inference, the inline `python3` settings count, or the three separate git-file (§4.7a), records-cutover (§4.7b) and version-stamp (§4.8) script calls",
+      "cites": "lines 3–7, line 9"
     },
     {
       "id": "FS-4",
@@ -53,7 +71,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "The prompt's frontmatter, usage and Goals describe the engine's rule: a framework file is replaced when it differs and matches a version the framework shipped; one matching none is an owner edit reported as a conflict; `--preserve-all` adds new agents and skills only, leaves framework rules and retired files, and still regenerates the ensemble-owned `hooks` block",
+      "cites": "lines 11–14",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-5",
@@ -66,7 +91,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "Step 0 keeps the installation check, the clean-tree precondition and the `--force` override, and no longer calls `stack.md` \"required for skill recomputation\"",
+      "cites": "lines 15–16",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-6",
@@ -79,7 +111,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "Step 0 records the vendored `ensemble.version` and the list of `refs/ensemble/records/*` before anything else runs",
+      "cites": "lines 16–17",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-7",
@@ -92,7 +131,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "The Path Resolution section keeps the plugin-root resolution and the `@packages` → plugin-root table, and states it is also where the shipped version of a conflicted file is found",
+      "cites": "lines 18–19",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-8",
@@ -105,7 +151,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "\"Recovery is git\" and \"Rollback\" are kept; they reference no deleted step number (the cutover is \"the engine's records cutover\"), and the ref-delete step applies only if `git ls-remote origin` lists the ref",
+      "cites": "lines 20–22",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-9",
@@ -118,7 +171,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "An engine result carrying `error` ends the run `COMMAND STUCK`; for an apply-stage error the STUCK readout says the tree may be partly applied with no stamp and points at `git status --short .claude/` and `git restore .claude/`",
+      "cites": "lines 25–28",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-10",
@@ -131,7 +191,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "Under `--dry-run`, the engine call carries `--dry-run`, Step 2 is skipped, conflicts are listed and none resolved, and the working tree is unchanged after the run",
+      "cites": "lines 23–25, lines 29–30",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-11",
@@ -144,7 +211,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "A file conflict whose project history shows no change to the file after the commit that installed it is treated as no owner edit: the file is replaced with the shipped version and DECISIONS says so",
+      "cites": "lines 31–36",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-12",
@@ -157,7 +231,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "A file conflict with a genuine owner change that applies cleanly is merged: the owner's change is found from the project's git history (`git log … -- .claude/<path>`, `git log -p`), the result is the shipped version plus the owner's change with nothing of either lost, and DECISIONS names the file as merged",
+      "cites": "lines 31–40",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-13",
@@ -170,7 +251,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "A file conflict whose owner change overlaps lines the framework changed keeps the owner's copy: DECISIONS names the file as kept, ISSUES names it as needing a manual merge, and the owner's change is not discarded",
+      "cites": "lines 36–41",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-14",
@@ -183,7 +271,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "A merged hook keeps its file mode; a merged or kept agent keeps the project copy's `skills:` list and `ENSEMBLE:SKILLS` block, and the readout says that agent's preloads were not refreshed",
+      "cites": "lines 41–43",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-15",
@@ -196,7 +291,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "A settings conflict is resolved only when the local value can be put into the engine's shape without losing any of it, otherwise left; DECISIONS says which; no second engine call is made; the resolved or left conflict and any guard refusal (`settings.refused`) go in ISSUES; NEXT says to commit and run `/rebase-project` again",
+      "cites": "lines 44–50",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-16",
@@ -209,7 +311,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "The readout reports the version before and after (Step 0's value, the stamp's `ensemble.version` and `previous_version`, or `pluginVersion` under dry-run), each category's added, replaced, removed and preserved files, framework rules, and the governance files preserved",
+      "cites": "lines 51–53",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-17",
@@ -222,7 +331,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "Each engine `steps` entry that is `failed: …` or `skipped: …`, other than an expected skip such as no remote, is reported in ISSUES; a failed or skipped `stamp` is reported as meaning \"re-run\"",
+      "cites": "lines 53–55",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-18",
@@ -235,7 +351,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "The readout reports git files and records cutover from what it can see: files untracked (from `git diff --cached --name-only --diff-filter=D -- .trd-state`, named by folder), records refs seeded (present now, not listed at Step 0), whether they were pushed or kept local (`git ls-remote origin 'refs/ensemble/records/*'`), and the instruction to commit the untracking on the base branch; it gives no reason for a feature not being seeded",
+      "cites": "lines 55–60",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-19",
@@ -248,7 +371,14 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "The prompt ends with the four-section readout (STATE, DECISIONS, ISSUES, NEXT), the completion notification and the banner",
+      "cites": "line 60",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     },
     {
       "id": "FS-20",
@@ -261,352 +391,27 @@
       "image": null,
       "ui": false,
       "imageExcluded": null,
-      "regression": 2
+      "regression": 2,
+      "statement": "A headless `/rebase-project` on an aged fixture completes and leaves the tree rebased: the output ends with `═══ COMMAND COMPLETE: /rebase-project ═══`; framework files are restored or replaced and retired ones removed; the owner's governance files and own skill are preserved; `ensemble.version` advances and `previous_version` records the aged value",
+      "cites": "line 60 (banner); lines 11–14 (replace rule, retired files); lines 51–53 (version stamp, `previous_version`, governance files preserved)",
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
     }
   ],
   "gapsClosed": [
-    0,
-    1
+    0
   ],
-  "outcome": "must-pass-unproven",
-  "causes": [
-    {
-      "key": "readout-omits-previous-version",
-      "representative": "FS-16",
-      "members": [
-        "FS-16"
-      ],
-      "status": "closed",
-      "closedAt": 2
-    },
-    {
-      "key": "unchanged-since-install-kept-not-replaced",
-      "representative": "FS-11",
-      "members": [
-        "FS-11"
-      ],
-      "status": "closed",
-      "closedAt": 2
-    }
-  ],
+  "outcome": "satisfied",
+  "causes": [],
   "exercised": [
     {
       "iteration": 1,
       "ids": [
-        "FS-1",
-        "FS-2",
-        "FS-3",
-        "FS-4",
-        "FS-5",
-        "FS-6",
-        "FS-7",
-        "FS-8",
-        "FS-9",
-        "FS-10",
-        "FS-11",
-        "FS-12",
-        "FS-13",
-        "FS-14",
-        "FS-15",
-        "FS-16",
-        "FS-17",
-        "FS-18",
-        "FS-19",
-        "FS-20"
+        "FS-3"
       ]
-    },
-    {
-      "iteration": 2,
-      "ids": [
-        "FS-16"
-      ]
-    },
-    {
-      "iteration": 2,
-      "ids": [
-        "FS-1",
-        "FS-2",
-        "FS-3",
-        "FS-4",
-        "FS-5",
-        "FS-6",
-        "FS-7",
-        "FS-8",
-        "FS-9",
-        "FS-10",
-        "FS-11",
-        "FS-12",
-        "FS-13",
-        "FS-14",
-        "FS-15",
-        "FS-17",
-        "FS-18",
-        "FS-19",
-        "FS-20"
-      ],
-      "regression": 1
-    },
-    {
-      "iteration": 2,
-      "ids": [
-        "FS-1",
-        "FS-2",
-        "FS-4",
-        "FS-5",
-        "FS-6",
-        "FS-7",
-        "FS-8",
-        "FS-9",
-        "FS-10",
-        "FS-11",
-        "FS-12",
-        "FS-13",
-        "FS-14",
-        "FS-15",
-        "FS-16",
-        "FS-17",
-        "FS-18",
-        "FS-19",
-        "FS-20"
-      ],
-      "regression": 2
     }
-  ],
-  "regression": {
-    "rounds": [
-      {
-        "round": 1,
-        "iteration": 2,
-        "scope": [
-          {
-            "id": "FS-1",
-            "reason": "covers-changed",
-            "files": [
-              ".claude/commands/rebase-project.md",
-              "packages/core/commands/rebase-project.md",
-              "packages/full/commands/plugin-only/rebase-project.md"
-            ]
-          },
-          {
-            "id": "FS-2",
-            "reason": "covers-changed",
-            "files": [
-              ".claude/commands/rebase-project.md",
-              "packages/core/commands/rebase-project.md",
-              "packages/full/commands/plugin-only/rebase-project.md"
-            ]
-          },
-          {
-            "id": "FS-3",
-            "reason": "covers-changed",
-            "files": [
-              ".claude/commands/rebase-project.md",
-              "packages/core/commands/rebase-project.md",
-              "packages/full/commands/plugin-only/rebase-project.md"
-            ]
-          },
-          {
-            "id": "FS-4",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-5",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-6",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-7",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-8",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-9",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-10",
-            "reason": "covers-changed",
-            "files": [
-              ".claude/commands/rebase-project.md",
-              "packages/core/commands/rebase-project.md",
-              "packages/full/commands/plugin-only/rebase-project.md"
-            ]
-          },
-          {
-            "id": "FS-11",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-12",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-13",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-14",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-15",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-17",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-18",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-19",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-20",
-            "reason": "covers-changed",
-            "files": [
-              "packages/core/commands/rebase-project.md"
-            ]
-          }
-        ],
-        "counts": {
-          "covers-changed": 5,
-          "no-covers": 14
-        },
-        "scopeWord": "targeted",
-        "caught": [
-          "FS-11"
-        ],
-        "debug": {
-          "causes": [
-            "unchanged-since-install-kept-not-replaced"
-          ],
-          "filesChanged": [
-            ".claude/commands/rebase-project.md",
-            "packages/core/commands/rebase-project.md",
-            "packages/full/commands/plugin-only/rebase-project.md"
-          ]
-        }
-      },
-      {
-        "round": 2,
-        "iteration": 2,
-        "scope": [
-          {
-            "id": "FS-1",
-            "reason": "covers-changed",
-            "files": [
-              ".claude/commands/rebase-project.md",
-              "packages/core/commands/rebase-project.md",
-              "packages/full/commands/plugin-only/rebase-project.md"
-            ]
-          },
-          {
-            "id": "FS-2",
-            "reason": "covers-changed",
-            "files": [
-              ".claude/commands/rebase-project.md",
-              "packages/core/commands/rebase-project.md",
-              "packages/full/commands/plugin-only/rebase-project.md"
-            ]
-          },
-          {
-            "id": "FS-4",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-5",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-6",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-7",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-8",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-9",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-10",
-            "reason": "covers-changed",
-            "files": [
-              ".claude/commands/rebase-project.md",
-              "packages/core/commands/rebase-project.md",
-              "packages/full/commands/plugin-only/rebase-project.md"
-            ]
-          },
-          {
-            "id": "FS-11",
-            "reason": "sent-to-debug"
-          },
-          {
-            "id": "FS-12",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-13",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-14",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-15",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-16",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-17",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-18",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-19",
-            "reason": "no-covers"
-          },
-          {
-            "id": "FS-20",
-            "reason": "covers-changed",
-            "files": [
-              "packages/core/commands/rebase-project.md"
-            ]
-          }
-        ],
-        "counts": {
-          "covers-changed": 4,
-          "no-covers": 14,
-          "sent-to-debug": 1
-        },
-        "scopeWord": "targeted",
-        "caught": []
-      }
-    ],
-    "notRewalked": [],
-    "unclaimedChanges": [],
-    "gateBeforeEdits": false
-  }
+  ]
 }

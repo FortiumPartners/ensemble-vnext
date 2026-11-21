@@ -21,7 +21,7 @@
   "verification-report": {
     "path": ".trd-state/rebase-prompt-on-the-engine/verification-report.md",
     "url": "",
-    "updated_at": "2026-11-21T00:22:55.107Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-21T00:39:02.922Z",
+    "command": "/verify-build"
   }
 }

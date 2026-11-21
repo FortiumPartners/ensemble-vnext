@@ -1,0 +1,13 @@
+{
+  "feature": "rebase-prompt-on-the-engine",
+  "trd": "docs/TRD/rebase-prompt-on-the-engine.md",
+  "closedAt": "2026-11-21T00:39:17Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; no test proves the conflict rules for settings conflicts, dry-run or apply errors (O3); the smoke banner check passes a STUCK run (O5); the required headless /rebase-project run has not been made; whether CLAUDE_PLUGIN_ROOT is set in a --plugin-dir session is still unknown",
+    "report": ".trd-state/rebase-prompt-on-the-engine/audit-build-report.md",
+    "auditedCommit": "676b0da7a2a1fd0aaa3828767b508e4e70b62693",
+    "anchorCommit": "601b8a7cc9c33fdb5c89c6bd6c57f2e6671710b3"
+  }
+}
