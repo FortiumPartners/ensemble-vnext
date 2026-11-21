@@ -81,4 +81,5 @@ none
 
 ## Could Not Verify
 
-Whether a model follows the new contract prose is not provable here; the live proof (item 5) covers it.
+- **No PRD (audit-build, 2026-11-21).** This TRD has no source PRD (it was decided in session), so the delivered code was checked against this TRD's objectives and tasks only. Whether those objectives capture everything the owner wanted, and whether anything was left out, was not checked.
+- **A live model following the contract prose (not checked: out of scope).** Unit, contract and fixture-repo tests prove the library and the contract text; whether a model running `/ship-build` follows the graded-merge steps on a real conflict is not provable here. The live proof (item 5) covers it.
