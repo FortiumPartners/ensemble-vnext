@@ -1,0 +1,63 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/conflict-classifier-and-stop-rules.md",
+  "trd_hash": "3cdd0e96b14ed9cdf10a857c244d69016050d8033198bf61768f5a21f6bb5679",
+  "branch": "feature/10-conflict-classifier-and-stop-rules",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "Write packages/core/lib/conflict-classifier.js (classify, decide, stuckText, CLI main), add the packages/full/lib/ symlink and the .claude/lib/ copy",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/conflict-classifier.js",
+        "packages/full/lib/conflict-classifier.js",
+        ".claude/lib/conflict-classifier.js"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-21T20:32:28.966Z"
+    },
+    "FIX-002": {
+      "description": "Write packages/core/lib/conflict-classifier.test.js",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/conflict-classifier.test.js"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-21T20:32:28.966Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "ae50fd9d630239ab06f1281387733c7561977a71",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-21T20:36:24.824Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "ae50fd9d630239ab06f1281387733c7561977a71",
+    "last_checkpoint_timestamp": "2026-11-21T20:36:24.824Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "run_started_at": "2026-11-21T20:28:21.379Z",
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/conflict-classifier-and-stop-rules.md ## Intended Change",
+    "derive_dispatched": true
+  }
+}
