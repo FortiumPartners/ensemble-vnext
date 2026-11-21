@@ -308,8 +308,10 @@ function stuckText({ classification, command, failedAttempts, lastFailure } = {}
     reason = 'checks still fail after ' + (Number(failedAttempts) || 2) + ' failed fix attempts on the resolved conflict in ' + names + ': ' + oneLine(lastFailure || 'check output not given');
     next = 'Fix the failing check by hand on the branch, then re-run ' + cmd + ' --resume.';
   } else {
-    const want = cls === 'forbidden' ? ['forbidden'] : ['behavioural'];
-    const stopping = files.filter((f) => want.includes(f.class));
+    // Every file that stops the run on its own is named: in a forbidden set that is the
+    // forbidden files first, then any behavioural clash beside them (a mechanical file never stops).
+    const want = cls === 'forbidden' ? ['forbidden', 'behavioural'] : ['behavioural'];
+    const stopping = want.flatMap((c) => files.filter((f) => f.class === c));
     reason = stopping.map((f) => f.path + ' (' + f.reason + ': ' + oneLine(f.clash || f.reason) + ')').join('; ') || 'conflict could not be graded';
     next = cls === 'forbidden'
       ? 'Merge the base into the branch yourself, settling these files by hand (the model never merges them), then re-run ' + cmd + ' --resume.'

@@ -456,6 +456,21 @@ describe('stuckText', () => {
     expect(s.reason).not.toContain('src/index.ts');
   });
 
+  test('forbidden set also names a behavioural file beside it, with its clash', () => {
+    const c = classify({ files: [file('src/a.js', [h(['x'], ['A1'], ['B1'])]), file('.claude/rules/r.md', []), barrel('src/index.ts')] });
+    expect(c.class).toBe('forbidden');
+    const s = stuckText({ classification: c, command: '/ship-build' });
+    expect(s.reason).toContain('.claude/rules/r.md');
+    expect(s.reason).toMatch(/rules file/);
+    expect(s.reason).toContain('src/a.js');
+    expect(s.reason).toContain('A1');
+    expect(s.reason).toContain('B1');
+    expect(s.reason.indexOf('.claude/rules/r.md')).toBeLessThan(s.reason.indexOf('src/a.js'));
+    expect(s.reason).not.toContain('src/index.ts');
+    expect(s.reason).not.toMatch(/\n/);
+    expect(s.next).toMatch(/by hand/);
+  });
+
   test('behavioural names every clashing file with its differing lines', () => {
     const c = classify({
       files: [file('src/a.js', [h(['x'], ['y1'], ['z1'])]), file('config.yml', [h([], ['port: 80'], ['port: 81'])]), barrel()],
