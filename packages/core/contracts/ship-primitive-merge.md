@@ -64,7 +64,8 @@ for `red`.
    - `poll` (GitHub has not computed mergeability yet): run the same command up to 8 times,
      15s apart, until it answers `skip` or `merge-in`. Still `poll` after the 8 runs: treat it
      as `skip`.
-   - `merge-in` (`mergeable` reads `CONFLICTING`, or `mergeStateStatus` reads `BEHIND`, GitHub's
+   - `merge-in` (also how a run arrives here from `wait-ci` returning `conflicted`: a conflicted PR gets no CI, so
+     `wait-ci` never waits on it and the sequencer sends the run to this step; `mergeable` reads `CONFLICTING`, or `mergeStateStatus` reads `BEHIND`, GitHub's
      word that a branch rule requires the head to be up to date): run, from the project root,
      with `<branch>` and `<PR head>` read from
      `gh pr view <pr> --json headRefName,headRefOid`. Fetch the base first, so the merge brings

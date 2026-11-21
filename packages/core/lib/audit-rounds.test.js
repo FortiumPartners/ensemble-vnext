@@ -187,9 +187,27 @@ describe('tally', () => {
     expect(A.classify({ action: 'fix-citation', check: 'test-quality' })).toBe('note');
     expect(A.classify({ id: 'T4', action: 'untested', check: 'test-quality' }, { deferred: ['T3'] })).toBe('test-gap');
   });
-  test('covered:false stays uncovered-only even for a deferred id', () => {
+  test('covered:false on a deferred-only id counts deferred, not uncovered', () => {
     expect(A.tally([{ id: 'T3', action: 'gap-unbuilt', covered: false }], { deferred: ['T3'] }))
-      .toEqual({ defects: 0, testGaps: 0, uncovered: 1, notes: 0, deferred: 0 });
+      .toEqual({ defects: 0, testGaps: 0, uncovered: 0, notes: 0, deferred: 1 });
+    const index = { requirements: [{ id: 'R1', served_by: ['T3'] }, { id: 'R2', served_by: ['T3', 'T4'] }] };
+    expect(A.tally([{ id: 'R1', action: 'gap-unbuilt', covered: false }], { deferred: ['T3'], index }).deferred).toBe(1);
+    expect(A.tally([{ id: 'R2', action: 'gap-unbuilt', covered: false }], { deferred: ['T3'], index }).uncovered).toBe(1);
+    expect(A.tally([{ id: 'R9', action: 'gap-unbuilt', covered: false }], { deferred: ['T3'], index }).uncovered).toBe(1);
+  });
+  test('coverage objective: met is covered, unmet or unmeasured is a test gap', () => {
+    const item = { id: 'O9', kind: 'coverage-objective', target: 60, covered: false, action: 'gap-untested', check: 'traceability' };
+    expect(A.tally([item], { coverage: { measured: 72 } })).toEqual({ defects: 0, testGaps: 0, uncovered: 0, notes: 0, deferred: 0 });
+    expect(A.tally([item], { coverage: { measured: 41 } })).toMatchObject({ testGaps: 1, uncovered: 0 });
+    expect(A.tally([item])).toMatchObject({ testGaps: 1, uncovered: 0 });
+    expect(A.tally([item], { coverage: { measured: null } })).toMatchObject({ testGaps: 1, uncovered: 0 });
+    // scoped: the item's scope picks unit vs integration; a scope with no figure falls back to measured, else a gap
+    const unit = { ...item, scope: 'unit', target: 80 };
+    const integ = { ...item, scope: 'integration', target: 50 };
+    expect(A.tally([unit, integ], { coverage: { unit: 85, integration: 55 } })).toMatchObject({ testGaps: 0 });
+    expect(A.tally([unit, integ], { coverage: { unit: 85, integration: 40 } })).toMatchObject({ testGaps: 1 });
+    expect(A.tally([unit], { coverage: { integration: 99 } })).toMatchObject({ testGaps: 1 });
+    expect(A.tally([unit], { coverage: { measured: 90 } })).toMatchObject({ testGaps: 0 });
   });
   test('only uncovered items never chain', () => {
     const counts = A.tally([{ action: 'gap-unbuilt', check: 'traceability', covered: false }]);

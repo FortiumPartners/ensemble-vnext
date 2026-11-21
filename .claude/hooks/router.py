@@ -803,7 +803,13 @@ def resolve_marker_fields(prompt: str, cwd: str, raw_session_id: object) -> tupl
     if not session_id:
         return "unknown", None, None, session_marker
 
-    if is_slash_command(prompt):
+    # Only this framework's own commands open a run: a command that is not one
+    # of ours (`/forge-inbox`, `/code-review`) never calls notify-complete.sh, so
+    # nothing would close its run and the pause check would fire on a session
+    # that is not running an Ensemble command. It reads the existing state instead.
+    if is_slash_command(prompt) and _is_framework_owned_command(
+        prompt.strip().split()[0], cwd
+    ):
         command = prompt.strip().split()[0]
         feature = derive_feature(cwd) or None
         state_record = {

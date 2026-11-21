@@ -70,10 +70,18 @@ def context_of(output: dict) -> str:
     return output["hookSpecificOutput"]["additionalContext"]
 
 
+def add_framework_command(root, name):
+    """Vendor a framework command file (one that closes its own run)."""
+    commands = root / ".claude" / "commands"
+    commands.mkdir(parents=True, exist_ok=True)
+    (commands / f"{name}.md").write_text("run .claude/hooks/notify-complete.sh\n")
+
+
 @pytest.fixture
 def scaffolded_project(tmp_path):
     """A tmp_path that satisfies `is_scaffolded()` (has `.claude/rules/`)."""
     (tmp_path / ".claude" / "rules").mkdir(parents=True)
+    add_framework_command(tmp_path, "implement-trd")
     return tmp_path
 
 
@@ -653,7 +661,24 @@ class TestResolveMarkerFields:
         )
         assert not (tmp_path / ".trd-state").exists()
 
+    def test_non_framework_slash_command_does_not_write_active(self, tmp_path):
+        add_framework_command(tmp_path, "implement-trd")
+        state, command, feature, session_marker = resolve_marker_fields(
+            "/forge-inbox", str(tmp_path), "sess-1"
+        )
+        assert (state, command, feature) == ("none", None, None)
+        assert not (tmp_path / ".trd-state" / "_command-runs" / "sess-1.json").exists()
+
+    def test_plugin_prefixed_framework_command_writes_active(self, tmp_path):
+        add_framework_command(tmp_path, "plan")
+        state, command, _, _ = resolve_marker_fields(
+            "/ensemble-vnext:plan x", str(tmp_path), "sess-1"
+        )
+        assert state == "active"
+        assert command == "/ensemble-vnext:plan"
+
     def test_slash_prompt_writes_active_state(self, tmp_path):
+        add_framework_command(tmp_path, "implement-trd")
         state, command, feature, session_marker = resolve_marker_fields(
             "/implement-trd foo", str(tmp_path), "sess-1"
         )

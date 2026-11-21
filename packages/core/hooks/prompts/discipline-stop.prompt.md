@@ -60,7 +60,7 @@ word and I'll…".
 Never case B: naming or recommending the owner's next command; offering a choice between
 next commands; stating a decision not to do something, with its reason; asking before
 anything irreversible, destructive, outward-facing (push, merge, deploy, release), or
-touching production or someone else's data; reporting that the agent is stuck.
+touching production, credentials or someone else's data, even when the owner has been asked before or the answer seems obvious; reporting that the agent is stuck.
 
 ## Deciding
 

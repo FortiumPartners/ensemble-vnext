@@ -1767,3 +1767,12 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 ## Exercising narrow-re-proof-after-a-merge FS-4 (real conflict, iteration 2)
 
 - [ran] A real hand-resolved conflict needs base and feature to edit the SAME line of one file (git merge exit 1, `UU`), then write the resolution and commit; a clean merge plus an extra edit commit is not a conflict. Driver (no source edit): `node .trd-state/narrow-re-proof-after-a-merge/evidence/fs4-conflict-driver.js <repo root> uncovered|covered`. Result: `differing: ["next.config.ts"]`, `excused: []`, scope `full` when no cover names it, `targeted` when a cover does.
+## Exercising check-mergeability-before-wait-ci (2026-11-21, iteration 1)
+
+- [ran] `merge-up.js pre-ci --pr N` runs against a stub `gh` first on PATH (logs argv, answers `pr view` from a comma list of STATE:MERGEABLE:MERGE_STATUS in call order); driver `.trd-state/check-mergeability-before-wait-ci/evidence/drive.sh`. `wait-ci`'s poll loop and CI wait are contract prose executed by a model, so "UNKNOWN then MERGEABLE" is shown as two successive pre-ci reads plus the contract text, not as a model run.
+- [ran] `npx jest --no-watchman <3 files> --json --outputFile=<f>` over merge-up, ship-sequencer and ship-primitives tests gives 319 passing; per-test names via the json (reporter prints none).
+
+## Exercising check-mergeability-before-wait-ci (2026-11-21)
+
+- [ran] `merge-up.js pre-ci --pr N` runs against a stub `gh` first on PATH (answers `pr view` with `{state,mergeable,mergeStateStatus}` from an env var, logs argv): CONFLICTING gives `conflicted`, MERGEABLE `proceed`, UNKNOWN `poll`, one gh call each. `wait-ci` itself is a model-run contract, so "no CI-status query" is shown only by contract text order (step 0 before step 1) and the `pre-ci` answer.
+- [ran] The real `ship-sequencer.js` CLI with the real `packages/core/contracts` walks redirects with no model: `start --kind sweep --id x --branch feat` in a `git init` temp repo, `next/record --autonomy .claude/rules/autonomy.md`. A `merge` loop is entered by recording `red` on it; collect-findings results are `clean|found`; a body step (6.4) can be recorded only after `next` hands it out. Zsh-safe: write the driver to a bash file (a `${` in a JS template literal breaks the REPL).

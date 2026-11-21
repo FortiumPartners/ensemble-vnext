@@ -314,8 +314,10 @@ or its end-of-run review — is not a wake-up: it continues this run where it wa
 check does not apply to it.
 
 **1. Count.** Tally the whole `handoff` in one call:
-`node .claude/lib/audit-rounds.js tally '{"handoff":<the workflow's handoff array>,"deferred":[<the deferred ids>],"index":<the workflow's returned index>}'` returns
-`{ defects, testGaps, uncovered, notes, deferred }`. An item with `covered: false` counts only as
+`node .claude/lib/audit-rounds.js tally '{"handoff":<the workflow's handoff array>,"deferred":[<the deferred ids>],"index":<the workflow's returned index>,"coverage":<the coverage figure, below>}'` returns
+`{ defects, testGaps, uncovered, notes, deferred }`. **Coverage figure.** An item with `kind: "coverage-objective"` (a target such as "unit coverage >= 80%", which no task covers) is met when the phase gate's measured coverage reaches its `target`, otherwise it counts as a test gap. Pass `"coverage"` as the latest unit and integration coverage percent the phase gate reported in this feature's run (the "unit/integration coverage %" in its output, read from the run's gate result or `implement.json`): `{"unit":<n>,"integration":<n>}`, or `{"measured":<n>}` for one figure; an item with `scope` "unit" or "integration" is judged against that kind, any other against `measured`. **No recorded figure means omit `coverage`**: each coverage objective then counts as a test gap, never as met and never as uncovered. `decide` takes the counts `tally` returned, so it needs no `coverage`.
+
+An item with `covered: false` counts only as
 uncovered, never as a defect or test gap. A citation fix is a `note`; a gap only a deferred task
 covers is `deferred`. Neither counts toward a defect or test gap. (`classify '{"action":"<action>","check":"<check>","id":"<id>","deferred":[<the deferred ids>],"index":<the workflow's returned index>}'` gives one
 item's class — `defect`, `test-gap`, `note`, `deferred` or `other` — for step 3.)

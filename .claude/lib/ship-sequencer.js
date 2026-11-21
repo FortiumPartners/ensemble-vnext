@@ -21,8 +21,12 @@
  * "Examples (not run)" are never parsed.
  *
  * Contract front-matter keys: primitive, params, results, outward, needs, provides, section,
- * rest, stops-on, detach-on, detach-on-data, repeat-until, requires (`trd`: the work's TRD must
- * parse at start).
+ * rest, stops-on, detach-on, detach-on-data, repeat-until, redirect-on, requires (`trd`: the work's TRD
+ * must parse at start).
+ * `redirect-on: <result>=<primitive>[, ...]`: recording that result sends the cursor to the next listed
+ * step of that primitive instead of the step after (a result must be declared, the primitive must
+ * have a contract). With no such step listed the run stops, naming the result. A step inside
+ * another step's recovery loop whose owner is that primitive sends the cursor back to the owner.
  * `loop-on: <result>` (must be in `stops-on`), `loop-via: <primitives, in order>` (each must be
  * `outward: no` and must not itself declare `loop-via`) and `loop-rounds: <param>` (a declared
  * parameter holding a whole number) give a top-level step a bounded recovery loop: recording
@@ -272,11 +276,19 @@ function loadPrimitives(dir = DEFAULT_CONTRACTS_DIR) {
       loopOn: listOf(fm['loop-on'])[0] || null,
       loopOnAll: listOf(fm['loop-on']),
       loopVia: listOf(fm['loop-via']),
+      redirectOn: Object.fromEntries(listOf(fm['redirect-on']).map((p) => p.split('=')).filter((p) => p.length === 2 && p[0] && p[1])),
       loopRounds: fm['loop-rounds'] && fm['loop-rounds'] !== 'none' ? fm['loop-rounds'] : null,
       path: full,
     });
   }
   for (const c of contracts.values()) validateLoop(c, contracts, errors);
+  for (const c of contracts.values()) {
+    for (const [res, target] of Object.entries(c.redirectOn)) {
+      if (!c.results.includes(res)) errors.push(`ship-primitive-${c.primitive}.md: redirect-on names "${res}", which is not one of its results`);
+      else if (!contracts.has(target)) errors.push(`ship-primitive-${c.primitive}.md: redirect-on sends "${res}" to "${target}", which has no contract`);
+      else if (target === c.primitive) errors.push(`ship-primitive-${c.primitive}.md: redirect-on sends "${res}" to its own primitive`);
+    }
+  }
   return { contracts, errors };
 }
 
@@ -934,6 +946,21 @@ function record(stateDir, { step, result, data, reason }, opts = {}) {
   } else if (result === 'wait') {
     state.status = 'waiting';
     state.reason = reason || 'waiting';
+  } else if (contract.redirectOn[result]) {
+    // The result says this step cannot proceed and another primitive must act first (e.g. a
+    // conflicted PR gets no CI: the merge step brings the base in). Never wait on it here.
+    const target = contract.redirectOn[result];
+    const flat = flatten(state.steps);
+    const owner = entry.loopOf && entry.loopOf.primitive === target ? entry.loopOf : null;
+    const dest = owner ? null : flat.find((e) => !e.loopOf && e.top > entry.top && e.step.primitive === target);
+    if (owner) {
+      state.cursor = { step: owner.id, pass: state.cursor.pass + 1 };
+    } else if (dest) {
+      state.cursor = { step: dest.step.id, pass: 1 };
+    } else {
+      state.status = 'stuck';
+      state.reason = `step ${step} (${contract.primitive}) recorded ${result}, which needs a later ${target} step, and ship.md lists none; resolve it by hand and run /ship-build --resume`;
+    }
   } else if (entry.repeat) {
     const r = entry.repeat.repeat;
     if (result === r.until) {
