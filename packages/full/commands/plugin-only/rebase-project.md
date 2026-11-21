@@ -227,7 +227,12 @@ git log --format='%h %ad %s' --date=short -- .claude/<path>
 git log -p -- .claude/<path>
 ```
 
-1. **No change after the commit that installed it.** The file came from an untagged plugin build, so it is not an owner edit and a merge would only reintroduce old framework text. Replace it with the shipped version, and say so in DECISIONS, naming the file. A commit that was itself an earlier `/init-project` or `/rebase-project` run is not an owner change. **Only when the history shows this.** If you cannot tell that the installing commit added the file unedited (one commit holds the install and other work, or the history was squashed), treat it as an owner change (rule 2).
+1. **No change after the commit that installed it.** The file came from an untagged plugin build, so it is not an owner edit and a merge would only reintroduce old framework text. Replace it with the shipped version, and say so in DECISIONS, naming the file. A commit that was itself an earlier `/init-project` or `/rebase-project` run is not an owner change. **Only when the history shows this, and the history alone decides it.** The installing commit is the oldest commit `git log` lists for the file. What the file's own text says about itself (a comment, a version note, wording such as "locally edited") is not evidence, and neither is what the difference from the shipped version looks like: an untagged build differs from the shipped file by definition. Treat it as an owner change (rule 2) only when git shows one of these:
+   - a later commit that is not an `/init-project` or `/rebase-project` run changed the file;
+   - the installing commit also changed the project's own work, files the install does not write (source, tests, the owner's docs); `.claude/`, `CLAUDE.md`, `.gitignore`, `.gitattributes` and a scaffold log are the install's own output, so a commit holding only those is an install (a history squashed into one commit with the project's code is not);
+   - the file has no commit at all (it is untracked).
+
+   On none of these, do not treat it as an owner change: replace it, even when the file looks edited.
 2. **An owner change exists.** Read the shipped version (locate it through the Path Resolution table; an agent is `agents-lib/<name>.md`, compared ignoring its generated skill-preload content) and diff the owner's change against it. Then either:
    - **Merge**: the shipped version plus the owner's change, when the change applies cleanly and nothing of either side is lost; or
    - **Keep the owner's copy**: when the change overlaps lines the framework changed. List the file in ISSUES as needing a manual merge.
@@ -263,7 +268,7 @@ Say in DECISIONS which settings conflicts you resolved and which you left. **Do 
 
 Build the four-section readout (see "Readout") from the result and from git. Say nothing the engine and git do not show; in particular the engine does not report why a feature was not seeded to a records ref.
 
-- **Version**: before (Step 0's value) and after (`ensemble.version` as now stamped; `pluginVersion` under `--dry-run`).
+- **Version**: before (Step 0's value, which the stamp's `ensemble.previous_version` confirms when the version changed) and after (`ensemble.version` as now stamped; `pluginVersion` under `--dry-run`).
 - **Per category**: added, replaced, removed, preserved, from `categories`; name the framework rules (`async-discipline.md`, `autonomy.md`, `command-status.md`) that changed.
 - **Governance files preserved**: `constitution.md`, `stack.md`, `process.md`, `verification.md`, `design.md`, `ship.md`, untouched.
 - **ISSUES**: every `steps` entry that is `failed: <why>`, and every `skipped: <why>` that is not an expected skip (no remote is expected). A `stamp` that failed or was skipped means the version is not recorded: re-run.
