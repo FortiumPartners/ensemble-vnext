@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "slug": "ship-graded-merge",
+  "name": "Ship graded merge",
+  "source": {
+    "command": "/plan-feature",
+    "artifact": "docs/plans/ship-graded-merge/roadmap.md"
+  },
+  "repo": "/Users/james/dev/fortium/ensemble-vnext",
+  "base_branch": "main",
+  "rigor": "solo",
+  "spec_first": false,
+  "features": [
+    {
+      "name": "Conflict classifier and stop rules",
+      "description": "Conflict classifier and stop rules - feature F-1 of workplan ship-graded-merge.\nAdd a tested library that decides, for a set of conflicted paths and the two sides' hunks, whether a base-branch conflict is `record` (settled by the existing record-file path), `mechanical` (the model may resolve it), `behavioural` (stop) or `forbidden` (stop at once). Forbidden means any path under `.claude/rules/`, or another feature's TRD (a file under `docs/TRD/` that is not the TRD of the feature being shipped). Mechanical covers both sides adding entries to a list, schema or barrel file, disjoint hunks in the same region, and a test broken only by the base's changes; anything it cannot place as mechanical is behavioural. It also owns the stop rules: two failed fix attempts after a resolution turns a mechanical conflict into a behavioural one, and the STUCK text it produces names the files and the clash. Keep `isRecordFile` in `packages/core/lib/record-files.js` the single definition of a record file and call it from here. Expose a one-line JSON command line like `merge-up.js` does, so the contract can call it.\nAcceptance: unit tests cover each class, each forbidden path, the two-attempt rule and the STUCK text; record-files tests still pass.\nBuilds on: none.\nDecisions: plan rigor solo with spec-first off, as the sibling ship plans use: default taken, owner's call (agent, 2026-11-21).\nDesign: docs/plans/ship-graded-merge/roadmap.md item 1; source request in the roadmap's Source spec and /Users/Shared/ensemble-graded-merge-2026-11-21.md.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 10,
+      "dependencies": [],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    },
+    {
+      "name": "Check mergeability before wait-ci",
+      "description": "Check mergeability before wait-ci - feature F-2 of workplan ship-graded-merge.\nA pull request that has become conflicted after a push gets no `pull_request` CI from GitHub, so `/ship-build` waits at `wait-ci` forever (issue #136, and about 8 of the 32 Storybook STUCK banners). Make `/ship-build` read the PR's mergeability before it waits on CI and, when GitHub reports it `CONFLICTING`, send the run to the merge step's merge-in handling (`node .claude/lib/merge-up.js decide` already returns `merge-in` for that case) instead of waiting. Poll while GitHub has not computed mergeability, as the merge step already does. Do this in the `wait-ci` contract and the sequencer so a conflicted PR never enters the wait. Until the in-place resolution feature lands, a code-file conflict reached this way still stops, but at the merge step with a clear reason, not after a timeout.\nAcceptance: with a stubbed gh, CONFLICTING sends the run to the merge step, MERGEABLE goes on to the CI wait, UNKNOWN polls; the existing ship-primitives tests still pass.\nBuilds on: none.\nRelated: Resolve mechanical conflicts in place: a code-file conflict reached through this check still stops at the merge step until that feature lands; neither needs the other built.\nDesign: docs/plans/ship-graded-merge/roadmap.md item 2; source request in the roadmap's Source spec and /Users/Shared/ensemble-graded-merge-2026-11-21.md.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 20,
+      "dependencies": [],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    },
+    {
+      "name": "Resolve mechanical conflicts in place",
+      "description": "Resolve mechanical conflicts in place - feature F-3 of workplan ship-graded-merge.\nIn the `/ship-build` merge step, when `merge-up.js decide` says `merge-in` and the base clashes with the PR head in more than record files, classify each conflicted file with the classifier from the first feature. Record files go the existing way. For mechanical files the model resolves only the conflict hunks, keeping both sides' intent; then the run executes lint, typecheck and the affected unit tests through a tested library (not by prompt), commits the merge and pushes it normally, never forcing. CI on the merged head is the proof. If a check still fails after two fix attempts, or any file is behavioural or forbidden, stop with a well-formed STUCK that names the files and the clash so Forge's delegate resolver takes over. Write each resolution into the ship record: files, class, checks run, re-proof scope and the two-attempt count. Keep classification and the check runner deterministic and unit tested. Update `packages/core/contracts/ship-primitive-merge.md` and `docs/guides/ship-build.md` to describe the graded behaviour.\nAcceptance: a mechanical conflict on a fixture repository is resolved, checked, committed and pushed without force; a behavioural, a forbidden and a two-failed-attempts case each end in the specified STUCK with files named; the ship record carries an entry in each case.\nBuilds on: Conflict classifier and stop rules.\nDesign: docs/plans/ship-graded-merge/roadmap.md item 3; source request in the roadmap's Source spec and /Users/Shared/ensemble-graded-merge-2026-11-21.md.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 30,
+      "dependencies": [
+        {
+          "name": "Conflict classifier and stop rules",
+          "reason": "code_or_schema"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    },
+    {
+      "name": "Narrow re-proof after a merge",
+      "description": "Narrow re-proof after a merge - feature F-4 of workplan ship-graded-merge.\nAfter a merge of the base into a PR head, `/ship-build`'s custody gate should re-prove only the criteria whose covered code changed in the merge. The scope narrowing exists (issues #153 and #163; `affectedIds` and the base excuse in `compare` in `packages/core/lib/custody.js`), but Storybook still saw 3 custody refusals where a cleanly merged base-only file widened the scope; one stop row says develop's `next.config.ts` change pulled 4 video-ending criteria back in. From the Storybook stop table (/Users/Shared/storybook-stuck-2026-11-14-to-21.tsv, rows mentioning custody) find which kinds of base-only file still widen the scope, reproduce each with a fixture, and fix it so a base-only file no criterion covers re-proves nothing. If a row cannot be reproduced, record the evidence in the test as a skipped case with the reason rather than loosening custody. Do not weaken the check for a file the merge changed on the feature's side.\nAcceptance: a base-only framework config file and an unnamed base-only file each give an empty re-proof set; a file the feature touched still re-proves the criteria covering it.\nBuilds on: none.\nRelated: Resolve mechanical conflicts in place: both touch what the merge re-proves; neither needs the other built.\nDesign: docs/plans/ship-graded-merge/roadmap.md item 4; source request in the roadmap's Source spec and /Users/Shared/ensemble-graded-merge-2026-11-21.md.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 40,
+      "dependencies": [],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    },
+    {
+      "name": "Live proof on the ship-build test repository",
+      "description": "Live proof on the ship-build test repository - feature F-5 of workplan ship-graded-merge.\nProve the graded merge on real GitHub in islayjames/ship-build-live-test (the `github-live-test` environment in `.claude/rules/verification.md`; one branch and PR at a time, inside that repo only, never this repository's `main`). Run `/ship-build` from a scaffolded fixture checkout of that repo three times: on a PR whose conflict with the base is mechanical (both sides add to a list or barrel file), showing it is resolved in place, checked, pushed and merged in the same run; on a PR with a behavioural clash (the same behaviour specified two ways), showing it stops with the files and the clash named; and on a PR made conflicted by a base commit pushed after the PR opened, showing the run goes to the merge step and does not wait on CI. Capture each run's ship record and write a short report under `.trd-state/ship-graded-merge/` with the PR links, the records, and any step that did not behave as specified. This ships no code in this repository; leftover fixture branches and PRs are closed and deleted per the destroy command in `.claude/rules/verification.md` section 1a.\nAcceptance: a merged mechanical PR, a stopped behavioural PR and a pre-CI conflict run, each linked in the report with its ship record entry (files, class, checks run, re-proof scope).\nBuilds on: Resolve mechanical conflicts in place, Check mergeability before wait-ci.\nRelated: Narrow re-proof after a merge: a custody refusal seen live that it fixes is not a defect of the in-place resolution; verified after it.\nDecisions: route task, since it ships no code in this repository: default taken, owner's call (agent, 2026-11-21).\nDesign: docs/plans/ship-graded-merge/roadmap.md item 5; source request in the roadmap's Source spec and /Users/Shared/ensemble-graded-merge-2026-11-21.md.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 50,
+      "dependencies": [
+        {
+          "name": "Resolve mechanical conflicts in place",
+          "reason": "code_or_schema"
+        },
+        {
+          "name": "Check mergeability before wait-ci",
+          "reason": "code_or_schema"
+        },
+        {
+          "name": "Narrow re-proof after a merge",
+          "reason": "related"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "task",
+      "route_rigor": "solo"
+    },
+    {
+      "name": "Document the graded merge and tell Storybook",
+      "description": "Document the graded merge and tell Storybook - feature F-6 of workplan ship-graded-merge.\nWrite the user-facing description and release-note text for the graded merge: what `/ship-build` now resolves in place, what still stops and why, the limits (no force-push; owner-governed rules files and other features' TRDs stop), and where the resolution is recorded. Update `docs/guides/ship-build.md` and add the entry under `[Unreleased]` in `CHANGELOG.md`, closing issues #97 (its graded-merge part) and #136. The entry must include one plain sentence telling Storybook's PM that, now this has shipped, it may turn on Forge's `ship_queue` `merge` scope, and that the setting is Storybook's PM's to make; do not change any Forge or Storybook setting. State the live proof's result only after reading its report; if the report shows a step that did not behave as specified, say so instead of claiming it works. Do not cut the release.\nAcceptance: the changelog and the ship-build guide carry the graded-merge entry, the `ship_queue` sentence and both issue numbers; doc-consistency tests pass.\nBuilds on: Resolve mechanical conflicts in place.\nRelated: Live proof on the ship-build test repository: the release note states the proof's result only after reading its report; verified after it.\nDesign: docs/plans/ship-graded-merge/roadmap.md item 6; source request in the roadmap's Source spec and /Users/Shared/ensemble-graded-merge-2026-11-21.md.\nScope: this feature only. Other features of the plan are built separately; reference them as existing or to-come, never build them.",
+      "repo": "/Users/james/dev/fortium/ensemble-vnext",
+      "sequence_order": 60,
+      "dependencies": [
+        {
+          "name": "Resolve mechanical conflicts in place",
+          "reason": "code_or_schema"
+        },
+        {
+          "name": "Live proof on the ship-build test repository",
+          "reason": "related"
+        }
+      ],
+      "entry_point": "idea",
+      "route": "plan",
+      "route_rigor": "solo"
+    }
+  ]
+}
