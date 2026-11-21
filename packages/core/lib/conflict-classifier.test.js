@@ -253,6 +253,30 @@ describe('mechanical rules', () => {
   });
 });
 
+describe('regressions found in review', () => {
+  test('a shared first-line edit does not hide a line both sides changed differently', () => {
+    const f = one(file('README.md', [h(['- a', '- b'], ['- A', '- b2'], ['- A', '- b3'])]));
+    expect(f.class).toBe('behavioural');
+  });
+
+  test('a key inserted by one side and written by the other\'s replacement is a same-key clash', () => {
+    const f = one(file('config.yaml', [h(['a: 1', 'b: 2', 'c: 3'], ['a: 1', 'b: 2', 'c: 3', 'k: 5'], ['k: 7', 'b: 2', 'c: 3'])]));
+    expect(f.class).toBe('behavioural');
+    expect(f.reason).toBe('same-key');
+  });
+
+  test('the same key added by both sides in different places is a duplicate', () => {
+    const f = one(file('config.yaml', [h(['a: 1', 'b: 2', 'c: 3'], ['a: 1', 'k: 9', 'b: 2', 'c: 3'], ['a: 1', 'b: 2', 'c: 3', 'k: 9'])]));
+    expect(f.class).toBe('behavioural');
+    expect(f.reason).toBe('same-key');
+  });
+
+  test('both sides deleting the same lines is a shared edit, mechanical', () => {
+    const f = one(file('src/a.js', [h(['a', 'b', 'c'], ['a', 'c'], ['a', 'c'])]));
+    expect(f.class).toBe('mechanical');
+  });
+});
+
 describe('behavioural reasons', () => {
   const reason = (f) => one(f);
 

@@ -135,7 +135,10 @@ function normaliseEdits(ours, theirs) {
     const b = theirs.find((x) => !used.has(x) && x.s === a.s && x.e === a.e && a.s < a.e);
     let k = 0;
     if (b) while (k < a.lines.length && k < b.lines.length && a.lines[k] === b.lines[k]) k++;
-    if (!b || k === 0) {
+    // A shared edit needs a shared leading run (or both sides emptying the same lines), and any
+    // remainder may only follow it when it does not stand in for base lines both sides changed.
+    const rest = b ? Math.max(a.lines.length, b.lines.length) > k : false;
+    if (!b || (k === 0 && (a.lines.length > 0 || b.lines.length > 0)) || (rest && a.e - a.s > k)) {
       o.push({ ...a });
       continue;
     }
@@ -187,10 +190,13 @@ function gradeHunk(file, h) {
       }
     }
   }
-  // Same key / same declaration among every pair of insertions, wherever they sit.
-  for (const o of ours.filter((e) => e.s === e.e)) {
-    for (const t of theirs.filter((e) => e.s === e.e)) {
-      const clash = entryClash(o.lines, t.lines);
+  // Same key / same declaration among every pair of edits (insertions and replacements alike),
+  // wherever they sit. Outside one shared insertion point, a repeated entry is a duplicate.
+  for (const o of ours) {
+    for (const t of theirs) {
+      if (skipPair(o, t)) continue;
+      const samePlace = o.s === o.e && t.s === t.e && o.s === t.s;
+      const clash = entryClash(o.lines, t.lines, !samePlace);
       if (clash) return clash;
     }
   }
@@ -198,16 +204,17 @@ function gradeHunk(file, h) {
 }
 
 /** A key given two values, or a same-named declaration added with different bodies. */
-function entryClash(a, b) {
+function entryClash(a, b, dup = false) {
   const keys = (ls) => new Map(ls.map((l) => KEY_LINE.exec(l)).filter(Boolean).map((m) => [m[1], m[2]]));
   const kb = keys(b);
   for (const [k, v] of keys(a)) {
     if (kb.has(k) && kb.get(k) !== v) return { ok: false, reason: 'same-key', clash: 'key "' + k + '" given two values: ours "' + v + '" vs theirs "' + kb.get(k) + '"' };
+    if (dup && kb.has(k) && v !== '') return { ok: false, reason: 'same-key', clash: 'key "' + k + '" added by both sides in different places' };
   }
   const decls = (ls) => ls.map((l) => DECL_LINE.exec(l)).filter(Boolean).map((m) => m[1]);
   const db = decls(b);
   const same = decls(a).find((n) => db.includes(n));
-  if (same && a.join('\n') !== b.join('\n')) return { ok: false, reason: 'same-decl', clash: 'both sides added "' + same + '" with different bodies' };
+  if (same && (dup || a.join('\n') !== b.join('\n'))) return { ok: false, reason: 'same-decl', clash: 'both sides added "' + same + '"' + (a.join('\n') !== b.join('\n') ? ' with different bodies' : ' in different places') };
   return null;
 }
 
