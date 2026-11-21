@@ -48,7 +48,7 @@ Examples:
 - Leave recovery to git — never write parallel backup copies
 - Preserve user governance files (constitution.md, stack.md, process.md, verification.md, design.md, ship.md)
 - Preserve user-created files (agents/skills/commands not shipped by the plugin)
-- Keep installed skills current and their selection in step (the engine does this; it does not read `stack.md`). A skill the project wants is added by copying its folder from the plugin's `skills-lib/` into `.claude/skills/`
+- Keep installed skills current and their selection in step (the engine does this). With no `.claude/selected-skills.txt` it derives the selection from `stack.md` through a small stack-to-skill table, writes the file and copies those skill folders, and reports them as `derivedSkills` (a dry run reports and writes nothing). A skill the project wants beyond that is added by copying its folder from the plugin's `skills-lib/` into `.claude/skills/`; never advise re-running `/init-project` for stack skills
 - Report the result as a four-section readout
 
 ---
@@ -193,17 +193,19 @@ once at the start, not a mid-loop request for permission to continue.
 Run the engine once. It plans every change, applies them, and prints one result. Pass `--dry-run` and/or `--preserve-all` through when the user gave them; never `--force`, which the engine rejects.
 
 ```bash
-bash "<plugin-root>/scripts/scaffold-project.sh" --rebase --plugin-dir "<plugin-root>" [--dry-run] [--preserve-all] "<project-root>"
+bash "<plugin-root>/scripts/scaffold-project.sh" --rebase --plugin-dir "<plugin-root>" [--dry-run] [--preserve-all] "<project-root>" | tail -n 1
 ```
 
 `<plugin-root>` is the root resolved in "Path Resolution" (the engine's own script directory is `scripts/` under it); `<project-root>` is the project directory.
 
-**Read only the last line of standard output.** It is `REBASE_RESULT <json>`; the lines before it are a render banner on stderr and progress text and carry nothing you need. The JSON has:
+**Read only the last line of standard output**, which the `| tail -n 1` above captures directly from the pipe. Never save the result to a file in `/tmp` or any other fixed path, and never read one back: a stale file from an earlier run would be taken for this run's result. It is `REBASE_RESULT <json>`; the lines before it are a render banner on stderr and progress text and carry nothing you need. The JSON has:
 
 - `mode`, `preserveAll`, `pluginVersion`;
 - `categories.<name>` for `commands`, `agents`, `hooks`, `hook-libs`, `hook-prompts`, `workflows`, `libs`, `contracts`, `skills`, `rules`: lists `added`, `replaced`, `removed`, `preserved` (paths relative to `.claude/`), a count `unchanged`, and `conflicts` (each `{path, reason}`);
-- `settings`: `added`, `replaced`, `removed`, `preserved`, `unchanged`, `conflicts`, `counts`, `written`, `refused`;
+- `settings`: `added`, `replaced`, `removed`, `preserved`, `unchanged`, `conflicts`, `counts`, `written` (false on a dry run), `would_write`, `refused`;
+- `totals`: `added`, `replaced`, `removed`, `preserved`, `conflicts`, each summed by the engine over every category, and `gitFiles`, the count of git files (`.gitignore`, `.gitattributes`) the run changed, kept apart from the category sums (0 under `--dry-run`);
 - `steps`: `modes`, `selection`, `preloads`, `gitFiles`, `recordsCutover`, `stamp`, each `ok`, `skipped: <why>`, `failed: <why>` or `not run` (every step is `not run` under `--dry-run`);
+- `derivedSkills`, present only when there was no `selected-skills.txt` and `stack.md` named skills: the skills derived from it;
 - `error`, present only when the run failed.
 
 **`error` present, or no `REBASE_RESULT` line at all (the engine refused its arguments or crashed): COMMAND STUCK.** Never fall back to doing any part of the update by hand.
@@ -269,7 +271,7 @@ Say in DECISIONS which settings conflicts you resolved and which you left. **Do 
 Build the four-section readout (see "Readout") from the result and from git. Say nothing the engine and git do not show; in particular the engine does not report why a feature was not seeded to a records ref.
 
 - **Version**: before (Step 0's value, which the stamp's `ensemble.previous_version` confirms when the version changed) and after (`ensemble.version` as now stamped; `pluginVersion` under `--dry-run`).
-- **Per category**: added, replaced, removed, preserved, from `categories`; name the framework rules (`async-discipline.md`, `autonomy.md`, `command-status.md`) that changed.
+- **Totals**: every total in the readout and in the banner's one-line summary comes from `totals` (`added`, `replaced`, `removed`, `preserved`, `conflicts`, `gitFiles`); never add up the lists yourself. **Per category**: added, replaced, removed, preserved, from `categories`; name the framework rules (`async-discipline.md`, `autonomy.md`, `command-status.md`) that changed.
 - **Governance files preserved**: `constitution.md`, `stack.md`, `process.md`, `verification.md`, `design.md`, `ship.md`, untouched.
 - **ISSUES**: every `steps` entry that is `failed: <why>`, and every `skipped: <why>` that is not an expected skip (no remote is expected). A `stamp` that failed or was skipped means the version is not recorded: re-run.
 - **Git files and records cutover** (not under `--dry-run`), read from git:
@@ -376,7 +378,7 @@ transcript and does not change what the owner does next.
 
 ```
 ═══ COMMAND COMPLETE: /rebase-project ═══
-<one-line summary of what was produced>
+<one-line summary of what was produced; its counts are the engine's `totals`>
 ```
 
 On unrecoverable failure, use `═══ COMMAND STUCK: /rebase-project ═══` followed by `Reason:` and `Next:` lines.

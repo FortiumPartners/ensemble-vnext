@@ -773,8 +773,11 @@ PY
     "$SCAFFOLD" --rebase --dry-run --plugin-dir "$PLUGIN" "$TARGET" >"$TEST_DIR/dry.out" 2>/dev/null
     "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TEST_DIR/copy" >"$TEST_DIR/apply.out" 2>/dev/null
     cmp "$TARGET/.claude/$S" "$TEST_DIR/before.json"
-    diff <(_res "$TEST_DIR/dry.out" "d['settings']") <(_res "$TEST_DIR/apply.out" "d['settings']")
-    [ "$(_res "$TEST_DIR/dry.out" "d['settings']['written']")" = "True" ]
+    diff <(_res "$TEST_DIR/dry.out" "{k: v for k, v in d['settings'].items() if k != 'written'}") \
+         <(_res "$TEST_DIR/apply.out" "{k: v for k, v in d['settings'].items() if k != 'written'}")
+    [ "$(_res "$TEST_DIR/dry.out" "d['settings']['written']")" = "False" ]
+    [ "$(_res "$TEST_DIR/dry.out" "d['settings']['would_write']")" = "True" ]
+    [ "$(_res "$TEST_DIR/apply.out" "d['settings']['written']")" = "True" ]
 }
 
 @test "settings --preserve-all: old prompt and retired registration dropped, top-level key added, nested keys and env untouched" {
@@ -856,7 +859,8 @@ short = json.load(open(plugin))
 short["hooks"]["UserPromptSubmit"][0]["hooks"].pop()
 empty = lambda: {"added": [], "replaced": [], "removed": [], "preserved": [], "conflicts": [], "unchanged": 0}
 res = {"mode": "apply", "categories": {"agents": empty()},
-       "settings": dict(empty(), written=True, refused=None, counts=None),
+       "settings": dict(empty(), written=False, would_write=True, refused=None, counts=None),
+       "totals": {"added": 0, "replaced": 0, "removed": 0, "preserved": 0, "conflicts": 0, "gitFiles": 0},
        "steps": {}}
 plan = {"claude": claude, "claudeReal": os.path.realpath(claude), "authored": [], "actions": [],
         "result": res,
@@ -1099,4 +1103,49 @@ _run_rebase() {
     # --refresh does not remove a retired file (OQ-2).
     "$SCAFFOLD" --refresh --plugin-dir "$PLUGIN" "$TEST_DIR/refreshcopy" >/dev/null 2>&1
     [ -f "$TEST_DIR/refreshcopy/.claude/commands/fix-issue.md" ]
+}
+
+@test "result totals: totals.added equals the sum of categories.*.added on apply and on dry run" {
+    _make_target
+    rm -rf "$TARGET/.claude/commands" "$TARGET/.claude/libs"
+    cp -R "$TARGET" "$TEST_DIR/copy"
+    "$SCAFFOLD" --rebase --dry-run --plugin-dir "$PLUGIN" "$TARGET" >"$TEST_DIR/dry.out" 2>/dev/null
+    "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TEST_DIR/copy" >"$TEST_DIR/apply.out" 2>/dev/null
+    local out sum
+    for out in dry apply; do
+        sum="$(_res "$TEST_DIR/$out.out" "sum(len(c['added']) for c in d['categories'].values())")"
+        [ "$sum" -gt 0 ]
+        [ "$(_res "$TEST_DIR/$out.out" "d['totals']['added']")" = "$sum" ]
+        for k in replaced removed preserved conflicts; do
+            [ "$(_res "$TEST_DIR/$out.out" "d['totals']['$k']")" = "$(_res "$TEST_DIR/$out.out" "sum(len(c['$k']) for c in d['categories'].values())")" ]
+        done
+        [ "$(_res "$TEST_DIR/$out.out" "'gitFiles' in d['totals']")" = "True" ]
+    done
+}
+
+# A scaffolded target with no selected-skills.txt and a stack.md naming Jest.
+_make_no_selection_target() {
+    "$SCAFFOLD" --plugin-dir "$PLUGIN" "$TARGET" >/dev/null 2>&1
+    rm -rf "$TARGET/.claude/skills" "$TARGET/.claude/selected-skills.txt"
+    printf '# Stack\n- Jest for tests\n' > "$TARGET/.claude/rules/stack.md"
+}
+
+@test "selection derive: apply with no selected-skills.txt and a Jest stack installs jest and writes the list" {
+    _make_no_selection_target
+    run --separate-stderr "$SCAFFOLD" --rebase --plugin-dir "$PLUGIN" "$TARGET"
+    [ "$status" -eq 0 ]
+    printf '%s\n' "${lines[-1]}" > "$TEST_DIR/result"
+    [ -f "$TARGET/.claude/skills/jest/SKILL.md" ]
+    grep -qx jest "$TARGET/.claude/selected-skills.txt"
+    [ "$(_res "$TEST_DIR/result" "d['steps']['selection']")" = "ok" ]
+}
+
+@test "selection derive: dry run reports the derived skills and writes neither file" {
+    _make_no_selection_target
+    run --separate-stderr "$SCAFFOLD" --rebase --dry-run --plugin-dir "$PLUGIN" "$TARGET"
+    [ "$status" -eq 0 ]
+    printf '%s\n' "${lines[-1]}" > "$TEST_DIR/result"
+    [ "$(_res "$TEST_DIR/result" "d['derivedSkills']")" = "['jest']" ]
+    [ ! -e "$TARGET/.claude/selected-skills.txt" ]
+    [ ! -e "$TARGET/.claude/skills/jest" ]
 }
