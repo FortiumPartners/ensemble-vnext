@@ -120,6 +120,11 @@ None apply — this changes a model-judge prompt; no screen, data view, design o
 |---------|-------------|--------|--------------|---------------------|
 | FIX-001 | Add the auto-armed-task clause (text in `## Decision`) to the "Not case A" paragraph of `discipline-stop.source.md`; rebuild with `node packages/core/hooks/prompts/build-judge-prompts.js` then `packages/core/scripts/generate-hooks-artifacts.sh`; copy the built prompt to `.claude/hooks/prompts/discipline-stop.prompt.md`; add the clause to rule 3 of the decision table in `docs/reference/hooks.md` §6.2 | O1, O2 | None | The built prompt and all three `settings.json` contain the clause; the vendored prompt is byte-identical to the built one; `npx jest packages/core/hooks/prompts` passes (prompt under 6,000 characters, one `$ARGUMENTS`) |
 | FIX-002 | Keep the replay cases in `test/discipline-corpus/replay/cases/auto-armed-monitor-2026-11-20.jsonl` (four new, four copied from the 2026-09-23 fixture) and score the new built prompt on them, 5 runs each, on `claude-sonnet-5` | O1, O2 | FIX-001 | `python3 test/discipline-corpus/replay/score.py --cases test/discipline-corpus/replay/cases/auto-armed-monitor-2026-11-20.jsonl --prompt packages/core/hooks/prompts/discipline-stop.prompt.md --model claude-sonnet-5 --runs 5 --out <scratch>.jsonl` gives: `aam-complete-monitor-only-allow` allowed 5/5; `aam-own-monitor-plus-auto-allow` allowed in at least 4/5; `aam-promise-no-tasks-block` and `aam-promise-monitor-only-block` each blocked in at least 4/5; the four `s-payload-escape-*` cases keep their pre-change majority verdict (with-bg, with-bg-LIVE and no-bg allowed; consumed blocked); no run errors. The block cases and the own-monitor case fail if the clause is worded too broadly or too narrowly |
+| AMEND-001 | [test-gap] The replay was scored on the first wording of the clause; the end-of-run review commit 5d67c7b5 changed it and the replay was not re-run. Re-run FIX-002's score.py on the current built prompt. — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: .trd-state/stop-judge-auto-armed-monitor/evidence/replay-after.jsonl quotes 'keeps no promise either' 4 times and 'keeps none for other work' 0 times; evidence written 16:57, commit 5d67c7b5 at 17:02; packages/core/hooks/prompts/discipline-stop.source.md:40-45 holds the new wording \| NOTE: a replay of the shipped wording already exists: .trd-state/stop-judge-auto-armed-monitor/evidence/replay-fina) | amendment — no objective recorded | None | [test-gap] The replay was scored on the first wording of the clause; the end-of-run review commit 5d67c7b5 changed it and the replay was not re-run. Re-run FIX-002's score.py on the current built prompt. no longer holds |
+| AMEND-002 | [test-gap] The promise-block objective is proven only by the replay taken on the earlier wording; no deterministic test asserts it. — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: replay-after-report.txt: aam-promise-no-tasks-block 5/5 and aam-promise-monitor-only-block 5/5, both on the pre-review wording; packages/core/hooks/prompts/build-judge-prompts.test.js has no test for the clause \| NOTE: a replay of the shipped wording already exists: .trd-state/stop-judge-auto-armed-monitor/evidence/replay-final-wording.jsonl (run 17:01 by the end-of-run review against the built pr) | amendment — no objective recorded | None | [test-gap] The promise-block objective is proven only by the replay taken on the earlier wording; no deterministic test asserts it. no longer holds |
+| AMEND-003 | [test-gap] The allow objective has no test that tells the old prompt from the new one: the allow case passed 0/5 blocked before the change, and the replay was not re-run on the final wording. — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: docs/TRD/stop-judge-auto-armed-monitor.md '## Could Not Verify'; replay-before.jsonl vs replay-after.jsonl \| NOTE: a replay of the shipped wording already exists: .trd-state/stop-judge-auto-armed-monitor/evidence/replay-final-wording.jsonl (run 17:01 by the end-of-run review against the built prompt last modified 16:59:23, unchanged since 5d67c7b5): allow 0/5, own-monitor 0/5, both promise cases 5) | amendment — no objective recorded | None | [test-gap] The allow objective has no test that tells the old prompt from the new one: the allow case passed 0/5 blocked before the change, and the replay was not re-run on the final wording. no longer holds |
+| AMEND-004 | [test-gap] The allow case that stands for the reported block passes with or without the fix, and the watch's entry shape is assumed (OQ-1). The owner should confirm this evidence is acceptable, or supply the live transcript or block reason. — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: docs/TRD/stop-judge-auto-armed-monitor.md 'Could Not Verify'; test/discipline-corpus/replay/cases/auto-armed-monitor-2026-11-20.jsonl) | amendment — no objective recorded | None | [test-gap] The allow case that stands for the reported block passes with or without the fix, and the watch's entry shape is assumed (OQ-1). The owner should confirm this evidence is acceptable, or supply the live transcript or block reason. no longer holds |
+| AMEND-005 | [test-gap] No deterministic test asserts the clause is present in the built prompt and the three settings.json files, or that the vendored prompt matches the built one. The clause is present today and the copies are identical. — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: grep -c 'armed on its own' = 1 in each of the built prompt, vendored prompt, three settings.json and docs/reference/hooks.md; diff built vs vendored empty; npx jest packages/core/hooks/prompts 32/32 pass) | amendment — no objective recorded | None | [test-gap] No deterministic test asserts the clause is present in the built prompt and the three settings.json files, or that the vendored prompt matches the built one. The clause is present today and the copies are identical. no longer holds |
 
 ## Task Grounding
 
@@ -136,15 +141,44 @@ None apply — this changes a model-judge prompt; no screen, data view, design o
 - **Follow:** `"source": "authored"` on each case, as the corpus README requires for text not extracted from a transcript [read]
 - **Careful:** the replay calls `claude -p` 15 times; write its output to a scratch path, never into the repo. Do not edit the cases to make a run pass
 
+### AMEND-001
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
+### AMEND-002
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
+### AMEND-003
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
+### AMEND-004
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
+### AMEND-005
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
 ## Could Not Verify
 
-- **The live block did not reproduce in replay.** The current prompt already allows the
-  reconstructed allow case (0 of 5 runs blocked, and 0 of 20 across five variants), so the
-  allow criterion in FIX-002 would pass without the fix. Passing it shows the new paragraph
-  causes no regression; it does not show the live case is fixed. That needs the 2026-11-20
-  live transcript (owner's account, not readable from this one), extracted with
-  `test/discipline-corpus/replay/extract.py`, or a new live occurrence.
+After `/audit-build` on 2026-11-20 (5 of 5 verifiers reported; no PRD supplied). The clause's
+presence in the built prompt, the three `settings.json` files and `docs/reference/hooks.md`,
+the vendored copy's byte-identity and the prompt tests were checked and hold; the replay not
+being re-run on the shipped wording is an audit finding, not an entry here.
+
+- **No PRD exists for this defect, so nothing was validated against product requirements.**
+  The objectives trace only to the owner's 2026-11-20 report; whether the TRD captures all of
+  it, or narrows it, was not checked.
+- **The live block did not reproduce in replay, and this audit could not reach it either.** The
+  pre-change prompt already allows the reconstructed allow case (0 of 5 runs blocked, and 0 of
+  20 across five variants), so the allow criterion in FIX-002 passes with or without the fix: it
+  shows no regression, not that the live case is fixed. Out of reach here because the
+  2026-11-20 live transcript sits under the owner's account; extracting it with
+  `test/discipline-corpus/replay/extract.py`, or a new live occurrence, would settle it.
 - The final message of the allow case is a `/plan` readout written for this TRD, not the
   blocked turn's real text. Owner: the block reason shown as `Stop hook error: …` in that
   session, or its transcript, would turn this into a real case.
-- The shape of the auto-armed watch in `background_tasks` is assumed (OQ-1).
+- The shape of the auto-armed watch in `background_tasks` is assumed (OQ-1); not observable
+  from a local run.
