@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "baseline": null,
+  "runs": {
+    "unit": {
+      "tree": "828c6d388dc759c91b9483f542331e1fb846506c+1788960e7211",
+      "status": "pass",
+      "command": "npx jest packages/core/hooks/prompts packages/core/scripts",
+      "durationSeconds": 1,
+      "failures": [],
+      "at": "2026-11-21T00:57:02.231Z"
+    }
+  }
+}

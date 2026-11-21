@@ -1,0 +1,94 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/stop-judge-auto-armed-monitor.md",
+  "trd_hash": "a4e511f2f553e72c2ba32f49c368650424f60dc55e4fe72ccea6bdc0c9fcc09f",
+  "branch": "feature/6-fix-stop-judge-auto-armed-monitor",
+  "strategy": "bug-fix",
+  "phase_cursor": 2,
+  "run_started_at": "2026-11-21T00:52:52Z",
+  "tasks": {
+    "FIX-001": {
+      "description": "Add auto-armed-task clause to discipline-stop prompt; rebuild; vendored copy; hooks.md",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/hooks/prompts/discipline-stop.source.md",
+        "packages/core/hooks/prompts/discipline-stop.prompt.md",
+        ".claude/hooks/prompts/discipline-stop.prompt.md",
+        ".claude/settings.json",
+        "packages/full/.claude/settings.json",
+        "packages/core/templates/claude-directory/settings.json",
+        "docs/reference/hooks.md"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-21T00:57:32.013Z"
+    },
+    "FIX-002": {
+      "description": "Score replay cases on new prompt",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/discipline-corpus/replay/cases/auto-armed-monitor-2026-11-20.jsonl"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-21T00:57:32.014Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "3f4c7c619ee839a2998776255ec2f57d3d4c9834",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-21T00:57:32.015Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "3f4c7c619ee839a2998776255ec2f57d3d4c9834",
+    "last_checkpoint_timestamp": "2026-11-21T00:57:32.015Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/stop-judge-auto-armed-monitor.md § Reproduction",
+    "derive_dispatched": true,
+    "runs": [],
+    "target": {
+      "environment": "local",
+      "source": "trd"
+    },
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; jest, bats, node and claude CLI installed"
+      },
+      "fixtures": {
+        "status": "usable",
+        "reason": "headless claude sessions in scaffolded slots"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool always available"
+      },
+      "github-live-test": {
+        "status": "usable",
+        "reason": "gh login present; only for /ship-build behaviour"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}
