@@ -219,7 +219,7 @@ describe('block reasons: sanctioned dissent, and no compelled action', () => {
 
   it('never makes a pause before an irreversible, outward-facing or third-party act a violation', () => {
     expect(prompt).toMatch(/irreversible, destructive, outward-facing \(push, merge, deploy, release\)/);
-    expect(prompt).toMatch(/touching production or someone else's data/);
+    expect(prompt).toMatch(/touching production, credentials or someone else's data, even when the owner has been asked before or the answer seems obvious/);
   });
 
   it('drops a promised slash command rather than running it', () => {
