@@ -1984,6 +1984,19 @@ function renderReport(input) {
       lines.push(`**Setup**: ${escapeCell(p.environment)} — ${escapeCell(p.problem)}; fix: ${escapeCell(p.fix)}`);
     }
   }
+  // Build-identity findings from the workflow's setup block, on every outcome (absent -> nothing,
+  // so other reports stay byte-identical): a remote target whose build cannot be re-identified, and
+  // each pass whose evidence went stale because the deployed build changed under Exercise.
+  if (input.setup && Array.isArray(input.setup.issues)) {
+    for (const i of input.setup.issues) lines.push(`**Setup issue**: ${escapeCell(i)}`);
+  }
+  if (input.setup && Array.isArray(input.setup.staleExercises)) {
+    for (const s of input.setup.staleExercises) {
+      lines.push(
+        `**Stale pass**: iteration ${escapeCell(s.iteration)}, ${escapeCell(s.environment)} — build identity changed during Exercise (${escapeCell(s.before)} to ${escapeCell(s.after)}); that pass's evidence was not judged and was re-exercised`
+      );
+    }
+  }
   lines.push(
     `**Criteria**: ${criteria.length} total — ${met.length} met, ${notMet.length} not met, ${notVerifiable.length} not verifiable, ${unbuilt.length} unbuilt` +
       (unrecognised.length > 0 ? `, ${unrecognised.length} unrecognised status` : '')

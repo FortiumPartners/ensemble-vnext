@@ -576,6 +576,8 @@ the report's line is superseded by the ruling request, and `finish` rewrites it 
 take them, one fenced block per slash command, never a shell command. A step that must come
 first and is not a slash command (a merge, a deploy) leads as plain text, not a block.
 
+**Build-identity lines.** Each `result.setup.issues` line (for example `build identity not checkable: <env> (<url>) declares no identity command`) is one ISSUES line, verbatim; passes made stale by a changed build identity (`result.setup.staleExercises`) are named in the report.
+
 **`rulingDue: true` replaces `/refine-verification` (D13).** When `finish` printed `rulingDue: true`
 (the feature has now had as many counted runs as the limit allows and this one was not clean,
 `setup-failure` included), NEXT is (1) the product PM rules on `.trd-state/<feature>/ruling-request.md`

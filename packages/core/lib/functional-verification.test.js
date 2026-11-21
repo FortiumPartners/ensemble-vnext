@@ -4523,6 +4523,19 @@ describe('renderReport: setup-failure (§3.3, D11)', () => {
     expect(renderReport(noSetup)).not.toContain('**Setup**');
   });
 
+  test('setup issues and stale passes are reported under any outcome', () => {
+    const md = renderReport({
+      ...base,
+      outcome: 'stalled',
+      setup: {
+        issues: ['build identity not checkable: staging (https://s.example) declares no identity command'],
+        staleExercises: [{ iteration: 2, environment: 'staging', before: 'abc1234', after: 'def5678' }],
+      },
+    });
+    expect(md).toContain('**Setup issue**: build identity not checkable: staging (https://s.example) declares no identity command');
+    expect(md).toContain('**Stale pass**: iteration 2, staging — build identity changed during Exercise (abc1234 to def5678)');
+  });
+
   test('setup is ignored under every other outcome (byte-identical)', () => {
     const other = { ...base, outcome: 'stalled' };
     const { setup, ...withoutSetup } = other;
