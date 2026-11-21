@@ -47,7 +47,10 @@
  * commit the head actually took in, never the moving tip), a shipped path that differs from the
  * anchor is EXCUSED when the head's blob equals baseCommit's (absent on both counts) AND the
  * feature's own diff (merge-base(anchor, baseCommit)..anchor) never touched it. A conflict
- * resolution, or a resolution that took the base wholesale, therefore stays `differing`. Excused
+ * resolution, or a resolution that took the base wholesale, therefore stays `differing`. A file BOTH
+ * sides changed is excused too when the head's copy is exactly a clean three-way merge of the base's
+ * change onto the anchor's copy (`mergedCleanly`): the feature's part was proven at the anchor and
+ * nothing on its side moved since. Excused
  * paths put in doubt only the must-pass criteria whose covers record names them, and any must-pass
  * objective no criterion names; a criterion with no covers record keeps its proof across a base-only
  * change (the CI run on the merged head guards base regressions). The others are returned as `reused`.
@@ -87,6 +90,7 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { posix } = path;
 const { spawnSync } = require('child_process');
@@ -235,8 +239,43 @@ function compare(a, b, trdRel, cwd, baseCommit) {
   const differsFromBase = new Set(vsBase.names);
   const excused = [];
   const differing = [];
-  for (const p of shipped) (!differsFromBase.has(p) && !touchedByFeature.has(p) ? excused : differing).push(p);
+  for (const p of shipped) {
+    const baseOnly = !differsFromBase.has(p) && !touchedByFeature.has(p);
+    (baseOnly || mergedCleanly(p, a, mb.out, baseCommit, b, cwd) ? excused : differing).push(p);
+  }
   return { equal: differing.length === 0, differing, excused, names: d.names };
+}
+
+/** The bytes of `path` at `rev`, or null when it is absent there. */
+function blobAt(rev, p, cwd) {
+  const r = spawnSync('git', ['cat-file', 'blob', `${rev}:${p}`], { cwd, env: process.env, maxBuffer: 64 * 1024 * 1024 });
+  return !r.error && r.status === 0 ? r.stdout : null;
+}
+
+/**
+ * True when the head's `p` is exactly what a clean three-way merge of the base's change onto the
+ * anchor's file gives: both sides changed the file, git merged it without a conflict, and nothing
+ * on the feature's side moved since the anchor. The feature's part was proven at the anchor; only
+ * the base's part is new, so the path is excused like a base-only file (a criterion whose covers
+ * name it is still re-proved). A feature edit after the anchor, a hand-resolved conflict or a
+ * missing or binary file never equals the clean merge, so the path stays differing.
+ * `git merge-file -p <anchor> <merge-base> <base>`: its exit 0 means no conflict.
+ */
+function mergedCleanly(p, anchor, mergeBase, baseCommit, head, cwd) {
+  const blobs = [anchor, mergeBase, baseCommit, head].map((rev) => blobAt(rev, p, cwd));
+  if (blobs.some((b) => b === null)) return false;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'custody-merge-'));
+  try {
+    const files = blobs.slice(0, 3).map((b, i) => {
+      const f = path.join(dir, String(i));
+      fs.writeFileSync(f, b);
+      return f;
+    });
+    const r = spawnSync('git', ['merge-file', '-p', ...files], { cwd, env: process.env, maxBuffer: 64 * 1024 * 1024 });
+    return !r.error && r.status === 0 && Buffer.compare(r.stdout, blobs[3]) === 0;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 // ---------------------------------------------------------------------------

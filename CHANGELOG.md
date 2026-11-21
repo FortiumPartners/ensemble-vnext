@@ -12,6 +12,10 @@ the work is actually released.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Custody no longer re-proves everything after a base merge that changed a file on both sides.** A file the feature and the base both edited, which git merged without a conflict (a schema, a barrel file, a framework config), used to read as an unnamed modified path and widen the re-proof to every must-pass criterion; Storybook's read-along-epub run was refused that way on `prisma/schema.prisma`, `lib/domain/index.ts` and two more. It is now excused when the head's copy is exactly a clean three-way merge of the base's change onto the anchor's copy, so only criteria whose covers name the file are re-proved. A feature edit after the anchor or a hand-resolved conflict still widens. One Storybook row (develop's `next.config.ts` pulling in 4 video-ending criteria) could not be reproduced from the stop table and is recorded as a skipped test.
+
 ## [4.17.11] - 2026-11-20
 
 Five changes since 4.17.10. **A rebase is now a script run instead of a long model session** (#181, #183): `scaffold-project.sh --rebase` works out, file by file, what to add, replace, remove or leave alone, and reports it as one line of JSON; `/rebase-project` calls it and keeps the owner's edits to vendored files as conflicts rather than overwriting them. A full rebase took 36.3 s (was 111.7 s) and a dry run 31.4 s (was 89.5 s). Also: `token-usage.js` counts each message once (#179), the Stop judge no longer blocks on a monitor the platform armed by itself (#185), and four rebase follow-ups (#186).
