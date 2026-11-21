@@ -1754,3 +1754,7 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 ## Exercising rebase-prompt-on-the-engine FS-3 (reverify, 2026-11-20)
 
 - [ran] FS-3 needs no session: `git show main:packages/core/commands/rebase-project.md` gives the 1,451-line prompt; grep the current file for `4.7a`, `4.7b`, `4.8`, `Step 4`, `python3`, `capability`, `selective` (all 0 now). Words `Step 2`, `gitFiles`, `recordsCutover`, `stamp` still match legitimately: new Step 2 is "Resolve reported conflicts" and the others are field names in the engine's JSON result, not script calls. Only script call left is the single `scaffold-project.sh --rebase` (line 196).
+
+## Exercising rebase-prompt-on-the-engine FS-3 (iteration 1, 2026-11-20)
+
+- [ran] FS-3 needs no session: `wc -l` and `grep -c` over `packages/core/commands/rebase-project.md` against `git show main:<path>` (434 lines now, 1,451 on main); `4.7a`, `4.7b`, `4.8`, `Step 4`, `python3`, `capability`, `selective` are 0 now and 4/6/3/10/1/1/3 on main. Evidence in `evidence/fs3-reverify2/fs3-search.txt`; `wc -l` output is space-padded, so use a grep-count line as the locator.
