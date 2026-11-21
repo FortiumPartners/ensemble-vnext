@@ -1,0 +1,13 @@
+{
+  "feature": "check-mergeability-before-wait-ci",
+  "trd": "docs/TRD/check-mergeability-before-wait-ci.md",
+  "closedAt": "2026-11-21T20:37:45Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied, so whether the TRD matches what the roadmap asked for is unchecked; one sequencer branch has no test (a conflicted wait-ci inside the merge step's own retry loop returns to that merge step); the wait-ci re-poll on \"mergeability not computed yet\" is covered only as contract prose; issue #136 and live GitHub behaviour are unverified (Could Not Verify)",
+    "report": ".trd-state/check-mergeability-before-wait-ci/audit-build-report.md",
+    "auditedCommit": "00d3e6ec2455b343efbaa73677d2a470e9b8cb11",
+    "anchorCommit": "f7ddb76ab90939a6e3224bc3d9ca273ae0c7181b"
+  }
+}
