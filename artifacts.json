@@ -5,5 +5,17 @@
     "url": "",
     "updated_at": "2026-11-21T20:32:11.794Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/narrow-re-proof-after-a-merge/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-21T20:33:52.932Z",
+    "command": "/verify-build"
+  },
+  "verification-report": {
+    "path": ".trd-state/narrow-re-proof-after-a-merge/verification-report.md",
+    "url": "",
+    "updated_at": "2026-11-21T20:38:04.055Z",
+    "command": "/verify-build"
   }
 }

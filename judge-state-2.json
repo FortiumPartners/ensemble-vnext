@@ -1,0 +1,132 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/fs-cli-run.txt",
+      "reason": "Uncovered scenario (clean merge): reconcile returns differing [], excused [next.config.ts], scope none, no ids re-proved.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/fs-cli-run.txt",
+      "reason": "Covered scenario: ids [FS-1] (covers next.config.ts), reused [FS-2], scope targeted.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/fs-cli-run.txt",
+      "reason": "Late scenario: the file is in differing, scope full when uncovered. The Jest covered-file and after-anchor tests pass.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/fs4-conflict-run.txt",
+      "reason": "Real conflict (git merge exit 1, UU next.config.ts, markers present) resolved by hand and committed; reconcile --base origin/main lists next.config.ts in differing with excused []; uncovered gives scope full, covered gives scope targeted re-proving FS-1. The hand-resolved file still widens.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/FS-5.txt",
+      "reason": "The sha256 hashes of the two custody.js copies are identical, and the CLI runs used .claude/lib/custody.js.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/FS-6.txt",
+      "reason": "There is a test.skip for the storybook next.config.ts case at custody.test.js:1544, and Jest reports 1 pending.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    }
+  ],
+  "gapsClosed": [
+    0,
+    1
+  ],
+  "outcome": "satisfied",
+  "causes": [],
+  "exercised": [
+    {
+      "iteration": 1,
+      "ids": [
+        "FS-1",
+        "FS-2",
+        "FS-3",
+        "FS-4",
+        "FS-5",
+        "FS-6"
+      ]
+    },
+    {
+      "iteration": 2,
+      "ids": [
+        "FS-4"
+      ]
+    }
+  ]
+}

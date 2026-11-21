@@ -1,0 +1,125 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/fs-cli-run.txt",
+      "reason": "Uncovered scenario (git merge exit 0, feature line 1 / base line 9): reconcile via .claude/lib/custody.js --base origin/main returns differing [], excused [next.config.ts], scope none, ids none (both reused). Jest F-4 tests pass.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/fs-cli-run.txt",
+      "reason": "Covered scenario: FS-1 covers next.config.ts, FS-2 covers src/b.js; reconcile returns action reverify, ids [FS-1], reused [FS-2], scope targeted, differing [].",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/fs-cli-run.txt",
+      "reason": "Late scenario: feature edits next.config.ts after the anchor; reconcile lists it in differing, excused [], scope full, ids [FS-1,FS-2]. Jest tests \"a feature edit to the same file after the anchor is not excused, and an unnamed file widens to full\" and \"a file the feature touched and a criterion covers still re-proves that criterion\" pass.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-4",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/custody-f4-names.txt",
+      "reason": "The evidence does not exercise the criterion: both the Jest test (custody.test.js:1528) and the CLI \"hand\" scenario merge cleanly (git merge exit 0) and then commit a hand edit on top. No fixture has base and feature editing the same lines with a real conflict resolved by hand, so the hand-resolved-conflict case is unproven. Nothing seen shows the build misbehaving.",
+      "cause": "evidence-missing",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": "evidence-gap",
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/FS-5.txt",
+      "reason": "sha256 of packages/core/lib/custody.js and .claude/lib/custody.js are identical (2322eeea...); the CLI runs in fs-cli-run.txt invoked .claude/lib/custody.js and showed the excusing behaviour.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/FS-6.txt",
+      "reason": "custody.test.js:1544 has test.skip for \"storybook 2026-11-19T21:08: develop next.config.ts pulled 4 video-ending criteria in (not reproducible: session log unreadable)\"; the Jest run reports it pending (pending count 1).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "kind": null,
+      "settled": null,
+      "verificationDigest": null,
+      "causeKey": null,
+      "awaiting": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": null,
+  "causes": [],
+  "exercised": [
+    {
+      "iteration": 1,
+      "ids": [
+        "FS-1",
+        "FS-2",
+        "FS-3",
+        "FS-4",
+        "FS-5",
+        "FS-6"
+      ]
+    }
+  ]
+}

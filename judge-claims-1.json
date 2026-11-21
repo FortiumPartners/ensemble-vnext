@@ -1,0 +1,50 @@
+[
+  {
+    "criterion": "FS-1",
+    "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/fs-cli-run.txt",
+    "locator": "\"excused\":[\"next.config.ts\"]",
+    "reason": "",
+    "screenshot": null,
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-2",
+    "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/fs-cli-run.txt",
+    "locator": "\"scopeReason\":\"1 of 2 must-pass criteria cover or sit beside a changed path\"",
+    "reason": "",
+    "screenshot": null,
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-3",
+    "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/fs-cli-run.txt",
+    "locator": "\"scopeReason\":\"next.config.ts was modified or deleted and no recorded cover names it\"",
+    "reason": "",
+    "screenshot": null,
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-4",
+    "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/custody-f4-names.txt",
+    "locator": "a file both sides changed that needed a hand edit to merge is not excused",
+    "reason": "Evidence is a hand edit committed after a clean merge (CLI and Jest). It is not a real same-lines conflict resolved by hand. The CLI run also shows the file in differing with full scope.",
+    "screenshot": null,
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-5",
+    "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/FS-5.txt",
+    "locator": "FS5 custody.js packages/core/lib and .claude/lib are byte-identical",
+    "reason": "",
+    "screenshot": null,
+    "judgeOnly": false
+  },
+  {
+    "criterion": "FS-6",
+    "artifact": ".trd-state/narrow-re-proof-after-a-merge/evidence/FS-6.txt",
+    "locator": "FS6 pending count: 1",
+    "reason": "",
+    "screenshot": null,
+    "judgeOnly": false
+  }
+]
