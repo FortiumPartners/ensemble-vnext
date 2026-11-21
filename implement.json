@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "kind": "task",
+  "trd_file": null,
+  "brief": null,
+  "phase_cursor": 1,
+  "tasks": {
+    "STEP-001": {
+      "description": "Scaffold fresh fixture slots and confirm Code Mode prerequisites (version, env blockers)",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T00:21:13.808Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/code-mode-assessment/evidence/live/logs/scaffold-slot-2.log"
+      ],
+      "current_problem": null
+    },
+    "STEP-002": {
+      "description": "Test 1: compatibility - Code Mode starts with the Ensemble plugin dir; which Ensemble hooks fire (exact startup lines and errors)",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T00:21:13.855Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/code-mode-assessment/evidence/live/logs/cm-s1-debug.log"
+      ],
+      "current_problem": null
+    },
+    "STEP-003": {
+      "description": "Test 2: repetitive multi-file edit across .claude/commands/*.md, Code Mode on vs off, checked by grep",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T00:21:13.902Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/code-mode-assessment/evidence/live/logs/cm-s1-diff.patch"
+      ],
+      "current_problem": null
+    },
+    "STEP-004": {
+      "description": "Test 3: search-and-filter investigation (record-ref.js write callers and steps), Code Mode on vs off",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T00:21:13.950Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/code-mode-assessment/evidence/live/logs/test3-answer-key.txt"
+      ],
+      "current_problem": null
+    },
+    "STEP-005": {
+      "description": "Test 4: one small Ensemble command end to end in Code Mode (/plan --implement or /task)",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T00:37:09.845Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/code-mode-assessment/evidence/live/logs/cm-s5-transcript.jsonl"
+      ],
+      "current_problem": null
+    },
+    "STEP-006": {
+      "description": "Write .trd-state/code-mode-assessment/report.md with on/off tables, breakages, unsupported surfaces, recommendation; every claim marked measured or inferred",
+      "status": "success",
+      "started_at": null,
+      "completed_at": "2026-11-21T00:37:09.895Z",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/code-mode-assessment/report.md"
+      ],
+      "current_problem": null
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": null,
+      "review": null,
+      "timestamp": "2026-11-21T00:37:09.943Z"
+    }
+  ],
+  "created_at": "2026-11-21T00:13:15.150Z",
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": "2026-11-21T00:37:09.943Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  }
+}

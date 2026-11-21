@@ -1,0 +1,15 @@
+{
+  "feature": "task-code-mode-assessment",
+  "trd": null,
+  "closedAt": "2026-11-21T00:37:23Z",
+  "closedBy": "task",
+  "note": null,
+  "audit": null,
+  "reason": "task-complete",
+  "outputs": [".trd-state/code-mode-assessment/report.md", ".trd-state/code-mode-assessment/evidence/live/logs/"],
+  "followups": [
+    { "summary": "Teach the discipline-stop judge that a monitor the platform arms by itself (e.g. 'auto-armed on publish' after an Artifact publish) is not an unkept promise", "evidence": "test 4 Code Mode-on run blocked with case A after COMMAND COMPLETE; cm-s5-transcript.jsonl stop_hook_summary; report.md 'What broke'" },
+    { "summary": "Document in docs/reference/hooks.md that under Code Mode tool hooks fire for both REPL/Poll and each inner tool call", "evidence": "cm-s1-probe.jsonl: PreToolUse REPL 3, Poll 2, Bash 17, Read 10, Edit 10" },
+    { "summary": "Optional: repeat tests 2 and 4 three times per arm, and confirm whether DISABLE_TELEMETRY=1 and OTel export really disable Code Mode despite the startup banner", "evidence": "all comparisons are n=1; cm-t1c debug log lacks the REPL-mode marker while its banner says on" }
+  ]
+}
