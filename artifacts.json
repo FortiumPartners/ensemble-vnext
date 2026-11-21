@@ -17,5 +17,11 @@
     "url": "",
     "updated_at": "2026-11-21T20:38:04.055Z",
     "command": "/verify-build"
+  },
+  "audit-build": {
+    "path": ".trd-state/narrow-re-proof-after-a-merge/audit-build-report.md",
+    "url": "",
+    "updated_at": "2026-11-21T20:41:05.079Z",
+    "command": "/audit-build"
   }
 }

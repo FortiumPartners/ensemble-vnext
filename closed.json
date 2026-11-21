@@ -1,0 +1,13 @@
+{
+  "feature": "narrow-re-proof-after-a-merge",
+  "trd": "docs/TRD/narrow-re-proof-after-a-merge.md",
+  "closedAt": "2026-11-21T20:41:04Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: safe to proceed — every requirement is implemented and tested",
+    "report": ".trd-state/narrow-re-proof-after-a-merge/audit-build-report.md",
+    "auditedCommit": "9d955d3323a323ab3a085b2f857a7a22044233ef",
+    "anchorCommit": null
+  }
+}
