@@ -1764,6 +1764,12 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 
 - [ran] FS-3 needs no session: `wc -l` and `grep -c` over `packages/core/commands/rebase-project.md` against `git show main:<path>` (434 lines now, 1,451 on main); `4.7a`, `4.7b`, `4.8`, `Step 4`, `python3`, `capability`, `selective` are 0 now and 4/6/3/10/1/1/3 on main. Evidence in `evidence/fs3-reverify2/fs3-search.txt`; `wc -l` output is space-padded, so use a grep-count line as the locator.
 
+## Exercising conflict-classifier.js (conflict-classifier-and-stop-rules run)
+
+- [ran] The classifier CLI needs no server: write a JSON input file and run `node packages/core/lib/conflict-classifier.js classify|decide|stuck --file <f>` (or `--stdin`); every case prints one JSON line and exits 0, bad usage included. `decide` takes the classify output as `classification`.
+- [ran] A same-named function added by both sides at one insertion point classifies behavioural with code `same-place`, not `same-decl`; `same-decl` appears only when the insertions sit at different places. Read FS-14 "(or the declaration's stable code)" against that.
+- [ran] `stuck` for a forbidden-class set names only the forbidden files, not behavioural files in the same set; for a behavioural set it names every behavioural file. Read FS-22 "every stopping file" against that.
+- [ran] `stuck` takes the classify OUTPUT as `classification` (plus `command`, `failedAttempts`, `lastFailure`); a hand-built classification without `reason`/`clash` per file prints "(undefined: undefined)". Drive it as classify --file then stuck --file (evidence/fs22-iter2/). Hunks are `{base,ours,theirs}` line arrays.
 ## Exercising narrow-re-proof-after-a-merge FS-4 (real conflict, iteration 2)
 
 - [ran] A real hand-resolved conflict needs base and feature to edit the SAME line of one file (git merge exit 1, `UU`), then write the resolution and commit; a clean merge plus an extra edit commit is not a conflict. Driver (no source edit): `node .trd-state/narrow-re-proof-after-a-merge/evidence/fs4-conflict-driver.js <repo root> uncovered|covered`. Result: `differing: ["next.config.ts"]`, `excused: []`, scope `full` when no cover names it, `targeted` when a cover does.
