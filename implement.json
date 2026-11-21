@@ -40,6 +40,72 @@
       "commit": null,
       "started_at": null,
       "completed_at": "2026-11-21T00:57:32.014Z"
+    },
+    "AMEND-001": {
+      "description": "Confirm and record the replay of the shipped wording",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/stop-judge-auto-armed-monitor/evidence/replay-provenance.md"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-21T01:06:17.182Z",
+      "last_advanced": "2026-11-21T01:06:04.182Z"
+    },
+    "AMEND-002": {
+      "description": "Deterministic test of promise-block verdict",
+      "phase": 1,
+      "status": "blocked",
+      "cycle_position": "implement",
+      "current_problem": "a judge verdict cannot be asserted by a deterministic test; the replay of the shipped wording (AMEND-001) is the proof",
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "AMEND-003": {
+      "description": "Test telling old prompt from new",
+      "phase": 1,
+      "status": "blocked",
+      "cycle_position": "implement",
+      "current_problem": "nothing can tell the old prompt from the new on the allow case while the live block does not reproduce; needs the live transcript or block reason",
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "AMEND-004": {
+      "description": "Owner confirmation of evidence",
+      "phase": 1,
+      "status": "blocked",
+      "cycle_position": "implement",
+      "current_problem": "owner decision: whether the replay evidence is enough, or supply the live transcript",
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "AMEND-005": {
+      "description": "Regression guard for the clause and its copies",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/hooks/prompts/build-judge-prompts.test.js"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-21T01:06:17.182Z",
+      "last_advanced": "2026-11-21T01:06:04.183Z"
     }
   },
   "checkpoints": [
@@ -50,11 +116,19 @@
         "findings": 0
       },
       "timestamp": "2026-11-21T00:57:32.015Z"
+    },
+    {
+      "phase": 1,
+      "commit": "d4ffa7f104edc92e64eff7e3881790b9a912f6d1",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-21T01:06:17.183Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "3f4c7c619ee839a2998776255ec2f57d3d4c9834",
-    "last_checkpoint_timestamp": "2026-11-21T00:57:32.015Z",
+    "last_healthy_checkpoint": "d4ffa7f104edc92e64eff7e3881790b9a912f6d1",
+    "last_checkpoint_timestamp": "2026-11-21T01:06:17.183Z",
     "interrupted": false,
     "interrupt_reason": null
   },

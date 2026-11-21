@@ -3,12 +3,12 @@
   "baseline": null,
   "runs": {
     "unit": {
-      "tree": "828c6d388dc759c91b9483f542331e1fb846506c+1788960e7211",
+      "tree": "5d67c7b5e1b7d3718afbd3d1acccd8c28ffa5382+761687f0400b",
       "status": "pass",
-      "command": "npx jest packages/core/hooks/prompts packages/core/scripts",
+      "command": "npx jest packages/core/hooks/prompts",
       "durationSeconds": 1,
       "failures": [],
-      "at": "2026-11-21T00:57:02.231Z"
+      "at": "2026-11-21T01:06:00.713Z"
     }
   }
 }
