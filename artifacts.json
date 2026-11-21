@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "fix-brief": {
+    "path": "docs/plans/fix-rebase-engine-four-defects/brief.md",
+    "url": "",
+    "updated_at": "2026-11-21T01:04:40.555Z",
+    "command": "/plan-fix"
+  },
+  "workplan-input": {
+    "path": "docs/plans/fix-rebase-engine-four-defects/workplan-input.json",
+    "url": "",
+    "updated_at": "2026-11-21T01:05:52.832Z",
+    "command": "create-workplan"
+  }
+}
