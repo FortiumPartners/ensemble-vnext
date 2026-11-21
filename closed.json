@@ -1,0 +1,13 @@
+{
+  "feature": "resolve-mechanical-conflicts-in-place",
+  "trd": "docs/TRD/resolve-mechanical-conflicts-in-place.md",
+  "closedAt": "2026-11-21T21:44:02Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied, so fidelity and omission are unchecked; whether a live model follows the new merge-contract prose is unproven until the live proof (roadmap item 5)",
+    "report": ".trd-state/resolve-mechanical-conflicts-in-place/audit-build-report.md",
+    "auditedCommit": "5415b12e7eebe26a3fc70b9bddafa18cde62ddf1",
+    "anchorCommit": null
+  }
+}

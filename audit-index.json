@@ -1,0 +1,47 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "O1",
+      "source": "TRD",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "O2",
+      "source": "TRD",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "O3",
+      "source": "TRD",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "FIX-003",
+        "FIX-004"
+      ]
+    },
+    {
+      "id": "O4",
+      "statement": "O4",
+      "source": "TRD",
+      "served_by": [
+        "FIX-003",
+        "FIX-004"
+      ]
+    }
+  ],
+  "tasks": [],
+  "could_not_verify": [],
+  "open_questions": []
+}
