@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "fix-brief": {
+    "path": "docs/plans/fix-stop-judge-auto-armed-monitor/brief.md",
+    "url": "",
+    "updated_at": "2026-11-21T00:43:51.401Z",
+    "command": "/plan-fix"
+  },
+  "workplan-input": {
+    "path": "docs/plans/fix-stop-judge-auto-armed-monitor/workplan-input.json",
+    "url": "",
+    "updated_at": "2026-11-21T00:45:00.681Z",
+    "command": "create-workplan"
+  }
+}
