@@ -1758,3 +1758,13 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 ## Exercising rebase-prompt-on-the-engine FS-3 (iteration 1, 2026-11-20)
 
 - [ran] FS-3 needs no session: `wc -l` and `grep -c` over `packages/core/commands/rebase-project.md` against `git show main:<path>` (434 lines now, 1,451 on main); `4.7a`, `4.7b`, `4.8`, `Step 4`, `python3`, `capability`, `selective` are 0 now and 4/6/3/10/1/1/3 on main. Evidence in `evidence/fs3-reverify2/fs3-search.txt`; `wc -l` output is space-padded, so use a grep-count line as the locator.
+
+## Exercising check-mergeability-before-wait-ci (2026-11-21, iteration 1)
+
+- [ran] `merge-up.js pre-ci --pr N` runs against a stub `gh` first on PATH (logs argv, answers `pr view` from a comma list of STATE:MERGEABLE:MERGE_STATUS in call order); driver `.trd-state/check-mergeability-before-wait-ci/evidence/drive.sh`. `wait-ci`'s poll loop and CI wait are contract prose executed by a model, so "UNKNOWN then MERGEABLE" is shown as two successive pre-ci reads plus the contract text, not as a model run.
+- [ran] `npx jest --no-watchman <3 files> --json --outputFile=<f>` over merge-up, ship-sequencer and ship-primitives tests gives 319 passing; per-test names via the json (reporter prints none).
+
+## Exercising check-mergeability-before-wait-ci (2026-11-21)
+
+- [ran] `merge-up.js pre-ci --pr N` runs against a stub `gh` first on PATH (answers `pr view` with `{state,mergeable,mergeStateStatus}` from an env var, logs argv): CONFLICTING gives `conflicted`, MERGEABLE `proceed`, UNKNOWN `poll`, one gh call each. `wait-ci` itself is a model-run contract, so "no CI-status query" is shown only by contract text order (step 0 before step 1) and the `pre-ci` answer.
+- [ran] The real `ship-sequencer.js` CLI with the real `packages/core/contracts` walks redirects with no model: `start --kind sweep --id x --branch feat` in a `git init` temp repo, `next/record --autonomy .claude/rules/autonomy.md`. A `merge` loop is entered by recording `red` on it; collect-findings results are `clean|found`; a body step (6.4) can be recorded only after `next` hands it out. Zsh-safe: write the driver to a bash file (a `${` in a JS template literal breaks the REPL).
