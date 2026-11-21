@@ -1302,6 +1302,11 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] fix-ship-run-record-after-merge FS-1..6 (2026-11-09): `.trd-state/fix-ship-run-record-after-merge/evidence/fs-driver.sh <repo root>` walks sequencer and custody CLIs in mktemp repos with no model session; after `record --step 3 --result stop --data '{"merged":true}'` the detached record sits at `<git common dir>/ensemble/ship/<state dir name>/<startedAt>.json` (the tracked `shipped.json` is still listed until you delete it), and `docs/plans/fix-ship-run-record-after-merge/repro.sh` runs in about 10s.
 - [ran] fix-ship-merge-record-clash (2026-11-10): `record-files.js merge-base-in` and the `.gitattributes` ensure step are provable offline in throwaway `git init -b main` repos under `mktemp -d` (script: `.trd-state/fix-ship-merge-record-clash/evidence/fs8-18-run.sh`, run with `R=<abs path to record-files.js>`); scaffold runs as `bash packages/core/scripts/scaffold-project.sh [--refresh] --plugin-dir packages/full <dir>` and takes ~seconds. `npx jest` on two lib suites took 82s here because watchman timed out (60s crawl fallback) — expect that delay, not a hang. `custody.test.js` has no `.trd-statex` case; that input is covered only in `record-files.test.js`.
 
+## Exercising custody base-merge excusing (narrow-re-proof-after-a-merge, 2026-11-21)
+
+- [ran] A real-CLI driver (`.trd-state/narrow-re-proof-after-a-merge/evidence/fs-cli-driver.js <repo root>`) builds four temp repos with a bare origin and runs `node .claude/lib/custody.js reconcile --state-dir .trd-state/f --trd docs/TRD/f.md --base origin/main`: it needs a TRD with an `## Objectives` table (O1, O2 must-pass), a two-row success definition, a verification-state.json of met ids, and `live-evidence.js record` covers per criterion. Output in `fs-cli-run.txt`. A "hand edit" is a commit appended after the clean merge, not a real conflict resolution.
+- [ran] `npx jest --no-watchman packages/core/lib/custody.test.js -t "narrow re-proof after a base merge" --json --outputFile=<f>` works without node_modules in this worktree and gives 6 passed, 1 pending (the skipped storybook case).
+
 ## Exercising `ci-baseline.js` (ci-baseline-check, 2026-11-11)
 
 - [ran] `node .claude/lib/ci-baseline.js check --dir <dir>` needs no service: write one `ci.yml` per scenario into a scratch dir (variants of `packages/core/lib/__fixtures__/ci-baseline/passing.yml`, made by a small node script) and read `checks.<name>.status`, `gaps[].check`, `unclear[].check` from the one JSON line. A workflow with a bare `changes` job and no `ci-summary` also reports a `summary` gap, which is unrelated to (b)/(c). `npx jest <file> --json --outputFile=<f>` gives per-test names (about 10s, 45 tests).
@@ -1758,3 +1763,7 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 ## Exercising rebase-prompt-on-the-engine FS-3 (iteration 1, 2026-11-20)
 
 - [ran] FS-3 needs no session: `wc -l` and `grep -c` over `packages/core/commands/rebase-project.md` against `git show main:<path>` (434 lines now, 1,451 on main); `4.7a`, `4.7b`, `4.8`, `Step 4`, `python3`, `capability`, `selective` are 0 now and 4/6/3/10/1/1/3 on main. Evidence in `evidence/fs3-reverify2/fs3-search.txt`; `wc -l` output is space-padded, so use a grep-count line as the locator.
+
+## Exercising narrow-re-proof-after-a-merge FS-4 (real conflict, iteration 2)
+
+- [ran] A real hand-resolved conflict needs base and feature to edit the SAME line of one file (git merge exit 1, `UU`), then write the resolution and commit; a clean merge plus an extra edit commit is not a conflict. Driver (no source edit): `node .trd-state/narrow-re-proof-after-a-merge/evidence/fs4-conflict-driver.js <repo root> uncovered|covered`. Result: `differing: ["next.config.ts"]`, `excused: []`, scope `full` when no cover names it, `targeted` when a cover does.
