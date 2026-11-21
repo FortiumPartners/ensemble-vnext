@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "fix-brief": {
+    "path": "docs/plans/fix-stop-scope-audit-uncovered-identity-recheck/brief.md",
+    "url": "",
+    "updated_at": "2026-11-21T19:55:44.114Z",
+    "command": "/plan-fix"
+  },
+  "workplan-input": {
+    "path": "docs/plans/fix-stop-scope-audit-uncovered-identity-recheck/workplan-input.json",
+    "url": "",
+    "updated_at": "2026-11-21T19:56:28.763Z",
+    "command": "create-workplan"
+  }
+}
