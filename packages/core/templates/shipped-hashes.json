@@ -307,6 +307,7 @@
     "commands/update-project.md": [
       "0d18e6bc2aa60d4799331c5abafd6fe82b3cef98",
       "6f28e2d520d2f8861b9cf3a355d81c601ae36947",
+      "88511191b21b0bfcc0770c542ac8b0dc840a3c8e",
       "bb5a07d632c5db80c8da14035b714aed624cb0c8",
       "ce338dc6194b76df98dd6028f5a82333a152cbfe"
     ],
@@ -487,7 +488,8 @@
       "53130fc005623efb1869f6b77d451668998ceed1",
       "737cd7a170f6bd19ee9edbb659741552f8252270",
       "a68409e6db282b976b18615fad1379a68dc1a78e",
-      "ca61d48f31fd178fecaa10b5c0d5faf2c1f3e4fb"
+      "ca61d48f31fd178fecaa10b5c0d5faf2c1f3e4fb",
+      "fd1c013a0bbc36f141ba4eeb086854c0252a54da"
     ],
     "hooks/router.py": [
       "03446b0db1d6d2718cc853f9114781e626518be0",
@@ -752,6 +754,7 @@
       "9a0815fadd78a30ff7d01ac416b70225f56047f9"
     ],
     "rules/async-discipline.md": [
+      "466edae8986be698a4e8d3af94cde399fad4e84b",
       "5281f08b69bbc4eee2f96955a1e8920a9e232c28",
       "89eff7fc395ee1f257659834a5983b9d4e591d0d",
       "997a9f1775b47daa5f6a364b561bc5d9820b4599",
@@ -2358,6 +2361,7 @@
     "18a7ce81ea7bf205704ed10df9bec1fc8f19e9bf",
     "1f2b380eda4172f5d61a539eb7a1657042487173",
     "65afebb3ef08f75f7dd67e1ed6ce191a591f828d",
+    "69c3f356a8677dbdd83edc6d7e121f9c33b81275",
     "90f76d6de6170f6c089a17042a5bd0eaf192206a",
     "bd0eef284a7b1aab4cd3f68a328f1892dc12f913"
   ],
@@ -2409,7 +2413,8 @@
     "v4.17.7",
     "v4.17.8",
     "v4.17.9",
-    "v4.17.10"
+    "v4.17.10",
+    "v4.17.11"
   ],
   "version": 1
 }
