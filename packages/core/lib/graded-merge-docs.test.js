@@ -1,7 +1,7 @@
 'use strict';
 /**
  * The graded-merge documentation (document-the-graded-merge, DOC-001): the entry under
- * [Unreleased] in CHANGELOG.md and the section in docs/guides/ship-build.md must carry what the
+ * [4.17.12] in CHANGELOG.md and the section in docs/guides/ship-build.md must carry what the
  * TRD's objectives require: the two issues, the one sentence for Storybook's PM, and the
  * live-proof result with its caveats. Reads the two files as they are on disk.
  */
@@ -13,19 +13,20 @@ const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
 
 const changelog = read('CHANGELOG.md');
 const unreleased = changelog.slice(
-  changelog.indexOf('## [Unreleased]'),
-  changelog.indexOf('\n## [', changelog.indexOf('## [Unreleased]') + 1)
+  changelog.indexOf('## [4.17.12]'),
+  changelog.indexOf('\n## [', changelog.indexOf('## [4.17.12]') + 1)
 );
 const guide = read('docs', 'guides', 'ship-build.md');
 const guideSection = guide.slice(guide.indexOf('### The graded merge'), guide.indexOf('#### Resolution record'));
 
 const storybookSentence = /Storybook's PM[\s\S]{0,120}you may turn on Forge's `ship_queue` `merge` scope[\s\S]{0,80}that setting is yours to make/;
 
-describe('CHANGELOG.md [Unreleased] carries the graded-merge entry', () => {
-  test('the entry sits under [Unreleased], not under a released version', () => {
+describe('CHANGELOG.md [4.17.12] carries the graded-merge entry', () => {
+  test('the entry sits under [4.17.12], the release that ships it', () => {
     expect(unreleased.length).toBeGreaterThan(500);
     expect(unreleased).toMatch(/graded merge/i);
-    expect(unreleased).not.toMatch(/^## \[4\./m);
+    // the section's own heading is a version heading; no other version heading may sit inside it
+    expect(unreleased.slice(unreleased.indexOf('\n'))).not.toMatch(/^## \[4\./m);
   });
 
   test('names issue #97 (its graded-merge part) and issue #136', () => {

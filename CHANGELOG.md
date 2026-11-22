@@ -12,6 +12,16 @@ the work is actually released.
 
 ## [Unreleased]
 
+## [4.17.12] - 2026-11-21
+
+Two changes since 4.17.11: three fixes from #189, and **the graded merge** (#191, #192, #193, #196, #199), below.
+
+### Fixed in #189
+
+- **The stop check marks only Ensemble's own commands active, and never presses for irreversible, production or credential acts.** A slash command that is not one of this framework's is no longer treated as a running command, so the stop judge's mid-command-pause rule does not apply to it. Asking before an irreversible, production or credentials step is never read as a pause.
+- **The build audit can close a feature.** Coverage objectives are counted against the coverage actually measured, and a requirement that is only deferred counts as deferred, not as a gap, so a feature is no longer held open by something that cannot be covered.
+- **Functional verification re-checks build identity after each Exercise pass.** When the project declares no way to tell which build is running, it reports "build identity not checkable" instead of passing silently.
+
 The graded merge: `/ship-build` no longer stops on every clash with the base branch. It resolves the plainly mechanical ones in place and stops, with the files and the clash named, on the rest.
 
 **For Storybook's PM:** now that this has shipped, you may turn on Forge's `ship_queue` `merge` scope; that setting is yours to make, and nothing in Forge or Storybook was changed here.
@@ -38,6 +48,14 @@ Three things the proof did not show or did not run as specified:
 - **The proof did not exercise the shipped package.** When it ran, `merge-resolve.js` was not linked into `packages/full/lib/`, so the fixture got a hand-copied file. The link has since landed (#196); no live run was repeated on it.
 - **The narrowed re-proof was not shown.** The fixture features had no success definition, so every entry reads `criteria: none` and no custody refusal was seen to attribute to, or clear of, the in-place resolution.
 - **Checks needed configuration.** The fixture has no `package.json`, so detection found nothing; the run set `ensemble.mergeChecks` in the fixture's settings.
+
+### Known open
+
+- #190: the build audit has no durable coverage figure outside `/implement-trd` (a standalone `/audit-build` counts every coverage objective as a gap); and the new stop-check wording for production and credential questions has not been replayed against real violations.
+- #194: no test for a conflicted `wait-ci` reached inside the merge step's retry loop, none for the re-poll while GitHub has not computed mergeability, and the fix is not yet proven on real GitHub.
+- #195: the conflict classifier's TRD was not checked against its roadmap item, and the classifier has not run on a real GitHub conflict.
+- #197: the narrowed re-proof after a merge was not shown live (the fixture had no success definition); projects without `package.json` must set `ensemble.mergeChecks`; the local `shipped.json` reads `running` after a merge (the full record is on the records ref); fixture sessions inside this repository load its 154.6k characters of instructions.
+- #198: a docs-only `/plan --implement` leaves no TRD, so neither `/audit-build` nor `/close-feature` can close the feature.
 
 ## [4.17.11] - 2026-11-20
 
